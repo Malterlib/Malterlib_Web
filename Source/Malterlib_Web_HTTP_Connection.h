@@ -1,0 +1,43 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+#include <Mib/Core/Core>
+
+namespace NMib
+{
+
+	namespace NHTTP
+	{
+
+		enum EConnectionState
+		{
+				EConnectionState_Connected
+			,	EConnectionState_Disconnected
+		};
+
+		class CConnectionWorker;
+		
+		class CConnection
+		{
+			private:
+				class CDetails;
+				NPtr::TCUniquePointer<CDetails> mp_pD;
+
+				DMibListLinkD_Link(CConnection, mp_Link);
+
+				friend CConnectionWorker;
+
+			public:
+				CConnection(NPtr::TCUniquePointer<NNet::CSocket> _pSock);
+				~CConnection();
+
+				bint f_IsConnected() const;
+
+				void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
+
+				void f_Process();
+		};
+
+	} // Namespace NHTTP
+
+} // Namespace NMib

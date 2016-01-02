@@ -1,0 +1,9 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+#pragma once
+#include "../../../../Source/Malterlib_Web_HTTP_Server.h"
+#include "../../../../Source/Malterlib_Web_HTTP_URL.h"
+#include "../../../../Source/Malterlib_Web_HTTP_Fields.h"
+#include "../../../../Source/Malterlib_Web_HTTP_Request.h"
+#include "../../../../Source/Malterlib_Web_HTTP_Response.h"

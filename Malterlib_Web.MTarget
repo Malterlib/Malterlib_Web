@@ -1,0 +1,58 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+%Target Lib_Malterlib_Web
+{
+	Target
+	{
+		BaseName "Malterlib_Web"
+		Type "StaticLibrary"
+		Group "Libraries/Malterlib"
+	}
+	Compile
+	{
+		!!CompileDialect C
+		PrefixHeader "@(Builtin.BasePath)/@(Builtin.Function->RelativeBase('Source/PCH.h'))"
+	}
+	%Group Include
+	{
+		%File "Include/Mib/Web/*"
+		%Group HTTPRequestHandler
+		{
+			%File "Include/Mib/Web/HTTPRequestHandler/*"
+		}
+		%Group HTTP
+		{
+			%File "Include/Mib/Web/HTTP/*"
+		}
+	}
+	%Group Source
+	{
+		%File "Source/PCH.h"
+		%Group "Fast CGI server"
+		{
+			%File "Source/Malterlib_Web_FastCGIServer*"
+		}
+		%Group "WebSocket"
+		{
+			%File "Source/Malterlib_Web_WebSocket*"
+		}
+		%Group "NGINX Launcher"
+		{
+			%File "Source/Malterlib_Web_NGINXLauncher*"
+		}
+		%Group "HTTP server"
+		{
+			%File "Source/Malterlib_Web_HTTPServer*"
+		}
+		%Group "HTTP Request handlers"
+		{
+			%File "Source/Malterlib_Web_HTTPRequestHandler_*"
+		}
+		%Group HTTP
+		{
+			%File Source/Malterlib_Web_HTTP_*
+		}
+	}
+}
+

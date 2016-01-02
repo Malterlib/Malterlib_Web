@@ -1,0 +1,78 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+Import "../Core/Lib_Malterlib.MTarget"
+//Import "Malterlib_Web.MTarget"
+
+%Group "{Malterlib}/{Lib_Malterlib_Web}"
+{
+	%Group Web
+	{
+		%Group Include
+		{
+			Compile.Type "C++"
+			{
+				!!DocumentationEnabled true
+			}
+			%File "Include/Mib/Web/^*"
+		}
+		%File "Source/*"
+		%Group Documentation
+		{
+			%File "Documentation/*"
+		}
+	}
+	%Dependency Lib_Malterlib_Network
+	{
+		Dependency.Indirect true
+	}
+}
+
+
+Property
+{
+	MalterlibLibrary_Web true
+	{
+		&
+		{
+			MalterlibLibrary_Web ""
+			MalterlibLibrary_All true
+		}
+	}
+	MalterlibSubLibraries "Web;@(MalterlibSubLibraries)"
+	{
+		!!MalterlibLibrary_Web true
+	}
+	MalterlibLibrarySeparate_Lib_Malterlib_Web true
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Web true
+	MalterlibIncludeRoots "@('Include'->MakeAbsolute());@(MalterlibIncludeRoots)"
+	{
+		!!MalterlibLibrary_Web true
+	}
+}
+
+%Group "{Test}/{Malterlib_Web}"
+{
+	Property
+	{
+		MalterlibLinkWithOpenSSL true
+	}
+	Compile
+	{
+		!!CompileDialect "C"
+		PrefixHeader "@('Test/PCH.h'->MakeAbsolute())"
+	}
+}
+
+Property
+{
+	!!MalterlibEnableInternalTests true
+	
+	MalterlibTests "Malterlib_Web;@(MalterlibTests)"
+	MalterlibTestFiles_Malterlib_Web "@('Test/*'->MakeAbsolute())"
+	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web"
+	MalterlibTestExtraGroups_Malterlib_Web "{Test}/{Malterlib_Web}"
+}
+
+//Property.MalterlibTests "Malterlib_Web|MalterlibTestDependencies=Lib_Malterlib_Web|MalterlibTestFiles=@('../Test/*'->MakeAbsolute())|MalterlibTestExtraGroups={Test}/{Malterlib_Web};@(MalterlibTests)"
+

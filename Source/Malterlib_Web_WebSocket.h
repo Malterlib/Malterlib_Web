@@ -1,0 +1,374 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+#pragma once
+
+#include <Mib/Core/Core>
+#include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Web/HTTP/Request>
+#include <Mib/Web/HTTP/Response>
+#include <Mib/Network/Socket>
+
+namespace NMib
+{
+	namespace NWeb
+	{
+		// RFC 6455 - 7.4.1.
+		enum EWebSocketStatus : uint16
+		{
+			EWebSocketStatus_NormalClosure				= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
+			, EWebSocketStatus_GoingAway				= 1001	/// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
+			, EWebSocketStatus_ProtocolError			= 1002	/// Indicates that an endpoint is terminating the connection due to a protocol error.
+			, EWebSocketStatus_UnsupportedData			= 1003	/// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an 
+																///	 endpoint that understands only text data MAY send this if it receives a binary message).
+			, EWebSocketStatus_Reserved0				= 1004	/// Reserved.  The specific meaning might be defined in the future.
+			, EWebSocketStatus_NoStatusReceived			= 1005	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use 
+																///  in applications expecting a status code to indicate that no status code was actually present.
+			, EWebSocketStatus_AbnormalClosure			= 1006	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use 
+																///  in applications expecting a status code to indicate that the connection was closed abnormally, e.g., without sending or 
+																///  receiving a Close control frame.
+			, EWebSocketStatus_InvalidFramePayloadData	= 1007	/// Indicates that an endpoint is terminating the connection because it has received data within a message that was not consistent
+																///  with the type of the message (e.g., non-UTF-8 [RFC3629] data within a text message).
+			, EWebSocketStatus_PolicyViolation			= 1008	/// Indicates that an endpoint is terminating the connection because it has received a message that violates its policy. This is a
+																///  generic status code that can be returned when there is no other more suitable status code (e.g., 1003 or 1009) or if there is
+																///  a need to hide specific details about the policy.
+			, EWebSocketStatus_MessageTooBig			= 1009	/// Indicates that an endpoint is terminating the connection because it has received a message that is too big for it to process.
+			, EWebSocketStatus_MandatoryExtension		= 1010	/// Indicates that an endpoint (client) is terminating the connection because it has expected the server to negotiate one or more
+																///  extension, but the server didn't return them in the response message of the WebSocket handshake.  The list of extensions that
+																///  are needed SHOULD appear in the /reason/ part of the Close frame. Note that this status code is not used by the server,
+																///  because it can fail the WebSocket handshake instead.
+			, EWebSocketStatus_InternalError			= 1011	/// Indicates that a server is terminating the connection because it encountered an unexpected condition that prevented it from
+																///  fulfilling the request. 
+			, EWebSocketStatus_ServiceRestart			= 1012	/// 
+			, EWebSocketStatus_TryAgainLater			= 1013	/// 
+			, EWebSocketStatus_TLSHandshakeFailed		= 1015	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint. It is designated for use in
+																///  applications expecting a status code to indicate that the connection was closed due to a failure to perform a TLS handshake 
+																///  (e.g., the server certificate can't be verified).
+			, EWebSocketStatus_ReservedStart			= 1016	/// Status codes in the range 1000-2999 are reserved for definition by this protocol, its future revisions, and extensions 
+																///  specified in a permanent and readily available public specification.
+			, EWebSocketStatus_ReservedEnd				= 2999 
+			, EWebSocketStatus_IANAStart				= 3000	/// Status codes in the range 3000-3999 are reserved for use by libraries, frameworks, and applications.  These status codes are 
+																/// registered directly with IANA.  The interpretation of these codes is undefined by this protocol.
+			, EWebSocketStatus_IANAEnd					= 3999
+			, EWebSocketStatus_Timeout					= 4000	/// Connection timed out
+			, EWebSocketStatus_Rejected					= 4001	/// Closed because you rejected the connection
+			, EWebSocketStatus_PrivateStart				= 4000	/// Status codes in the range 4000-4999 are reserved for private use and thus can't be registered.  Such codes can be used by 
+																/// prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol. 
+			, EWebSocketStatus_PrivateEnd				= 4999
+			
+		};
+
+		enum EWebSocketCloseOrigin
+		{
+			EWebSocketCloseOrigin_Local
+			, EWebSocketCloseOrigin_Remote
+		};
+		  
+		namespace NWebSocket
+		{
+			class CListenActor;
+		}
+		class CWebSocketServerActor;
+		class CWebSocketClientActor;
+		
+		struct CWebSocketNewConnection;
+		struct CWebSocketNewServerConnection;
+		struct CWebSocketNewClientConnection;
+
+		class CWebSocketActor : public NConcurrency::CActor
+		{
+		public:
+			
+			struct CCloseInfo
+			{
+				EWebSocketStatus m_Status;
+				NStr::CStr m_Reason;
+			};
+			struct CConnectionInfo
+			{
+				CConnectionInfo()
+					: m_pRequest(fg_Construct())
+				{
+				}
+				NStr::CStr m_ID;
+				NStr::CStr m_ProtocolVersion;
+				NContainer::TCVector<NStr::CStr> m_Protocols;
+				NStr::CStr m_Error;
+				NPtr::TCSharedPointer<NHTTP::CRequest> m_pRequest;
+			};
+			struct CClientConnectionInfo
+			{
+				CClientConnectionInfo()
+					: m_pResponse(fg_Construct())
+				{
+				}
+				
+				NStr::CStr m_Protocol;
+				NPtr::TCSharedPointer<NHTTP::CResponseHeader> m_pResponse;
+				NStr::CStr m_Error;
+			};
+		public:
+			
+			CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize);
+			~CWebSocketActor();
+			
+			void f_SetTimeout(fp64 _Seconds);
+			
+			NConcurrency::TCContinuation<void> f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _Message, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendText(NStr::CStr const& _Data, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData);
+			NConcurrency::TCContinuation<void> f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData);
+			
+			NConcurrency::TCContinuation<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
+			
+		private:
+			friend class NWebSocket::CListenActor;
+			friend class CWebSocketServerActor;
+			friend struct CWebSocketNewConnection;
+			friend struct CWebSocketNewServerConnection;
+			friend struct CWebSocketNewClientConnection;
+			friend class CWebSocketClientActor;
+			
+			
+			enum EFinishConnectionResult
+			{
+				EFinishConnectionResult_Error
+				, EFinishConnectionResult_Success
+			};
+		private:
+
+			NConcurrency::CActorCallback fp_SetCallbacks
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
+					, NFunction::TCFunction<void (NStr::CStr const& _Message)> && _fReceiveTextMessage
+					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
+					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
+					, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
+				)
+			;
+
+			NConcurrency::CActorCallback fp_SetOnReceivePing
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+				)
+			;
+			
+			NConcurrency::CActorCallback fp_SetOnReceivePong
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+				)
+			;
+			
+			NConcurrency::CActorCallback fp_SetOnClose
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+				)
+			;	
+			
+			void fp_StateAdded(NNet::ENetTCPState _StateAdded);
+			void fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin);
+			void fp_SetSocket(NPtr::TCUniquePointer<NNet::ICSocket> && _pSocket);
+			void fp_ProcessIncoming();
+			bool fp_ProcessIncomingMessage();
+			void fp_ProcessState();
+			void fp_UpdateSend();
+			void fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader);
+			void fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader());
+			void fp_AcceptClientConnection();
+			void fp_StopDeferring();
+			void fp_RejectClientConnection(NStr::CStr const &_Error);
+			NConcurrency::CActorCallback fp_OnFinishServerConnection
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+					, NFunction::TCFunction<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> && _fOnFinishConnection
+				)
+			;
+			NConcurrency::CActorCallback fp_OnFinishClientConnection
+				(
+					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
+					, NFunction::TCFunction<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> && _fOnFinishConnection
+					, NHTTP::CRequest &&_RequestHeader
+					, NStr::CStr const& _ConnectToAddress
+					, NStr::CStr const& _URI
+					, NStr::CStr const& _Origin
+					, NContainer::TCVector<NStr::CStr> const &_Protocols
+				)
+			;
+			
+		public:
+			struct CInternal;
+			
+		private:
+			NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		};
+
+		struct CWebSocketNewConnection
+		{
+			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> m_fOnReceiveBinaryMessage;
+			NFunction::TCFunction<void (NStr::CStr const& _Message)> m_fOnReceiveTextMessage;
+			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePing;
+			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePong;
+			NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+			
+			CWebSocketNewConnection(CWebSocketNewConnection &&_Other)
+				: mp_Connection(fg_Move(_Other.mp_Connection))
+				, m_fOnReceiveBinaryMessage(fg_Move(_Other.m_fOnReceiveBinaryMessage))
+				, m_fOnReceiveTextMessage(fg_Move(_Other.m_fOnReceiveTextMessage))
+				, m_fOnReceivePing(fg_Move(_Other.m_fOnReceivePing))
+				, m_fOnReceivePong(fg_Move(_Other.m_fOnReceivePong))
+				, m_fOnClose(fg_Move(_Other.m_fOnClose))
+			{
+			}
+			CWebSocketNewConnection(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+		protected:
+			NConcurrency::TCActor<CWebSocketActor> mp_Connection;
+		};
+		
+		struct CWebSocketNewClientConnection : public CWebSocketNewConnection
+		{
+			NHTTP::CResponseHeader m_Response;
+			NStr::CStr m_Protocol;
+			
+			template <typename tf_CResultCall>
+			NConcurrency::TCActor<CWebSocketActor> f_Accept(tf_CResultCall &&_CallbackResultCall);
+			void f_Reject(NStr::CStr const &_Error) const;
+			
+			CWebSocketNewClientConnection(NHTTP::CResponseHeader &&_Response, NStr::CStr &&_Protocol, NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+			~CWebSocketNewClientConnection();
+			CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other)
+				: CWebSocketNewConnection(fg_Move(_Other))
+				, m_Response(fg_Move(_Other.m_Response))
+				, m_Protocol(fg_Move(_Other.m_Protocol))
+				, mp_pHelper(fg_Move(_Other.mp_pHelper))
+			{
+			}
+
+		private:
+			CWebSocketNewClientConnection &operator =(CWebSocketNewClientConnection const &);
+			CWebSocketNewClientConnection &operator =(CWebSocketNewClientConnection &&);
+			CWebSocketNewClientConnection(CWebSocketNewClientConnection const &_Other);
+			
+			struct CRepliedHelper
+			{
+				NConcurrency::TCActor<CWebSocketActor> m_Connection;
+				NAtomic::TCAtomic<bool> m_bRepliedToConnection;
+				CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+				~CRepliedHelper();
+			};
+			NPtr::TCSharedPointer<CRepliedHelper> mp_pHelper;
+		};
+
+		struct CWebSocketNewServerConnection : public CWebSocketNewConnection
+		{
+			CWebSocketActor::CConnectionInfo m_Info;
+			NContainer::TCVector<NStr::CStr> m_Protocols;
+			
+			template <typename tf_CResultCall>
+			NConcurrency::TCActor<CWebSocketActor> f_Accept(NStr::CStr const &_Protocol, tf_CResultCall &&_CallbackResultCall, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader());
+			void f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader()) const;
+			
+			CWebSocketNewServerConnection(CWebSocketActor::CConnectionInfo &&_ConnectionInfo, NContainer::TCVector<NStr::CStr> &&_Protocols, NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+			~CWebSocketNewServerConnection();
+			
+			CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other)
+				: CWebSocketNewConnection(fg_Move(_Other))
+				, m_Info(fg_Move(_Other.m_Info))
+				, m_Protocols(fg_Move(_Other.m_Protocols))
+				, mp_pHelper(fg_Move(_Other.mp_pHelper))
+			{
+			}
+
+		private:
+			CWebSocketNewServerConnection &operator =(CWebSocketNewServerConnection const &);
+			CWebSocketNewServerConnection &operator =(CWebSocketNewServerConnection &&);
+			CWebSocketNewServerConnection(CWebSocketNewServerConnection const &_Other);
+			
+			struct CRepliedHelper
+			{
+				NConcurrency::TCActor<CWebSocketActor> m_Connection;
+				NAtomic::TCAtomic<bool> m_bRepliedToConnection;
+				CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+				~CRepliedHelper();
+			};
+			NPtr::TCSharedPointer<CRepliedHelper> mp_pHelper;
+		};
+
+		class CAddressResolverActor;
+
+		class CWebSocketClientActor : public NConcurrency::CActor
+		{
+		public:
+
+			CWebSocketClientActor();
+			~CWebSocketClientActor();
+
+			NConcurrency::TCContinuation<void> f_Destroy() override;
+
+			void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
+			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+			
+			NConcurrency::TCContinuation<CWebSocketNewClientConnection> f_Connect
+				(
+					NStr::CStr const& _ConnectToAddress	// The server to connect to
+					, NStr::CStr const& _BindAddress	// The src address to bind to. Leave empty to not bind
+					, uint16 _Port	// The port to connect to
+					, NStr::CStr const& _URI // The server path: /chat
+					, NStr::CStr const& _Origin	// The server origin: http://example.com
+					, NContainer::TCVector<NStr::CStr> const &_Protocols	// The protocols to ask the server to talk with
+					, NHTTP::CRequest &&_Request // Can be used to specify additional fields you want to sent to server initial handshake request to the server. The request line is ignored
+					, NNet::FVirtualSocketFactory &&_SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+				)
+			; // You will receive an exception if connection fails
+			
+		private:
+			struct CPendingConnection
+			{
+				NPtr::TCUniquePointer<NNet::ICSocket> m_pSocket;
+				NConcurrency::CActorCallback m_OnFinishConnectionSubscription;
+			};
+			NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
+			NConcurrency::TCActor<CAddressResolverActor> mp_AddressResolver;
+			mint mp_MaxMessageSize;
+			mint mp_FragmentationSize;
+		};
+		
+		class CWebSocketServerActor : public NConcurrency::CActor
+		{
+			friend class NWebSocket::CListenActor;
+		public:
+			
+			CWebSocketServerActor();
+			~CWebSocketServerActor();
+
+			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_StartListen
+				(
+					uint16 _StartListen		// The port to listen to
+					, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
+					, NConcurrency::TCActor<NConcurrency::CActor> const& _Actor // The actor to receive new connections
+					, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> && _fNewConnection	// The functor called on the actor for each new connection 
+					, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> && _fFailedConnection	// The functor called on the actor for each connection attempt that failed
+					, NNet::FVirtualSocketFactory &&_SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+				)
+			;
+			
+			void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
+			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+			
+		private:
+			void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> && _Connection);
+			
+		public:
+			struct CInternal;
+			
+		private:
+			NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		};	
+	}
+}
+
+#include "Malterlib_Web_WebSocket.hpp"
+
+#ifndef DMibPNoShortCuts
+using namespace NMib::NWeb;
+#endif

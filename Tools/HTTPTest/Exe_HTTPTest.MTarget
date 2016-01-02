@@ -1,0 +1,27 @@
+// Copyright © 2015 Hansoft AB 
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+%Target Exe_HTTPTest
+{
+	Property
+	{
+		MalterlibPostCopyProject "Malterlib"
+		MalterlibQtSupport false
+		MalterlibDoTranslationExeFS false
+		MalterlibUsesTranslation false
+		MalterlibDoExeFS false
+		ProductName "HTTP Server"
+		MalterlibLinkWithOpenSSL true
+	}
+	Target
+	{
+		Type "ConsoleExecutable"
+		BaseName "HTTPTest"
+	}
+	%Group Source
+	{
+		%File Source/HTTPTest_Main.cpp
+	}
+	%Dependency Lib_Malterlib_Web
+	%Dependency Lib_Malterlib
+}
