@@ -489,13 +489,20 @@ namespace NMib
 				if (!_bFatal)
 				{
 					// Send packet to other side
-					NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
-					Stream << uint16(_Status);
-					NStr::CStr Reason = _Reason;
-					Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
+					
+					if (_Status != EWebSocketStatus_NoStatusReceived)
+					{
+						NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
+						Stream << uint16(_Status);
+						NStr::CStr Reason = _Reason;
+						Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
 
-					auto Data = Stream.f_MoveVector();
-					Internal.f_SendMessage(EOpcode_ConnectionClose, Data.f_GetArray(), Data.f_GetLen(), true);
+						auto Data = Stream.f_MoveVector();
+						Internal.f_SendMessage(EOpcode_ConnectionClose, Data.f_GetArray(), Data.f_GetLen(), true);
+					}
+					else
+						Internal.f_SendMessage(EOpcode_ConnectionClose, nullptr, 0, true);
+					
 					fp_UpdateSend();
 				}
 				if (_Origin == EWebSocketCloseOrigin_Remote)
