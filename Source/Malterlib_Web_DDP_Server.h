@@ -15,6 +15,12 @@ namespace NMib
 			struct CInternal;
 
         public:
+			enum EConnectionType
+			{
+				EConnectionType_WebSocket
+				, EConnectionType_SockJSWebsocket
+			};
+			
             enum EChange
             {
                 EChange_Added = 0
@@ -113,7 +119,7 @@ namespace NMib
 				= NContainer::TCStreamableVariant<EChange, CAdded, EChange_Added, CChanged, EChange_Changed, CRemoved, EChange_Removed, CReady, EChange_Ready, CUpdated, EChange_Updated>
 			;
             
-			CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection);
+			CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType);
 			~CDDPServerConnection();
 
 			void f_Construct() override;

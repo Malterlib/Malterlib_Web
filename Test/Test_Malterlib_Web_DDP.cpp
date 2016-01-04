@@ -94,7 +94,7 @@ public:
 					, [this](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
 						auto &NewConnection = m_Connections.f_Insert();
-						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo));
+						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
 
 						auto pConnection = &NewConnection;
 						NewConnection.m_Connection

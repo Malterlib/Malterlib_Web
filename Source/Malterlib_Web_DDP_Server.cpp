@@ -3,6 +3,7 @@
 #include "Malterlib_Web_DDP_Client.h"
 
 #include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Concurrency/Actor/Timer>
 
 namespace NMib
 {
@@ -22,7 +23,11 @@ namespace NMib
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_ID)> m_OnUnSubscribe;
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_Error)> m_OnError;
 			
-			CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection)
+			NConcurrency::CActorCallback m_SockJSHeartbeatCallback;
+			
+			EConnectionType m_ConnectionType;
+			
+			CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection, EConnectionType _ConnectionType)
 				: mp_pServerConnection(_pDDPServerConnection)
 				, m_pNewWebsocketConnection(fg_Construct(fg_Move(_NewWebsocketConnection)))
 				, m_WebSocket()
@@ -32,6 +37,7 @@ namespace NMib
 				, m_OnSubscribe(mp_pServerConnection, false)
 				, m_OnUnSubscribe(mp_pServerConnection, false)
 				, m_OnError(mp_pServerConnection, false)
+				, m_ConnectionType(_ConnectionType)
 			{
 				m_pNewWebsocketConnection->m_fOnReceiveTextMessage = [this](NStr::CStr const &_Message)
 					{
@@ -43,12 +49,146 @@ namespace NMib
 			void f_SendMessage(NEncoding::CEJSON const &_Data);
 			
 			void fp_ReceiveMessage(NStr::CStr const &_Message);
+			void fp_ReceiveMessage(NEncoding::CEJSON const &_Message);
 			void fp_OnError(NStr::CStr const &_Message);
 		};
 		
 		void CDDPServerConnection::CInternal::f_SendMessage(NEncoding::CEJSON const &_Data)
 		{
-			m_WebSocket(&CWebSocketActor::f_SendText, _Data.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
+			if (m_ConnectionType != EConnectionType_SockJSWebsocket)
+				m_WebSocket(&CWebSocketActor::f_SendText, _Data.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
+			else
+			{
+				NEncoding::CEJSON MessageArray;
+				MessageArray.f_Insert(_Data.f_ToString(nullptr));
+				m_WebSocket(&CWebSocketActor::f_SendText, "a" + MessageArray.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
+			}
+		}
+
+		void CDDPServerConnection::CInternal::fp_ReceiveMessage(NEncoding::CEJSON const &_Message)
+		{
+			NEncoding::CEJSON const &JSON = _Message;
+
+			auto *pValue = JSON.f_GetMember("msg");
+			if (!pValue)
+			{
+				fp_OnError(NStr::fg_Format("No msg in DDP packet {}", JSON));
+				return;
+			}
+			
+			if (pValue->f_Type() != NEncoding::EJSONType_String)
+			{
+				fp_OnError("Invalid type for msg (should be String)");
+				return;
+			}
+			
+			auto &MessageType = pValue->f_String();
+			if (MessageType == "connect")
+			{
+				auto pVersion = JSON.f_GetMember("version");
+				
+				if (!fg_ValidateType(pVersion, NEncoding::EJSONType_String) || pVersion->f_String() != "1")
+				{
+					NEncoding::CEJSON Message;
+					Message["msg"] = "failed";
+					Message["version"] = "1";
+
+					f_SendMessage(Message);
+					return;
+				}
+
+				if (m_OnConnection.f_IsEmpty())
+					mp_pServerConnection->fp_AcceptConnection(NStr::CStr());
+				else
+				{
+					CConnectionInfo ConnectionInfo{mp_pServerConnection};
+					auto pSessionID = JSON.f_GetMember("session");
+					if (fg_ValidateType(pSessionID, NEncoding::EJSONType_String))
+						ConnectionInfo.m_Session = pSessionID->f_String();
+					m_OnConnection(ConnectionInfo);
+				}
+			}
+			else if (MessageType == "method")
+			{
+				auto pMethodID = JSON.f_GetMember("id");
+				if (!fg_ValidateType(pMethodID, NEncoding::EJSONType_String) || pMethodID->f_String().f_IsEmpty())
+				{
+					fp_OnError("(method) Invalid MethodID, either empty or not a String type");
+					return;
+				}
+				
+				auto pName = JSON.f_GetMember("method");
+				if (!fg_ValidateType(pName, NEncoding::EJSONType_String) || pName->f_String().f_IsEmpty())
+				{
+					fp_OnError("(method) Invalid Method name, either empty or not a String type");
+					return;
+				}
+				
+				CMethodInfo MethodInfo(mp_pServerConnection);
+				MethodInfo.m_ID = pMethodID->f_String();
+				MethodInfo.m_Name = pName->f_String();
+				
+				auto pParams = JSON.f_GetMember("params");
+				if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
+					MethodInfo.m_Parameters = pParams->f_Array();
+				
+				auto pRandomSeed = JSON.f_GetMember("randomSeed");
+				if (pRandomSeed)
+					MethodInfo.m_RandomSeed = *pRandomSeed;
+
+				m_OnMethod(MethodInfo);
+			}
+			else if (MessageType == "sub")
+			{
+				auto pSubscriptionID = JSON.f_GetMember("id");
+				if (!fg_ValidateType(pSubscriptionID, NEncoding::EJSONType_String) || pSubscriptionID->f_String().f_IsEmpty())
+				{
+					fp_OnError("(sub) Invalid Subscription ID, either empty or not a String type");
+					return;
+				}
+				
+				auto pName = JSON.f_GetMember("name");
+				if (!fg_ValidateType(pName, NEncoding::EJSONType_String) || pName->f_String().f_IsEmpty())
+				{
+					fp_OnError("(sub) Invalid Subscription name, either empty or not a String type");
+					return;
+				}
+				
+				CSubscribeInfo SubscribeInfo(mp_pServerConnection);
+				SubscribeInfo.m_ID = pSubscriptionID->f_String();
+				SubscribeInfo.m_Name = pName->f_String();
+				
+				auto pParams = JSON.f_GetMember("params");
+				if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
+					SubscribeInfo.m_Parameters = pParams->f_Array();
+				
+				m_OnSubscribe(SubscribeInfo);
+			}
+			else if (MessageType == "unsub")
+			{
+				auto pSubscriptionID = JSON.f_GetMember("id");
+				if (!fg_ValidateType(pSubscriptionID, NEncoding::EJSONType_String) || pSubscriptionID->f_String().f_IsEmpty())
+				{
+					fp_OnError("(unsub) Invalid Subscription ID, either empty or not a String type");
+					return;
+				}
+
+				m_OnUnSubscribe(pSubscriptionID->f_String());
+			}
+			else if (MessageType == "ping")
+			{
+				NEncoding::CEJSON Reply;
+				Reply["msg"] = "pong";
+
+				if (auto pID = JSON.f_GetMember("id"))
+					Reply["id"] = *pID;
+
+				f_SendMessage(Reply);
+			}
+			else
+			{
+				fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
+			}
 		}
 		
 		void CDDPServerConnection::CInternal::fp_ReceiveMessage(NStr::CStr const &_Message)
@@ -56,117 +196,20 @@ namespace NMib
 			try
 			{
 				NEncoding::CEJSON JSON = NEncoding::CEJSON::fs_FromString(_Message);
-
-				auto *pValue = JSON.f_GetMember("msg");
-				if (!pValue)
-				{
-					fp_OnError("No msg in DDP packet");
-					return;
-				}
 				
-				if (pValue->f_Type() != NEncoding::EJSONType_String)
-				{
-					fp_OnError("Invalid type for msg (should be String)");
-					return;
-				}
-				
-				auto &MessageType = pValue->f_String();
-				if (MessageType == "connect")
-				{
-					auto pVersion = JSON.f_GetMember("version");
-					
-					if (!fg_ValidateType(pVersion, NEncoding::EJSONType_String) || pVersion->f_String() != "1")
-					{
-						NEncoding::CEJSON Message;
-						Message["msg"] = "failed";
-						Message["version"] = "1";
-
-						f_SendMessage(Message);
-						return;
-					}
-
-					if (m_OnConnection.f_IsEmpty())
-						mp_pServerConnection->fp_AcceptConnection(NStr::CStr());
-					else
-					{
-						CConnectionInfo ConnectionInfo{mp_pServerConnection};
-						auto pSessionID = JSON.f_GetMember("session");
-						if (fg_ValidateType(pSessionID, NEncoding::EJSONType_String))
-							ConnectionInfo.m_Session = pSessionID->f_String();
-						m_OnConnection(ConnectionInfo);
-					}
-				}
-				else if (MessageType == "method")
-				{
-					auto pMethodID = JSON.f_GetMember("id");
-					if (!fg_ValidateType(pMethodID, NEncoding::EJSONType_String) || pMethodID->f_String().f_IsEmpty())
-					{
-						fp_OnError("(method) Invalid MethodID, either empty or not a String type");
-						return;
-					}
-					
-					auto pName = JSON.f_GetMember("method");
-					if (!fg_ValidateType(pName, NEncoding::EJSONType_String) || pName->f_String().f_IsEmpty())
-					{
-						fp_OnError("(method) Invalid Method name, either empty or not a String type");
-						return;
-					}
-					
-					CMethodInfo MethodInfo(mp_pServerConnection);
-					MethodInfo.m_ID = pMethodID->f_String();
-					MethodInfo.m_Name = pName->f_String();
-					
-					auto pParams = JSON.f_GetMember("params");
-					if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
-						MethodInfo.m_Parameters = pParams->f_Array();
-					
-					auto pRandomSeed = JSON.f_GetMember("randomSeed");
-					if (pRandomSeed)
-						MethodInfo.m_RandomSeed = *pRandomSeed;
-
-					m_OnMethod(MethodInfo);
-				}
-				else if (MessageType == "sub")
-				{
-					auto pSubscriptionID = JSON.f_GetMember("id");
-					if (!fg_ValidateType(pSubscriptionID, NEncoding::EJSONType_String) || pSubscriptionID->f_String().f_IsEmpty())
-					{
-						fp_OnError("(sub) Invalid Subscription ID, either empty or not a String type");
-						return;
-					}
-					
-					auto pName = JSON.f_GetMember("name");
-					if (!fg_ValidateType(pName, NEncoding::EJSONType_String) || pName->f_String().f_IsEmpty())
-					{
-						fp_OnError("(sub) Invalid Subscription name, either empty or not a String type");
-						return;
-					}
-					
-					CSubscribeInfo SubscribeInfo(mp_pServerConnection);
-					SubscribeInfo.m_ID = pSubscriptionID->f_String();
-					SubscribeInfo.m_Name = pName->f_String();
-					
-					auto pParams = JSON.f_GetMember("params");
-					if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
-						SubscribeInfo.m_Parameters = pParams->f_Array();
-					
-					m_OnSubscribe(SubscribeInfo);
-				}
-				else if (MessageType == "unsub")
-				{
-					auto pSubscriptionID = JSON.f_GetMember("id");
-					if (!fg_ValidateType(pSubscriptionID, NEncoding::EJSONType_String) || pSubscriptionID->f_String().f_IsEmpty())
-					{
-						fp_OnError("(unsub) Invalid Subscription ID, either empty or not a String type");
-						return;
-					}
-
-					m_OnUnSubscribe(pSubscriptionID->f_String());
-				}
+				if (m_ConnectionType != EConnectionType_SockJSWebsocket)
+					fp_ReceiveMessage(JSON);
 				else
 				{
-					fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
+					if (JSON.f_IsArray())
+					{
+						for (auto &Message : JSON.f_Array())
+							fp_ReceiveMessage(NEncoding::CEJSON::fs_FromString(Message.f_String()));
+					}
+					else
+						fp_ReceiveMessage(JSON);
 				}
+				
 			}
 			catch (NException::CException const &_Exception)
 			{
@@ -261,8 +304,8 @@ namespace NMib
 				Actor(&CDDPServerConnection::fp_SubscriptionError, m_ID, _Error) > NConcurrency::fg_DiscardResult();
 		}
 		
-		CDDPServerConnection::CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection)
-			: mp_pInternal(fg_Construct(this, fg_Move(_ServerConnection)))
+		CDDPServerConnection::CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType)
+			: mp_pInternal(fg_Construct(this, fg_Move(_ServerConnection), _ConnectionType))
 		{
 		}
 
@@ -283,6 +326,27 @@ namespace NMib
 					}
 				)
 			;
+			if (Internal.m_ConnectionType == EConnectionType_SockJSWebsocket)
+			{
+				Internal.m_WebSocket(&CWebSocketActor::f_SendText, "o", 0) > NConcurrency::fg_DiscardResult(); // Open frame
+				NConcurrency::fg_TimerActor()
+					(
+						&NConcurrency::CTimerActor::f_RegisterTimer
+						, 25.0
+						, fg_ThisActor(this)
+						, [this]
+						{
+							auto &Internal = *mp_pInternal;
+							Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
+						}
+					)
+					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+					{
+						auto &Internal = *mp_pInternal;
+						Internal.m_SockJSHeartbeatCallback = fg_Move(*_Result);
+					}
+				;
+			}
 			Internal.m_pNewWebsocketConnection.f_Clear();
 		}
 
