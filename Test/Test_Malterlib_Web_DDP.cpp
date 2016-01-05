@@ -280,7 +280,7 @@ public:
 			
 			TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", _ClientFactory);
 			
-			CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", 20.0, nullptr, nullptr).f_CallSync();
+			CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr, nullptr).f_CallSync();
 			
 			DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
 			

@@ -35,8 +35,16 @@ namespace NMib
                 NStr::CStr m_Session;
 
                 ~CConnectionInfo();
+				
+				CConnectionInfo(CConnectionInfo const &_Other);
+				CConnectionInfo(CConnectionInfo &&_Other);
+				
+				CConnectionInfo &operator =(CConnectionInfo const &_Other);
+				CConnectionInfo &operator =(CConnectionInfo &&_Other);
                 
                 void f_Accept(NStr::CStr const &_Session) const;
+                void f_Reject() const;
+				
 				
 			private:
 				friend struct CDDPServerConnection::CInternal;
@@ -54,7 +62,13 @@ namespace NMib
                 NEncoding::CEJSON m_RandomSeed;
 
                 ~CMethodInfo();
-                
+
+				CMethodInfo(CMethodInfo const &_Other);
+				CMethodInfo(CMethodInfo &&_Other);
+				
+				CMethodInfo &operator =(CMethodInfo const &_Other);
+				CMethodInfo &operator =(CMethodInfo &&_Other);
+				
                 void f_Result(NEncoding::CEJSON const &_Result) const;
                 void f_Error(NEncoding::CEJSON const &_Error) const;
 				
@@ -73,7 +87,13 @@ namespace NMib
                 NContainer::TCVector<NEncoding::CEJSON> m_Parameters;
                 
                 ~CSubscribeInfo();
-                
+
+				CSubscribeInfo(CSubscribeInfo const &_Other);
+				CSubscribeInfo(CSubscribeInfo &&_Other);
+				
+				CSubscribeInfo &operator =(CSubscribeInfo const &_Other);
+				CSubscribeInfo &operator =(CSubscribeInfo &&_Other);
+				
                 void f_Error(NEncoding::CEJSON const &_Error) const;
 			
 			private:
@@ -140,6 +160,7 @@ namespace NMib
 
 		private:
 			void fp_AcceptConnection(NStr::CStr const &_SessionID);
+			void fp_RejectConnection();
 			void fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result);
 			void fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Error);
 			void fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSON const &_Error);
