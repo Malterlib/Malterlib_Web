@@ -236,11 +236,24 @@ namespace NMib
 		{
 		}
 		
+		CDDPServerConnection::CConnectionInfo::CConnectionInfo(CConnectionInfo const &_Other) = default;
+		CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator =(CConnectionInfo &&_Other) = default;
+		
+		CDDPServerConnection::CConnectionInfo::CConnectionInfo(CConnectionInfo &&_Other) = default;
+		CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator =(CConnectionInfo const &_Other) = default;
+		
 		void CDDPServerConnection::CConnectionInfo::f_Accept(NStr::CStr const &_Session) const
 		{
 			if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
 				Actor(&CDDPServerConnection::fp_AcceptConnection, _Session) > NConcurrency::fg_DiscardResult();
  		}
+		
+		void CDDPServerConnection::CConnectionInfo::f_Reject() const
+		{
+			if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+				Actor(&CDDPServerConnection::fp_RejectConnection) > NConcurrency::fg_DiscardResult();
+ 		}
+
 			
 		CDDPServerConnection::CConnectionInfo::CConnectionInfo(CDDPServerConnection *_pDDPConnection)
 			: mp_Internal(_pDDPConnection)
@@ -262,6 +275,12 @@ namespace NMib
 			: mp_Internal(_pDDPConnection)
 		{
 		}
+		
+		CDDPServerConnection::CMethodInfo::CMethodInfo(CMethodInfo const &_Other) = default;
+		CDDPServerConnection::CMethodInfo::CMethodInfo(CMethodInfo &&_Other) = default;
+		
+		CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator =(CMethodInfo const &_Other) = default;
+		CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator =(CMethodInfo &&_Other) = default;
 		
 		CDDPServerConnection::CMethodInfo::~CMethodInfo()
 		{
@@ -297,6 +316,12 @@ namespace NMib
 		CDDPServerConnection::CSubscribeInfo::~CSubscribeInfo()
 		{
 		}
+
+		CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(CSubscribeInfo const &_Other) = default;
+		CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(CSubscribeInfo &&_Other) = default;
+		
+		CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo const &_Other) = default;
+		CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo &&_Other) = default;
 		
 		void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJSON const &_Error) const
 		{
@@ -506,6 +531,17 @@ namespace NMib
 			
 			Internal.f_SendMessage(Message);
 		}
+		
+		void CDDPServerConnection::fp_RejectConnection()
+		{
+			auto &Internal = *mp_pInternal;
+			
+			NEncoding::CEJSON Message;
+			Message["msg"] = "failed";
+			Message["version"] = "1";
+
+			Internal.f_SendMessage(Message);
+		}		
 	
 		void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result)
 		{
@@ -515,7 +551,8 @@ namespace NMib
 
 			Message["msg"] = "result";
 			Message["id"] = _MethodID;
-			Message["result"] = _Result;
+			if (_Result.f_IsValid())
+				Message["result"] = _Result;
 			
 			Internal.f_SendMessage(Message);
 		}

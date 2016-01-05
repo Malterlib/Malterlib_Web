@@ -121,12 +121,14 @@ namespace NMib
 					, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 					, NStr::CStr const &_Origin
 					, NNet::FVirtualSocketFactory const &_SocketFactory
+					, EClientOption _ClientOptions
 				)
 				: m_pThis(_pThis)
 				, m_ConnectTo(_ConnectTo)
 				, m_BindTo(_BindTo)
 				, m_ConnectionFactory(_ConnectionFactory)
 				, m_SocketFactory(_SocketFactory)
+				, m_ClientOptions(_ClientOptions)
 			{
 				if (!_ConnectionFactory)
 					m_ConnectionFactory = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
@@ -180,6 +182,8 @@ namespace NMib
 			NContainer::TCMap<uint64, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)>> m_PendingMethodCalls;
 			NContainer::TCMap<NStr::CStr, CCollection> m_Collections;
 
+			NContainer::TCMap<uint64, NFunction::TCFunction<void (NFunction::CThisTag &)>> m_PendingMethodUpdated;
+
 			NContainer::TCMap<NStr::CStr, CSubscription> m_Subscriptions;
 			
 			NContainer::TCMap<NStr::CStr, CCollectionObservations> m_Observations;
@@ -187,6 +191,9 @@ namespace NMib
 			NConcurrency::CActorCallback m_ConnectTimeoutTimerRef;
 			
 			fp32 m_ConnectTimeout = 60.0;
+
+			EClientOption m_ClientOptions;
+
 			bool m_bConnectFinished = false;
 			bool m_bConnectCalled = false;
 
@@ -198,12 +205,19 @@ namespace NMib
 			void fp_HandleRemoved(NEncoding::CEJSON const &_Message);
 			void fp_HandleAddedChanged(NEncoding::CEJSON const &_Message, EChangeOperation _Operation);
 			void fp_HandleReady(NEncoding::CEJSON const &_Message);
+			void fp_HandleUpdated(NEncoding::CEJSON const &_Message);
 			void fp_HandleNoSub(NEncoding::CEJSON const &_Message);
 			void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJSON const &_Message, EObserveNotification _Notification);
-			void fp_SendMethod(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)> &&_fOnResult);
+			uint64 fp_SendMethod
+				(
+					NStr::CStr const &_MethodName
+					, NContainer::TCVector<NEncoding::CEJSON> const &_Params
+					, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)> &&_fOnResult
+				)
+			;
 			void fp_SendLoginResumeMessage();
 			void fp_SendLoginMessage();
-			void fp_SendConnect(fp32 _Timeout);
+			void fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
 			void f_OnSubscriptionRemoved(CSubscription *_pSubscription);
 			void f_OnObservationRemoved(CObservation *_pObservation, CCollectionObservations *_pColletionObservations);
 			void fp_SendMessage(NEncoding::CEJSON const &_Message);
@@ -291,8 +305,9 @@ namespace NMib
 				, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 				, NStr::CStr const &_Origin
 				, NNet::FVirtualSocketFactory const &_SocketFactory
+				, EClientOption _ClientOptions
 			)
-			: mp_pInternal(fg_Construct(this, _ConnectTo, _BindTo, _ConnectionFactory, _Origin, _SocketFactory))
+			: mp_pInternal(fg_Construct(this, _ConnectTo, _BindTo, _ConnectionFactory, _Origin, _SocketFactory, _ClientOptions))
 		{
 		}
 
@@ -305,6 +320,7 @@ namespace NMib
 				NStr::CStr const &_UserName
 				, NStr::CStrSecure const &_Password
 				, NStr::CStrSecure const &_Token
+				, NStr::CStr const &_SessionID
 				, fp32 _Timeout
 				, NConcurrency::TCActor<NConcurrency::CActor> &&_NotificationActor
 				, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
@@ -344,7 +360,7 @@ namespace NMib
 					, NHTTP::CRequest()
 					, fg_TempCopy(Internal.m_SocketFactory)
 				)
-				> [this, _Timeout, fOnClose = fg_Move(_fOnClose), WeakNotificationActor = fg_Move(WeakNotificationActor)](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+				> [this, _SessionID, _Timeout, fOnClose = fg_Move(_fOnClose), WeakNotificationActor = fg_Move(WeakNotificationActor)](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
 					auto &Internal = *mp_pInternal;
 					if (!_Result)
@@ -406,7 +422,7 @@ namespace NMib
 						)
 					;
 
-					Internal.fp_SendConnect(_Timeout);
+					Internal.fp_SendConnect(_Timeout, _SessionID);
 				}
 			;
 
@@ -459,6 +475,42 @@ namespace NMib
 				)
 			;
 			return Continuation;
+		}
+		
+		NConcurrency::TCContinuation<NEncoding::CEJSON> CDDPClient::f_MethodWithUpdated
+			(
+				NStr::CStr const &_MethodName
+				, NContainer::TCVector<NEncoding::CEJSON> const &_Params
+				, NConcurrency::TCActor<NConcurrency::CActor> const &_OnUpdatedActor
+				, NFunction::TCFunction<void ()> &&_fOnUpdated
+			)
+		{
+			auto &Internal = *mp_pInternal;
+			NConcurrency::TCContinuation<NEncoding::CEJSON> Continuation;
+			uint64 MethodID = Internal.fp_SendMethod
+				(
+					_MethodName
+					, _Params
+					, [Continuation](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
+					{
+						if (!_Error.f_IsEmpty())
+							Continuation.f_SetException(DMibErrorInstance(_Error));
+						else
+							Continuation.f_SetResult(fg_Move(_Result));
+					}
+				)
+			;
+			
+			Internal.m_PendingMethodUpdated[MethodID] = [fOnUpdated = fg_Move(_fOnUpdated), WeakActor = _OnUpdatedActor.f_Weak()]() mutable
+				{
+					auto Actor = WeakActor.f_Lock();
+					if (Actor)
+						Actor(&NConcurrency::CActor::f_Dispatch, fg_Move(fOnUpdated)) > NConcurrency::fg_DiscardResult();
+				}
+			;
+			
+			return Continuation;
+			
 		}
 		
 		NConcurrency::CActorCallback CDDPClient::f_Observe
@@ -579,11 +631,14 @@ namespace NMib
 			if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
 				return;
 
-			auto CollectionKey = pCollection->f_String();
-			auto& Collection = m_Collections[CollectionKey];
-			Collection.m_Documents.f_Remove(CCollection::fs_IDParse(pID->f_String()));
-			if (Collection.m_Documents.f_IsEmpty())
-				m_Collections.f_Remove(CollectionKey);
+			if (m_ClientOptions & EClientOption_MaintainDatabase)
+			{
+				auto CollectionKey = pCollection->f_String();
+				auto& Collection = m_Collections[CollectionKey];
+				Collection.m_Documents.f_Remove(CCollection::fs_IDParse(pID->f_String()));
+				if (Collection.m_Documents.f_IsEmpty())
+					m_Collections.f_Remove(CollectionKey);
+			}
 			
 			fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Removed);
 		}
@@ -605,30 +660,35 @@ namespace NMib
 			if (ID.f_IsEmpty())
 				return;
 
-			auto &Collection = m_Collections[pCollection->f_String()];
-			auto &Object = Collection.m_Documents[ID];
-			
-			
-			if (_Operation == EChangeOperation_Changed)
+			if (m_ClientOptions & EClientOption_MaintainDatabase)
 			{
-				for (auto iField = pFields->f_Object().f_OrderedIterator(); iField; ++iField)
-					Object[iField->f_Name()] = iField->f_Value();
+				auto &Collection = m_Collections[pCollection->f_String()];
+				auto &Object = Collection.m_Documents[ID];
 				
+				if (_Operation == EChangeOperation_Changed)
 				{
-					auto pCleared = _Message.f_GetMember("cleared");
-					if (pCleared && pCleared->f_Type() == NEncoding::EJSONType_Array)
+					for (auto iField = pFields->f_Object().f_OrderedIterator(); iField; ++iField)
+						Object[iField->f_Name()] = iField->f_Value();
+					
 					{
-						for (auto iField = pCleared->f_Array().f_GetIterator(); iField; ++iField)
-							Object.f_Object().f_RemoveMember(iField->f_AsString(""));
+						auto pCleared = _Message.f_GetMember("cleared");
+						if (pCleared && pCleared->f_Type() == NEncoding::EJSONType_Array)
+						{
+							for (auto iField = pCleared->f_Array().f_GetIterator(); iField; ++iField)
+								Object.f_Object().f_RemoveMember(iField->f_AsString(""));
+						}
 					}
+					fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Changed);
 				}
+				else if (_Operation == EChangeOperation_Added)
+				{
+					Object = pFields->f_Object();
+				}
+			}
+			if (_Operation == EChangeOperation_Changed)
 				fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Changed);
-			}
 			else if (_Operation == EChangeOperation_Added)
-			{
-				Object = pFields->f_Object();
 				fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Added);				
-			}
 		}
 		
 		void CDDPClient::CInternal::fp_HandleReady(NEncoding::CEJSON const &_Message)
@@ -652,6 +712,29 @@ namespace NMib
 
 				if (pSub->m_NotifyOn & ESubscriptionNotification_Ready)
 					pSub->m_Callback(ESubscriptionNotification_Ready, NEncoding::CEJSON());
+			}
+		}
+		
+		void CDDPClient::CInternal::fp_HandleUpdated(NEncoding::CEJSON const &_Message)
+		{
+			auto pMethods = _Message.f_GetMember("methods", NEncoding::EJSONType_Array);
+			if (!pMethods)
+				return;
+			
+			for (auto iMethod = pMethods->f_Array().f_GetIterator(); iMethod; ++iMethod)
+			{
+				uint64 MethodID = iMethod->f_AsString("").f_ToInt(uint64(0));
+				auto pMethodUpdated = m_PendingMethodUpdated.f_FindEqual(MethodID);
+				if (!pMethodUpdated)
+					continue;
+			
+				auto Cleanup = g_OnScopeExit > [&]()
+					{
+						m_PendingMethodUpdated.f_Remove(MethodID);
+					}
+				;
+				
+				(*pMethodUpdated)();
 			}
 		}
 		
@@ -768,7 +851,7 @@ namespace NMib
 				}
 				else if (MessageType == "updated")
 				{
-					// Not implemented
+					fp_HandleUpdated(JSON);
 				}
 				else if (MessageType == "changed")
 				{
@@ -809,7 +892,7 @@ namespace NMib
 					if (m_UserName.f_IsEmpty())
 					{
 						if (!m_ConnectContinuation.f_IsSet())
-							m_ConnectContinuation.f_SetResult(CConnectInfo());
+							m_ConnectContinuation.f_SetResult(m_SessionID);
 					}
 					else
 					{
@@ -850,7 +933,12 @@ namespace NMib
 			}
 		}
 
-		void CDDPClient::CInternal::fp_SendMethod(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)> &&_fOnResult)
+		uint64 CDDPClient::CInternal::fp_SendMethod
+			(
+				NStr::CStr const &_MethodName
+				, NContainer::TCVector<NEncoding::CEJSON> const &_Params
+				, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)> &&_fOnResult
+			)
 		{
 			uint64 MethodID = ++m_LastMethodID;
 
@@ -864,11 +952,13 @@ namespace NMib
 			fp_SendMessage(Message);;
 
 			m_PendingMethodCalls[MethodID] = _fOnResult;
+			
+			return MethodID;
 		}
 
 		auto CDDPClient::CInternal::fp_ExtractConnectInfo(NEncoding::CEJSON const &_Info) -> CConnectInfo
 		{
-			CConnectInfo Info;
+			CConnectInfo Info(m_SessionID);
 
 			if (auto pID = _Info.f_GetMember("id"))
 				Info.m_UserID = pID->f_AsString();
@@ -931,12 +1021,14 @@ namespace NMib
 			;
 		}
 
-		void CDDPClient::CInternal::fp_SendConnect(fp32 _Timeout)
+		void CDDPClient::CInternal::fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID)
 		{
 			NEncoding::CEJSON Message;
 
 			Message["msg"] = "connect";
 			Message["version"] = "1";
+			if (!_SessionID.f_IsEmpty())
+				Message["session"] = _SessionID;
 
 			auto &SupportArray = Message["support"];
 			SupportArray.f_Insert("1");

@@ -32,8 +32,20 @@ namespace NMib
 				, EObserveNotification_Removed = DMibBit(2)
 			};
 			
+			enum EClientOption
+			{
+				EClientOption_None = 0
+				, EClientOption_MaintainDatabase = DMibBit(0)
+			};
+			
 			struct CConnectInfo
 			{
+				CConnectInfo(NStr::CStr const &_SessionID)
+					: m_SessionID(_SessionID)
+				{
+				}
+				
+				NStr::CStr m_SessionID;
 				NStr::CStr m_UserID;
 				NTime::CTime m_TokenExpires;
 				NStr::CStrSecure m_Token;
@@ -75,6 +87,7 @@ namespace NMib
 					, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory = fg_Default()
 					, NStr::CStr const &_Origin = NStr::CStr()
 					, NNet::FVirtualSocketFactory const &_SocketFactory = nullptr
+					, EClientOption _ClientOptions = EClientOption_MaintainDatabase
 				)
 			;
 			~CDDPClient();
@@ -87,6 +100,7 @@ namespace NMib
 					NStr::CStr const &_UserName
 					, NStr::CStrSecure const &_Password
 					, NStr::CStrSecure const &_Token
+					, NStr::CStr const &_SessionID
 					, fp32 _Timeout
 					, NConcurrency::TCActor<NConcurrency::CActor> &&_NotificationActor
 					, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
@@ -94,6 +108,14 @@ namespace NMib
 			;
 			
 			NConcurrency::TCContinuation<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
+			NConcurrency::TCContinuation<NEncoding::CEJSON> f_MethodWithUpdated
+				(
+					NStr::CStr const &_MethodName
+					, NContainer::TCVector<NEncoding::CEJSON> const &_Params
+					, NConcurrency::TCActor<NConcurrency::CActor> const &_OnUpdatedActor
+					, NFunction::TCFunction<void ()> &&_fOnUpdated
+				)
+			;
 			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_Subscribe
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
