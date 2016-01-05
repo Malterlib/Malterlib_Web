@@ -558,7 +558,8 @@ namespace NMib
 			Message["msg"] = "sub";
 			Message["id"] = Subscription.f_GetID();
 			Message["name"] = _SubscriptionName;
-			Message["params"] = _Params;
+			if (_Params.f_IsValid())
+				Message["params"] = _Params;
 
 			Internal.fp_SendMessage(Message);
 			
@@ -678,7 +679,6 @@ namespace NMib
 								Object.f_Object().f_RemoveMember(iField->f_AsString(""));
 						}
 					}
-					fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Changed);
 				}
 				else if (_Operation == EChangeOperation_Added)
 				{
