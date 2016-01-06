@@ -286,10 +286,10 @@ namespace NMib
 		{
 		}
 		
-		void CDDPServerConnection::CMethodInfo::f_Result(NEncoding::CEJSON const &_Result) const
+		void CDDPServerConnection::CMethodInfo::f_Result(NEncoding::CEJSON const &_Result, bool _bUpdated) const
 		{
 			if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
-				Actor(&CDDPServerConnection::fp_MethodResult, m_ID, _Result) > NConcurrency::fg_DiscardResult();
+				Actor(&CDDPServerConnection::fp_MethodResult, m_ID, _Result, _bUpdated) > NConcurrency::fg_DiscardResult();
 		}
 		
 		void CDDPServerConnection::CMethodInfo::f_Error(NEncoding::CEJSON const &_Error) const
@@ -543,7 +543,7 @@ namespace NMib
 			Internal.f_SendMessage(Message);
 		}		
 	
-		void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result)
+		void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result, bool _bUpdated)
 		{
 			auto &Internal = *mp_pInternal;
 
@@ -555,6 +555,15 @@ namespace NMib
 				Message["result"] = _Result;
 			
 			Internal.f_SendMessage(Message);
+			
+			if (_bUpdated)
+			{
+				NEncoding::CEJSON Message;
+				Message["msg"] = "updated";
+				auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
+				MethodsArray.f_Insert() = _MethodID;
+				Internal.f_SendMessage(Message);
+			}
 		}
 		
 		void CDDPServerConnection::fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Error)
