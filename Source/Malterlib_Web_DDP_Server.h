@@ -69,7 +69,7 @@ namespace NMib
 				CMethodInfo &operator =(CMethodInfo const &_Other);
 				CMethodInfo &operator =(CMethodInfo &&_Other);
 				
-                void f_Result(NEncoding::CEJSON const &_Result) const;
+                void f_Result(NEncoding::CEJSON const &_Result, bool _bUpdated = true) const;
                 void f_Error(NEncoding::CEJSON const &_Error) const;
 				
 			private:
@@ -161,7 +161,7 @@ namespace NMib
 		private:
 			void fp_AcceptConnection(NStr::CStr const &_SessionID);
 			void fp_RejectConnection();
-			void fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result);
+			void fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result, bool _bUpdated);
 			void fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Error);
 			void fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSON const &_Error);
 
