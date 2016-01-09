@@ -22,6 +22,8 @@ namespace NMib
 			NConcurrency::TCActorCallbackManager<void (CSubscribeInfo const &_SubscribeInfo)> m_OnSubscribe;
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_ID)> m_OnUnSubscribe;
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_Error)> m_OnError;
+			NConcurrency::TCActorCallbackManager<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
+
 			
 			NConcurrency::CActorCallback m_SockJSHeartbeatCallback;
 			
@@ -37,13 +39,9 @@ namespace NMib
 				, m_OnSubscribe(mp_pServerConnection, false)
 				, m_OnUnSubscribe(mp_pServerConnection, false)
 				, m_OnError(mp_pServerConnection, false)
+				, m_OnClose(mp_pServerConnection, false)
 				, m_ConnectionType(_ConnectionType)
 			{
-				m_pNewWebsocketConnection->m_fOnReceiveTextMessage = [this](NStr::CStr const &_Message)
-					{
-						fp_ReceiveMessage(_Message);
-					}
-				;
 			}
 			
 			void f_SendMessage(NEncoding::CEJSON const &_Data);
@@ -340,39 +338,6 @@ namespace NMib
 		
 		void CDDPServerConnection::f_Construct()
 		{
-			auto &Internal = *mp_pInternal;
-			Internal.m_WebSocket = Internal.m_pNewWebsocketConnection->f_Accept
-				(
-					"" // check which protocol
-					, fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Callback)
-					{
-						if (_Callback)
-							mp_pInternal->m_WebSocketCallbacks = fg_Move(*_Callback);
-					}
-				)
-			;
-			if (Internal.m_ConnectionType == EConnectionType_SockJSWebsocket)
-			{
-				Internal.m_WebSocket(&CWebSocketActor::f_SendText, "o", 0) > NConcurrency::fg_DiscardResult(); // Open frame
-				NConcurrency::fg_TimerActor()
-					(
-						&NConcurrency::CTimerActor::f_RegisterTimer
-						, 25.0
-						, fg_ThisActor(this)
-						, [this]
-						{
-							auto &Internal = *mp_pInternal;
-							Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
-						}
-					)
-					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
-					{
-						auto &Internal = *mp_pInternal;
-						Internal.m_SockJSHeartbeatCallback = fg_Move(*_Result);
-					}
-				;
-			}
-			Internal.m_pNewWebsocketConnection.f_Clear();
 		}
 
 		NConcurrency::TCContinuation<void> CDDPServerConnection::f_Destroy()
@@ -409,6 +374,7 @@ namespace NMib
 				, NFunction::TCFunction<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
 				, NFunction::TCFunction<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
 				, NFunction::TCFunction<void (NStr::CStr const &_Error)> &&_fOnError
+				, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		{
 			auto &Internal = *mp_pInternal;
@@ -429,6 +395,71 @@ namespace NMib
 			
 			if (_fOnError)
 				pCombinedReference->m_References.f_Insert(Internal.m_OnError.f_Register(_Actor, fg_Move(_fOnError)));
+			
+			if (_fOnClose)
+			{
+				pCombinedReference->m_References.f_Insert(Internal.m_OnClose.f_Register(_Actor, fg_Move(_fOnClose)));
+				Internal.m_pNewWebsocketConnection->m_fOnClose = 
+					[this, ThisWeak = fg_ThisActor(this).f_Weak()](EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
+					{
+						auto ThisActor = ThisWeak.f_Lock();
+						if (ThisActor)
+						{
+							ThisActor
+								(
+									&CActor::f_Dispatch
+									, [this, _Reason, _Message, _Origin]
+									{
+										auto &Internal = *mp_pInternal;
+										Internal.m_OnClose(_Reason, _Message, _Origin);
+									}
+								)
+								> NConcurrency::fg_DiscardResult()
+							;
+						}
+					}
+				;
+			}
+
+			auto pInternal = &Internal;
+			Internal.m_pNewWebsocketConnection->m_fOnReceiveTextMessage = [pInternal](NStr::CStr const &_Message)
+				{
+					pInternal->fp_ReceiveMessage(_Message);
+				}
+			;
+			
+			Internal.m_WebSocket = Internal.m_pNewWebsocketConnection->f_Accept
+				(
+					"" // check which protocol
+					, fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Callback)
+					{
+						if (_Callback)
+							mp_pInternal->m_WebSocketCallbacks = fg_Move(*_Callback);
+					}
+				)
+			;
+			if (Internal.m_ConnectionType == EConnectionType_SockJSWebsocket)
+			{
+				Internal.m_WebSocket(&CWebSocketActor::f_SendText, "o", 0) > NConcurrency::fg_DiscardResult(); // Open frame
+				NConcurrency::fg_TimerActor()
+					(
+						&NConcurrency::CTimerActor::f_RegisterTimer
+						, 25.0
+						, fg_ThisActor(this)
+						, [this]
+						{
+							auto &Internal = *mp_pInternal;
+							Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
+						}
+					)
+					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+					{
+						auto &Internal = *mp_pInternal;
+						Internal.m_SockJSHeartbeatCallback = fg_Move(*_Result);
+					}
+				;
+			}
+			Internal.m_pNewWebsocketConnection.f_Clear();
 			
 			return fg_Move(pCombinedReference);
 		}
@@ -509,6 +540,17 @@ namespace NMib
 						auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
 						for (auto &MethodID : Updated.m_IDs)
 							MethodsArray.f_Insert() = MethodID;
+						
+						Internal.f_SendMessage(Message);
+					}
+					break;
+                case EChange_NoSub:
+					{
+						auto &NoSub = Change.f_Get<EChange_NoSub>();
+
+						NEncoding::CEJSON Message;
+						Message["msg"] = "nosub";
+						Message["id"] = NoSub.m_SubscriptionID;
 						
 						Internal.f_SendMessage(Message);
 					}

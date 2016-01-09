@@ -30,6 +30,7 @@ namespace NMib
 				, EObserveNotification_Added = DMibBit(0)
 				, EObserveNotification_Changed = DMibBit(1)
 				, EObserveNotification_Removed = DMibBit(2)
+				, EObserveNotification_NoSub = DMibBit(3)
 			};
 			
 			enum EClientOption
@@ -94,7 +95,6 @@ namespace NMib
 
 			NConcurrency::TCContinuation<void> f_Destroy();
 
-
 			NConcurrency::TCContinuation<CConnectInfo> f_Connect
 				(
 					NStr::CStr const &_UserName
@@ -106,7 +106,6 @@ namespace NMib
 					, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 				)
 			;
-			
 			NConcurrency::TCContinuation<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
 			NConcurrency::TCContinuation<NEncoding::CEJSON> f_MethodWithUpdated
 				(
@@ -120,6 +119,7 @@ namespace NMib
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
 					, NStr::CStr const &_SubscriptionName
+					, NStr::CStr const &_SubscriptionID
 					, NEncoding::CEJSON const &_Params
 					, ESubscriptionNotification _NotifyOn
 					, NFunction::TCFunction<void (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
