@@ -539,14 +539,19 @@ namespace NMib
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
 				, NStr::CStr const &_SubscriptionName
+				, NStr::CStr const &_SubscriptionID
 				, NEncoding::CEJSON const &_Params
 				, ESubscriptionNotification _NotifyOn
 				, NFunction::TCFunction<void (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
 				, bool _bWaitForResponse
 			)
 		{
+			NStr::CStr SubscriptionID = _SubscriptionID;
+			
+			if (SubscriptionID.f_IsEmpty())
+				SubscriptionID = fs_RandomID();
 			auto &Internal = *mp_pInternal;
-			auto &Subscription = *Internal.m_Subscriptions(fs_RandomID(), this);
+			auto &Subscription = *Internal.m_Subscriptions(SubscriptionID, this);
 			
 			if (_Callback)
 				Subscription.m_NotifyOn = _NotifyOn;
@@ -556,7 +561,7 @@ namespace NMib
 			NEncoding::CEJSON Message;
 
 			Message["msg"] = "sub";
-			Message["id"] = Subscription.f_GetID();
+			Message["id"] = SubscriptionID;
 			Message["name"] = _SubscriptionName;
 			if (_Params.f_IsValid())
 				Message["params"] = _Params;
@@ -608,7 +613,7 @@ namespace NMib
 				{
 					for (auto &Observation : _CollectionObservations.m_Observations)
 					{
-						if (Observation.m_NotifyOn & EObserveNotification_Added)
+						if (Observation.m_NotifyOn & _Notification)
 							Observation.m_Callback(_Notification, _Message);
 					}
 				}
@@ -617,9 +622,12 @@ namespace NMib
 			auto *pCollectionObservations = m_Observations.f_FindEqual(NStr::CStr());
 			if (pCollectionObservations)
 				fNotify(*pCollectionObservations);
-			pCollectionObservations = m_Observations.f_FindEqual(_Collection);
-			if (pCollectionObservations)
-				fNotify(*pCollectionObservations);
+			if (!_Collection.f_IsEmpty())
+			{
+				pCollectionObservations = m_Observations.f_FindEqual(_Collection);
+				if (pCollectionObservations)
+					fNotify(*pCollectionObservations);
+			}
 		}
 		
 		void CDDPClient::CInternal::fp_HandleRemoved(NEncoding::CEJSON const &_Message)
@@ -768,27 +776,31 @@ namespace NMib
 			if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
 				return;
 			
-			if (auto pSub = m_Subscriptions.f_FindEqual(CCollection::fs_IDParse(pID->f_String())))
+			auto pError = _Message.f_GetMember("error");
+			
+			if (pError)
 			{
-				pSub->m_bWasError = true;
-				if (pSub->m_OnError)
+				if (auto pSub = m_Subscriptions.f_FindEqual(CCollection::fs_IDParse(pID->f_String())))
 				{
-					NStr::CStr ErrorMessage;
-					auto pError = _Message.f_GetMember("error");
-					if (pError)
+					pSub->m_bWasError = true;
+					if (pSub->m_OnError)
+					{
+						NStr::CStr ErrorMessage;
 						ErrorMessage = fg_DecodeError(*pError);
-					else
-						ErrorMessage = "sub-not-found: Subscription not found";
-					
-					pSub->m_OnError(ErrorMessage);
+						
+						pSub->m_OnError(ErrorMessage);
 
-					pSub->m_OnError.f_Clear();
-					pSub->m_OnReady.f_Clear();
+						pSub->m_OnError.f_Clear();
+						pSub->m_OnReady.f_Clear();
+					}
+
+					if (pSub->m_NotifyOn & ESubscriptionNotification_Error)
+						pSub->m_Callback(ESubscriptionNotification_Error, _Message);
 				}
-
-				if (pSub->m_NotifyOn & ESubscriptionNotification_Error)
-					pSub->m_Callback(ESubscriptionNotification_Error, _Message);
 			}
+
+			if (!pError)
+				fp_NotifyObserve(NStr::CStr(), _Message, EObserveNotification_NoSub);
 		}
 		
 		void CDDPClient::CInternal::fp_ReceiveMessage(NStr::CStr const &_Message)

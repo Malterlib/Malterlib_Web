@@ -28,6 +28,7 @@ namespace NMib
                 , EChange_Removed
                 , EChange_Ready
                 , EChange_Updated
+                , EChange_NoSub
             };
 
             struct CConnectionInfo
@@ -130,13 +131,27 @@ namespace NMib
                 NContainer::TCVector<NStr::CStr> m_Subscriptions;
             };
             
+            struct CNoSub
+            {
+                NStr::CStr m_SubscriptionID;
+            };
+            
             struct CUpdated
             {
 				NContainer::TCVector<NStr::CStr> m_IDs;
             };
 			
 			using CChange
-				= NContainer::TCStreamableVariant<EChange, CAdded, EChange_Added, CChanged, EChange_Changed, CRemoved, EChange_Removed, CReady, EChange_Ready, CUpdated, EChange_Updated>
+				= NContainer::TCStreamableVariant
+				<
+					EChange
+					, CAdded, EChange_Added
+					, CChanged, EChange_Changed
+					, CRemoved, EChange_Removed
+					, CReady, EChange_Ready
+					, CUpdated, EChange_Updated
+					, CNoSub, EChange_NoSub
+				>
 			;
             
 			CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType);
@@ -153,6 +168,7 @@ namespace NMib
                     , NFunction::TCFunction<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
                     , NFunction::TCFunction<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
 					, NFunction::TCFunction<void (NStr::CStr const &_Error)> &&_fOnError
+					, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 				)
 			;
             
