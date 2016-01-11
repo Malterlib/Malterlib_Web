@@ -214,6 +214,31 @@ namespace NMib
 			mp_Fields[EGeneralField_Connection] = _Value;
 		}
 
+		namespace 
+		{
+			ch8 const *g_WeekDays[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+			ch8 const *g_Months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+		}
+		
+		void CGeneralFields::f_SetDate(NTime::CTime const& _Value)
+		{
+			NTime::CTimeConvert::CDateTime DateTime;
+			NTime::CTimeConvert(_Value).f_ExtractDateTime(DateTime);
+			
+			mp_Fields[EGeneralField_Date] = NStr::fg_Format
+				(
+					"{}, {sj2,sf0} {} {} {sf2,sj0}:{sf2,sj0}:{sf2,sj0} GMT"
+					, g_WeekDays[DateTime.m_DayOfWeek]
+					, DateTime.m_DayOfMonth
+					, g_Months[DateTime.m_Month]
+					, DateTime.m_Year
+					, DateTime.m_Hour
+					, DateTime.m_Minute
+					, DateTime.m_Second
+				)
+			;
+		}
+
 		void CGeneralFields::f_SetDate(NStr::CStr const& _Value)
 		{
 			mp_Fields[EGeneralField_Date] = _Value;

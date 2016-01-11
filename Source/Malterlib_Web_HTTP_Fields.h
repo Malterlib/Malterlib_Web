@@ -188,6 +188,7 @@ namespace NMib
 			void f_SetCacheControl(NStr::CStr const& _Value);
 			void f_SetConnection(EConnectionToken _Value);
 			void f_SetDate(NStr::CStr const& _Value);
+			void f_SetDate(NTime::CTime const& _Value);
 			void f_SetPragma(NStr::CStr const& _Value);
 			void f_SetTrailer(NStr::CStr const& _Value);
 			void f_SetTransferEncoding(ETransferEncoding _Value);
