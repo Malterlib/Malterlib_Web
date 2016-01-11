@@ -142,6 +142,8 @@ namespace NMib
 			mint m_Framentationsize;
 			zbool m_bPendingMessage;
 			bool m_bClient;
+			bool m_bOnFinishDone = false;
+			bool m_bWantStopDefer = false;
 
 			NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 			NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
@@ -1219,6 +1221,17 @@ namespace NMib
 			}
 		}
 		
+		void CWebSocketActor::fp_TryStopDeferring()
+		{
+			auto &Internal = *mp_pInternal;
+			if (!Internal.m_bOnFinishDone)
+			{
+				Internal.m_bWantStopDefer = true;
+				return;
+			}
+			fp_StopDeferring();
+		}
+		
 		void CWebSocketActor::fp_StopDeferring()
 		{
 			auto &Internal = *mp_pInternal;
@@ -1240,12 +1253,12 @@ namespace NMib
 
 		void CWebSocketActor::fp_AcceptClientConnection()
 		{
-			fp_StopDeferring();
+			fp_TryStopDeferring();
 		}
 		
 		void CWebSocketActor::fp_RejectClientConnection(NStr::CStr const &_Error)
 		{
-			fp_StopDeferring();
+			fp_TryStopDeferring();
 			
 			fp_Disconnect(EWebSocketStatus_Rejected, NStr::fg_Format("Rejected connection: {}", _Error), false, EWebSocketCloseOrigin_Local);
 		}
@@ -1253,7 +1266,7 @@ namespace NMib
 		void CWebSocketActor::fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader)
 		{
 			auto &Internal = *mp_pInternal;
-			fp_StopDeferring();
+			fp_TryStopDeferring();
 			
 			NHTTP::CResponseHeader Response = fg_Move(_ResponseHeader);
 			
@@ -1296,10 +1309,10 @@ namespace NMib
 			
 		}
 		
-		void CWebSocketActor::fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader)
+		void CWebSocketActor::fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader, NStr::CStr const &_Content)
 		{
 			auto &Internal = *mp_pInternal;
-			fp_StopDeferring();
+			fp_TryStopDeferring();
 			
 			if (Internal.m_State != EState_HeaderReceived)
 			{
@@ -1326,7 +1339,10 @@ namespace NMib
 			
 			auto Content = Response.f_Complete();
 			
-			Content.f_SendString(_Error);
+			if (!_Content.f_IsEmpty())
+				Content.f_SendString(_Content);
+			else
+				Content.f_SendString(_Error);
 			fp_UpdateSend();
 			fp_Disconnect(EWebSocketStatus_Rejected, NStr::fg_Format("Rejected connection: {}", _Error), false, EWebSocketCloseOrigin_Local);
 		}
@@ -1386,7 +1402,12 @@ namespace NMib
 			)
 		{
 			auto &Internal = *mp_pInternal;
-			return Internal.m_OnFinishConnection.f_Register(fg_Move(_Actor), fg_Move(_fOnFinishConnection));
+			auto Return = Internal.m_OnFinishConnection.f_Register(fg_Move(_Actor), fg_Move(_fOnFinishConnection));
+			
+			if (Internal.m_bWantStopDefer)
+				fp_StopDeferring();
+
+			return Return;
 		}
 
 		NConcurrency::CActorCallback CWebSocketActor::fp_OnFinishClientConnection
@@ -1402,6 +1423,9 @@ namespace NMib
 		{
 			auto &Internal = *mp_pInternal;
 			auto Return = Internal.m_OnFinishClientConnection.f_Register(fg_Move(_Actor), fg_Move(_fOnFinishConnection));
+			
+			if (Internal.m_bWantStopDefer)
+				fp_StopDeferring();
 			
 			auto &Line = _RequestHeader.f_GetRequestLine();
 			Line.f_Set(NHTTP::EVersion_HTTP_1_1, NHTTP::EMethod_Get, _URI);

@@ -174,9 +174,10 @@ namespace NMib
 			void fp_ProcessState();
 			void fp_UpdateSend();
 			void fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader);
-			void fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader());
+			void fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader(), NStr::CStr const &_Content = NStr::CStr());
 			void fp_AcceptClientConnection();
 			void fp_StopDeferring();
+			void fp_TryStopDeferring();
 			void fp_RejectClientConnection(NStr::CStr const &_Error);
 			NConcurrency::CActorCallback fp_OnFinishServerConnection
 				(
