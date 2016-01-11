@@ -28,7 +28,7 @@ namespace NMib
 		{
 			if (!mp_pHelper->m_bRepliedToConnection.f_Exchange(true))
 			{
-				mp_Connection(&CWebSocketActor::fp_RejectServerConnection, _Error, fg_Move(_ResponseHeader))
+				mp_Connection(&CWebSocketActor::fp_RejectServerConnection, _Error, fg_Move(_ResponseHeader), NStr::CStr())
 					> NConcurrency::fg_DiscardResult()
 				;
 			}
@@ -51,7 +51,7 @@ namespace NMib
 		{
 			if (!m_bRepliedToConnection.f_Exchange(true))
 			{
-				m_Connection(&CWebSocketActor::fp_RejectServerConnection, "Abandoned", NHTTP::CResponseHeader())
+				m_Connection(&CWebSocketActor::fp_RejectServerConnection, "Abandoned", NHTTP::CResponseHeader(), NStr::CStr())
 					> NConcurrency::fg_DiscardResult()
 				;
 			}

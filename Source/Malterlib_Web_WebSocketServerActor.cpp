@@ -117,7 +117,7 @@ namespace NMib
 		void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> && _Connection)
 		{
 			auto pSubscription = &mp_pInternal->m_Subscriptions.f_Insert();
-			NPtr::TCSharedPointer<NAtomic::TCAtomic<bool>> pHandled = fg_Construct();
+			NPtr::TCSharedPointer<NAtomic::TCAtomic<bool>> pHandled = fg_Construct(false);
 			_Connection
 				(
 					&CWebSocketActor::fp_OnFinishServerConnection
