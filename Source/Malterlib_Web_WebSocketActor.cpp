@@ -11,6 +11,8 @@
 #include <Mib/Cryptography/RandomData>
 #include <Mib/Encoding/Base64>
 
+#include <Mib/Encoding/JSON>
+
 #include "Malterlib_Web_WebSocket.h"
 
 #if defined(DCompiler_clang) && !defined(DPlatformFamily_Emscripten)
@@ -1159,6 +1161,31 @@ namespace NMib
 										fp_RejectServerConnection(NStr::fg_Format("Unsupported HTTP method: {}. Only GET is supported", fg_HTTP_GetMethodName(RequestLine.f_GetMethod())));
 										break;
 									}
+									
+									NHTTP::CURL const &URI = RequestLine.f_GetURI();
+									auto &Paths = URI.f_GetPath();
+									if (Paths.f_GetLen() == 2 && Paths[0] == "sockjs" && Paths[1] == "info")
+									{
+										NEncoding::CJSON Reply;
+										Reply["websocket"] = true;
+										Reply["origins"].f_Array().f_Insert("*:*");
+										Reply["cookie_needed"] = false;
+										Reply["entropy"] = NMisc::fg_GetRandomUnsigned();
+										NStr::CStr ReplyText = Reply.f_ToString(nullptr);
+
+										NHTTP::CResponseHeader ResponseHeader;
+										
+										ResponseHeader.f_SetStatus(NHTTP::EStatus_OK);
+										ResponseHeader.f_GetEntityFields().f_SetUnknownField("access-control-allow-origin", "*");
+										ResponseHeader.f_GetGeneralFields().f_SetCacheControl("no-store, no-cache, must-revalidate, max-age=0");
+										ResponseHeader.f_GetGeneralFields().f_SetConnection(NHTTP::EConnectionToken_KeepAlive);
+										ResponseHeader.f_GetEntityFields().f_SetContentType("application/json; charset=UTF-8");
+										ResponseHeader.f_GetGeneralFields().f_SetDate(NTime::CTime::fs_NowUTC());
+										ResponseHeader.f_GetResponseFields().f_SetVary("Origin");
+										
+										fp_RejectServerConnection("Replied to SockJS info request", fg_Move(ResponseHeader), ReplyText);
+										break;
+									}								
 									
 									auto *pKey = EntityFields.f_GetUnknownField("Sec-WebSocket-Key");
 									if (!pKey)
