@@ -122,11 +122,10 @@ namespace NMib
 				(
 					&CWebSocketActor::fp_OnFinishServerConnection
 					, fg_ThisActor(this)
-					, [this, _Connection, pSubscription, pHandled, WeakThis = fg_ThisActor(this).f_Weak()]
+					, [this, _Connection, pSubscription, pHandled]
 					(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo)
 					{
-						auto This = WeakThis.f_Lock();
-						if (!This)
+						if (*pHandled)
 							return;
 						
 						switch (_Result)
