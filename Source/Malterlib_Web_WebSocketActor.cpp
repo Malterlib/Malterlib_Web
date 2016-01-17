@@ -182,11 +182,11 @@ namespace NMib
 		NConcurrency::CActorCallback CWebSocketActor::fp_SetCallbacks
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> && _Actor
-				, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
-				, NFunction::TCFunction<void (NStr::CStr const& _Message)> && _fReceiveTextMessage
-				, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
-				, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
-				, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const& _Message)> && _fReceiveTextMessage
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
+				, NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
 			)
 		{
 			auto &Internal = *mp_pInternal;

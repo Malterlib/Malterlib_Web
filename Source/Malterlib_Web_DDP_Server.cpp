@@ -324,7 +324,15 @@ namespace NMib
 		void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJSON const &_Error) const
 		{
 			if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
-				Actor(&CDDPServerConnection::fp_SubscriptionError, m_ID, _Error) > NConcurrency::fg_DiscardResult();
+			{
+				auto Error = _Error;
+				if (!Error.f_IsValid())
+				{
+					Error["error"] = "sub-not-found";
+					Error["reason"] = "Subscription not found";
+				}
+				Actor(&CDDPServerConnection::fp_SubscriptionError, m_ID, fg_Move(Error)) > NConcurrency::fg_DiscardResult();
+			}
 		}
 		
 		CDDPServerConnection::CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType)

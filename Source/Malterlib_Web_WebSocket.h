@@ -140,11 +140,11 @@ namespace NMib
 			NConcurrency::CActorCallback fp_SetCallbacks
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> && _Actor
-					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
-					, NFunction::TCFunction<void (NStr::CStr const& _Message)> && _fReceiveTextMessage
-					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
-					, NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
-					, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const& _Message)> && _fReceiveTextMessage
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
+					, NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
 				)
 			;
 
@@ -206,11 +206,11 @@ namespace NMib
 
 		struct CWebSocketNewConnection
 		{
-			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> m_fOnReceiveBinaryMessage;
-			NFunction::TCFunction<void (NStr::CStr const& _Message)> m_fOnReceiveTextMessage;
-			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePing;
-			NFunction::TCFunction<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePong;
-			NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> m_fOnReceiveBinaryMessage;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const& _Message)> m_fOnReceiveTextMessage;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePing;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_fOnReceivePong;
+			NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 			
 			CWebSocketNewConnection(CWebSocketNewConnection &&_Other)
 				: mp_Connection(fg_Move(_Other.mp_Connection))
