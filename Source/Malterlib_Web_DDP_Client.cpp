@@ -360,7 +360,7 @@ namespace NMib
 					, NHTTP::CRequest()
 					, fg_TempCopy(Internal.m_SocketFactory)
 				)
-				> [this, _SessionID, _Timeout, fOnClose = fg_Move(_fOnClose), WeakNotificationActor = fg_Move(WeakNotificationActor)](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+				> [this, _SessionID, _Timeout, fOnClose = fg_Move(_fOnClose), WeakNotificationActor = fg_Move(WeakNotificationActor)](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result) mutable
 				{
 					auto &Internal = *mp_pInternal;
 					if (!_Result)
@@ -385,7 +385,7 @@ namespace NMib
 								WeakNotificationActor = fg_Move(WeakNotificationActor)
 								, fOnClose = fg_Move(fOnClose)
 							]
-							(EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+							(EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin) mutable
 							{
 								auto NotificationActor = WeakNotificationActor.f_Lock();
 								
@@ -394,7 +394,7 @@ namespace NMib
 									NotificationActor
 										(
 											&CActor::f_Dispatch
-											, [fOnClose, _Reason, _Message, _Origin]
+											, [fOnClose = fg_Move(fOnClose), _Reason, _Message, _Origin] () mutable
 											{
 												fOnClose(_Reason, _Message, _Origin);
 											}

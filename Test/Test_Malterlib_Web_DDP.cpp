@@ -228,6 +228,9 @@ public:
 								{
 									f_ReportError(_Error);
 								}
+								, [this](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								{
+								}
 							)
 							> [pConnection](TCAsyncResult<CActorCallback> &&_Callback)
 							{
@@ -319,6 +322,7 @@ public:
 						&CDDPClient::f_Subscribe
 						, fg_ConcurrentActor()
 						, "testSub"
+						, ""
 						, CEJSON(fg_CreateVector<CEJSON>())
 						, CDDPClient::ESubscriptionNotification_Ready
 						| CDDPClient::ESubscriptionNotification_Error
@@ -409,6 +413,7 @@ public:
 									&CDDPClient::f_Subscribe
 									, fg_ConcurrentActor()
 									, "testFalseSub"
+									, ""
 									, CEJSON(fg_CreateVector<CEJSON>())
 									, CDDPClient::ESubscriptionNotification_None
 									, [](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
