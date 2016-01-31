@@ -604,7 +604,8 @@ namespace NMib
 
 		void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJSON const &_Message)
 		{
-			m_WebSocket(&CWebSocketActor::f_SendText, _Message.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
+			if (m_WebSocket)
+				m_WebSocket(&CWebSocketActor::f_SendText, _Message.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
 		}
 		
 		void CDDPClient::CInternal::fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJSON const &_Message, EObserveNotification _Notification)
