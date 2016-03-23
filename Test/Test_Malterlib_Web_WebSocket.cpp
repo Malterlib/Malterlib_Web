@@ -29,10 +29,14 @@ class CWebsocket_Tests : public NMib::NTest::CTest
 public:
 
 	
-	void fp_Test(NNet::FVirtualSocketFactory const &_ServerFactory, NNet::FVirtualSocketFactory const &_ClientFactory)
+	void fp_Test(NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories, bool _ExpectFailConnection)
 	{
 		DMibTestSuite("Connection")
 		{
+			auto Factories = _fGetFactories();
+			auto ServerFactory = fg_Get<0>(Factories);
+			auto ClientFactory = fg_Get<1>(Factories); 
+			
 			static char const *s_pCloseMessage = "Malterlib Web closed connection";
 
 			struct CState
@@ -156,7 +160,7 @@ public:
 						pState->m_AcceptError = _ConnectionInfo.m_Error;
 						pState->m_Event.f_Signal();
 					}
-					, fg_TempCopy(_ServerFactory)
+					, fg_TempCopy(ServerFactory)
 				)
 				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
 				{
@@ -186,7 +190,7 @@ public:
 					, "http://localhost"
 					, NContainer::fg_CreateVector<NStr::CStr>("Test")
 					, NHTTP::CRequest()
-					, fg_TempCopy(_ClientFactory)
+					, fg_TempCopy(ClientFactory)
 				)
 				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
@@ -249,6 +253,12 @@ public:
 				
 				DMibTest(!DMibExpr(bTimedOut));
 				
+				if (_ExpectFailConnection)
+				{
+					DMibTest(DMibExpr(pState->m_bAcceptError));
+					DMibExpectTrue(pState->m_AcceptError.f_Find(":certificate verify failed") > 0);
+					return;
+				}
 				DMibTest(!DMibExpr(pState->m_bAcceptError));
 				DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
 				
@@ -285,23 +295,96 @@ public:
 	{
 		DMibTestCategory("TCP")
 		{
-			fp_Test(nullptr, nullptr);
+			fp_Test
+				(
+					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					{
+						return {nullptr, nullptr};
+					}
+					, false
+				)
+			;
 		};
 
 		DMibTestCategory("SSL")
 		{
-			CSSLSettings ServerSettings;
+			fp_Test
+				(
+					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
 
-			CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
-			NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
-			CSSLSettings ClientSettings;
-			ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-			NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-			
-			fp_Test(CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext));
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, false
+				)
+			;
+		};
+		DMibTestCategory("SSL Client Certificate")
+		{
+			fp_Test
+				(
+					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						
+						TCVector<uint8> CertificateRequestData;
+						CSSLContext::fs_GenerateClientCertificateRequest("Test Client", CertificateRequestData, ClientSettings.m_PrivateKeyData);
+						CSSLContext::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, false
+				)
+			;
+		};
+		DMibTestCategory("SSL Client Certificate Incorrect")
+		{
+			fp_Test
+				(
+					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						
+						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
+
+						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, true
+				)
+			;
 		};
 	}
 };
