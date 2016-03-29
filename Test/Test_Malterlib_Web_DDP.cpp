@@ -298,10 +298,11 @@ public:
 			TCAtomic<mint> nRemoved{false};
 
 			{
+				auto &ConcurrentActor = fg_ConcurrentActor(); 
 				CActorCallback Observation = Client
 					(
 						&CDDPClient::f_Observe
-						, fg_ConcurrentActor()
+						, ConcurrentActor
 						, "testCollection"
 						, CDDPClient::EObserveNotification_Added
 						| CDDPClient::EObserveNotification_Changed
@@ -323,7 +324,7 @@ public:
 				CActorCallback Subscription = Client
 					(
 						&CDDPClient::f_Subscribe
-						, fg_ConcurrentActor()
+						, ConcurrentActor
 						, "testSub"
 						, ""
 						, CEJSON(fg_CreateVector<CEJSON>())
@@ -352,8 +353,8 @@ public:
 					Event.f_WaitTimeout(1.0);
 				}
 				
-				DMibAssert(nReady, ==, 1);
-				DMibAssert(nAdded, ==, 10);
+				DMibAssert(nReady.f_Load(), ==, 1);
+				DMibAssert(nAdded.f_Load(), ==, 10);
 				
 				auto fGetDocuments = [&]() -> TCMap<CStr, NEncoding::CEJSON>
 					{
@@ -414,7 +415,7 @@ public:
 							CActorCallback Subscription = Client
 								(
 									&CDDPClient::f_Subscribe
-									, fg_ConcurrentActor()
+									, ConcurrentActor
 									, "testFalseSub"
 									, ""
 									, CEJSON(fg_CreateVector<CEJSON>())
@@ -501,7 +502,7 @@ public:
 					{
 						CSSLSettings ServerSettings;
 
-						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, 1024);
 
 						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
@@ -517,6 +518,5 @@ public:
 		};
 	}
 };
-
 
 DMibTestRegister(CDDP_Tests, Malterlib::Web);

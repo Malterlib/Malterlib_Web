@@ -166,7 +166,7 @@ namespace NMib
 			
 			COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_pData, uint32 _Priority);
 			COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
-			void f_WriteQueuedMessages();
+			void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
 			static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
 		};
 
@@ -241,17 +241,23 @@ namespace NMib
 			return *pLastMessage;
 		}
 		
-		void CWebSocketActor::CInternal::f_WriteQueuedMessages()
+		void CWebSocketActor::CInternal::f_WriteQueuedMessages(EOpcode _UntilPriority)
 		{
 			if (m_PendingMessages.f_IsEmpty())
 				return;
-			mint TargetData = m_OutgoingData.f_GetFirstPageSpace();
-			if (TargetData < EOutgoingPageSize)
-				TargetData += EOutgoingPageSize;
-					
+			
 			mint OutgoingData = m_OutgoingData.f_GetLen();
-			if (OutgoingData >= TargetData)
-				return;
+			mint TargetData = 0;
+			
+			if (_UntilPriority == EOpcode_ContinuationFrame)
+			{
+				TargetData = m_OutgoingData.f_GetFirstPageSpace();
+				if (TargetData < EOutgoingPageSize)
+					TargetData += EOutgoingPageSize;
+						
+				if (OutgoingData >= TargetData)
+					return;
+			}
 			
 			auto pList = m_pLastPendingMessagesList;
 			
@@ -260,6 +266,15 @@ namespace NMib
 				pList = m_PendingMessages.f_FindLargest();
 				DMibCheck(pList);
 			}
+			else
+			{
+				auto *pHighestPrioList = m_PendingMessages.f_FindLargest();
+				if (m_PendingMessages.fs_GetKey(*pList) >= EOpcode_ConnectionClose)
+					pList = pHighestPrioList;
+			}
+			
+			if (m_PendingMessages.fs_GetKey(*pList) < _UntilPriority)
+				return;
 			
 			DMibCheck(!pList->f_IsEmpty());
 			
@@ -267,7 +282,7 @@ namespace NMib
 			
 			bool bFinished = false;
 			
-			while (OutgoingData < TargetData)
+			while (OutgoingData < TargetData || _UntilPriority > EOpcode_ContinuationFrame)
 			{
 				bFinished = pPending->m_bFinished;
 				
@@ -287,6 +302,8 @@ namespace NMib
 						pPending = nullptr;
 						break;
 					}
+					if (m_PendingMessages.fs_GetKey(*pList) < _UntilPriority)
+						break;
 				}
 				pPending = &pList->f_GetFirst();
 			}
@@ -486,11 +503,16 @@ namespace NMib
 			auto &Internal = *mp_pInternal;
 
 			if (Internal.m_State == EState_Disconnected)
+			{
+				if (_bFatal)
+					Internal.m_pSocket.f_Clear();
 				return; // Already disconnected
+			}
 
 			if (Internal.m_State == EState_Connected || Internal.m_State == EState_Disconnecting)
 			{
-				if (!_bFatal)
+				auto WasState = Internal.m_State;
+				if (!_bFatal && Internal.m_State == EState_Connected)
 				{
 					// Send packet to other side
 					
@@ -507,6 +529,7 @@ namespace NMib
 					else
 						Internal.f_SendMessage(EOpcode_ConnectionClose, nullptr, 0, true);
 					
+					Internal.m_State = EState_Disconnecting;
 					fp_UpdateSend();
 				}
 				if (_Origin == EWebSocketCloseOrigin_Remote)
@@ -519,10 +542,26 @@ namespace NMib
 						Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
 					}
 					Internal.m_OnClose(_Status, _Reason, _Origin);
+					
+					if (!_bFatal)
+					{
+						if (WasState == EState_Connected)
+						{
+							Internal.m_State = EState_Disconnected;
+							auto *pHighestPrioMessages = Internal.m_PendingMessages.f_FindLargest();
+							if (!pHighestPrioMessages || Internal.m_PendingMessages.fs_GetKey(*pHighestPrioMessages) < EOpcode_ConnectionClose)
+								fp_Shutdown();
+						}
+						else if (WasState == EState_Disconnecting)
+						{
+							Internal.m_State = EState_Disconnected;
+							fp_Shutdown();
+						}
+						return;
+					}
 				}
 				else if (!_bFatal)
 				{
-					Internal.m_State = EState_Disconnecting;
 					return;
 				}
 			}
@@ -548,6 +587,19 @@ namespace NMib
 			Internal.m_State = EState_Disconnected;
 		}
 		
+		void CWebSocketActor::fp_Shutdown()
+		{
+			try
+			{
+				auto &Internal = *mp_pInternal;
+				Internal.m_pSocket->f_Shutdown();
+			}
+			catch (NNet::CExceptionNet const &_Error)
+			{
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+			}
+		}
+		
 		void CWebSocketActor::fp_UpdateSend()
 		{
 			auto &Internal = *mp_pInternal;
@@ -556,6 +608,8 @@ namespace NMib
 
 			if (Internal.m_State == EState_Connected)
 				Internal.f_WriteQueuedMessages();
+			else if (Internal.m_State == EState_Disconnecting)				
+				Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
 			
 			while (!Internal.m_OutgoingData.f_IsEmpty() && Internal.m_pSocket->f_IsValid())
 			{
@@ -590,10 +644,14 @@ namespace NMib
 					break;
 				if (Internal.m_State == EState_Connected)
 					Internal.f_WriteQueuedMessages();
+				else if (Internal.m_State == EState_Disconnecting)				
+					Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
 			}
 			
 			if (Internal.m_State == EState_Disconnected && Internal.m_OutgoingData.f_IsEmpty())
-				Internal.m_pSocket.f_Clear();
+			{
+				fp_Shutdown();
+			}
 		}
 
 	/*
@@ -1223,6 +1281,7 @@ namespace NMib
 									
 									ConnectionInfo.m_ID = *pKey;
 									ConnectionInfo.m_ProtocolVersion = *pVersion;
+									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 									
 									Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 									bMoreWork = true;
@@ -1384,7 +1443,10 @@ namespace NMib
 			auto StateAdded = Internal.m_pSocket->f_GetState();
 			if (StateAdded & NNet::ENetTCPState_Closed)
 			{
-				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+				if (Internal.m_State != EState_Disconnected)
+					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+				else
+					Internal.m_pSocket.f_Clear();
 				return;
 			}
 			if (StateAdded & NNet::ENetTCPState_Read)

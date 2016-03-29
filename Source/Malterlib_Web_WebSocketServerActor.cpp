@@ -42,18 +42,90 @@ namespace NMib
 			m_OnFailedConnection.f_Clear();
 		}
 
-		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListen
+		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListenAddress
 			(
-				uint16 _StartListen		// The port to listen to
-				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
-				, NConcurrency::TCActor<NConcurrency::CActor> const& _Actor // The actor to receive new connections
-				, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> && _fNewConnection	// The functor called on the actor for each new connection 
-				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> && _fFailedConnection // The functor called on the actor for each connection attempt that failed
+				NContainer::TCVector<NNet::CNetAddress> &&_AddressesToListenTo
+				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
+				, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection 
+				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
 				, NNet::FVirtualSocketFactory &&_SocketFactory
 			)
 		{
-			if (!_SocketFactory)
-				_SocketFactory = NNet::CSocket_TCP::fs_GetFactory();
+			NNet::FVirtualSocketFactory SocketFactory = fg_Move(_SocketFactory);
+			if (!SocketFactory)
+				SocketFactory = NNet::CSocket_TCP::fs_GetFactory();
+			
+			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Ret;
+			try
+			{
+				if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
+					DMibError("Socket server is already listening");
+			
+				mp_pInternal->f_Clear();
+				auto NewReference = mp_pInternal->m_OnNewConnection.f_Register(_Actor, fg_Move(_fNewConnection));
+				auto FailedReference = mp_pInternal->m_OnFailedConnection.f_Register(_Actor, fg_Move(_fFailedConnection));
+				auto Reference = fg_CombinedCallbackReference(fg_Move(NewReference), fg_Move(FailedReference));
+				
+				mint nListenTo = _AddressesToListenTo.f_GetLen();
+				
+				mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
+
+				for (mint i = 0; i < nListenTo; ++i)
+				{
+					NNet::CNetAddress &Address = _AddressesToListenTo[i];
+
+					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
+					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize);
+					
+					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
+					
+					NPtr::TCUniquePointer<NNet::ICSocket> pListenSocket = SocketFactory();
+					pListenSocket->f_Listen
+						(
+							Address
+							, [WeakListenActor](NNet::ENetTCPState _StateAdded)
+							{
+								
+								auto ListenActor = WeakListenActor.f_Lock();
+								if (ListenActor)
+								{
+									ListenActor(&CListenActor::f_StateAdded, _StateAdded)
+										> NConcurrency::fg_DiscardResult()
+									;
+								}
+							}
+						)
+					;
+					
+					ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket))
+						> NConcurrency::fg_DiscardResult()
+					;
+				}			
+				
+				Ret.f_SetResult(fg_Move(Reference));
+				
+			}
+			catch (NException::CException const &)
+			{
+				mp_pInternal->f_Clear();
+				Ret.f_SetCurrentException();
+			}		
+			return Ret;
+		}
+		
+		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListen
+			(
+				uint16 _StartListen
+				, uint16 _nListen
+				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
+				, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection 
+				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
+				, NNet::FVirtualSocketFactory &&_SocketFactory
+			)
+		{
+			NNet::FVirtualSocketFactory SocketFactory = fg_Move(_SocketFactory);
+			if (!SocketFactory)
+				SocketFactory = NNet::CSocket_TCP::fs_GetFactory();
 			
 			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Ret;
 			try
@@ -80,7 +152,7 @@ namespace NMib
 					
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 					
-					NPtr::TCUniquePointer<NNet::ICSocket> pListenSocket = _SocketFactory();
+					NPtr::TCUniquePointer<NNet::ICSocket> pListenSocket = SocketFactory();
 					pListenSocket->f_Listen
 						(
 							Address
