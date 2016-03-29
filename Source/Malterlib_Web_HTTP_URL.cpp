@@ -5,17 +5,15 @@
 
 namespace NMib
 {
-
 	namespace NHTTP
 	{
-
 		//
 		// Static Utility Methods
 		//
 
 		// _Start can range from 0 -> Len-1
 		// _End can range from 0 -> Len or be -1 which == Len			
-		static bint fg_ParseU16Base10(uint16& _oNum, NStr::CStr const& _Str, aint _Start, aint _End);
+		static bint fg_ParseU16Base10(uint16 &_oNum, NStr::CStr const &_Str, aint _Start, aint _End);
 
 		//
 		// CURL Public Methods
@@ -26,17 +24,17 @@ namespace NMib
 
 		}
 
-		CURL::CURL(NStr::CStr const& _URL)
+		CURL::CURL(NStr::CStr const &_URL)
 		{
 			f_Decode(_URL);
 		}
 
-		CURL::CURL(CURL const& _ToCopy)
+		CURL::CURL(CURL const &_ToCopy)
 		{
 			*this = _ToCopy;
 		}
 
-		CURL::CURL(CURL&& _ToMove)
+		CURL::CURL(CURL &&_ToMove)
 		{
 			*this = fg_Move(_ToMove);
 		}
@@ -47,13 +45,13 @@ namespace NMib
 		}
 
 
-		CURL& CURL::operator=(NStr::CStr const& _URL)
+		CURL &CURL::operator =(NStr::CStr const &_URL)
 		{
 			f_Decode(_URL);
 			return *this;
 		}
 
-		CURL& CURL::operator=(CURL const& _ToCopy)
+		CURL &CURL::operator =(CURL const &_ToCopy)
 		{
 			mp_Flags = _ToCopy.mp_Flags;
 			mp_Scheme = _ToCopy.mp_Scheme;
@@ -61,13 +59,13 @@ namespace NMib
 			mp_Port = _ToCopy.mp_Port;
 			mp_Username = _ToCopy.mp_Username;
 			mp_Password = _ToCopy.mp_Password;
-			mp_lPath = _ToCopy.mp_lPath;
+			mp_Paths = _ToCopy.mp_Paths;
 			mp_Query = _ToCopy.mp_Query;
 			mp_Fragment = _ToCopy.mp_Fragment;
 			return *this;
 		}
 
-		CURL& CURL::operator=(CURL&& _ToMove)
+		CURL &CURL::operator =(CURL &&_ToMove)
 		{
 			mp_Flags = _ToMove.mp_Flags;
 			mp_Scheme = fg_Move(_ToMove.mp_Scheme);
@@ -75,13 +73,75 @@ namespace NMib
 			mp_Port = _ToMove.mp_Port;
 			mp_Username = fg_Move(_ToMove.mp_Username);
 			mp_Password = fg_Move(_ToMove.mp_Password);
-			mp_lPath = fg_Move(_ToMove.mp_lPath);
+			mp_Paths = fg_Move(_ToMove.mp_Paths);
 			mp_Query = fg_Move(_ToMove.mp_Query);
 			mp_Fragment = fg_Move(_ToMove.mp_Fragment);
 			_ToMove.f_Clear();
 			return *this;
-
 		}
+		
+		bool CURL::operator == (CURL const &_Right) const
+		{
+			return
+				NContainer::fg_TupleReferences
+				(
+					mp_Flags
+					, mp_Scheme
+					, mp_Host
+					, mp_Port
+					, mp_Username
+					, mp_Password
+					, mp_Paths
+					, mp_Query
+					, mp_Fragment
+				)
+				==
+				NContainer::fg_TupleReferences
+				(
+					_Right.mp_Flags
+					, _Right.mp_Scheme
+					, _Right.mp_Host
+					, _Right.mp_Port
+					, _Right.mp_Username
+					, _Right.mp_Password
+					, _Right.mp_Paths
+					, _Right.mp_Query
+					, _Right.mp_Fragment
+				)
+			;
+		}
+		
+		bool CURL::operator < (CURL const &_Right) const
+		{
+			return
+				NContainer::fg_TupleReferences
+				(
+					mp_Flags
+					, mp_Scheme
+					, mp_Host
+					, mp_Port
+					, mp_Username
+					, mp_Password
+					, mp_Paths
+					, mp_Query
+					, mp_Fragment
+				)
+				<
+				NContainer::fg_TupleReferences
+				(
+					_Right.mp_Flags
+					, _Right.mp_Scheme
+					, _Right.mp_Host
+					, _Right.mp_Port
+					, _Right.mp_Username
+					, _Right.mp_Password
+					, _Right.mp_Paths
+					, _Right.mp_Query
+					, _Right.mp_Fragment
+				)
+			;
+		}	
+		
 
 		EURLFlag CURL::f_GetFlags() const
 		{
@@ -90,10 +150,10 @@ namespace NMib
 
 		bint CURL::f_IsValid() const
 		{
-			return mp_Flags & EURLFlag_Valid;
+			return mp_Flags  &EURLFlag_Valid;
 		}
 
-		// Does the URL have a scheme, host & path?
+		// Does the URL have a scheme, host  &path?
 		bint CURL::f_IsFullURL() const
 		{
 			return f_HasAll(EURLFlag_Scheme | EURLFlag_Host | EURLFlag_Path);
@@ -107,12 +167,12 @@ namespace NMib
 			mp_Port = 0;
 			mp_Username.f_Clear();
 			mp_Password.f_Clear();
-			mp_lPath.f_Clear();
+			mp_Paths.f_Clear();
 			mp_Query.f_Clear();
 			mp_Fragment.f_Clear();
 		}
 
-		bint CURL::f_Decode(NStr::CStr const& _URL)
+		bint CURL::f_Decode(NStr::CStr const &_URL)
 		{
 			// The point of all of this is to touch the memory manager as little as possible.
 			// When we have a substring class this can be reduced even more (i.e. only when we decode something)
@@ -156,7 +216,7 @@ namespace NMib
 				{
 					aint iUserColonMark = URL.f_Find(iUserPassHostStart, ":", iUserPassAtMark - iUserPassHostStart);
 					if (iUserColonMark >= 0)
-					{ // URL has username & password
+					{ // URL has username  &password
 						mp_Username = URL.f_Slice(iUserPassHostStart, iUserColonMark);
 						mp_Password = URL.f_Slice(iUserColonMark + 1, iUserPassAtMark);
 
@@ -173,7 +233,7 @@ namespace NMib
 					iHostStart = iUserPassAtMark + 1;
 				}
 
-				// Extract Host & port:
+				// Extract Host  &port:
 				aint iPortColonMark = URL.f_Find(iHostStart, ":", iPathStartSlash - iHostStart);
 				if (iPortColonMark >= 0)
 				{ // Has port
@@ -208,7 +268,7 @@ namespace NMib
 
 				if ( fs_PercentDecode(PathSegment, URL, iCurSegmentStart, iCurSegmentEnd) )
 				{
-					mp_lPath.f_Insert( fg_Move(PathSegment) );
+					mp_Paths.f_Insert( fg_Move(PathSegment) );
 				}
 				else
 				{
@@ -246,32 +306,32 @@ namespace NMib
 			
 			// <scheme>://[<username>[:<password>]@]<server>[:<port>]/<path>[?<query>][#<fragmentID>]
 			
-			if (mp_Flags & EURLFlag_Scheme)
+			if (mp_Flags  &EURLFlag_Scheme)
 			{
 				fs_PercentEncode(Output, mp_Scheme);
 				Output += "://";
 			}
 			
-			if (mp_Flags & EURLFlag_Username)
+			if (mp_Flags  &EURLFlag_Username)
 			{
 				fs_PercentEncode(Output, mp_Username);
-				if (mp_Flags & EURLFlag_Password)
+				if (mp_Flags  &EURLFlag_Password)
 				{
 					Output += ":";
 					fs_PercentEncode(Output, mp_Password);
 				}				
 				Output += "@";
 			}
-			if (mp_Flags & EURLFlag_Host)
+			if (mp_Flags  &EURLFlag_Host)
 			{
 				fs_PercentEncode(Output, mp_Host);
-				if (mp_Flags & EURLFlag_Port)
+				if (mp_Flags  &EURLFlag_Port)
 					Output += NStr::CStr::CFormat(":{}") << mp_Port;
 			}
 			
-			if ((mp_Flags & EURLFlag_Path) && !mp_lPath.f_IsEmpty())
+			if ((mp_Flags  &EURLFlag_Path)  &&!mp_Paths.f_IsEmpty())
 			{
-				for (auto &Path : mp_lPath)
+				for (auto &Path : mp_Paths)
 				{
 					Output += "/";
 					fs_PercentEncode(Output, Path);
@@ -280,12 +340,12 @@ namespace NMib
 			else
 				Output += "/";
 			
-			if (mp_Flags & EURLFlag_Query)
+			if (mp_Flags  &EURLFlag_Query)
 			{
 				Output += "?";
 				fs_PercentEncode(Output, mp_Query);
 			}
-			if (mp_Flags & EURLFlag_Fragment)
+			if (mp_Flags  &EURLFlag_Fragment)
 			{
 				Output += "#";
 				fs_PercentEncode(Output, mp_Fragment);
@@ -298,62 +358,62 @@ namespace NMib
 
 		bint CURL::f_HasAll(EURLFlag _Flags) const
 		{
-			return (mp_Flags & _Flags) == _Flags;
+			return (mp_Flags  &_Flags) == _Flags;
 		}
 
 		bint CURL::f_HasAny(EURLFlag _Flags) const
 		{
-			return (mp_Flags & _Flags);
+			return (mp_Flags  &_Flags);
 		}
 
 		bint CURL::f_HasScheme() const
 		{
-			return mp_Flags & EURLFlag_Scheme;
+			return mp_Flags  &EURLFlag_Scheme;
 		}
 
 		bint CURL::f_HasHost() const
 		{
-			return mp_Flags & EURLFlag_Host;
+			return mp_Flags  &EURLFlag_Host;
 		}
 
 		bint CURL::f_HasPort() const
 		{
-			return mp_Flags & EURLFlag_Port;
+			return mp_Flags  &EURLFlag_Port;
 		}
 
 		bint CURL::f_HasUsername() const
 		{
-			return mp_Flags & EURLFlag_Username;
+			return mp_Flags  &EURLFlag_Username;
 		}
 
 		bint CURL::f_HasPassword() const
 		{
-			return mp_Flags & EURLFlag_Password;
+			return mp_Flags  &EURLFlag_Password;
 		}
 
 		bint CURL::f_HasPath() const
 		{
-			return mp_Flags & EURLFlag_Path;
+			return mp_Flags  &EURLFlag_Path;
 		}
 
 		bint CURL::f_HasQuery() const
 		{
-			return mp_Flags & EURLFlag_Query;
+			return mp_Flags  &EURLFlag_Query;
 		}
 
 		bint CURL::f_HasFragment() const
 		{
-			return mp_Flags & EURLFlag_Fragment;
+			return mp_Flags  &EURLFlag_Fragment;
 		}
 
 		// Access an URL field:
 
-		NStr::CStr const& CURL::f_GetScheme() const
+		NStr::CStr const &CURL::f_GetScheme() const
 		{
 			return mp_Scheme;
 		}
 
-		NStr::CStr const& CURL::f_GetHost() const
+		NStr::CStr const &CURL::f_GetHost() const
 		{
 			return mp_Host;
 		}
@@ -395,50 +455,50 @@ namespace NMib
 			return 0;
 		}
 
-		NStr::CStr const& CURL::f_GetUsername() const
+		NStr::CStr const &CURL::f_GetUsername() const
 		{
 			return mp_Username;
 		}
 
-		NStr::CStr const& CURL::f_GetPassword() const
+		NStr::CStr const &CURL::f_GetPassword() const
 		{
 			return mp_Password;
 		}
 
-		NContainer::TCVector<NStr::CStr> const& CURL::f_GetPath() const
+		NContainer::TCVector<NStr::CStr> const &CURL::f_GetPath() const
 		{
-			return mp_lPath;
+			return mp_Paths;
 		}
 		
 		NStr::CStr CURL::f_GetFullPath() const
 		{
 			NStr::CStr FullPath;
-			for (auto &Path : mp_lPath)
+			for (auto &Path : mp_Paths)
 				fg_AddStrSep(FullPath, Path, "/");
 			
 			return "/" + FullPath;
 		}
 
 
-		NStr::CStr const& CURL::f_GetQuery() const
+		NStr::CStr const &CURL::f_GetQuery() const
 		{
 			return mp_Query;
 		}
 
-		NStr::CStr const& CURL::f_GetFragment() const
+		NStr::CStr const &CURL::f_GetFragment() const
 		{
 			return mp_Fragment;
 		}
 
 		// Set an URL field:
 
-		void CURL::f_SetScheme(NStr::CStr const& _Scheme)
+		void CURL::f_SetScheme(NStr::CStr const &_Scheme)
 		{
 			mp_Scheme = _Scheme;
 			mp_Flags |= EURLFlag_Scheme;
 		}
 
-		void CURL::f_SetHost(NStr::CStr const& _Host)
+		void CURL::f_SetHost(NStr::CStr const &_Host)
 		{
 			mp_Host = _Host;
 			mp_Flags |= EURLFlag_Host;
@@ -450,37 +510,37 @@ namespace NMib
 			mp_Flags |= EURLFlag_Port;
 		}
 
-		void CURL::f_SetUsername(NStr::CStr const& _Username)
+		void CURL::f_SetUsername(NStr::CStr const &_Username)
 		{
 			mp_Username = _Username;
 			mp_Flags |= EURLFlag_Username;
 		}
 
-		void CURL::f_SetPassword(NStr::CStr const& _Password)
+		void CURL::f_SetPassword(NStr::CStr const &_Password)
 		{
 			mp_Password = _Password;
 			mp_Flags |= EURLFlag_Password;
 		}
 
-		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> const& _Path)
+		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path)
 		{
-			mp_lPath = _Path;
+			mp_Paths = _Path;
 			mp_Flags |= EURLFlag_Path;
 		}
 
-		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> && _Path)
+		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path)
 		{
-			mp_lPath = fg_Move(_Path);
+			mp_Paths = fg_Move(_Path);
 			mp_Flags |= EURLFlag_Path;
 		}
 
-		void CURL::f_SetQuery(NStr::CStr const& _Query)
+		void CURL::f_SetQuery(NStr::CStr const &_Query)
 		{
 			mp_Query = _Query;
 			mp_Flags |= EURLFlag_Query;
 		}
 
-		void CURL::f_SetFragment(NStr::CStr const& _Fragment)
+		void CURL::f_SetFragment(NStr::CStr const &_Fragment)
 		{
 			mp_Fragment = _Fragment;
 			mp_Flags |= EURLFlag_Fragment;
@@ -520,7 +580,7 @@ namespace NMib
 
 		void CURL::f_ClearPath()
 		{
-			mp_lPath.f_Clear();
+			mp_Paths.f_Clear();
 			mp_Flags &= ~EURLFlag_Path;
 		}
 
@@ -540,13 +600,13 @@ namespace NMib
 		// Utility Methods
 		//
 
-		static bint fg_DecodeHexChar(char& _oNum, char _Ch)
+		static bint fg_DecodeHexChar(char &_oNum, char _Ch)
 		{
-			if (_Ch >= '0' && _Ch <= '9')
+			if (_Ch >= '0'  &&_Ch <= '9')
 				_oNum = _Ch - '0';
-			else if (_Ch >= 'a' && _Ch <= 'f')
+			else if (_Ch >= 'a'  &&_Ch <= 'f')
 				_oNum = (_Ch - 'a') + 10;
-			else if (_Ch >= 'A' && _Ch <= 'F')
+			else if (_Ch >= 'A'  &&_Ch <= 'F')
 				_oNum = (_Ch - 'A') + 10;
 			else
 				return false;
@@ -556,7 +616,7 @@ namespace NMib
 
 		// _Start can range from 0 -> Len-1
 		// _End can range from 0 -> Len or be -1 which == Len			
-		bint fg_ParseU16Base10(uint16& o_Num, NStr::CStr const& _Str, aint _Start, aint _End)
+		bint fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End)
 		{
 			if (_End == -1)
 				_End = _Str.f_GetLen();
@@ -594,7 +654,7 @@ namespace NMib
 		{
 			NStr::CStr Path;
 
-			for (auto Segment : mp_lPath)
+			for (auto Segment : mp_Paths)
 			{
 				Path += "/";
 				Path += Segment;
@@ -630,7 +690,7 @@ namespace NMib
 
 		// _Start can range from 0 -> Len-1
 		// _End can range from 0 -> Len or be -1 which == Len			
-		bint CURL::fs_PercentDecode(NStr::CStr& _oResult, NStr::CStr const& _Str, aint _Start, aint _End)
+		bint CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
 		{
 			if (_End == -1)
 				_End = _Str.f_GetLen();
@@ -682,7 +742,7 @@ namespace NMib
 			{
 				// Check for the case of returning the whole string to get an implicit copy.
 				if (	pRunStart == _Str.f_GetStr()
-					&& 	pPtr == (_Str.f_GetStr() + _Str.f_GetLen()) )
+					 &&	pPtr == (_Str.f_GetStr() + _Str.f_GetLen()) )
 					Result = _Str;
 				else
 				{
@@ -694,7 +754,7 @@ namespace NMib
 			return true;
 		}
 		
-		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const& _Str)
+		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str)
 		{
 			NStr::CStr Str = _Str;
 			

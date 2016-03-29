@@ -46,34 +46,37 @@ namespace NMib
 			NStr::CStr mp_Username;
 			NStr::CStr mp_Password;
 
-			NContainer::TCVector<NStr::CStr> mp_lPath;
+			NContainer::TCVector<NStr::CStr> mp_Paths;
 
 			NStr::CStr mp_Query;
 			NStr::CStr mp_Fragment;
 
-			void fp_Parse(NStr::CStr const& _Str);			
+			void fp_Parse(NStr::CStr const &_Str);			
 
 		public:
 			CURL();
-			CURL(NStr::CStr const& _URL);
-			CURL(CURL const& _ToCopy);
-			CURL(CURL&& _ToMove);
+			CURL(NStr::CStr const &_URL);
+			CURL(CURL const &_ToCopy);
+			CURL(CURL &&_ToMove);
 			~CURL();
 
-			CURL& operator=(NStr::CStr const& _URL);
-			CURL& operator=(CURL const& _ToCopy);
-			CURL& operator=(CURL&& _ToMove);
+			CURL &operator =(NStr::CStr const &_URL);
+			CURL &operator =(CURL const &_ToCopy);
+			CURL &operator =(CURL &&_ToMove);
+
+			bool operator == (CURL const &_Right) const;
+			bool operator < (CURL const &_Right) const;
 
 			EURLFlag f_GetFlags() const;
 			
 			bint f_IsValid() const;
 
-			// Does the URL have a scheme, host & path?
+			// Does the URL have a scheme, host  &path?
 			bint f_IsFullURL() const;
 
 			void f_Clear();
 
-			bint f_Decode(NStr::CStr const& _URL);
+			bint f_Decode(NStr::CStr const &_URL);
 			NStr::CStr f_Encode() const;
 
 			// Test if the URL has a field:
@@ -92,28 +95,28 @@ namespace NMib
 
 			// Access an URL field:
 
-			NStr::CStr const& f_GetScheme() const;
-			NStr::CStr const& f_GetHost() const;
+			NStr::CStr const &f_GetScheme() const;
+			NStr::CStr const &f_GetHost() const;
 			uint16 f_GetPort() const;
 			uint16 f_GetPortFromScheme() const;
-			NStr::CStr const& f_GetUsername() const;
-			NStr::CStr const& f_GetPassword() const;
-			NContainer::TCVector<NStr::CStr> const& f_GetPath() const;
+			NStr::CStr const &f_GetUsername() const;
+			NStr::CStr const &f_GetPassword() const;
+			NContainer::TCVector<NStr::CStr> const &f_GetPath() const;
 			NStr::CStr f_GetFullPath() const;
-			NStr::CStr const& f_GetQuery() const;
-			NStr::CStr const& f_GetFragment() const;
+			NStr::CStr const &f_GetQuery() const;
+			NStr::CStr const &f_GetFragment() const;
 
 			// Set an URL field:
 
-			void f_SetScheme(NStr::CStr const& _Scheme);
-			void f_SetHost(NStr::CStr const& _Host);
+			void f_SetScheme(NStr::CStr const &_Scheme);
+			void f_SetHost(NStr::CStr const &_Host);
 			void f_SetPort(uint16);
-			void f_SetUsername(NStr::CStr const& _Username);
-			void f_SetPassword(NStr::CStr const& _Password);
-			void f_SetPath(NContainer::TCVector<NStr::CStr> const& _Path);
-			void f_SetPath(NContainer::TCVector<NStr::CStr> && _Path);
-			void f_SetQuery(NStr::CStr const& _Query);
-			void f_SetFragment(NStr::CStr const& _Fragment);
+			void f_SetUsername(NStr::CStr const &_Username);
+			void f_SetPassword(NStr::CStr const &_Password);
+			void f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path);
+			void f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path);
+			void f_SetQuery(NStr::CStr const &_Query);
+			void f_SetFragment(NStr::CStr const &_Fragment);
 
 			// Clear a URL field:
 
@@ -132,9 +135,9 @@ namespace NMib
 
 			// _Start can range from 0 -> Len-1
 			// _End can range from 0 -> Len or be -1 which == Len			
-			static bint fs_PercentDecode(NStr::CStr& _oResult, NStr::CStr const& _Str, aint _Start = 0, aint _End = -1);
+			static bint fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
-			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const& _Str);
+			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str);
 
 		};
 
