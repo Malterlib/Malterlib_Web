@@ -235,6 +235,8 @@ namespace NMib
 																				fg_Move(*_ConnectionInfo.m_pResponse)
 																				, fg_Move(_ConnectionInfo.m_Protocol)
 																				, fg_Move(ConnectionActor)
+																				, fg_Move(_ConnectionInfo.m_pSocketInfo)
+																				, _ConnectionInfo.m_PeerAddress
 																			)
 																		;
 														

@@ -1185,6 +1185,8 @@ namespace NMib
 											ConnectionInfo.m_Protocol = *pProtocol;
 										}
 									}
+									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
+									ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
 									Internal.m_State = EState_Connected;
 									Internal.m_OnFinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 									bMoreWork = true;

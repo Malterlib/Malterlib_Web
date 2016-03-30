@@ -110,6 +110,8 @@ namespace NMib
 				
 				NStr::CStr m_Protocol;
 				NPtr::TCSharedPointer<NHTTP::CResponseHeader> m_pResponse;
+				NPtr::TCUniquePointer<NNet::ICSocketConnectionInfo> m_pSocketInfo;
+				NMib::NNet::CNetAddress m_PeerAddress;
 				NStr::CStr m_Error;
 				EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 			};
@@ -238,20 +240,24 @@ namespace NMib
 		{
 			NHTTP::CResponseHeader m_Response;
 			NStr::CStr m_Protocol;
+			NPtr::TCUniquePointer<NNet::ICSocketConnectionInfo> m_pSocketInfo;
+			NMib::NNet::CNetAddress m_PeerAddress;
 			
 			template <typename tf_CResultCall>
 			NConcurrency::TCActor<CWebSocketActor> f_Accept(tf_CResultCall &&_CallbackResultCall);
 			void f_Reject(NStr::CStr const &_Error) const;
 			
-			CWebSocketNewClientConnection(NHTTP::CResponseHeader &&_Response, NStr::CStr &&_Protocol, NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+			CWebSocketNewClientConnection
+				(
+					NHTTP::CResponseHeader &&_Response
+					, NStr::CStr &&_Protocol
+					, NConcurrency::TCActor<CWebSocketActor> const &_Connection
+					, NPtr::TCUniquePointer<NNet::ICSocketConnectionInfo> &&_pSocketInfo
+					, NMib::NNet::CNetAddress const &_PeerAddress
+				)
+			;
 			~CWebSocketNewClientConnection();
-			CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other)
-				: CWebSocketNewConnection(fg_Move(_Other))
-				, m_Response(fg_Move(_Other.m_Response))
-				, m_Protocol(fg_Move(_Other.m_Protocol))
-				, mp_pHelper(fg_Move(_Other.mp_pHelper))
-			{
-			}
+			CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other);
 
 		private:
 			CWebSocketNewClientConnection &operator =(CWebSocketNewClientConnection const &);

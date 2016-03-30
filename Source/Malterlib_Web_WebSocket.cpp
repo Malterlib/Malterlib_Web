@@ -76,13 +76,25 @@ namespace NMib
 			}
 		}
 			
-		CWebSocketNewClientConnection::CWebSocketNewClientConnection(NHTTP::CResponseHeader &&_Response, NStr::CStr &&_Protocol, NConcurrency::TCActor<CWebSocketActor> const &_Connection)
+
+		CWebSocketNewClientConnection::CWebSocketNewClientConnection
+			(
+				NHTTP::CResponseHeader &&_Response
+				, NStr::CStr &&_Protocol
+				, NConcurrency::TCActor<CWebSocketActor> const &_Connection
+				, NPtr::TCUniquePointer<NNet::ICSocketConnectionInfo> &&_pSocketInfo
+				, NMib::NNet::CNetAddress const &_PeerAddress
+			)
 			: CWebSocketNewConnection(_Connection)
 			, m_Response(fg_Move(_Response))
 			, m_Protocol(fg_Move(_Protocol))
+			, m_pSocketInfo(fg_Move(_pSocketInfo))
+			, m_PeerAddress(_PeerAddress)
 			, mp_pHelper(fg_Construct(_Connection))
 		{
 		}
+		
+		CWebSocketNewClientConnection::CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other) = default;
 		
 		CWebSocketNewClientConnection::~CWebSocketNewClientConnection()
 		{
