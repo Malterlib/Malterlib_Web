@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+ // Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -16,7 +16,8 @@ namespace NMib
 		// RFC 6455 - 7.4.1.
 		enum EWebSocketStatus : uint16
 		{
-			EWebSocketStatus_NormalClosure				= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
+			EWebSocketStatus_None = 0
+			, EWebSocketStatus_NormalClosure				= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
 			, EWebSocketStatus_GoingAway				= 1001	/// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
 			, EWebSocketStatus_ProtocolError			= 1002	/// Indicates that an endpoint is terminating the connection due to a protocol error.
 			, EWebSocketStatus_UnsupportedData			= 1003	/// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an 
@@ -93,9 +94,11 @@ namespace NMib
 				NStr::CStr m_ID;
 				NStr::CStr m_ProtocolVersion;
 				NContainer::TCVector<NStr::CStr> m_Protocols;
-				NStr::CStr m_Error;
 				NPtr::TCSharedPointer<NHTTP::CRequest> m_pRequest;
 				NPtr::TCUniquePointer<NNet::ICSocketConnectionInfo> m_pSocketInfo;
+				NMib::NNet::CNetAddress m_PeerAddress;
+				NStr::CStr m_Error;
+				EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 			};
 			
 			struct CClientConnectionInfo
@@ -108,6 +111,7 @@ namespace NMib
 				NStr::CStr m_Protocol;
 				NPtr::TCSharedPointer<NHTTP::CResponseHeader> m_pResponse;
 				NStr::CStr m_Error;
+				EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 			};
 			
 		public:

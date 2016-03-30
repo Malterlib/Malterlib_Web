@@ -570,12 +570,14 @@ namespace NMib
 				if (Internal.m_bClient)
 				{
 					auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
+					ConnectionInfo.m_ErrorStatus = _Status;
 					ConnectionInfo.m_Error = _Reason;
 					Internal.m_OnFinishClientConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
 				}
 				else
 				{
 					auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CConnectionInfo>();
+					ConnectionInfo.m_ErrorStatus = _Status;
 					ConnectionInfo.m_Error = _Reason;
 					Internal.m_OnFinishConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
 				}
@@ -1282,6 +1284,7 @@ namespace NMib
 									ConnectionInfo.m_ID = *pKey;
 									ConnectionInfo.m_ProtocolVersion = *pVersion;
 									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
+									ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
 									
 									Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 									bMoreWork = true;
