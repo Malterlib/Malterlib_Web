@@ -73,7 +73,7 @@ namespace NMib
 					NMem::fg_MemClear(m_Mask); // MSVC does not support inline initializing of array
 				}
 				uint64 m_Length = 0;
-				NContainer::TCVector<uint8> m_Data;
+				NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> m_Data;
 				mint m_Position = 0;
 				uint8 m_Mask[4];
 				CHeader m_Header;
@@ -82,7 +82,7 @@ namespace NMib
 			
 			struct COutgoingMessage
 			{
-				NPtr::TCSharedPointer<NContainer::TCVector<uint8>> m_pData;
+				NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> m_pData;
 				EOpcode m_Opcode;
 				NPtr::TCUniquePointer<NConcurrency::TCContinuation<void>> m_pContinuation;
 				zbool m_bFinished;
@@ -152,10 +152,10 @@ namespace NMib
 			
 			NPtr::TCUniquePointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
 
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> m_OnReceiveBinaryMessage;
+			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_OnReceiveBinaryMessage;
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_OnReceivePing;
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> m_OnReceivePong;
+			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePing;
+			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePong;
 			NConcurrency::TCActorCallbackManager<void (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
 			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_OnFinishConnection;
 			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_OnFinishClientConnection;
@@ -164,7 +164,7 @@ namespace NMib
 			void f_HandleDataMessage(CMessage &_Message);
 			void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, bool _bFinished);
 			
-			COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_pData, uint32 _Priority);
+			COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pData, uint32 _Priority);
 			COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
 			void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
 			static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
@@ -182,10 +182,10 @@ namespace NMib
 		NConcurrency::CActorCallback CWebSocketActor::fp_SetCallbacks
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> && _Actor
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _pMessage)> && _fReceiveBinaryMessage
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> && _fReceiveBinaryMessage
 				, NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const& _Message)> && _fReceiveTextMessage
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePing
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const& _ApplicationData)> && _fReceivePong
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePing
+				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePong
 				, NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
 			)
 		{
@@ -205,7 +205,7 @@ namespace NMib
 			return fg_Move(pCombinedReference);
 		}
 
-		COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_pData, uint32 _Priority)
+		COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pData, uint32 _Priority)
 		{
 			auto &NewMessage = m_PendingMessages[_Priority].f_Insert();
 			NewMessage.m_pData = _pData;
@@ -225,7 +225,7 @@ namespace NMib
 			while (true)
 			{
 				mint ThisTime = fg_Min(nBytes, m_Framentationsize);
-				NContainer::TCVector<uint8> VectorData;
+				NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> VectorData;
 				VectorData.f_Insert(pBytes, ThisTime);
 				nBytes -= ThisTime;
 				pBytes += ThisTime;
@@ -331,7 +331,7 @@ namespace NMib
 			return *Internal.m_pCloseContinuation;
 		}
 		
-		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _Message, uint32 _Priority)
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority)
 		{
 			auto &Internal = *mp_pInternal;
 			
@@ -398,7 +398,7 @@ namespace NMib
 			
 			return Result;
 		}
-		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData)
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData)
 		{
 			auto &Internal = *mp_pInternal;
 			NConcurrency::TCContinuation<void> Result;
@@ -416,7 +416,7 @@ namespace NMib
 			
 			return Result;
 		}
-		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData)
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData)
 		{
 			auto &Internal = *mp_pInternal;
 			NConcurrency::TCContinuation<void> Result;
@@ -1157,7 +1157,7 @@ namespace NMib
 										
 										NDataProcessing::CHash_SHA1::CMessageDigest Digest = Hash;
 										
-										NContainer::TCVector<uint8> DigestData;
+										NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> DigestData;
 										DigestData.f_Insert(Digest.f_GetData(), Digest.fs_GetSize());
 										
 										NStr::CStr CorrectKey = NDataProcessing::fg_Base64Encode(DigestData);
@@ -1385,7 +1385,7 @@ namespace NMib
 			Hash.f_AddData("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36);
 			NDataProcessing::CHash_SHA1::CMessageDigest Digest = Hash;
 			
-			NContainer::TCVector<uint8> DigestData;
+			NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> DigestData;
 			DigestData.f_Insert(Digest.f_GetData(), Digest.fs_GetSize());
 			
 			EntityFields.f_SetUnknownField("Sec-WebSocket-Accept", NDataProcessing::fg_Base64Encode(DigestData));
@@ -1535,7 +1535,7 @@ namespace NMib
 			for (auto &Protocol : _Protocols)
 				fg_AddStrSep(Protocols, Protocol, ", ");
 			
-			NContainer::TCVector<uint8> RandomData;
+			NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> RandomData;
 			RandomData.f_SetLen(16);
 			NCryptography::fg_GenerateRandomData(RandomData.f_GetArray(), RandomData.f_GetLen());
 			
@@ -1550,7 +1550,7 @@ namespace NMib
 				Internal.m_ClientConnectionInput.m_Protocols[Protocol];
 			Internal.m_ClientConnectionInput.m_EncodedKey = EncodedRandomData;
 			
-			NContainer::TCVector<uint8> SendData;
+			NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure> SendData;
 			_RequestHeader.f_WriteHeaders
 				(
 					[&](uint8 const *_pData, mint _nBytes)

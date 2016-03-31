@@ -8,6 +8,7 @@
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
 #include <Mib/Network/Socket>
+#include <Mib/Memory/Allocators/Secure>
 
 namespace NMib
 {
@@ -123,10 +124,10 @@ namespace NMib
 			
 			void f_SetTimeout(fp64 _Seconds);
 			
-			NConcurrency::TCContinuation<void> f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _Message, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority);
 			NConcurrency::TCContinuation<void> f_SendText(NStr::CStr const &_Data, uint32 _Priority);
-			NConcurrency::TCContinuation<void> f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData);
-			NConcurrency::TCContinuation<void> f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8>> _ApplicationData);
+			NConcurrency::TCContinuation<void> f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData);
+			NConcurrency::TCContinuation<void> f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData);
 			
 			NConcurrency::TCContinuation<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
 			
@@ -149,10 +150,10 @@ namespace NMib
 			NConcurrency::CActorCallback fp_SetCallbacks
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_pMessage)> &&_fReceiveBinaryMessage
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pMessage)> &&_fReceiveBinaryMessage
 					, NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const &_Message)> &&_fReceiveTextMessage
-					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_ApplicationData)> &&_fReceivePing
-					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_ApplicationData)> &&_fReceivePong
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_ApplicationData)> &&_fReceivePing
+					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_ApplicationData)> &&_fReceivePong
 					, NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 				)
 			;
@@ -216,10 +217,10 @@ namespace NMib
 
 		struct CWebSocketNewConnection
 		{
-			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_Message)> m_fOnReceiveBinaryMessage;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_Message)> m_fOnReceiveBinaryMessage;
 			NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const &_Message)> m_fOnReceiveTextMessage;
-			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_ApplicationData)> m_fOnReceivePing;
-			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8>> const &_ApplicationData)> m_fOnReceivePong;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_ApplicationData)> m_fOnReceivePing;
+			NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_ApplicationData)> m_fOnReceivePong;
 			NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 			
 			CWebSocketNewConnection(CWebSocketNewConnection &&_Other)
