@@ -337,8 +337,6 @@ namespace NMib
 			
 			NConcurrency::TCContinuation<void> Result;
 			
-			NStr::CStr Data;
-			
 			mint nBytes = _Message->f_GetLen();
 
 			if (nBytes > Internal.m_MaxMessageSize)
@@ -357,6 +355,7 @@ namespace NMib
 			{
 				auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _Message, _Priority);
 				NewMessage.m_pContinuation = fg_Construct(Result);
+				fp_UpdateSend();
 				return Result;
 			}
 			
