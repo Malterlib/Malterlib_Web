@@ -41,6 +41,9 @@ namespace NMib
 			
 			struct CConnectInfo
 			{
+				CConnectInfo()
+				{
+				}
 				CConnectInfo(NStr::CStr const &_SessionID)
 					: m_SessionID(_SessionID)
 				{

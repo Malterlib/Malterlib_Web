@@ -767,7 +767,7 @@ namespace NMib
 				uch8 Character = (uch8)*pParse;
 				if (Character <= 32 || Character >= 128 || NStr::fg_StrFindChar(pReserved, Character) >= 0)
 				{
-					o_Result += NStr::CStr::CFormat("%{nfh,sf2,sj0}") << Character;
+					o_Result += NStr::CStr::CFormat("%{nfh,sf0,sj2}") << Character;
 				}
 				else
 					o_Result.f_AddChar(*pParse);

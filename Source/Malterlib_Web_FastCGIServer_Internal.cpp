@@ -37,7 +37,7 @@ namespace NMib
 			if (mp_Connections.f_Remove(_Connection))
 			{
 				auto pCanDestroy = mp_pCanDestroyTracker;
-				_Connection->f_Destroy(fg_ThisActor(this) / [pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result) {});
+				_Connection->f_Destroy([pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result) {});
 			}
 		}
 		
@@ -46,12 +46,12 @@ namespace NMib
 			auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
 			
 			for (auto& ListenSocket : mp_ListenSockets)
-				ListenSocket->f_Destroy(fg_ThisActor(this) / [pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
+				ListenSocket->f_Destroy([pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
 			
 			mp_ListenSockets.f_Clear();
 			
 			for (auto& Connection : mp_Connections)
-				Connection->f_Destroy(fg_ThisActor(this) / [pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
+				Connection->f_Destroy([pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
 			mp_Connections.f_Clear();
 			
 			return pCanDestroy->m_Continuation;

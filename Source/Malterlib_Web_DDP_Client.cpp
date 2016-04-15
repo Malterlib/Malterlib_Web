@@ -659,12 +659,12 @@ namespace NMib
 			auto pCollection = _Message.f_GetMember("collection");
 			auto pID = _Message.f_GetMember("id");
 			auto pFields = _Message.f_GetMember("fields");
-			
+
 			if (!pCollection || pCollection->f_Type() != NEncoding::EJSONType_String)
 				return;
 			if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
 				return;
-			if (!pFields || pFields->f_Type() != NEncoding::EJSONType_Object)
+			if (pFields && pFields->f_Type() != NEncoding::EJSONType_Object)
 				return;
 			
 			auto const ID = CCollection::fs_IDParse(pID->f_String());
@@ -676,23 +676,26 @@ namespace NMib
 				auto &Collection = m_Collections[pCollection->f_String()];
 				auto &Object = Collection.m_Documents[ID];
 				
-				if (_Operation == EChangeOperation_Changed)
+				if (pFields)
 				{
-					for (auto iField = pFields->f_Object().f_OrderedIterator(); iField; ++iField)
-						Object[iField->f_Name()] = iField->f_Value();
-					
+					if (_Operation == EChangeOperation_Changed)
 					{
-						auto pCleared = _Message.f_GetMember("cleared");
-						if (pCleared && pCleared->f_Type() == NEncoding::EJSONType_Array)
+						for (auto iField = pFields->f_Object().f_OrderedIterator(); iField; ++iField)
+							Object[iField->f_Name()] = iField->f_Value();
+						
 						{
-							for (auto iField = pCleared->f_Array().f_GetIterator(); iField; ++iField)
-								Object.f_Object().f_RemoveMember(iField->f_AsString(""));
+							auto pCleared = _Message.f_GetMember("cleared");
+							if (pCleared && pCleared->f_Type() == NEncoding::EJSONType_Array)
+							{
+								for (auto iField = pCleared->f_Array().f_GetIterator(); iField; ++iField)
+									Object.f_Object().f_RemoveMember(iField->f_AsString(""));
+							}
 						}
 					}
-				}
-				else if (_Operation == EChangeOperation_Added)
-				{
-					Object = pFields->f_Object();
+					else if (_Operation == EChangeOperation_Added)
+					{
+						Object = pFields->f_Object();
+					}
 				}
 			}
 			if (_Operation == EChangeOperation_Changed)
