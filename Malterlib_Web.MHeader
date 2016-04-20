@@ -26,6 +26,10 @@ Import "../Core/Lib_Malterlib.MTarget"
 	{
 		Dependency.Indirect true
 	}
+	%Dependency Lib_Malterlib_Concurrency
+	{
+		Dependency.Indirect true
+	}	
 }
 
 
@@ -70,7 +74,7 @@ Property
 	
 	MalterlibTests "Malterlib_Web;@(MalterlibTests)"
 	MalterlibTestFiles_Malterlib_Web "@('Test/*'->MakeAbsolute())"
-	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web;Lib_Malterlib_Concurrency"
+	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web"
 	MalterlibTestExtraGroups_Malterlib_Web "{Test}/{Malterlib_Web}"
 }
 
