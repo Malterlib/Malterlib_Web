@@ -70,7 +70,7 @@ Property
 	
 	MalterlibTests "Malterlib_Web;@(MalterlibTests)"
 	MalterlibTestFiles_Malterlib_Web "@('Test/*'->MakeAbsolute())"
-	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web"
+	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web;Lib_Malterlib_Concurrency"
 	MalterlibTestExtraGroups_Malterlib_Web "{Test}/{Malterlib_Web}"
 }
 
