@@ -502,7 +502,12 @@ public:
 					{
 						CSSLSettings ServerSettings;
 
-						CSSLContext::fs_GenerateSelfSignedCertAndKey("Malterlib test Self Signed", fg_CreateVector<CStr>("localhost"), ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, 1024);
+						CSSLContext::CCertificateOptions ServerOptions;
+						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeyLength = 1024;
+						
+						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
 						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
