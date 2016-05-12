@@ -192,6 +192,7 @@ public:
 					&CWebSocketClientActor::f_Connect
 					, "localhost"
 					, ""
+					, NNet::ENetAddressType_None
 					, 10500
 					, "/Test"
 					, "http://localhost"

@@ -108,6 +108,7 @@ namespace NMib
 			(
 				NStr::CStr const& _ConnectToAddress
 				, NStr::CStr const& _BindToAddress
+				, NMib::NNet::ENetAddressType _PreferAddress
 				, uint16 _Port
 				, NStr::CStr const& _URI
 				, NStr::CStr const& _Origin
@@ -131,8 +132,8 @@ namespace NMib
 			
 			NPtr::TCSharedPointer<NHTTP::CRequest> pRequest = fg_Construct(fg_Move(_Request));
 			
-			mp_AddressResolver(&CAddressResolverActor::f_Resolve, _ConnectToAddress, NNet::ENetAddressType_None)
-				+ mp_AddressResolver(&CAddressResolverActor::f_Resolve, _BindToAddress, NNet::ENetAddressType_None)
+			mp_AddressResolver(&CAddressResolverActor::f_Resolve, _ConnectToAddress, _PreferAddress)
+				+ mp_AddressResolver(&CAddressResolverActor::f_Resolve, _BindToAddress, _PreferAddress)
 				> [Continuation, _Port, pRequest, this, _ConnectToAddress, _URI, _Origin, _Protocols, _SocketFactory]
 				(
 					NConcurrency::TCAsyncResult<NNet::CNetAddress> &&_Result
