@@ -99,7 +99,7 @@ namespace NMib
 			~CResponseHeader();
 
 			void f_SetOutputMethod(COutputMethod &&_OutputMethod);
-			void f_SetStatus(EStatus _Status, EVersion _Version = EVersion_HTTP_1_1);
+			void f_SetStatus(EStatus _Status, NStr::CStr const &_CustomReason = NStr::CStr(), EVersion _Version = EVersion_HTTP_1_1);
 			
 			CStatusLine const &f_GetStatusLine() const;
 			

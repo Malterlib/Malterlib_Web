@@ -6,10 +6,8 @@
 
 namespace NMib
 {
-
 	namespace NHTTP
 	{
-
 		enum EURLFlag
 		{
 				EURLFlag_None		= 0
@@ -54,6 +52,11 @@ namespace NMib
 			void fp_Parse(NStr::CStr const &_Str);			
 
 		public:
+			enum 
+			{
+				EVersion = 0x101
+			};
+			
 			CURL();
 			CURL(NStr::CStr const &_URL);
 			CURL(CURL const &_ToCopy);
@@ -138,7 +141,11 @@ namespace NMib
 			static bint fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
 			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str);
-
+			
+			template <typename tf_CStream>
+			void f_Feed(tf_CStream &_Stream) const;
+			template <typename tf_CStream>
+			void f_Consume(tf_CStream &_Stream);
 		};
 
 	} // Namespace NHTTP
@@ -148,3 +155,5 @@ namespace NMib
 #ifndef DMibPNoShortCuts
 using namespace NMib::NHTTP;
 #endif
+
+#include "Malterlib_Web_HTTP_URL.hpp"

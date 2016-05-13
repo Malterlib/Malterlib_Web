@@ -328,6 +328,7 @@ namespace NMib
 				(
 					NStr::CStr const &_ConnectToAddress	// The server to connect to
 					, NStr::CStr const &_BindAddress	// The src address to bind to. Leave empty to not bind
+					, NMib::NNet::ENetAddressType _PreferAddress // The preferred type of address to connect to
 					, uint16 _Port	// The port to connect to
 					, NStr::CStr const &_URI // The server path: /chat
 					, NStr::CStr const &_Origin	// The server origin: http://example.com

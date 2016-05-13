@@ -354,6 +354,7 @@ namespace NMib
 					&CWebSocketClientActor::f_Connect
 					, Internal.m_ConnectTo.f_GetHost()
 					, Internal.m_BindTo
+					, NNet::ENetAddressType_None 
 					, Internal.m_ConnectTo.f_GetPortFromScheme()
 					, Internal.m_ConnectTo.f_GetFullPath()
 					, Internal.m_Origin

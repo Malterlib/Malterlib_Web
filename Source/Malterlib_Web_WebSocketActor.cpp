@@ -1425,7 +1425,7 @@ namespace NMib
 			
 			// RFC 6455 - 4.2.1.
 			if (StatusLine.f_GetStatus() == NHTTP::EStatus_Unknown)
-				Response.f_SetStatus(NHTTP::EStatus_BadRequest);
+				Response.f_SetStatus(NHTTP::EStatus_BadRequest, _Error);
 			
 			auto Content = Response.f_Complete();
 			

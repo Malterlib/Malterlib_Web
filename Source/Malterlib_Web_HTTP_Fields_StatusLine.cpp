@@ -93,11 +93,14 @@ namespace NMib
 			return mp_ReasonPhrase;
 		}
 
-		void CStatusLine::f_Set(EVersion _Version, EStatus _Status)
+		void CStatusLine::f_Set(EVersion _Version, EStatus _Status, NStr::CStr const &_CustomReason)
 		{
 			mp_Version = _Version;
 			mp_Status = _Status;
-			mp_ReasonPhrase = fg_HTTP_GetReasonPhrase(mp_Status);
+			if (_CustomReason.f_IsEmpty())
+				mp_ReasonPhrase = fg_HTTP_GetReasonPhrase(mp_Status);
+			else
+				mp_ReasonPhrase = _CustomReason; 
 		}
 
 		void CStatusLine::f_Write(COutputMethod const &_fOutput)

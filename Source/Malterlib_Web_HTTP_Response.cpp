@@ -129,9 +129,9 @@ namespace NMib
 			mp_pD->m_OutputMethod = fg_Move(_OutputMethod);
 		}
 
-		void CResponseHeader::f_SetStatus(EStatus _Status, EVersion _Version)
+		void CResponseHeader::f_SetStatus(EStatus _Status, NStr::CStr const &_CustomReason, EVersion _Version)
 		{
-			mp_pD->m_Status.f_Set(_Version, _Status);
+			mp_pD->m_Status.f_Set(_Version, _Status, _CustomReason);
 			mp_pD->m_ResponseFields.f_SetHTTPVersion(_Version);
 			mp_pD->m_GeneralFields.f_SetHTTPVersion(_Version);
 			mp_pD->m_EntityFields.f_SetHTTPVersion(_Version);

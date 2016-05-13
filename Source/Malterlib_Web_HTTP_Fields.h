@@ -72,7 +72,7 @@ namespace NMib
 			EStatus f_GetStatus() const;
 			NStr::CStr const& f_GetReasonPhrase() const;
 
-			void f_Set(EVersion _Version, EStatus _Status);
+			void f_Set(EVersion _Version, EStatus _Status, NStr::CStr const &_CustomReason);
 
 			void f_Write(COutputMethod const &_fOutput);
 		};
