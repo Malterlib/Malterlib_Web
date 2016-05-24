@@ -18,7 +18,7 @@ namespace NMib
 		enum EWebSocketStatus : uint16
 		{
 			EWebSocketStatus_None = 0
-			, EWebSocketStatus_NormalClosure				= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
+			, EWebSocketStatus_NormalClosure			= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
 			, EWebSocketStatus_GoingAway				= 1001	/// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
 			, EWebSocketStatus_ProtocolError			= 1002	/// Indicates that an endpoint is terminating the connection due to a protocol error.
 			, EWebSocketStatus_UnsupportedData			= 1003	/// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an 
@@ -54,6 +54,7 @@ namespace NMib
 			, EWebSocketStatus_IANAEnd					= 3999
 			, EWebSocketStatus_Timeout					= 4000	/// Connection timed out
 			, EWebSocketStatus_Rejected					= 4001	/// Closed because you rejected the connection
+			, EWebSocketStatus_AlreadyClosed			= 4002	/// Already closed
 			, EWebSocketStatus_PrivateStart				= 4000	/// Status codes in the range 4000-4999 are reserved for private use and thus can't be registered.  Such codes can be used by 
 																/// prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol. 
 			, EWebSocketStatus_PrivateEnd				= 4999
@@ -82,7 +83,7 @@ namespace NMib
 		public:
 			struct CCloseInfo
 			{
-				EWebSocketStatus m_Status;
+				EWebSocketStatus m_Status = EWebSocketStatus_None;
 				NStr::CStr m_Reason;
 			};
 			
@@ -130,6 +131,7 @@ namespace NMib
 			NConcurrency::TCContinuation<void> f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData);
 			
 			NConcurrency::TCContinuation<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
+			NConcurrency::TCContinuation<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
 			
 		private:
 			friend class NWebSocket::CListenActor;
