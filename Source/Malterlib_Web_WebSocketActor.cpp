@@ -3,6 +3,7 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Concurrency/Actor/Timer>
 
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
@@ -151,6 +152,7 @@ namespace NMib
 			NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
 			
 			NPtr::TCUniquePointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
+			NContainer::TCLinkedList<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
 			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_OnReceiveBinaryMessage;
 			NConcurrency::TCActorCallbackManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
@@ -159,6 +161,8 @@ namespace NMib
 			NConcurrency::TCActorCallbackManager<void (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
 			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_OnFinishConnection;
 			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_OnFinishClientConnection;
+			
+			void f_ShutdownDone(NStr::CStr const &_Error);
 			
 			void f_HandleControlMessage(CMessage &_Message);
 			void f_HandleDataMessage(CMessage &_Message);
@@ -318,10 +322,14 @@ namespace NMib
 		{
 			auto &Internal = *mp_pInternal;
 			if (Internal.m_pCloseContinuation)
+				return DMibErrorInstance("Socket close already initiated");
+			
+			if (!Internal.m_pSocket)
 			{
-				NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> Ret;
-				Ret.f_SetException(DMibErrorInstance("Socket already closed"));
-				return Ret;
+				CWebSocketActor::CCloseInfo CloseInfo;
+				CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
+				CloseInfo.m_Reason = "Already fully closed";
+				return fg_Explicit(CloseInfo);
 			}
 			
 			Internal.m_pCloseContinuation = fg_Construct();
@@ -330,6 +338,101 @@ namespace NMib
 			
 			return *Internal.m_pCloseContinuation;
 		}
+		
+		void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
+		{
+			for (auto &fOnShutdown : m_OnShutdown)
+				fOnShutdown(_Error);
+			m_OnShutdown.f_Clear();
+		}
+
+		NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime)
+		{
+			auto &Internal = *mp_pInternal;
+
+			if (!Internal.m_pSocket)
+			{
+				CWebSocketActor::CCloseInfo CloseInfo;
+				CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
+				CloseInfo.m_Reason = "Already fully closed";
+				return fg_Explicit(CloseInfo);
+			}
+			
+			struct CState
+			{
+				bool m_bHandled;
+				NConcurrency::CActorCallback m_TimerSubscription;
+				NWeb::CWebSocketActor::CCloseInfo m_CloseInfo;
+				NConcurrency::TCActor<CWebSocketActor> m_WebSocketActor;
+				void f_Finish()
+				{
+					m_bHandled = true;
+					m_TimerSubscription.f_Clear();
+					m_WebSocketActor->f_Destroy();
+					m_WebSocketActor.f_Clear();					
+				}
+			};
+			
+			NPtr::TCSharedPointer<CState> pState = fg_Construct(); 
+			pState->m_WebSocketActor = fg_ThisActor(this);
+			
+			NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> Continuation;
+			
+			Internal.m_OnShutdown.f_Insert
+				(
+					[pState, Continuation](NStr::CStr const &_Error)
+					{
+						if (!pState->m_bHandled)
+						{
+							if (!_Error.f_IsEmpty())
+								Continuation.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
+							else
+								Continuation.f_SetResult(fg_Move(pState->m_CloseInfo));
+							pState->f_Finish();
+						}
+					}
+				)
+			;
+				
+			
+			pState->m_WebSocketActor(&NWeb::CWebSocketActor::f_Close, _Status, _Reason)
+				> [pState, Continuation](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
+				{
+					if (!pState->m_bHandled)
+					{
+						if (_Result)
+							pState->m_CloseInfo = *_Result;
+						else
+						{
+							Continuation.f_SetException(fg_Move(_Result));
+							pState->f_Finish();
+						}
+					}
+				}
+			;
+			
+			fg_OneshotTimerAbortable
+				(
+					_MaxLingerTime
+					, pState->m_WebSocketActor
+					, [pState, Continuation]()
+					{
+						if (!pState->m_bHandled)
+						{
+							Continuation.f_SetException("Timed out waiting for websocket to close gracefully");
+							pState->f_Finish();
+						}
+					}
+				)
+				> [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Subscription)
+				{
+					if (_Subscription && !pState->m_bHandled)
+						pState->m_TimerSubscription = fg_Move(*_Subscription);
+				}
+			;
+			
+			return Continuation;
+		}		
 		
 		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority)
 		{
@@ -504,7 +607,10 @@ namespace NMib
 			if (Internal.m_State == EState_Disconnected)
 			{
 				if (_bFatal)
+				{
 					Internal.m_pSocket.f_Clear();
+					Internal.f_ShutdownDone(_Reason);
+				}
 				return; // Already disconnected
 			}
 
@@ -533,7 +639,7 @@ namespace NMib
 				}
 				if (_Origin == EWebSocketCloseOrigin_Remote)
 				{
-					if (Internal.m_pCloseContinuation)
+					if (Internal.m_pCloseContinuation && !Internal.m_pCloseContinuation->f_IsSet())
 					{
 						CWebSocketActor::CCloseInfo CloseInfo;
 						CloseInfo.m_Status = _Status;
@@ -583,7 +689,18 @@ namespace NMib
 			}
 
 			if (_bFatal)
+			{
+				if (Internal.m_pCloseContinuation && !Internal.m_pCloseContinuation->f_IsSet())
+				{
+					CWebSocketActor::CCloseInfo CloseInfo;
+					CloseInfo.m_Status = _Status;
+					CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
+					Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
+				}
+				
 				Internal.m_pSocket.f_Clear();
+				Internal.f_ShutdownDone(_Reason);
+			}
 
 			Internal.m_State = EState_Disconnected;
 		}
@@ -616,6 +733,7 @@ namespace NMib
 			{
 				mint SentBytes = 0;
 				bool bStuffed = false;
+				bool bDisconnected = false;
 				Internal.m_OutgoingData.f_ReadFront
 					(
 						[&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
@@ -635,11 +753,14 @@ namespace NMib
 							catch (NNet::CExceptionNet const &_Error)
 							{
 								fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+								bDisconnected = true;
 								return false;
 							}
 						}
 					)
 				;
+				if (bDisconnected)
+					return;
 				Internal.m_OutgoingData.f_RemoveFront(SentBytes);
 				if (bStuffed)
 					break;
@@ -1450,7 +1571,10 @@ namespace NMib
 				if (Internal.m_State != EState_Disconnected)
 					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
 				else
+				{
 					Internal.m_pSocket.f_Clear();
+					Internal.f_ShutdownDone(NStr::CStr());
+				}
 				return;
 			}
 			if (StateAdded & NNet::ENetTCPState_Read)
