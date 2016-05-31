@@ -83,6 +83,12 @@ namespace NMib
 			
 			struct COutgoingMessage
 			{
+				~COutgoingMessage()
+				{
+					if (m_pContinuation)
+						m_pContinuation->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+				}
+				
 				NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> m_pData;
 				EOpcode m_Opcode;
 				NPtr::TCUniquePointer<NConcurrency::TCContinuation<void>> m_pContinuation;
@@ -116,6 +122,8 @@ namespace NMib
 			
 			~CInternal()
 			{
+				if (m_pCloseContinuation)
+					m_pCloseContinuation->f_SetException(DMibErrorInstance("Abandoned close"));
 			}
 
 
@@ -294,7 +302,10 @@ namespace NMib
 				OutgoingData = m_OutgoingData.f_GetLen();
 			
 				if (pPending->m_pContinuation)
+				{
 					pPending->m_pContinuation->f_SetResult();
+					pPending->m_pContinuation.f_Clear();
+				}
 				
 				pList->f_Remove(*pPending);
 				if (pList->f_IsEmpty())
@@ -419,7 +430,7 @@ namespace NMib
 					{
 						if (!pState->m_bHandled)
 						{
-							Continuation.f_SetException("Timed out waiting for websocket to close gracefully");
+							Continuation.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
 							pState->f_Finish();
 						}
 					}
@@ -437,6 +448,7 @@ namespace NMib
 		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority)
 		{
 			auto &Internal = *mp_pInternal;
+			DMibLog(DebugVerbose2, " ++++ {} f_SendBinary", !Internal.m_bClient);
 			
 			NConcurrency::TCContinuation<void> Result;
 			
@@ -458,6 +470,7 @@ namespace NMib
 			{
 				auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _Message, _Priority);
 				NewMessage.m_pContinuation = fg_Construct(Result);
+				DMibLog(DebugVerbose2, " ++++ {} Queue non-fragmented", !Internal.m_bClient);
 				fp_UpdateSend();
 				return Result;
 			}
@@ -466,6 +479,7 @@ namespace NMib
 				.m_pContinuation = fg_Construct(Result)
 			;
 			
+			DMibLog(DebugVerbose2, " ++++ {} Queue fragmented", !Internal.m_bClient);
 			fp_UpdateSend();
 			
 			return Result;
@@ -639,12 +653,13 @@ namespace NMib
 				}
 				if (_Origin == EWebSocketCloseOrigin_Remote)
 				{
-					if (Internal.m_pCloseContinuation && !Internal.m_pCloseContinuation->f_IsSet())
+					if (Internal.m_pCloseContinuation)
 					{
 						CWebSocketActor::CCloseInfo CloseInfo;
 						CloseInfo.m_Status = _Status;
 						CloseInfo.m_Reason = _Reason;
 						Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
+						Internal.m_pCloseContinuation.f_Clear();
 					}
 					Internal.m_OnClose(_Status, _Reason, _Origin);
 					
@@ -690,12 +705,13 @@ namespace NMib
 
 			if (_bFatal)
 			{
-				if (Internal.m_pCloseContinuation && !Internal.m_pCloseContinuation->f_IsSet())
+				if (Internal.m_pCloseContinuation)
 				{
 					CWebSocketActor::CCloseInfo CloseInfo;
 					CloseInfo.m_Status = _Status;
 					CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
 					Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
+					Internal.m_pCloseContinuation.f_Clear();
 				}
 				
 				Internal.m_pSocket.f_Clear();
@@ -741,6 +757,7 @@ namespace NMib
 							try
 							{
 								mint nSent = Internal.m_pSocket->f_Send(_pPtr, _nBytes);
+								DMibLog(DebugVerbose2, " ++++ {} Sending {} resulted in {} sent", !Internal.m_bClient, _nBytes, nSent);
 							
 								SentBytes += nSent;
 								if (nSent != _nBytes)
@@ -759,9 +776,9 @@ namespace NMib
 						}
 					)
 				;
-				if (bDisconnected)
-					return;
 				Internal.m_OutgoingData.f_RemoveFront(SentBytes);
+				if (bDisconnected)
+					break;
 				if (bStuffed)
 					break;
 				if (Internal.m_State == EState_Connected)
@@ -771,9 +788,7 @@ namespace NMib
 			}
 			
 			if (Internal.m_State == EState_Disconnected && Internal.m_OutgoingData.f_IsEmpty())
-			{
 				fp_Shutdown();
-			}
 		}
 
 	/*
@@ -849,6 +864,7 @@ namespace NMib
 		bool CWebSocketActor::fp_ProcessIncomingMessage()
 		{
 			auto &Internal = *mp_pInternal;
+			DMibLog(DebugVerbose2, " ++++ {} fp_ProcessIncomingMessage", !Internal.m_bClient);
 			
 			auto &Message = Internal.m_NextMessage;
 			CHeader &Header = Message.m_Header;
@@ -1180,6 +1196,7 @@ namespace NMib
 		
 		void CWebSocketActor::CInternal::f_HandleDataMessage(CMessage &_Message)
 		{
+			DMibLog(DebugVerbose2, " ++++ {} f_HandleDataMessage", !m_bClient);
 			switch (_Message.m_Header.m_Opcode)
 			{
 			case EOpcode_TextFrame:
@@ -1191,6 +1208,7 @@ namespace NMib
 				break;
 			case EOpcode_BinaryFrame:
 				{
+					DMibLog(DebugVerbose2, " ++++ {} call m_OnReceiveBinaryMessage", !m_bClient);
 					m_OnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data)));
 				}
 				break;
@@ -1588,6 +1606,7 @@ namespace NMib
 						mint Received = Internal.m_pSocket->f_Receive(Data, Size);
 						if (Received == 0)
 							break;
+						DMibLog(DebugVerbose2, " ++++ {} Received data {}", !Internal.m_bClient, Received);
 						Internal.m_IncomingData.f_InsertBack(Data, Received);
 						fp_ProcessIncoming();
 						if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
