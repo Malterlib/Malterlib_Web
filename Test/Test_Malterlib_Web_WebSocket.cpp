@@ -33,8 +33,30 @@ class CWebsocket_Tests : public NMib::NTest::CTest
 {
 public:
 
+	void fp_Test
+		(
+			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
+			, CStr const &_AcceptError
+			, CStr const &_ConnectError
+		)
+	{
+		DMibTestCategory("IP")
+		{
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost");
+		};
+		DMibTestCategory("Unix")
+		{
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()));
+		};
+	}
 	
-	void fp_Test(NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories, CStr const &_AcceptError, CStr const &_ConnectError)
+	void fp_TestImp
+		(
+			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
+			, CStr const &_AcceptError
+			, CStr const &_ConnectError
+			, CStr const &_Address
+		)
 	{
 		DMibTestSuite("Connection")
 		{
@@ -97,13 +119,23 @@ public:
 				}
 			;
 			
+			CNetAddress ListenAddress;
+			
+			if (_Address == "localhost")
+			{
+				CNetAddressTCPv4 Address;
+				Address.m_Port = 10500;
+				ListenAddress = Address;
+			}
+			else
+				ListenAddress = CSocket::fs_ResolveAddress(_Address);
+			
 			pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
 			
 			pState->m_ServerActor
 				(
-					&CWebSocketServerActor::f_StartListen
-					, 10500
-					, 1
+					&CWebSocketServerActor::f_StartListenAddress
+					, fg_CreateVector(ListenAddress)
 					, NMib::NConcurrency::fg_ConcurrentActor()
 					, [pState](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
@@ -190,12 +222,12 @@ public:
 			pState->m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
-					, "localhost"
+					, _Address
 					, ""
 					, NNet::ENetAddressType_None
 					, 10500
 					, "/Test"
-					, "http://localhost"
+					, fg_Format("http://{}", _Address)
 					, NContainer::fg_CreateVector<NStr::CStr>("Test")
 					, NHTTP::CRequest()
 					, fg_TempCopy(ClientFactory)
@@ -249,8 +281,19 @@ public:
 							break; // Server accept failed
 						if (pState->m_bClientConnectionResult)
 						{
-							if (!pState->m_ClientSocket && (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty()))
+							if 
+								(
+									!pState->m_ClientSocket 
+									&& 
+									(
+										pState->m_bAcceptError 
+										|| !pState->m_ServerConnections.f_IsEmpty() 
+										|| (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty())
+									)
+								)
+							{
 								break; // Client connection failed
+							}
 							
 							if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
 								break; // Successfully done
