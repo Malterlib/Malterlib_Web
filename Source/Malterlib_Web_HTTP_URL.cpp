@@ -150,10 +150,10 @@ namespace NMib
 
 		bint CURL::f_IsValid() const
 		{
-			return mp_Flags  &EURLFlag_Valid;
+			return mp_Flags & EURLFlag_Valid;
 		}
 
-		// Does the URL have a scheme, host  &path?
+		// Does the URL have a scheme, host & path?
 		bint CURL::f_IsFullURL() const
 		{
 			return f_HasAll(EURLFlag_Scheme | EURLFlag_Host | EURLFlag_Path);
@@ -174,6 +174,7 @@ namespace NMib
 
 		bint CURL::f_Decode(NStr::CStr const &_URL)
 		{
+			f_Clear();
 			// The point of all of this is to touch the memory manager as little as possible.
 			// When we have a substring class this can be reduced even more (i.e. only when we decode something)
 
@@ -186,8 +187,35 @@ namespace NMib
 
 			aint iColonSlashSlash = URL.f_Find("://");
 
-			aint iPathStartSlash = URL.f_Find( (iColonSlashSlash >= 0) ? (iColonSlashSlash + 3) : 0, "/");
-			if (iPathStartSlash == -1)
+			auto fParseHost = [&](mint _iStart, ch8 _EndChar, mint _MaxLen) -> aint
+				{
+					ch8 const *pParse = URL.f_GetStr() + _iStart;
+					ch8 const *pMaxLen = pParse + _MaxLen;
+					while (*pParse && pParse < pMaxLen)
+					{
+						if (*pParse == _EndChar)
+							break;
+						else if (*pParse == '[')
+						{
+							while (*pParse && pParse < pMaxLen)
+							{
+								if (*pParse == ']')
+									break;
+								++pParse;
+							}
+							continue;
+						}
+						++pParse;
+					}
+					if (!*pParse || pParse == pMaxLen)
+						return -1;
+					return pParse - URL.f_GetStr();
+				}
+			;
+			
+			aint iPathStartSlash = fParseHost((iColonSlashSlash >= 0) ? (iColonSlashSlash + 3) : 0, '/', URL.f_GetLen());
+			
+			if (iPathStartSlash < 0)
 				return false;
 
 			aint iQueryMark = URL.f_Find(iPathStartSlash + 1, "?");
@@ -202,7 +230,9 @@ namespace NMib
 			if (iColonSlashSlash >= 0)
 			{
 				// Extract scheme:
-				mp_Scheme = URL.f_Slice(0, iColonSlashSlash);
+				if (!fs_PercentDecode(mp_Scheme, URL, 0, iColonSlashSlash))
+					return false;
+				
 				mp_Flags |= EURLFlag_Scheme;
 
 				// Extract User, Pass:
@@ -216,40 +246,52 @@ namespace NMib
 				{
 					aint iUserColonMark = URL.f_Find(iUserPassHostStart, ":", iUserPassAtMark - iUserPassHostStart);
 					if (iUserColonMark >= 0)
-					{ // URL has username  &password
-						mp_Username = URL.f_Slice(iUserPassHostStart, iUserColonMark);
-						mp_Password = URL.f_Slice(iUserColonMark + 1, iUserPassAtMark);
+					{ // URL has username & password
+						if (!fs_PercentDecode(mp_Username, URL, iUserPassHostStart, iUserColonMark))
+							return false;
+						if (!fs_PercentDecode(mp_Password, URL, iUserColonMark + 1, iUserPassAtMark))
+							return false;
 
 						mp_Flags |= EURLFlag_Username | EURLFlag_Password;
 					}
 					else
 					{ // URL has username
-						mp_Username = URL.f_Slice(iUserPassHostStart, iUserPassAtMark);
-						mp_Password.f_Clear();
+						if (!fs_PercentDecode(mp_Username, URL, iUserPassHostStart, iUserPassAtMark))
+							return false;
 
 						mp_Flags |= EURLFlag_Password;
 					}
 
 					iHostStart = iUserPassAtMark + 1;
 				}
-
-				// Extract Host  &port:
-				aint iPortColonMark = URL.f_Find(iHostStart, ":", iPathStartSlash - iHostStart);
+				
+				// Extract Host & port:
+				mint iHostStartTrimmed = iHostStart;
+				mint iHostEndTrimmed = iPathStartSlash;
+				aint iPortColonMark = fParseHost(iHostStart, ':', iPathStartSlash - iHostStart); 
 				if (iPortColonMark >= 0)
 				{ // Has port
-					mp_Host = URL.f_Slice( iHostStart, iPortColonMark);
-
+					iHostStartTrimmed = iHostStart;
+					iHostEndTrimmed = iPortColonMark;
+					
 					if (!fg_ParseU16Base10(mp_Port, URL, iPortColonMark + 1, iPathStartSlash))
 						return false; // Invalid port
 
 					mp_Flags |= EURLFlag_Host | EURLFlag_Port;
 				}
 				else
-				{ // Does not have port
-					mp_Host = URL.f_Slice( iHostStart, iPathStartSlash);
-
 					mp_Flags |= EURLFlag_Host;
-				}			
+				
+				if (URL[iHostStartTrimmed] == '[')
+				{
+					mp_Flags |= EURLFlag_HostBrackets;
+					++iHostStartTrimmed;
+					if (URL[iHostEndTrimmed-1] == ']')
+						--iHostEndTrimmed;
+				}
+				if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
+					return false;
+				
 			}
 
 
@@ -266,15 +308,9 @@ namespace NMib
 				if (iCurSegmentEnd == -1)
 					iCurSegmentEnd = iPathEnd;
 
-				if ( fs_PercentDecode(PathSegment, URL, iCurSegmentStart, iCurSegmentEnd) )
-				{
-					mp_Paths.f_Insert( fg_Move(PathSegment) );
-				}
-				else
-				{
-					// Invalid encoding
+				if (!fs_PercentDecode(PathSegment, URL, iCurSegmentStart, iCurSegmentEnd))
 					return false;
-				}
+				mp_Paths.f_Insert( fg_Move(PathSegment) );
 				
 				iCurSegmentStart = iCurSegmentEnd + 1;
 			}
@@ -284,14 +320,16 @@ namespace NMib
 			// Extract Query
 			if (iQueryMark >= 0)
 			{
-				mp_Query = URL.f_Slice(iQueryMark + 1, (iFragmentMark >= 0) ? iFragmentMark : URLLength);
+				if (!fs_PercentDecode(mp_Query, URL, iQueryMark + 1, (iFragmentMark >= 0) ? iFragmentMark : URLLength))
+					return false;
 				mp_Flags |= EURLFlag_Query;
 			}
 
 			// Extract Fragment
 			if (iFragmentMark >= 0)
 			{
-				mp_Fragment = URL.f_Slice(iFragmentMark + 1, URLLength );
+				if (!fs_PercentDecode(mp_Fragment, URL, iFragmentMark + 1, URLLength))
+					return false;
 				mp_Flags |= EURLFlag_Fragment;
 			}
 
@@ -306,30 +344,37 @@ namespace NMib
 			
 			// <scheme>://[<username>[:<password>]@]<server>[:<port>]/<path>[?<query>][#<fragmentID>]
 			
-			if (mp_Flags  &EURLFlag_Scheme)
+			if (mp_Flags & EURLFlag_Scheme)
 			{
 				fs_PercentEncode(Output, mp_Scheme);
 				Output += "://";
 			}
 			
-			if (mp_Flags  &EURLFlag_Username)
+			if (mp_Flags & EURLFlag_Username)
 			{
 				fs_PercentEncode(Output, mp_Username);
-				if (mp_Flags  &EURLFlag_Password)
+				if (mp_Flags & EURLFlag_Password)
 				{
 					Output += ":";
 					fs_PercentEncode(Output, mp_Password);
 				}				
 				Output += "@";
 			}
-			if (mp_Flags  &EURLFlag_Host)
+			if (mp_Flags & EURLFlag_Host)
 			{
-				fs_PercentEncode(Output, mp_Host);
-				if (mp_Flags  &EURLFlag_Port)
+				if (mp_Flags & EURLFlag_HostBrackets)
+				{
+					Output += "[";
+					fs_PercentEncode(Output, mp_Host, "[]%");
+					Output += "]";
+				}
+				else
+					fs_PercentEncode(Output, mp_Host);
+				if (mp_Flags & EURLFlag_Port)
 					Output += NStr::CStr::CFormat(":{}") << mp_Port;
 			}
 			
-			if ((mp_Flags  &EURLFlag_Path)  &&!mp_Paths.f_IsEmpty())
+			if ((mp_Flags & EURLFlag_Path) && !mp_Paths.f_IsEmpty())
 			{
 				for (auto &Path : mp_Paths)
 				{
@@ -340,12 +385,12 @@ namespace NMib
 			else
 				Output += "/";
 			
-			if (mp_Flags  &EURLFlag_Query)
+			if (mp_Flags & EURLFlag_Query)
 			{
 				Output += "?";
 				fs_PercentEncode(Output, mp_Query);
 			}
-			if (mp_Flags  &EURLFlag_Fragment)
+			if (mp_Flags & EURLFlag_Fragment)
 			{
 				Output += "#";
 				fs_PercentEncode(Output, mp_Fragment);
@@ -358,52 +403,52 @@ namespace NMib
 
 		bint CURL::f_HasAll(EURLFlag _Flags) const
 		{
-			return (mp_Flags  &_Flags) == _Flags;
+			return (mp_Flags & _Flags) == _Flags;
 		}
 
 		bint CURL::f_HasAny(EURLFlag _Flags) const
 		{
-			return (mp_Flags  &_Flags);
+			return (mp_Flags & _Flags);
 		}
 
 		bint CURL::f_HasScheme() const
 		{
-			return mp_Flags  &EURLFlag_Scheme;
+			return mp_Flags & EURLFlag_Scheme;
 		}
 
 		bint CURL::f_HasHost() const
 		{
-			return mp_Flags  &EURLFlag_Host;
+			return mp_Flags & EURLFlag_Host;
 		}
 
 		bint CURL::f_HasPort() const
 		{
-			return mp_Flags  &EURLFlag_Port;
+			return mp_Flags & EURLFlag_Port;
 		}
 
 		bint CURL::f_HasUsername() const
 		{
-			return mp_Flags  &EURLFlag_Username;
+			return mp_Flags & EURLFlag_Username;
 		}
 
 		bint CURL::f_HasPassword() const
 		{
-			return mp_Flags  &EURLFlag_Password;
+			return mp_Flags & EURLFlag_Password;
 		}
 
 		bint CURL::f_HasPath() const
 		{
-			return mp_Flags  &EURLFlag_Path;
+			return mp_Flags & EURLFlag_Path;
 		}
 
 		bint CURL::f_HasQuery() const
 		{
-			return mp_Flags  &EURLFlag_Query;
+			return mp_Flags & EURLFlag_Query;
 		}
 
 		bint CURL::f_HasFragment() const
 		{
-			return mp_Flags  &EURLFlag_Fragment;
+			return mp_Flags & EURLFlag_Fragment;
 		}
 
 		// Access an URL field:
@@ -528,7 +573,7 @@ namespace NMib
 			mp_Flags |= EURLFlag_Path;
 		}
 
-		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path)
+		void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> && _Path)
 		{
 			mp_Paths = fg_Move(_Path);
 			mp_Flags |= EURLFlag_Path;
@@ -602,11 +647,11 @@ namespace NMib
 
 		static bint fg_DecodeHexChar(char &_oNum, char _Ch)
 		{
-			if (_Ch >= '0'  &&_Ch <= '9')
+			if (_Ch >= '0' && _Ch <= '9')
 				_oNum = _Ch - '0';
-			else if (_Ch >= 'a'  &&_Ch <= 'f')
+			else if (_Ch >= 'a' && _Ch <= 'f')
 				_oNum = (_Ch - 'a') + 10;
-			else if (_Ch >= 'A'  &&_Ch <= 'F')
+			else if (_Ch >= 'A' && _Ch <= 'F')
 				_oNum = (_Ch - 'A') + 10;
 			else
 				return false;
@@ -712,7 +757,7 @@ namespace NMib
 				if (*pPtr == '%')
 				{
 					// End current run
-					if (pRunStart > pPtr)
+					if (pPtr > pRunStart)
 						Result += NStr::CStr(pRunStart, pPtr - pRunStart);
 
 					if ( (pPtr + 2) >= pEnd)
@@ -741,9 +786,14 @@ namespace NMib
 			if (pRunStart < pPtr)
 			{
 				// Check for the case of returning the whole string to get an implicit copy.
-				if (	pRunStart == _Str.f_GetStr()
-					 &&	pPtr == (_Str.f_GetStr() + _Str.f_GetLen()) )
+				if
+					(
+						pRunStart == _Str.f_GetStr()
+						&& pPtr == (_Str.f_GetStr() + _Str.f_GetLen()) 
+					)
+				{
 					Result = _Str;
+				}
 				else
 				{
 					Result += NStr::CStr(pRunStart, pPtr - pRunStart);					
@@ -754,13 +804,16 @@ namespace NMib
 			return true;
 		}
 		
-		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str)
+		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved)
 		{
 			NStr::CStr Str = _Str;
 			
 			auto pParse = Str.f_GetStr();
 			
-			ch8 const *pReserved = ":/?#[]@!$&'()*+,;=";
+			ch8 const *pReserved = ":/?#[]@!$&'()*+,;=%";
+			
+			if (_pReserved)
+				pReserved = _pReserved; 
 			
 			while (*pParse)
 			{

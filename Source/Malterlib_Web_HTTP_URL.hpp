@@ -36,7 +36,7 @@ namespace NMib
 		{
 			uint32 Version;
 			_Stream >> Version;
-			if (Version >= EVersion)
+			if (Version > EVersion)
 				DMibError("Invalid URL version");
 			_Stream >> mp_Flags;
 
