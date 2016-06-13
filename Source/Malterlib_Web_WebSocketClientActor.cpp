@@ -12,71 +12,6 @@ namespace NMib
 {
 	namespace NWeb
 	{
-		class CAddressResolverActor : public NConcurrency::CActor
-		{
-		public:
-			
-			NConcurrency::TCContinuation<NMib::NNet::CNetAddress> f_Resolve(NStr::CStr const &_Address, NNet::ENetAddressType _PreferType)
-			{
-				NConcurrency::TCContinuation<NMib::NNet::CNetAddress> Continuation;
-
-				if (_Address.f_IsEmpty())
-				{
-					Continuation.f_SetResult(NMib::NNet::CNetAddress());
-					return Continuation;
-				}
-				auto &Resolve = mp_PendingResolves.f_Insert();
-				
-				auto *pResolve = &Resolve;
-				
-				auto ThisWeak = fg_ThisActor(this).f_Weak();
-				
-				Resolve.f_Open
-					(
-						_Address
-						, _PreferType
-						, [this, ThisWeak, pResolve, Continuation]()
-						{
-							auto This = ThisWeak.f_Lock();
-							if (!This)
-							{
-								Continuation.f_SetException(DMibErrorInstance("Resolve actor was deleted"));
-								return;
-							}
-							
-							This
-								(
-									&CActor::f_Dispatch
-									, [this, pResolve, Continuation]
-									{
-										NNet::CNetAddress Address;
-										NStr::CStr Error;
-										if (pResolve->f_GetResult(Address, Error))
-											Continuation.f_SetResult(fg_Move(Address));
-										else
-											Continuation.f_SetException(DMibErrorInstance(NStr::CStr(Error)));
-										
-										mp_PendingResolves.f_Remove(*pResolve);
-									}
-								)
-								> NConcurrency::fg_DiscardResult()
-							;
-						}
-					)
-				;
-				
-				return Continuation;
-			}
-			
-			NConcurrency::TCContinuation<void> f_Destroy()
-			{
-				return NConcurrency::TCContinuation<void>::fs_Finished();
-			}
-			
-		private:
-			NContainer::TCLinkedList<NNet::CAsyncResolver> mp_PendingResolves;
-		};
-
 		CWebSocketClientActor::CWebSocketClientActor()
 			: mp_MaxMessageSize(24*1024*1024)
 			, mp_FragmentationSize(32*1024)
@@ -128,12 +63,12 @@ namespace NMib
 			}
 			
 			if (!mp_AddressResolver)
-				mp_AddressResolver = NConcurrency::fg_ConstructActor<CAddressResolverActor>();
+				mp_AddressResolver = NConcurrency::fg_ConstructActor<NNet::CResolveActor>();
 			
 			NPtr::TCSharedPointer<NHTTP::CRequest> pRequest = fg_Construct(fg_Move(_Request));
 			
-			mp_AddressResolver(&CAddressResolverActor::f_Resolve, _ConnectToAddress, _PreferAddress)
-				+ mp_AddressResolver(&CAddressResolverActor::f_Resolve, _BindToAddress, _PreferAddress)
+			mp_AddressResolver(&NNet::CResolveActor::f_Resolve, _ConnectToAddress, _PreferAddress)
+				+ mp_AddressResolver(&NNet::CResolveActor::f_Resolve, _BindToAddress, _PreferAddress)
 				> [Continuation, _Port, pRequest, this, _ConnectToAddress, _URI, _Origin, _Protocols, _SocketFactory]
 				(
 					NConcurrency::TCAsyncResult<NNet::CNetAddress> &&_Result

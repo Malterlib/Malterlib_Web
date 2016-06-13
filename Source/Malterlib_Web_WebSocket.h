@@ -9,6 +9,7 @@
 #include <Mib/Web/HTTP/Response>
 #include <Mib/Network/Socket>
 #include <Mib/Memory/Allocators/Secure>
+#include <Mib/Network/ResolveActor>
 
 namespace NMib
 {
@@ -312,8 +313,6 @@ namespace NMib
 			NPtr::TCSharedPointer<CRepliedHelper> mp_pHelper;
 		};
 
-		class CAddressResolverActor;
-
 		class CWebSocketClientActor : public NConcurrency::CActor
 		{
 		public:
@@ -347,7 +346,7 @@ namespace NMib
 				NConcurrency::CActorCallback m_OnFinishConnectionSubscription;
 			};
 			NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
-			NConcurrency::TCActor<CAddressResolverActor> mp_AddressResolver;
+			NConcurrency::TCActor<NNet::CResolveActor> mp_AddressResolver;
 			mint mp_MaxMessageSize;
 			mint mp_FragmentationSize;
 		};

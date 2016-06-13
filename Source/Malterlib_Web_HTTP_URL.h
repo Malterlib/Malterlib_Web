@@ -10,16 +10,17 @@ namespace NMib
 	{
 		enum EURLFlag
 		{
-				EURLFlag_None		= 0
-			,	EURLFlag_Valid		= DMibBit(0)
-			,	EURLFlag_Scheme		= DMibBit(1)
-			,	EURLFlag_Host	 	= DMibBit(2)
-			,	EURLFlag_Port	 	= DMibBit(3)
-			,	EURLFlag_Username 	= DMibBit(4)
-			,	EURLFlag_Password 	= DMibBit(5)
-			,	EURLFlag_Path	 	= DMibBit(6)
-			,	EURLFlag_Query	 	= DMibBit(7)
-			,	EURLFlag_Fragment 	= DMibBit(8)
+			EURLFlag_None = 0
+			, EURLFlag_Valid = DMibBit(0)
+			, EURLFlag_Scheme = DMibBit(1)
+			, EURLFlag_Host = DMibBit(2)
+			, EURLFlag_Port = DMibBit(3)
+			, EURLFlag_Username = DMibBit(4)
+			, EURLFlag_Password = DMibBit(5)
+			, EURLFlag_Path = DMibBit(6)
+			, EURLFlag_Query = DMibBit(7)
+			, EURLFlag_Fragment = DMibBit(8)
+			, EURLFlag_HostBrackets = DMibBit(9)
 		};
 
 		/*
@@ -140,7 +141,7 @@ namespace NMib
 			// _End can range from 0 -> Len or be -1 which == Len			
 			static bint fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
-			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str);
+			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr);
 			
 			template <typename tf_CStream>
 			void f_Feed(tf_CStream &_Stream) const;
