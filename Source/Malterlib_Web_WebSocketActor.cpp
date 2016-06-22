@@ -155,6 +155,7 @@ namespace NMib
 			bool m_bClient;
 			bool m_bOnFinishDone = false;
 			bool m_bWantStopDefer = false;
+			CWebSocketActor::CCloseInfo m_CloseInfo;
 
 			NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 			NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
@@ -373,7 +374,6 @@ namespace NMib
 			{
 				bool m_bHandled;
 				NConcurrency::CActorCallback m_TimerSubscription;
-				NWeb::CWebSocketActor::CCloseInfo m_CloseInfo;
 				NConcurrency::TCActor<CWebSocketActor> m_WebSocketActor;
 				void f_Finish()
 				{
@@ -391,14 +391,15 @@ namespace NMib
 			
 			Internal.m_OnShutdown.f_Insert
 				(
-					[pState, Continuation](NStr::CStr const &_Error)
+					[pState, Continuation, this](NStr::CStr const &_Error)
 					{
+						auto &Internal = *mp_pInternal;
 						if (!pState->m_bHandled)
 						{
 							if (!_Error.f_IsEmpty())
 								Continuation.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
 							else
-								Continuation.f_SetResult(fg_Move(pState->m_CloseInfo));
+								Continuation.f_SetResult(fg_Move(Internal.m_CloseInfo));
 							pState->f_Finish();
 						}
 					}
@@ -409,15 +410,10 @@ namespace NMib
 			pState->m_WebSocketActor(&NWeb::CWebSocketActor::f_Close, _Status, _Reason)
 				> [pState, Continuation](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
 				{
-					if (!pState->m_bHandled)
+					if (!_Result && !pState->m_bHandled)
 					{
-						if (_Result)
-							pState->m_CloseInfo = *_Result;
-						else
-						{
-							Continuation.f_SetException(fg_Move(_Result));
-							pState->f_Finish();
-						}
+						Continuation.f_SetException(fg_Move(_Result));
+						pState->f_Finish();
 					}
 				}
 			;
@@ -653,12 +649,11 @@ namespace NMib
 				}
 				if (_Origin == EWebSocketCloseOrigin_Remote)
 				{
+					Internal.m_CloseInfo.m_Status = _Status;
+					Internal.m_CloseInfo.m_Reason = _Reason;
 					if (Internal.m_pCloseContinuation)
 					{
-						CWebSocketActor::CCloseInfo CloseInfo;
-						CloseInfo.m_Status = _Status;
-						CloseInfo.m_Reason = _Reason;
-						Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
+						Internal.m_pCloseContinuation->f_SetResult(Internal.m_CloseInfo);
 						Internal.m_pCloseContinuation.f_Clear();
 					}
 					Internal.m_OnClose(_Status, _Reason, _Origin);
@@ -705,12 +700,11 @@ namespace NMib
 
 			if (_bFatal)
 			{
+				Internal.m_CloseInfo.m_Status = _Status;
+				Internal.m_CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
 				if (Internal.m_pCloseContinuation)
 				{
-					CWebSocketActor::CCloseInfo CloseInfo;
-					CloseInfo.m_Status = _Status;
-					CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
-					Internal.m_pCloseContinuation->f_SetResult(fg_Move(CloseInfo));
+					Internal.m_pCloseContinuation->f_SetResult(Internal.m_CloseInfo);
 					Internal.m_pCloseContinuation.f_Clear();
 				}
 				
@@ -1584,17 +1578,6 @@ namespace NMib
 				return;
 
 			auto StateAdded = Internal.m_pSocket->f_GetState();
-			if (StateAdded & NNet::ENetTCPState_Closed)
-			{
-				if (Internal.m_State != EState_Disconnected)
-					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
-				else
-				{
-					Internal.m_pSocket.f_Clear();
-					Internal.f_ShutdownDone(NStr::CStr());
-				}
-				return;
-			}
 			if (StateAdded & NNet::ENetTCPState_Read)
 			{
 				uint8 Data[4096];
@@ -1618,6 +1601,18 @@ namespace NMib
 					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
 					return;
 				}
+			}
+			
+			if (StateAdded & NNet::ENetTCPState_Closed)
+			{
+				if (Internal.m_State != EState_Disconnected)
+					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+				else
+				{
+					Internal.m_pSocket.f_Clear();
+					Internal.f_ShutdownDone(NStr::CStr());
+				}
+				return;
 			}
 			
 			if (StateAdded & NNet::ENetTCPState_Write)
