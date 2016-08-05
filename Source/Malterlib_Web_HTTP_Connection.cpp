@@ -19,7 +19,7 @@ namespace NMib
 				EState_Connected,
 			};
 
-			static const mint mc_ReadBufferSize = 2048;
+			static constexpr mint mc_ReadBufferSize = 2048;
 
 			EState mp_State;
 

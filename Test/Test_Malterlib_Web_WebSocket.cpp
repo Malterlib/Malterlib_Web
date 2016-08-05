@@ -44,10 +44,12 @@ public:
 		{
 			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost");
 		};
+#ifndef DPlatformFamily_Windows
 		DMibTestCategory("Unix")
 		{
 			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()));
 		};
+#endif
 	}
 	
 	void fp_TestImp
@@ -83,7 +85,7 @@ public:
 				NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
 				
 				NStr::CStr m_AcceptError;
-				zbool m_bAcceptError;
+				bool m_bAcceptError = false;
 				NStr::CStr m_ListenError;
 
 				NConcurrency::TCActor<CWebSocketClientActor> m_ClientActor;
@@ -92,7 +94,7 @@ public:
 				NConcurrency::CActorCallback m_ClientActorCallbacksReference;
 				
 				NStr::CStr m_ClientConnectionError;
-				zbool m_bClientConnectionResult;
+				bool m_bClientConnectionResult = false;
 				
 				NStr::CStr m_ClientConnectionCloseMessage;
 				NStr::CStr m_ServerConnectionCloseMessage;
