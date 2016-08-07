@@ -90,7 +90,7 @@ public:
 					&CWebSocketServerActor::f_StartListen
 					, 10501
 					, 1
-					, NNet::ENetFlag_None
+					, NNet::ENetFlag_ReuseAddress
 					, fg_ConcurrentActor()
 					, [this](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
