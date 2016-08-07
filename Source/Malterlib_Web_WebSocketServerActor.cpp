@@ -45,6 +45,7 @@ namespace NMib
 		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListenAddress
 			(
 				NContainer::TCVector<NNet::CNetAddress> &&_AddressesToListenTo
+				, NMib::NNet::ENetFlag _ListenFlags
 				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
 				, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection 
 				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
@@ -94,6 +95,7 @@ namespace NMib
 									;
 								}
 							}
+							, _ListenFlags
 						)
 					;
 					
@@ -117,6 +119,7 @@ namespace NMib
 			(
 				uint16 _StartListen
 				, uint16 _nListen
+				, NMib::NNet::ENetFlag _ListenFlags
 				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
 				, NFunction::TCFunction<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection 
 				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
@@ -167,6 +170,7 @@ namespace NMib
 									;
 								}
 							}
+							, _ListenFlags
 						)
 					;
 					

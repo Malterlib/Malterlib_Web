@@ -135,7 +135,7 @@ namespace NMib
 				NNet::CNetAddress ListenAddr;
 				ListenAddr.f_Set(TCPListenAddr);
 
-				ListenSocket.f_Listen(ListenAddr, &PendingConnections);
+				ListenSocket.f_Listen(ListenAddr, &PendingConnections, NMib::NNet::ENetFlag_None);
 			}
 			catch (NException::CException const &/*_Exception*/)
 			{

@@ -363,6 +363,7 @@ namespace NMib
 				(
 					uint16 _StartListen		// The port to listen to
 					, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
+					, NMib::NNet::ENetFlag _ListenFlags
 					, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor // The actor to receive new connections
 					, NFunction::TCFunction<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection 
 					, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
@@ -373,6 +374,7 @@ namespace NMib
 			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_StartListenAddress
 				(
 					NContainer::TCVector<NNet::CNetAddress> &&_AddressesToListenTo // The addresses to listen to
+					, NMib::NNet::ENetFlag _ListenFlags
 					, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor // The actor to receive new connections
 					, NFunction::TCFunction<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection 
 					, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
