@@ -42,7 +42,7 @@ namespace NMib
 			m_OnFailedConnection.f_Clear();
 		}
 
-		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListenAddress
+		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListenAddress
 			(
 				NContainer::TCVector<NNet::CNetAddress> &&_AddressesToListenTo
 				, NMib::NNet::ENetFlag _ListenFlags
@@ -56,7 +56,7 @@ namespace NMib
 			if (!SocketFactory)
 				SocketFactory = NNet::CSocket_TCP::fs_GetFactory();
 			
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Ret;
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Ret;
 			try
 			{
 				if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
@@ -115,7 +115,7 @@ namespace NMib
 			return Ret;
 		}
 		
-		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CWebSocketServerActor::f_StartListen
+		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListen
 			(
 				uint16 _StartListen
 				, uint16 _nListen
@@ -130,7 +130,7 @@ namespace NMib
 			if (!SocketFactory)
 				SocketFactory = NNet::CSocket_TCP::fs_GetFactory();
 			
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Ret;
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Ret;
 			try
 			{
 				if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
@@ -228,7 +228,7 @@ namespace NMib
 						mp_pInternal->m_Subscriptions.f_Remove(*pSubscription);
 					}
 				)
-				> [pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+				> [pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 				{
 					if (!*pHandled)
 						*pSubscription = fg_Move(*_Result);

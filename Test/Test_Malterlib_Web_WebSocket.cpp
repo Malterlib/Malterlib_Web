@@ -73,14 +73,14 @@ public:
 				struct CServerConnection
 				{
 					NConcurrency::TCActor<CWebSocketActor> m_Actor;
-					NConcurrency::CActorCallback m_CallbacksReference;
+					NConcurrency::CActorSubscription m_CallbacksReference;
 				};
 				
 				CMutual m_Lock;
 				CEventAutoReset m_Event;
 
 				NConcurrency::TCActor<CWebSocketServerActor> m_ServerActor;
-				NConcurrency::CActorCallback m_ListenCallbackReference;
+				NConcurrency::CActorSubscription m_ListenCallbackReference;
 
 				NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
 				
@@ -91,7 +91,7 @@ public:
 				NConcurrency::TCActor<CWebSocketClientActor> m_ClientActor;
 
 				NConcurrency::TCActor<CWebSocketActor> m_ClientSocket;
-				NConcurrency::CActorCallback m_ClientActorCallbacksReference;
+				NConcurrency::CActorSubscription m_ClientActorCallbacksReference;
 				
 				NStr::CStr m_ClientConnectionError;
 				bool m_bClientConnectionResult = false;
@@ -184,7 +184,7 @@ public:
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, NMib::NConcurrency::fg_ConcurrentActor() / [pState, pServerConnection](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Callback)
+								, NMib::NConcurrency::fg_ConcurrentActor() / [pState, pServerConnection](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback)
@@ -204,7 +204,7 @@ public:
 					}
 					, fg_TempCopy(ServerFactory)
 				)
-				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
@@ -252,7 +252,7 @@ public:
 
 						pState->m_ClientSocket = Result.f_Accept
 							(
-								NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Callback)
+								NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback)

@@ -160,7 +160,7 @@ namespace NMib
 			void f_Construct() override;
 			NConcurrency::TCContinuation<void> f_Destroy() override;
         
-			NConcurrency::CActorCallback f_Register
+			NConcurrency::CActorSubscription f_Register
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
 					, NFunction::TCFunction<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection

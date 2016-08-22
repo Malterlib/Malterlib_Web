@@ -65,7 +65,7 @@ namespace NMib
 				{
 				}
 				
-				NConcurrency::TCActorCallbackManager<void (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message), false, COnCallbackRemoved> m_Callback;
+				NConcurrency::TCActorSubscriptionManager<void (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message), false, COnCallbackRemoved> m_Callback;
 				ESubscriptionNotification m_NotifyOn;
 				NFunction::TCFunction<void ()> m_OnReady;
 				NFunction::TCFunction<void (NStr::CStr const &_Error)> m_OnError;
@@ -101,7 +101,7 @@ namespace NMib
 				{
 				}
 				
-				NConcurrency::TCActorCallbackManager<void (EObserveNotification _Notification, NEncoding::CEJSON const &_Message), false, COnCallbackRemoved> m_Callback;
+				NConcurrency::TCActorSubscriptionManager<void (EObserveNotification _Notification, NEncoding::CEJSON const &_Message), false, COnCallbackRemoved> m_Callback;
 				EObserveNotification m_NotifyOn;
 			};
 			
@@ -167,7 +167,7 @@ namespace NMib
 			NStr::CStr m_BindTo;
 			NStr::CStr m_Origin;
 			NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
-			NConcurrency::CActorCallback m_WebSocketCallbackSubscription;
+			NConcurrency::CActorSubscription m_WebSocketCallbackSubscription;
 			NConcurrency::TCActor<CWebSocketClientActor> m_ConnectionFactory;
 			NNet::FVirtualSocketFactory m_SocketFactory;
 			NConcurrency::TCContinuation<CConnectInfo> m_ConnectContinuation;
@@ -189,7 +189,7 @@ namespace NMib
 			
 			NContainer::TCMap<NStr::CStr, CCollectionObservations> m_Observations;
 
-			NConcurrency::CActorCallback m_ConnectTimeoutTimerRef;
+			NConcurrency::CActorSubscription m_ConnectTimeoutTimerRef;
 			
 			fp32 m_ConnectTimeout = 60.0;
 
@@ -410,7 +410,7 @@ namespace NMib
 
 					Internal.m_WebSocket = Result.f_Accept
 						(
-							fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+							fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 							{
 								auto &Internal = *mp_pInternal;
 								if (_Result)
@@ -515,7 +515,7 @@ namespace NMib
 			
 		}
 		
-		NConcurrency::CActorCallback CDDPClient::f_Observe
+		NConcurrency::CActorSubscription CDDPClient::f_Observe
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
 				, NStr::CStr const &_CollectionName // Leave empty to observe all collections
@@ -537,7 +537,7 @@ namespace NMib
 			return CallbackHandle;
 		}
 	
-		NConcurrency::TCContinuation<NConcurrency::CActorCallback> CDDPClient::f_Subscribe
+		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CDDPClient::f_Subscribe
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
 				, NStr::CStr const &_SubscriptionName
@@ -571,7 +571,7 @@ namespace NMib
 			Internal.fp_SendMessage(Message);
 			
 			auto CallbackHandle = Subscription.m_Callback.f_Register(_Actor, fg_Move(_Callback), &Internal, &Subscription);
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> Continuation;
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
 			if (!_bWaitForResponse)
 			{
 				Continuation.f_SetResult(fg_Move(CallbackHandle));
@@ -1068,7 +1068,7 @@ namespace NMib
 						}
 					}
 				)
-				> fg_ThisActor(m_pThis) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_TimerReference)
+				> fg_ThisActor(m_pThis) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_TimerReference)
 				{
 					if (!m_bConnectFinished && !m_bDestroyed)
 						m_ConnectTimeoutTimerRef = fg_Move(*_TimerReference);

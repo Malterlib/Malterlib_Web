@@ -150,7 +150,7 @@ namespace NMib
 			};
 		private:
 
-			NConcurrency::CActorCallback fp_SetCallbacks
+			NConcurrency::CActorSubscription fp_SetCallbacks
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 					, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pMessage)> &&_fReceiveBinaryMessage
@@ -161,19 +161,19 @@ namespace NMib
 				)
 			;
 
-			NConcurrency::CActorCallback fp_SetOnReceivePing
+			NConcurrency::CActorSubscription fp_SetOnReceivePing
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 				)
 			;
 			
-			NConcurrency::CActorCallback fp_SetOnReceivePong
+			NConcurrency::CActorSubscription fp_SetOnReceivePong
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 				)
 			;
 			
-			NConcurrency::CActorCallback fp_SetOnClose
+			NConcurrency::CActorSubscription fp_SetOnClose
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 				)
@@ -193,13 +193,13 @@ namespace NMib
 			void fp_StopDeferring();
 			void fp_TryStopDeferring();
 			void fp_RejectClientConnection(NStr::CStr const &_Error);
-			NConcurrency::CActorCallback fp_OnFinishServerConnection
+			NConcurrency::CActorSubscription fp_OnFinishServerConnection
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 					, NFunction::TCFunction<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 				)
 			;
-			NConcurrency::CActorCallback fp_OnFinishClientConnection
+			NConcurrency::CActorSubscription fp_OnFinishClientConnection
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 					, NFunction::TCFunction<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
@@ -343,7 +343,7 @@ namespace NMib
 			struct CPendingConnection
 			{
 				NPtr::TCUniquePointer<NNet::ICSocket> m_pSocket;
-				NConcurrency::CActorCallback m_OnFinishConnectionSubscription;
+				NConcurrency::CActorSubscription m_OnFinishConnectionSubscription;
 			};
 			NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 			NConcurrency::TCActor<NNet::CResolveActor> mp_AddressResolver;
@@ -359,7 +359,7 @@ namespace NMib
 			CWebSocketServerActor();
 			~CWebSocketServerActor();
 
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_StartListen
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_StartListen
 				(
 					uint16 _StartListen		// The port to listen to
 					, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
@@ -371,7 +371,7 @@ namespace NMib
 				)
 			;
 
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_StartListenAddress
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_StartListenAddress
 				(
 					NContainer::TCVector<NNet::CNetAddress> &&_AddressesToListenTo // The addresses to listen to
 					, NMib::NNet::ENetFlag _ListenFlags

@@ -15,17 +15,17 @@ namespace NMib
 			NPtr::TCUniquePointer<CWebSocketNewServerConnection> m_pNewWebsocketConnection;
 
 			NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
-			NConcurrency::CActorCallback m_WebSocketCallbacks;
+			NConcurrency::CActorSubscription m_WebSocketCallbacks;
 			
-			NConcurrency::TCActorCallbackManager<void (CConnectionInfo const &_MethodInfo)> m_OnConnection;
-			NConcurrency::TCActorCallbackManager<void (CMethodInfo const &_MethodInfo)> m_OnMethod;
-			NConcurrency::TCActorCallbackManager<void (CSubscribeInfo const &_SubscribeInfo)> m_OnSubscribe;
-			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_ID)> m_OnUnSubscribe;
-			NConcurrency::TCActorCallbackManager<void (NStr::CStr const &_Error)> m_OnError;
-			NConcurrency::TCActorCallbackManager<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
+			NConcurrency::TCActorSubscriptionManager<void (CConnectionInfo const &_MethodInfo)> m_OnConnection;
+			NConcurrency::TCActorSubscriptionManager<void (CMethodInfo const &_MethodInfo)> m_OnMethod;
+			NConcurrency::TCActorSubscriptionManager<void (CSubscribeInfo const &_SubscribeInfo)> m_OnSubscribe;
+			NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const &_ID)> m_OnUnSubscribe;
+			NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const &_Error)> m_OnError;
+			NConcurrency::TCActorSubscriptionManager<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
 
 			
-			NConcurrency::CActorCallback m_SockJSHeartbeatCallback;
+			NConcurrency::CActorSubscription m_SockJSHeartbeatCallback;
 			
 			EConnectionType m_ConnectionType;
 			
@@ -374,7 +374,7 @@ namespace NMib
 
 		}
 		
-		NConcurrency::CActorCallback CDDPServerConnection::f_Register
+		NConcurrency::CActorSubscription CDDPServerConnection::f_Register
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
 				, NFunction::TCFunction<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
@@ -439,7 +439,7 @@ namespace NMib
 			Internal.m_WebSocket = Internal.m_pNewWebsocketConnection->f_Accept
 				(
 					"" // check which protocol
-					, fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Callback)
+					, fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
 					{
 						if (_Callback)
 							mp_pInternal->m_WebSocketCallbacks = fg_Move(*_Callback);
@@ -460,7 +460,7 @@ namespace NMib
 							Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
 						}
 					)
-					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Result)
+					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 					{
 						auto &Internal = *mp_pInternal;
 						Internal.m_SockJSHeartbeatCallback = fg_Move(*_Result);

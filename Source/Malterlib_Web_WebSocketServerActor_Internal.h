@@ -30,11 +30,11 @@ namespace NMib
 			NContainer::TCVector<NConcurrency::TCActor<NWebSocket::CListenActor>> m_ListenSockets;
 			NContainer::TCSet<NConcurrency::TCActor<CWebSocketActor>> m_Connections;
 			NPtr::TCSharedPointer<NConcurrency::CCanDestroyTracker> m_pCanDestroyTracker;
-			NConcurrency::TCActorCallbackManager<void (CWebSocketNewServerConnection &&_NewConnection)> m_OnNewConnection;
-			NConcurrency::TCActorCallbackManager<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> m_OnFailedConnection;
+			NConcurrency::TCActorSubscriptionManager<void (CWebSocketNewServerConnection &&_NewConnection)> m_OnNewConnection;
+			NConcurrency::TCActorSubscriptionManager<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> m_OnFailedConnection;
 			mint m_MaxMessageSize;
 			mint m_FragmentationSize;
-			NContainer::TCLinkedList<NConcurrency::CActorCallback> m_Subscriptions;
+			NContainer::TCLinkedList<NConcurrency::CActorSubscription> m_Subscriptions;
 		};
 	}		
 }

@@ -43,7 +43,7 @@ public:
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
 
 		CMutual m_Lock;
-		CActorCallback m_ListenCallbackReference;
+		CActorSubscription m_ListenCallbackReference;
 		
 		CEventAutoReset m_Event;
 		CStr m_Error;
@@ -64,7 +64,7 @@ public:
 		struct CConnection
 		{
 			TCActor<CDDPServerConnection> m_Connection;
-			CActorCallback m_Callback;
+			CActorSubscription m_Callback;
 		};
 		
 		TCLinkedList<CConnection> m_Connections;
@@ -233,7 +233,7 @@ public:
 								{
 								}
 							)
-							> [pConnection](TCAsyncResult<CActorCallback> &&_Callback)
+							> [pConnection](TCAsyncResult<CActorSubscription> &&_Callback)
 							{
 								if (_Callback)
 									pConnection->m_Callback = fg_Move(*_Callback);
@@ -247,7 +247,7 @@ public:
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
-				> fg_ConcurrentActor() / [this, Continuation](NConcurrency::TCAsyncResult<CActorCallback> &&_Result)
+				> fg_ConcurrentActor() / [this, Continuation](NConcurrency::TCAsyncResult<CActorSubscription> &&_Result)
 				{
 					DMibLock(m_Lock);
 					if (_Result)
@@ -300,7 +300,7 @@ public:
 
 			{
 				auto &ConcurrentActor = fg_ConcurrentActor(); 
-				CActorCallback Observation = Client
+				CActorSubscription Observation = Client
 					(
 						&CDDPClient::f_Observe
 						, ConcurrentActor
@@ -322,7 +322,7 @@ public:
 					).f_CallSync()
 				;
 				
-				CActorCallback Subscription = Client
+				CActorSubscription Subscription = Client
 					(
 						&CDDPClient::f_Subscribe
 						, ConcurrentActor
@@ -413,7 +413,7 @@ public:
 				{
 					auto fSubscribe = [&]
 						{
-							CActorCallback Subscription = Client
+							CActorSubscription Subscription = Client
 								(
 									&CDDPClient::f_Subscribe
 									, ConcurrentActor

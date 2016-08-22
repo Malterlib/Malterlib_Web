@@ -118,7 +118,7 @@ namespace NMib
 					, NFunction::TCFunction<void ()> &&_fOnUpdated
 				)
 			;
-			NConcurrency::TCContinuation<NConcurrency::CActorCallback> f_Subscribe
+			NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_Subscribe
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
 					, NStr::CStr const &_SubscriptionName
@@ -129,7 +129,7 @@ namespace NMib
 					, bool _bWaitForResponse
 				)
 			;
-			NConcurrency::CActorCallback f_Observe
+			NConcurrency::CActorSubscription f_Observe
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
 					, NStr::CStr const &_CollectionName // Leave empty to observe all collections

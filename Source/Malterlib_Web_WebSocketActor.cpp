@@ -163,13 +163,13 @@ namespace NMib
 			NPtr::TCUniquePointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
 			NContainer::TCLinkedList<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_OnReceiveBinaryMessage;
-			NConcurrency::TCActorCallbackManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePing;
-			NConcurrency::TCActorCallbackManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePong;
-			NConcurrency::TCActorCallbackManager<void (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
-			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_OnFinishConnection;
-			NConcurrency::TCActorCallbackManager<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_OnFinishClientConnection;
+			NConcurrency::TCActorSubscriptionManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_OnReceiveBinaryMessage;
+			NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
+			NConcurrency::TCActorSubscriptionManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePing;
+			NConcurrency::TCActorSubscriptionManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_OnReceivePong;
+			NConcurrency::TCActorSubscriptionManager<void (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
+			NConcurrency::TCActorSubscriptionManager<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_OnFinishConnection;
+			NConcurrency::TCActorSubscriptionManager<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_OnFinishClientConnection;
 			
 			void f_ShutdownDone(NStr::CStr const &_Error);
 			
@@ -192,7 +192,7 @@ namespace NMib
 		{
 		}
 		
-		NConcurrency::CActorCallback CWebSocketActor::fp_SetCallbacks
+		NConcurrency::CActorSubscription CWebSocketActor::fp_SetCallbacks
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> && _Actor
 				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> && _fReceiveBinaryMessage
@@ -373,7 +373,7 @@ namespace NMib
 			struct CState
 			{
 				bool m_bHandled;
-				NConcurrency::CActorCallback m_TimerSubscription;
+				NConcurrency::CActorSubscription m_TimerSubscription;
 				NConcurrency::TCActor<CWebSocketActor> m_WebSocketActor;
 				void f_Finish()
 				{
@@ -431,7 +431,7 @@ namespace NMib
 						}
 					}
 				)
-				> [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorCallback> &&_Subscription)
+				> [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Subscription)
 				{
 					if (_Subscription && !pState->m_bHandled)
 						pState->m_TimerSubscription = fg_Move(*_Subscription);
@@ -1626,7 +1626,7 @@ namespace NMib
 			fp_ProcessState();
 		}
 		
-		NConcurrency::CActorCallback CWebSocketActor::fp_OnFinishServerConnection
+		NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishServerConnection
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 				, NFunction::TCFunction<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
@@ -1641,7 +1641,7 @@ namespace NMib
 			return Return;
 		}
 
-		NConcurrency::CActorCallback CWebSocketActor::fp_OnFinishClientConnection
+		NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishClientConnection
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
 				, NFunction::TCFunction<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
