@@ -138,7 +138,7 @@ public:
 				(
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(ListenAddress)
-					, NMib::NNet::ENetFlag_ReuseAddress
+					, NMib::NNet::ENetFlag_None
 					, NMib::NConcurrency::fg_ConcurrentActor()
 					, [pState](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
