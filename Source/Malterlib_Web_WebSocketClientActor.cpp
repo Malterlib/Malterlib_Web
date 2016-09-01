@@ -96,6 +96,7 @@ namespace NMib
 
 						try
 						{
+							NException::CDisableExceptionTraceScope DisableExceptionTrace;
 							Pending.m_pSocket->f_AsyncConnect
 								(
 									fg_Move(Address)

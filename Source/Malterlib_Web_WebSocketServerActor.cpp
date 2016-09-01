@@ -81,6 +81,7 @@ namespace NMib
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 					
 					NPtr::TCUniquePointer<NNet::ICSocket> pListenSocket = SocketFactory();
+					NException::CDisableExceptionTraceScope DisableExceptionTrace;
 					pListenSocket->f_Listen
 						(
 							Address
@@ -156,6 +157,7 @@ namespace NMib
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 					
 					NPtr::TCUniquePointer<NNet::ICSocket> pListenSocket = SocketFactory();
+					NException::CDisableExceptionTraceScope DisableExceptionTrace;
 					pListenSocket->f_Listen
 						(
 							Address
