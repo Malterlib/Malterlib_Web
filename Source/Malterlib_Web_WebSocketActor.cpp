@@ -720,7 +720,8 @@ namespace NMib
 			try
 			{
 				auto &Internal = *mp_pInternal;
-				Internal.m_pSocket->f_Shutdown();
+				if (Internal.m_pSocket)
+					Internal.m_pSocket->f_Shutdown();
 			}
 			catch (NNet::CExceptionNet const &_Error)
 			{
