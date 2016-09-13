@@ -195,11 +195,11 @@ namespace NMib
 		NConcurrency::CActorSubscription CWebSocketActor::fp_SetCallbacks
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> && _Actor
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> && _fReceiveBinaryMessage
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NStr::CStr const& _Message)> && _fReceiveTextMessage
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePing
-				, NFunction::TCFunction<void (NFunction::CThisTag &, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePong
-				, NFunction::TCFunction<void (NFunction::CThisTag &, EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
+				, NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> && _fReceiveBinaryMessage
+				, NFunction::TCFunctionMutable<void (NStr::CStr const& _Message)> && _fReceiveTextMessage
+				, NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePing
+				, NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> && _fReceivePong
+				, NFunction::TCFunctionMutable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
 			)
 		{
 			auto &Internal = *mp_pInternal;

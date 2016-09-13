@@ -183,7 +183,7 @@ namespace NMib
 			NContainer::TCMap<uint64, NFunction::TCFunction<void (NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)>> m_PendingMethodCalls;
 			NContainer::TCMap<NStr::CStr, CCollection> m_Collections;
 
-			NContainer::TCMap<uint64, NFunction::TCFunction<void (NFunction::CThisTag &)>> m_PendingMethodUpdated;
+			NContainer::TCMap<uint64, NFunction::TCFunctionMovable<void ()>> m_PendingMethodUpdated;
 
 			NContainer::TCMap<NStr::CStr, CSubscription> m_Subscriptions;
 			
