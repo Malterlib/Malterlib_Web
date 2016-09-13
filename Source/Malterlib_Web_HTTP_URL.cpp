@@ -695,6 +695,11 @@ namespace NMib
 			return true;
 		}
 
+		void CURL::f_Format(NStr::CStrAggregate &o_Str) const
+		{
+			o_Str += f_Encode();
+		}
+
 		void CURL::f_DebugOut() const
 		{
 			NStr::CStr Path;

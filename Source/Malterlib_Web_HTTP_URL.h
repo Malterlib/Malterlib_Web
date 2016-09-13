@@ -147,6 +147,8 @@ namespace NMib
 			void f_Feed(tf_CStream &_Stream) const;
 			template <typename tf_CStream>
 			void f_Consume(tf_CStream &_Stream);
+			
+			void f_Format(NStr::CStrAggregate &o_Str) const;
 		};
 
 	} // Namespace NHTTP
