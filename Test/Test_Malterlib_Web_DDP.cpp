@@ -506,7 +506,7 @@ public:
 						CSSLContext::CCertificateOptions ServerOptions;
 						ServerOptions.m_Subject = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeyLength = 1024;
+						ServerOptions.m_KeySetting = CSSLKeySettings_EC_secp256r1{};
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 

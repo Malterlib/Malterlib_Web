@@ -572,13 +572,11 @@ namespace NMib
 			auto &Internal = *mp_pInternal;
 			
 			NEncoding::CEJSON Message;
-			
 			Message["msg"] = "connected";
 			if (!_SessionID.f_IsEmpty())
 				Message["session"] = _SessionID;
 			else
 				Message["session"] = CDDPClient::fs_RandomID();
-			
 			Internal.f_SendMessage(Message);
 		}
 		
@@ -589,23 +587,20 @@ namespace NMib
 			NEncoding::CEJSON Message;
 			Message["msg"] = "failed";
 			Message["version"] = "1";
-
 			Internal.f_SendMessage(Message);
 		}		
 	
 		void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result, bool _bUpdated)
 		{
 			auto &Internal = *mp_pInternal;
-
-			NEncoding::CEJSON Message;
-
-			Message["msg"] = "result";
-			Message["id"] = _MethodID;
-			if (_Result.f_IsValid())
-				Message["result"] = _Result;
-			
-			Internal.f_SendMessage(Message);
-			
+			{
+				NEncoding::CEJSON Message;
+				Message["msg"] = "result";
+				Message["id"] = _MethodID;
+				if (_Result.f_IsValid())
+					Message["result"] = _Result;
+				Internal.f_SendMessage(Message);
+			}
 			if (_bUpdated)
 			{
 				NEncoding::CEJSON Message;
@@ -619,14 +614,20 @@ namespace NMib
 		void CDDPServerConnection::fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Error)
 		{
 			auto &Internal = *mp_pInternal;
-
-			NEncoding::CEJSON Message;
-
-			Message["msg"] = "result";
-			Message["id"] = _MethodID;
-			Message["error"] = _Error;
-			
-			Internal.f_SendMessage(Message);
+			{
+				NEncoding::CEJSON Message;
+				Message["msg"] = "result";
+				Message["id"] = _MethodID;
+				Message["error"] = _Error;
+				Internal.f_SendMessage(Message);
+			}
+			{
+				NEncoding::CEJSON Message;
+				Message["msg"] = "updated";
+				auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
+				MethodsArray.f_Insert() = _MethodID;
+				Internal.f_SendMessage(Message);
+			}
 		}
 		
 		void CDDPServerConnection::fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSON const &_Error)
