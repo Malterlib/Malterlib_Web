@@ -417,8 +417,12 @@ public:
 					NSys::fg_Thread_Sleep(1.5);
 					
 					DMibLock(pState->m_Lock);
-					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_Timeout);
-					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_Timeout);
+					DMibTest
+						(
+							DMibExpr(pState->m_ServerConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
+							|| DMibExpr(pState->m_ClientConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
+						)
+					;
 				}
 			}
 		};
