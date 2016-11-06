@@ -35,6 +35,12 @@ namespace NMib
 			mp_pInternal->m_FragmentationSize = _FragmentationSize;
 		}
 
+		void CWebSocketServerActor::f_SetDefaultTimeout(fp64 _Timeout)
+		{
+			DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
+			mp_pInternal->m_Timeout = _Timeout;
+		}
+
 		void CWebSocketServerActor::CInternal::f_Clear()
 		{
 			m_ListenSockets.f_Clear();
@@ -76,7 +82,7 @@ namespace NMib
 					NNet::CNetAddress &Address = _AddressesToListenTo[i];
 
 					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
-					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize);
+					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize, mp_pInternal->m_Timeout);
 					
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 					
@@ -152,7 +158,7 @@ namespace NMib
 					Address.f_Set(AnyAddress);
 
 					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
-					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize);
+					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize, mp_pInternal->m_Timeout);
 					
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 					
@@ -191,7 +197,27 @@ namespace NMib
 			}		
 			return Ret;
 		}
-		
+
+		NConcurrency::TCContinuation<void> CWebSocketServerActor::f_Destroy()
+		{
+			auto &Internal = *mp_pInternal;
+			NConcurrency::TCActorResultVector<void> Results;
+			for (auto &ListenSocket : Internal.m_ListenSockets)
+				ListenSocket->f_Destroy2() > Results.f_AddResult();
+
+			NConcurrency::TCContinuation<void> Continuation;
+			
+			Results.f_GetResults() > Continuation / [Continuation](NContainer::TCVector<NConcurrency::TCAsyncResult<void>> &&_Results)
+				{
+					if (!NConcurrency::fg_CombineResults(Continuation, fg_Move(_Results), []{}))
+						return;
+					Continuation.f_SetResult();
+				}
+			;
+			
+			return Continuation;
+		}
+
 		void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> && _Connection)
 		{
 			auto pSubscription = &mp_pInternal->m_Subscriptions.f_Insert();

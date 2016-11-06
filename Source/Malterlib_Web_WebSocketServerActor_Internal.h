@@ -20,6 +20,7 @@ namespace NMib
 				, m_OnFailedConnection(_pThis, false)
 				, m_MaxMessageSize(24*1024*1024)
 				, m_FragmentationSize(32*1024)
+				, m_Timeout(60.0)
 			{
 			}
 			
@@ -32,6 +33,7 @@ namespace NMib
 			NPtr::TCSharedPointer<NConcurrency::CCanDestroyTracker> m_pCanDestroyTracker;
 			NConcurrency::TCActorSubscriptionManager<void (CWebSocketNewServerConnection &&_NewConnection)> m_OnNewConnection;
 			NConcurrency::TCActorSubscriptionManager<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> m_OnFailedConnection;
+			fp64 m_Timeout;
 			mint m_MaxMessageSize;
 			mint m_FragmentationSize;
 			NContainer::TCLinkedList<NConcurrency::CActorSubscription> m_Subscriptions;

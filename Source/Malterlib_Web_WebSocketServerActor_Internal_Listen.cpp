@@ -12,10 +12,11 @@ namespace NMib
 	{
 		namespace NWebSocket
 		{
-			CListenActor::CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize)
+			CListenActor::CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize, fp64 _Timeout)
 				: mp_Server(_Server)
 				, mp_MaxMessageSize(_MaxMesageSize)
 				, mp_FragmentationSize(_FragmentationSize)
+				, mp_Timeout(_Timeout)
 			{									
 			}
 			
@@ -49,7 +50,7 @@ namespace NMib
 				{
 					while (true)
 					{
-						NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(false, mp_MaxMessageSize, mp_FragmentationSize);
+						NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(false, mp_MaxMessageSize, mp_FragmentationSize, mp_Timeout);
 						NConcurrency::TCWeakActor<CWebSocketActor> WeakConnectionActor = ConnectionActor;
 						NPtr::TCUniquePointer<NNet::ICSocket> pAcceptedSocket = mp_pSocket->f_Accept
 							(

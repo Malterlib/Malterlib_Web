@@ -121,7 +121,7 @@ namespace NMib
 			
 		public:
 			
-			CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize);
+			CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout);
 			~CWebSocketActor();
 			
 			void f_SetTimeout(fp64 _Seconds);
@@ -133,6 +133,10 @@ namespace NMib
 			
 			NConcurrency::TCContinuation<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
 			NConcurrency::TCContinuation<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
+			
+			void f_DebugStopProcessing();
+
+			void f_Construct() override;
 			
 		private:
 			friend class NWebSocket::CListenActor;
@@ -324,6 +328,7 @@ namespace NMib
 
 			void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
 			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+			void f_SetDefaultTimeout(fp64 _Timeout);
 			
 			NConcurrency::TCContinuation<CWebSocketNewClientConnection> f_Connect
 				(
@@ -349,6 +354,7 @@ namespace NMib
 			NConcurrency::TCActor<NNet::CResolveActor> mp_AddressResolver;
 			mint mp_MaxMessageSize;
 			mint mp_FragmentationSize;
+			fp64 mp_Timeout;
 		};
 		
 		class CWebSocketServerActor : public NConcurrency::CActor
@@ -384,6 +390,9 @@ namespace NMib
 			
 			void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
 			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+			void f_SetDefaultTimeout(fp64 _Timeout);
+			
+			NConcurrency::TCContinuation<void> f_Destroy() override;
 			
 		private:
 			void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);

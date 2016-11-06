@@ -27,6 +27,7 @@ using namespace NMib::NStr;
 namespace
 {
 	CSSLKeySetting gc_TestTestKeySetting = CSSLKeySettings_EC_secp256r1{};
+	char const *g_pCloseMessage = "Malterlib Web closed connection";
 }
 
 class CWebsocket_Tests : public NMib::NTest::CTest
@@ -51,93 +52,71 @@ public:
 		};
 #endif
 	}
-	
-	void fp_TestImp
-		(
-			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
-			, CStr const &_AcceptError
-			, CStr const &_ConnectError
-			, CStr const &_Address
-		)
+
+	struct CState : public NPtr::TCSharedPointerIntrusiveBase<>
 	{
-		DMibTestSuite("Connection")
+		struct CServerConnection
 		{
-			auto Factories = _fGetFactories();
-			auto ServerFactory = fg_Get<0>(Factories);
-			auto ClientFactory = fg_Get<1>(Factories); 
-			
-			static char const *s_pCloseMessage = "Malterlib Web closed connection";
+			NConcurrency::TCActor<CWebSocketActor> m_Actor;
+			NConcurrency::CActorSubscription m_CallbacksReference;
+		};
+		
+		CMutual m_Lock;
+		CEventAutoReset m_Event;
 
-			struct CState
+		NConcurrency::TCActor<CWebSocketServerActor> m_ServerActor;
+		NConcurrency::CActorSubscription m_ListenCallbackReference;
+
+		NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
+		
+		NStr::CStr m_AcceptError;
+		bool m_bAcceptError = false;
+		NStr::CStr m_ListenError;
+
+		NConcurrency::TCActor<CWebSocketClientActor> m_ClientActor;
+
+		NConcurrency::TCActor<CWebSocketActor> m_ClientSocket;
+		NConcurrency::CActorSubscription m_ClientActorCallbacksReference;
+		
+		NStr::CStr m_ClientConnectionError;
+		bool m_bClientConnectionResult = false;
+		
+		EWebSocketCloseOrigin m_ClientConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
+		EWebSocketCloseOrigin m_ServerConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
+		EWebSocketStatus m_ClientConnectionCloseStatus = EWebSocketStatus_None;
+		EWebSocketStatus m_ServerConnectionCloseStatus = EWebSocketStatus_None;
+		NStr::CStr m_ClientConnectionCloseMessage;
+		NStr::CStr m_ServerConnectionCloseMessage;
+
+		bool m_bCleared = false;
+		
+		void f_Clear()
+		{
+			DMibLock(m_Lock);
+			m_bCleared = true;
+			m_ClientActorCallbacksReference.f_Clear();
+			m_ClientSocket.f_Clear();
+			m_ClientActor.f_Clear();
+			m_ListenCallbackReference.f_Clear();
+			m_ServerConnections.f_Clear();
+			if (m_ServerActor)
 			{
-				struct CServerConnection
+				auto ServerActor = m_ServerActor;
 				{
-					NConcurrency::TCActor<CWebSocketActor> m_Actor;
-					NConcurrency::CActorSubscription m_CallbacksReference;
-				};
-				
-				CMutual m_Lock;
-				CEventAutoReset m_Event;
-
-				NConcurrency::TCActor<CWebSocketServerActor> m_ServerActor;
-				NConcurrency::CActorSubscription m_ListenCallbackReference;
-
-				NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
-				
-				NStr::CStr m_AcceptError;
-				bool m_bAcceptError = false;
-				NStr::CStr m_ListenError;
-
-				NConcurrency::TCActor<CWebSocketClientActor> m_ClientActor;
-
-				NConcurrency::TCActor<CWebSocketActor> m_ClientSocket;
-				NConcurrency::CActorSubscription m_ClientActorCallbacksReference;
-				
-				NStr::CStr m_ClientConnectionError;
-				bool m_bClientConnectionResult = false;
-				
-				NStr::CStr m_ClientConnectionCloseMessage;
-				NStr::CStr m_ServerConnectionCloseMessage;
-				
-				void f_Clear()
-				{
-					DMibLock(m_Lock);
-					m_ClientActorCallbacksReference.f_Clear();
-					m_ClientSocket.f_Clear();
-					m_ClientActor.f_Clear();
-					m_ListenCallbackReference.f_Clear();
-					m_ServerConnections.f_Clear();
-					m_ServerActor.f_Clear();
-					m_ServerActor.f_Clear();
+					DMibUnlock(m_Lock);
+					ServerActor->f_BlockDestroy(); // Make sure to release listen socket
 				}
-			};
-			
-			NPtr::TCSharedPointer<CState> pState = fg_Construct();
-			
-			auto Cleanup 
-				= g_OnScopeExit > [&]
-				{
-					pState->f_Clear();
-				}
-			;
-			
-			CNetAddress ListenAddress;
-			
-			if (_Address == "localhost")
-			{
-				CNetAddressTCPv4 Address;
-				Address.m_Port = 10500;
-				ListenAddress = Address;
+				m_ServerActor.f_Clear();
 			}
-			else
-				ListenAddress = CSocket::fs_ResolveAddress(_Address);
-			
-			pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
-			
-			pState->m_ServerActor
+		}
+		
+		void f_StartListen(CNetAddress _ListenAddress, NNet::FVirtualSocketFactory const &_ServerFactory)
+		{
+			NPtr::TCSharedPointer<CState> pState = fg_Explicit(this);
+			m_ServerActor
 				(
 					&CWebSocketServerActor::f_StartListenAddress
-					, fg_CreateVector(ListenAddress)
+					, fg_CreateVector(_ListenAddress)
 					, NMib::NNet::ENetFlag_None
 					, NMib::NConcurrency::fg_ConcurrentActor()
 					, [pState](CWebSocketNewServerConnection &&_ConnectionInfo)
@@ -162,7 +141,7 @@ public:
 								{
 									DMibLock(pState->m_Lock);
 									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, s_pCloseMessage) > NConcurrency::fg_DiscardResult();
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, g_pCloseMessage) > NConcurrency::fg_DiscardResult();
 								}
 							}
 						;
@@ -171,7 +150,11 @@ public:
 							= [pState, pServerConnection](EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
 							{
 								DMibLock(pState->m_Lock);
+								if (pState->m_bCleared)
+									return;
 								pState->m_ServerConnectionCloseMessage = _Message;
+								pState->m_ServerConnectionCloseStatus = _Status;
+								pState->m_ServerConnectionCloseOrigin = _Origin;
 								pState->m_ServerConnections.f_Remove(*pServerConnection);
 								pState->m_Event.f_Signal();
 							}
@@ -202,7 +185,7 @@ public:
 						pState->m_AcceptError = _ConnectionInfo.m_Error;
 						pState->m_Event.f_Signal();
 					}
-					, fg_TempCopy(ServerFactory)
+					, fg_TempCopy(_ServerFactory)
 				)
 				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 				{
@@ -213,16 +196,17 @@ public:
 						pState->m_ListenError = _Result.f_GetExceptionStr();
 					pState->m_Event.f_Signal();
 				}
-			;
-			
+			;			
 			bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
 			DMibAssert(pState->m_ListenError, ==, "");
 			DMibAssertFalse(bTimedOutListenStart);
 			DMibAssertTrue(pState->m_ListenCallbackReference);
-
-			pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
-			
-			pState->m_ClientActor
+		}
+		
+		void f_Connect(CStr const &_Address, NNet::FVirtualSocketFactory const &_ClientFactory)
+		{
+			NPtr::TCSharedPointer<CState> pState = fg_Explicit(this);
+			m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
 					, _Address
@@ -233,7 +217,7 @@ public:
 					, fg_Format("http://{}", _Address)
 					, NContainer::fg_CreateVector<NStr::CStr>("Test")
 					, NHTTP::CRequest()
-					, fg_TempCopy(ClientFactory)
+					, fg_TempCopy(_ClientFactory)
 				)
 				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
@@ -242,10 +226,12 @@ public:
 					{
 						auto &Result = *_Result;
 
-						Result.m_fOnClose = [pState](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+						Result.m_fOnClose = [pState](EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_ClientConnectionCloseMessage = _Message;
+								pState->m_ClientConnectionCloseStatus = _Status;
+								pState->m_ClientConnectionCloseOrigin = _Origin;
 								pState->m_Event.f_Signal();
 							}
 						;
@@ -262,94 +248,178 @@ public:
 						;
 					}
 					else
-					{
 						pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
-					}
 
 					pState->m_bClientConnectionResult = true;
 					pState->m_Event.f_Signal();
 				}
 			;
-			
+		}
+	};
+	
+	bool fp_TestConnect(NPtr::TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
+	{
+		auto pState = _pState;
+		DMibTestPath("Connect");
+
+		bool bTimedOut = false;
+		
+		while (!bTimedOut)
+		{
 			{
-				DMibTestPath("Connect");
-
-				bool bTimedOut = false;
-				
-				while (!bTimedOut)
+				DMibLock(pState->m_Lock);
+				if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
+					break; // Server accept failed
+				if (pState->m_bClientConnectionResult)
 				{
+					if 
+						(
+							!pState->m_ClientSocket 
+							&& 
+							(
+								pState->m_bAcceptError 
+								|| !pState->m_ServerConnections.f_IsEmpty() 
+								|| (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty())
+							)
+						)
 					{
-						DMibLock(pState->m_Lock);
-						if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
-							break; // Server accept failed
-						if (pState->m_bClientConnectionResult)
-						{
-							if 
-								(
-									!pState->m_ClientSocket 
-									&& 
-									(
-										pState->m_bAcceptError 
-										|| !pState->m_ServerConnections.f_IsEmpty() 
-										|| (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty())
-									)
-								)
-							{
-								break; // Client connection failed
-							}
-							
-							if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
-								break; // Successfully done
-						}
+						break; // Client connection failed
 					}
-					bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+					
+					if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
+						break; // Successfully done
 				}
-				
-				
-				DMibTest(!DMibExpr(bTimedOut));
-
-				if (!_ConnectError.f_IsEmpty())
-				{
-					DMibExpect(pState->m_ClientConnectionError, ==, _ConnectError);
-					return;
-				}
-				
-				if (!_AcceptError.f_IsEmpty())
-				{
-					DMibTest(DMibExpr(pState->m_bAcceptError));
-					DMibExpect(pState->m_AcceptError, ==, _AcceptError);
-					return;
-				}
-				DMibTest(!DMibExpr(pState->m_bAcceptError));
-				DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
-				
-				DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
-				
-				DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
-				DMibAssertTrue(pState->m_ClientSocket);
 			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+		
+		
+		DMibTest(!DMibExpr(bTimedOut));
 
+		if (!_ConnectError.f_IsEmpty())
+		{
+			DMibExpect(pState->m_ClientConnectionError, ==, _ConnectError);
+			return false;
+		}
+		
+		if (!_AcceptError.f_IsEmpty())
+		{
+			DMibTest(DMibExpr(pState->m_bAcceptError));
+			DMibExpect(pState->m_AcceptError, ==, _AcceptError);
+			return false;
+		}
+		DMibTest(!DMibExpr(pState->m_bAcceptError));
+		DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
+		
+		DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
+		
+		DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+		DMibAssertTrue(pState->m_ClientSocket);
+		return true;
+	}
+	
+	void fp_TestImp
+		(
+			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
+			, CStr const &_AcceptError
+			, CStr const &_ConnectError
+			, CStr const &_Address
+		)
+	{
+		DMibTestSuite("Connection")
+		{
+			auto Factories = _fGetFactories();
+			auto ServerFactory = fg_Get<0>(Factories);
+			auto ClientFactory = fg_Get<1>(Factories); 
+
+			CNetAddress ListenAddress;
+			if (_Address == "localhost")
+			{
+				CNetAddressTCPv4 Address;
+				Address.m_Port = 10500;
+				ListenAddress = Address;
+			}
+			else
+				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
 				DMibTestPath("Disconnect");
-
-				pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();
 				
-				bool bTimedOut = false;
-				
-				while (!bTimedOut)
-				{
+				NPtr::TCSharedPointer<CState> pState = fg_Construct();
+				auto Cleanup 
+					= g_OnScopeExit > [&]
 					{
-						DMibLock(pState->m_Lock);
-						if (!pState->m_ClientConnectionCloseMessage.f_IsEmpty() && pState->m_ServerConnections.f_IsEmpty())
-							break; // Successfully disconnected from the server
+						pState->f_Clear();
 					}
-					bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-				}
-
-				DMibTest(!DMibExpr(bTimedOut));
-				DMibExpect(pState->m_ClientConnectionCloseMessage, ==, s_pCloseMessage);
-				DMibExpect(pState->m_ServerConnectionCloseMessage, ==, s_pCloseMessage);
+				;
 				
+				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
+				pState->f_StartListen(ListenAddress, ServerFactory);
+
+				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+				pState->f_Connect(_Address, ClientFactory);
+		
+				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
+					return;
+				{
+					DMibTestPath("Disconnect");
+
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();
+					
+					bool bTimedOut = false;
+					
+					while (!bTimedOut)
+					{
+						{
+							DMibLock(pState->m_Lock);
+							if (!pState->m_ClientConnectionCloseMessage.f_IsEmpty() && pState->m_ServerConnections.f_IsEmpty())
+								break; // Successfully disconnected from the server
+						}
+						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+					}
+
+					DMibTest(!DMibExpr(bTimedOut));
+					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, g_pCloseMessage);
+					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, g_pCloseMessage);
+					
+				}
+			}
+			{
+				DMibTestPath("Timeout");
+				NPtr::TCSharedPointer<CState> pState = fg_Construct();
+				auto Cleanup 
+					= g_OnScopeExit > [&]
+					{
+						pState->f_Clear();
+					}
+				;
+				
+				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 0.5).f_CallSync(20.0);
+				pState->f_StartListen(ListenAddress, ServerFactory);
+				
+				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 0.5).f_CallSync(20.0);
+				pState->f_Connect(_Address, ClientFactory);
+				
+				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
+					return;
+				{
+					DMibTestPath("Non timeout");
+					NSys::fg_Thread_Sleep(1.5);
+
+					DMibLock(pState->m_Lock);
+					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
+					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+				}
+				{
+					DMibTestPath("Timeout");
+					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing).f_CallSync(20.0);
+					NSys::fg_Thread_Sleep(1.5);
+					
+					DMibLock(pState->m_Lock);
+					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_Timeout);
+					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_Timeout);
+				}
 			}
 		};
 	}

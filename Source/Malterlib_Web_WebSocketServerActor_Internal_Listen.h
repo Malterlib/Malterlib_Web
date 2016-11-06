@@ -17,7 +17,7 @@ namespace NMib
 			class CListenActor : public NConcurrency::CActor
 			{
 			public:
-				CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize);
+				CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize, fp64 _Timeout);
 				~CListenActor();
 				
 				void f_SetSocket(NPtr::TCUniquePointer<NNet::ICSocket> &&_pSocket);
@@ -31,6 +31,7 @@ namespace NMib
 				NPtr::TCUniquePointer<NNet::ICSocket> mp_pSocket;
 				mint mp_MaxMessageSize;
 				mint mp_FragmentationSize;
+				fp64 mp_Timeout;
 				NConcurrency::TCWeakActor<CWebSocketServerActor> mp_Server;
 			};
 		}

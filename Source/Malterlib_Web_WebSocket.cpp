@@ -18,11 +18,9 @@ namespace NMib
 		{
 		}
 
-		
 		///
 		/// Server connection
 		/// =================
-
 		
 		void CWebSocketNewServerConnection::f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader) const
 		{
@@ -61,7 +59,6 @@ namespace NMib
 			mp_pHelper.f_Clear();
 		}
 		
-
 		///
 		/// Client connection
 		/// =================
@@ -116,6 +113,4 @@ namespace NMib
 			}
 		}
 	}		
-
 }
-

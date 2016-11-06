@@ -15,6 +15,7 @@ namespace NMib
 		CWebSocketClientActor::CWebSocketClientActor()
 			: mp_MaxMessageSize(24*1024*1024)
 			, mp_FragmentationSize(32*1024)
+			, mp_Timeout(60.0)
 		{
 		}
 
@@ -30,14 +31,17 @@ namespace NMib
 		void CWebSocketClientActor::f_SetDefaultFragmentationSize(mint _FragmentationSize)
 		{
 			mp_FragmentationSize = _FragmentationSize;
-		}	
-		
+		}
+
+		void CWebSocketClientActor::f_SetDefaultTimeout(fp64 _Timeout)
+		{
+			mp_Timeout = _Timeout;
+		}
+
 		NConcurrency::TCContinuation<void> CWebSocketClientActor::f_Destroy()
 		{
 			return NConcurrency::TCContinuation<void>::fs_Finished();
 		}
-		
-
 		
 		NConcurrency::TCContinuation<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
 			(
@@ -124,7 +128,7 @@ namespace NMib
 													if (_StateAdded == NNet::ENetTCPState_Connected)
 													{
 														NConcurrency::TCActor<CWebSocketActor> ConnectionActor
-															= NConcurrency::fg_ConstructActor<CWebSocketActor>(true, mp_MaxMessageSize, mp_FragmentationSize)
+															= NConcurrency::fg_ConstructActor<CWebSocketActor>(true, mp_MaxMessageSize, mp_FragmentationSize, mp_Timeout)
 														;
 														NPtr::TCUniquePointer<NNet::ICSocket> pNewSocket = fg_Move(pPending->m_pSocket);
 														
