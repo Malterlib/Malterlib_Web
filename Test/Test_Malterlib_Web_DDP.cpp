@@ -38,6 +38,17 @@ public:
 				Document["Value"] = fg_Format("Value{}", i);
 			}
 		}
+		
+		CServer()
+		{
+		}
+		
+		TCContinuation<void> f_Destroy() override
+		{
+			if (m_WebsocketServer)
+				return m_WebsocketServer->f_Destroy2();
+			return fg_Explicit();
+		}
 
 		NNet::FVirtualSocketFactory m_ServerFactory;
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
@@ -276,6 +287,12 @@ public:
 			auto ServerFactory = fg_Get<0>(Factories); 
  			auto ClientFactory = fg_Get<1>(Factories); 
 			TCActor<CServer> Server = fg_ConstructActor<CServer>(ServerFactory);
+			
+			auto Cleanup = g_OnScopeExit > [&]
+				{
+					Server->f_BlockDestroy();
+				}
+			;
 			
 			auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync());
 			
