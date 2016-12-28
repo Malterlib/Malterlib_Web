@@ -628,7 +628,11 @@ public:
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
+#ifdef DMibSSLLibrary_BoringSSL
+					, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
+#else
 					, "Socket closed: Peer did not return a certificate"
+#endif
 					, ""
 				)
 			;
