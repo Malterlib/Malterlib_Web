@@ -113,6 +113,16 @@ namespace NMib
 				mint m_Position = 0;
 				NPtr::TCUniquePointer<NConcurrency::TCContinuation<void>> m_pContinuation;
 			};
+			
+			struct CPendingCallbackRegister
+			{
+				NConcurrency::TCActor<NConcurrency::CActor> m_Actor;
+				NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_fReceiveBinaryMessage;
+				NFunction::TCFunctionMutable<void (NStr::CStr const& _Message)> m_fReceiveTextMessage;
+				NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_fReceivePing;
+				NFunction::TCFunctionMutable<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _ApplicationData)> m_fReceivePong;
+				NFunction::TCFunctionMutable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+			};
 		}
 		
 		struct CWebSocketActor::CInternal
@@ -180,6 +190,9 @@ namespace NMib
 			
 			NPtr::TCUniquePointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
 			NContainer::TCLinkedList<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_OnShutdown;
+			
+			NPtr::TCUniquePointer<CPendingCallbackRegister> m_pPendingCallbackRegister;
+			NPtr::TCSharedPointer<NConcurrency::CCombinedCallbackReference> m_pPendingCombinedCallbackReferences; 
 
 			NConcurrency::TCActorSubscriptionManager<void (NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const& _pMessage)> m_OnReceiveBinaryMessage;
 			NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
@@ -222,6 +235,8 @@ namespace NMib
 			COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
 			void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
 			static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
+			
+			void f_RegisterPendingCallbacks();
 		};
 
 		CWebSocketActor::CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
@@ -250,19 +265,27 @@ namespace NMib
 			)
 		{
 			auto &Internal = *mp_pInternal;
-			NPtr::TCUniquePointer<NConcurrency::CCombinedCallbackReference> pCombinedReference = fg_Construct();
-			if (_fReceiveBinaryMessage)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnReceiveBinaryMessage.f_Register(_Actor, fg_Move(_fReceiveBinaryMessage)));
-			if (_fReceiveTextMessage)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnReceiveTextMessage.f_Register(_Actor, fg_Move(_fReceiveTextMessage)));
-			if (_fReceivePing)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnReceivePing.f_Register(_Actor, fg_Move(_fReceivePing)));
-			if (_fReceivePong)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnReceivePong.f_Register(_Actor, fg_Move(_fReceivePong)));
-			if (_fOnClose)
-				pCombinedReference->m_References.f_Insert(Internal.m_OnClose.f_Register(_Actor, fg_Move(_fOnClose)));
+			auto &Pending = *(Internal.m_pPendingCallbackRegister = fg_Construct());
 			
-			return fg_Move(pCombinedReference);
+			Pending.m_Actor = fg_Move(_Actor);
+			Pending.m_fReceiveBinaryMessage = fg_Move(_fReceiveBinaryMessage);
+			Pending.m_fReceiveTextMessage = fg_Move(_fReceiveTextMessage);
+			Pending.m_fReceivePing = fg_Move(_fReceivePing);
+			Pending.m_fReceivePong = fg_Move(_fReceivePong);
+			Pending.m_fOnClose = fg_Move(_fOnClose);
+			
+			Internal.m_pPendingCombinedCallbackReferences = fg_Construct(); 
+
+			class CDeferredCalbackReference : public NConcurrency::CActorSubscriptionReference
+			{
+			public:
+				NPtr::TCSharedPointer<NConcurrency::CCombinedCallbackReference> m_pCombinedReferences;
+			};
+			
+			NPtr::TCUniquePointer<CDeferredCalbackReference> pReturn = fg_Construct();
+			pReturn->m_pCombinedReferences = Internal.m_pPendingCombinedCallbackReferences;
+			
+			return fg_Move(pReturn);
 		}
 
 		COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage(EOpcode _Opcode, NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pData, uint32 _Priority)
@@ -1574,6 +1597,8 @@ namespace NMib
 
 		void CWebSocketActor::fp_AcceptClientConnection()
 		{
+			auto &Internal = *mp_pInternal;
+			Internal.f_RegisterPendingCallbacks();
 			fp_TryStopDeferring();
 		}
 		
@@ -1583,10 +1608,33 @@ namespace NMib
 			
 			fp_Disconnect(EWebSocketStatus_Rejected, NStr::fg_Format("Rejected connection: {}", _Error), false, EWebSocketCloseOrigin_Local);
 		}
+		
+		void CWebSocketActor::CInternal::f_RegisterPendingCallbacks()
+		{
+			DMibRequire(m_pPendingCombinedCallbackReferences);
+			DMibRequire(m_pPendingCallbackRegister);
+			
+			auto &Callbacks = *m_pPendingCallbackRegister;
+			auto &References = *m_pPendingCombinedCallbackReferences;
+			if (Callbacks.m_fReceiveBinaryMessage)
+				References.m_References.f_Insert(m_OnReceiveBinaryMessage.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceiveBinaryMessage)));
+			if (Callbacks.m_fReceiveTextMessage)
+				References.m_References.f_Insert(m_OnReceiveTextMessage.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceiveTextMessage)));
+			if (Callbacks.m_fReceivePing)
+				References.m_References.f_Insert(m_OnReceivePing.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceivePing)));
+			if (Callbacks.m_fReceivePong)
+				References.m_References.f_Insert(m_OnReceivePong.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceivePong)));
+			if (Callbacks.m_fOnClose)
+				References.m_References.f_Insert(m_OnClose.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fOnClose)));
+			
+			m_pPendingCombinedCallbackReferences.f_Clear();
+			m_pPendingCallbackRegister.f_Clear();
+		}
 
 		void CWebSocketActor::fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader)
 		{
 			auto &Internal = *mp_pInternal;
+			Internal.f_RegisterPendingCallbacks();
 			fp_TryStopDeferring();
 			
 			NHTTP::CResponseHeader Response = fg_Move(_ResponseHeader);
