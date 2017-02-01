@@ -14,6 +14,7 @@ up a HTTP message header.
 */
 #pragma once
 #include <Mib/Core/Core>
+#include <Mib/Storage/Variant>
 #include "Malterlib_Web_HTTP_HTTP.h"
 #include "Malterlib_Web_HTTP_URL.h"
 #include "Malterlib_Web_HTTP_PagedByteVector.h"
