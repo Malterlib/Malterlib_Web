@@ -188,7 +188,7 @@ namespace NMib
 			NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 			NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
 			
-			NPtr::TCUniquePointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
+			NPtr::TCSharedPointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
 			NContainer::TCLinkedList<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_OnShutdown;
 			
 			NPtr::TCUniquePointer<CPendingCallbackRegister> m_pPendingCallbackRegister;
@@ -422,11 +422,11 @@ namespace NMib
 				return fg_Explicit(CloseInfo);
 			}
 			
-			Internal.m_pCloseContinuation = fg_Construct();
+			auto pCloseContinuation = Internal.m_pCloseContinuation = fg_Construct();
 			
 			fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
 			
-			return *Internal.m_pCloseContinuation;
+			return *pCloseContinuation;
 		}
 		
 		void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
