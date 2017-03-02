@@ -457,7 +457,7 @@ namespace NMib
 				{
 					m_bHandled = true;
 					m_TimerSubscription.f_Clear();
-					m_WebSocketActor->f_Destroy();
+					m_WebSocketActor->f_DestroyNoResult(DMibPFile, DMibPLine);
 					m_WebSocketActor.f_Clear();					
 				}
 			};

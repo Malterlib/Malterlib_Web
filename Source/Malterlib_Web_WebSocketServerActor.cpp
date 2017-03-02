@@ -207,10 +207,37 @@ namespace NMib
 
 			NConcurrency::TCContinuation<void> Continuation;
 			
-			Results.f_GetResults() > Continuation / [Continuation](NContainer::TCVector<NConcurrency::TCAsyncResult<void>> &&_Results)
+			Results.f_GetResults() > [Continuation](NConcurrency::TCAsyncResult<NContainer::TCVector<NConcurrency::TCAsyncResult<void>>> &&_Results)
 				{
-					if (!NConcurrency::fg_CombineResults(Continuation, fg_Move(_Results), []{}))
+					
+					if (!_Results)
+					{
+						Continuation.f_SetException(DMibErrorInstance(fg_Format("Results.f_GetResults() failed: {}", _Results.f_GetExceptionStr())));
 						return;
+					};
+					
+					NStr::CStr Errors;
+					for (auto &Result : *_Results)
+					{
+						try
+						{
+							Result.f_Access();
+						}
+						catch (NConcurrency::CExceptionActorDeleted const &)
+						{
+						}
+						catch (NException::CException const &_Exception)
+						{
+							NStr::fg_AddStrSep(Errors, NStr::fg_Format("Listen socket destroy failed with: {}", _Exception), ", ");
+						}
+					}
+					
+					if (!Errors.f_IsEmpty())
+					{
+						Continuation.f_SetException(DMibErrorInstance(Errors));
+						return;
+					}
+
 					Continuation.f_SetResult();
 				}
 			;
