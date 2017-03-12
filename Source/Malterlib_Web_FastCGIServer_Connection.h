@@ -20,7 +20,6 @@ namespace NMib
 			~CFastCGIConnectionActor();
 			
 			void f_SetSocket(NPtr::TCSharedPointer<NNet::CSocket>const& _pSocket);
-			NConcurrency::TCContinuation<void> f_Destroy();
 			void f_StateAdded(NNet::ENetTCPState _StateAdded);
 			
 			void f_SendStdOutput(NContainer::TCVector<uint8> const& _Data);
@@ -29,6 +28,8 @@ namespace NMib
 			void f_FinishRequest();
 			
 		private:
+			NConcurrency::TCContinuation<void> fp_Destroy();
+			
 			void fp_Disconnect(ch8 const* _pReason);
 			void fp_ProcessState();
 			void fp_UpdateSend();

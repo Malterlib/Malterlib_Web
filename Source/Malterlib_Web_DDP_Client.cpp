@@ -431,7 +431,7 @@ namespace NMib
 			return Internal.m_ConnectContinuation;
 		}
 
-		NConcurrency::TCContinuation<void> CDDPClient::f_Destroy()
+		NConcurrency::TCContinuation<void> CDDPClient::fp_Destroy()
 		{
 			auto &Internal = *mp_pInternal;
 

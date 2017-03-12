@@ -43,7 +43,7 @@ public:
 		{
 		}
 		
-		TCContinuation<void> f_Destroy() override
+		TCContinuation<void> fp_Destroy() override
 		{
 			if (m_WebsocketServer)
 				return m_WebsocketServer->f_Destroy2();

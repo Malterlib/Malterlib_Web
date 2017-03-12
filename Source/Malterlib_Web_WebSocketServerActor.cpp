@@ -198,7 +198,7 @@ namespace NMib
 			return Ret;
 		}
 
-		NConcurrency::TCContinuation<void> CWebSocketServerActor::f_Destroy()
+		NConcurrency::TCContinuation<void> CWebSocketServerActor::fp_Destroy()
 		{
 			auto &Internal = *mp_pInternal;
 			NConcurrency::TCActorResultVector<void> Results;

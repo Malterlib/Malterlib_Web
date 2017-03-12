@@ -38,7 +38,7 @@ namespace NMib
 			mp_Timeout = _Timeout;
 		}
 
-		NConcurrency::TCContinuation<void> CWebSocketClientActor::f_Destroy()
+		NConcurrency::TCContinuation<void> CWebSocketClientActor::fp_Destroy()
 		{
 			return NConcurrency::TCContinuation<void>::fs_Finished();
 		}

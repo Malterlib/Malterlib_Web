@@ -21,10 +21,10 @@ namespace NMib
 				~CListenActor();
 				
 				void f_SetSocket(NPtr::TCUniquePointer<NNet::ICSocket> &&_pSocket);
-				NConcurrency::TCContinuation<void> f_Destroy();
 				void f_StateAdded(NNet::ENetTCPState _StateAdded);
 				
 			private:
+				NConcurrency::TCContinuation<void> fp_Destroy();
 				void fp_ProcessState();
 				
 			private:
@@ -37,4 +37,3 @@ namespace NMib
 		}
 	}
 }
-

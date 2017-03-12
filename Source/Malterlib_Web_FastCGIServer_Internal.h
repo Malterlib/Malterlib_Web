@@ -21,13 +21,13 @@ namespace NMib
 			~CInternal();
 			
 			void f_Construct();
-			NConcurrency::TCContinuation<void> f_Destroy();
 			
 			void f_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection);
 			void f_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection);
 			
 		private:
-			
+
+			NConcurrency::TCContinuation<void> fp_Destroy();
 			void fp_Startup();
 			
 		private:

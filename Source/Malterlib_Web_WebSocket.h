@@ -136,8 +136,6 @@ namespace NMib
 			
 			void f_DebugStopProcessing();
 
-			void f_Construct() override;
-			
 		private:
 			friend class NWebSocket::CListenActor;
 			friend class CWebSocketServerActor;
@@ -324,8 +322,6 @@ namespace NMib
 			CWebSocketClientActor();
 			~CWebSocketClientActor();
 
-			NConcurrency::TCContinuation<void> f_Destroy() override;
-
 			void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
 			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
 			void f_SetDefaultTimeout(fp64 _Timeout);
@@ -345,6 +341,8 @@ namespace NMib
 			; // You will receive an exception if connection fails
 			
 		private:
+			NConcurrency::TCContinuation<void> fp_Destroy() override;
+			
 			struct CPendingConnection
 			{
 				NPtr::TCUniquePointer<NNet::ICSocket> m_pSocket;
@@ -392,9 +390,10 @@ namespace NMib
 			void f_SetDefaultFragmentationSize(mint _FragmentationSize);
 			void f_SetDefaultTimeout(fp64 _Timeout);
 			
-			NConcurrency::TCContinuation<void> f_Destroy() override;
 			
 		private:
+			NConcurrency::TCContinuation<void> fp_Destroy() override;
+			
 			void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);
 			
 		public:

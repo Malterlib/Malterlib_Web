@@ -344,11 +344,7 @@ namespace NMib
 		{
 		}
 		
-		void CDDPServerConnection::f_Construct()
-		{
-		}
-
-		NConcurrency::TCContinuation<void> CDDPServerConnection::f_Destroy()
+		NConcurrency::TCContinuation<void> CDDPServerConnection::fp_Destroy()
 		{
 			auto &Internal = *mp_pInternal;
 

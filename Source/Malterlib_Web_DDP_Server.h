@@ -157,9 +157,6 @@ namespace NMib
 			CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType);
 			~CDDPServerConnection();
 
-			void f_Construct() override;
-			NConcurrency::TCContinuation<void> f_Destroy() override;
-        
 			NConcurrency::CActorSubscription f_Register
 				(
 					NConcurrency::TCActor<CActor> const &_Actor
@@ -175,6 +172,8 @@ namespace NMib
             void f_SendChanges(NContainer::TCVector<CChange> &&_Changes);
 
 		private:
+			NConcurrency::TCContinuation<void> fp_Destroy() override;
+			
 			void fp_AcceptConnection(NStr::CStr const &_SessionID);
 			void fp_RejectConnection();
 			void fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result, bool _bUpdated);

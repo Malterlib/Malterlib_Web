@@ -242,16 +242,12 @@ namespace NMib
 		CWebSocketActor::CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
 			: mp_pInternal(fg_Construct(this, _bClient, _MaxMessageSize, _FragmentationSize, _Timeout))
 		{
+			auto &Internal = *mp_pInternal;
+			Internal.f_SetupTimeout();
 		}
 		
 		CWebSocketActor::~CWebSocketActor()
 		{
-		}
-		
-		void CWebSocketActor::f_Construct()
-		{
-			auto &Internal = *mp_pInternal;
-			Internal.f_SetupTimeout();
 		}
 		
 		NConcurrency::CActorSubscription CWebSocketActor::fp_SetCallbacks

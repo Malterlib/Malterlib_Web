@@ -96,8 +96,6 @@ namespace NMib
 			;
 			~CDDPClient();
 
-			NConcurrency::TCContinuation<void> f_Destroy();
-
 			NConcurrency::TCContinuation<CConnectInfo> f_Connect
 				(
 					NStr::CStr const &_UserName
@@ -144,6 +142,8 @@ namespace NMib
 			static NStr::CStr fs_HighEntropyRandomID();
 
 		private:
+
+			NConcurrency::TCContinuation<void> fp_Destroy() override;
 
 			NPtr::TCUniquePointer<CInternal> mp_pInternal;
 		};

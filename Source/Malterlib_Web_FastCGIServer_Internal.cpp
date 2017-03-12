@@ -16,17 +16,13 @@ namespace NMib
 			: mp_pCanDestroyTracker(fg_Construct())
 			, mp_fOnRequest(fg_Move(_fOnRequest))
 		{
+			fp_Startup();
 		}
 		
 		CFastCGIServer::CInternal::~CInternal()
 		{
 		}
 
-		void CFastCGIServer::CInternal::f_Construct()
-		{
-			fp_Startup();
-		}
-		
 		void CFastCGIServer::CInternal::f_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection)
 		{
 			mp_Connections[_Connection];
@@ -38,7 +34,7 @@ namespace NMib
 				_Connection->f_Destroy2() > mp_pCanDestroyTracker->f_Track();
 		}
 		
-		NConcurrency::TCContinuation<void> CFastCGIServer::CInternal::f_Destroy()
+		NConcurrency::TCContinuation<void> CFastCGIServer::CInternal::fp_Destroy()
 		{
 			auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
 			

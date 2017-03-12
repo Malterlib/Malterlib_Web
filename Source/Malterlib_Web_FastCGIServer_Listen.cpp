@@ -31,7 +31,8 @@ namespace NMib
 				mp_Socket = fg_Move(*_pSocket);
 				fp_ProcessState();
 			}
-			NConcurrency::TCContinuation<void> CListenActor::f_Destroy()
+
+			NConcurrency::TCContinuation<void> CListenActor::fp_Destroy()
 			{
 				mp_Socket.f_Close();
 				return NConcurrency::TCContinuation<void>::fs_Finished();
