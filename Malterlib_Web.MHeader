@@ -4,6 +4,17 @@
 Import "../Core/Lib_Malterlib.MTarget"
 //Import "Malterlib_Web.MTarget"
 
+%Repository "curl"
+{
+	!!MalterlibNeedCurl true
+	
+	Repository
+	{
+		Type External
+		Remotes "upstream=https://github.com/curl/curl.git;@(Repository.Remotes)"
+	}
+}
+
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
 {
 	%Group Web
