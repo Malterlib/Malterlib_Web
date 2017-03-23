@@ -198,7 +198,6 @@ namespace NMib
 			bool m_bConnectFinished = false;
 			bool m_bConnectCalled = false;
 
-			bool m_bDestroyed = false;
 			bool m_bDestructorCalled = false;
 
 			void fp_OnError(NStr::CStr const &_Error);
@@ -435,7 +434,6 @@ namespace NMib
 		{
 			auto &Internal = *mp_pInternal;
 
-			Internal.m_bDestroyed = true;
 			Internal.m_ConnectTimeoutTimerRef.f_Clear();
 
 			if (!Internal.m_ConnectContinuation.f_IsSet())
@@ -1070,7 +1068,7 @@ namespace NMib
 				)
 				> fg_ThisActor(m_pThis) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_TimerReference)
 				{
-					if (!m_bConnectFinished && !m_bDestroyed)
+					if (!m_bConnectFinished && !m_pThis->mp_bDestroyed)
 						m_ConnectTimeoutTimerRef = fg_Move(*_TimerReference);
 				}
 			;
