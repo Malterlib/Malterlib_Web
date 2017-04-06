@@ -275,6 +275,14 @@ namespace NMib
 			class CDeferredCalbackReference : public NConcurrency::CActorSubscriptionReference
 			{
 			public:
+				NConcurrency::TCContinuation<void> f_Destroy() override
+				{
+					if (!m_pCombinedReferences)
+						return fg_Explicit();
+					auto pCombinedReferences = fg_Move(m_pCombinedReferences);
+					return pCombinedReferences->f_Destroy();
+				}
+				
 				NPtr::TCSharedPointer<NConcurrency::CCombinedCallbackReference> m_pCombinedReferences;
 			};
 			
