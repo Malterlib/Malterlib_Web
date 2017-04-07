@@ -442,14 +442,7 @@ namespace NMib
 
 			if (Internal.m_WebSocket)
 			{
-				Internal.m_WebSocket->f_Destroy
-					(
-						NConcurrency::fg_ConcurrentActor() / [Continuation](NConcurrency::TCAsyncResult<void> &&_Result)
-						{
-							Continuation.f_SetResult(fg_Move(_Result));
-						}
-					)
-				;
+				Internal.m_WebSocket->f_Destroy2() > Continuation;
 			}
 			else
 				Continuation.f_SetResult();

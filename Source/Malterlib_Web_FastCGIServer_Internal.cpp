@@ -39,12 +39,12 @@ namespace NMib
 			auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
 			
 			for (auto& ListenSocket : mp_ListenSockets)
-				ListenSocket->f_Destroy([pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
+				ListenSocket->f_Destroy2() > pCanDestroy->f_Track();
 			
 			mp_ListenSockets.f_Clear();
 			
 			for (auto& Connection : mp_Connections)
-				Connection->f_Destroy([pCanDestroy](NConcurrency::TCAsyncResult<void>&& _Result){});
+				Connection->f_Destroy2() > pCanDestroy->f_Track();
 			mp_Connections.f_Clear();
 			
 			return pCanDestroy->m_Continuation;
