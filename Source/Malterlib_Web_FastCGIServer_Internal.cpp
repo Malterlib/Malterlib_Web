@@ -31,7 +31,7 @@ namespace NMib
 		void CFastCGIServer::CInternal::f_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection)
 		{
 			if (mp_Connections.f_Remove(_Connection))
-				_Connection->f_Destroy2() > mp_pCanDestroyTracker->f_Track();
+				_Connection->f_Destroy() > mp_pCanDestroyTracker->f_Track();
 		}
 		
 		NConcurrency::TCContinuation<void> CFastCGIServer::CInternal::fp_Destroy()
@@ -39,12 +39,12 @@ namespace NMib
 			auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
 			
 			for (auto& ListenSocket : mp_ListenSockets)
-				ListenSocket->f_Destroy2() > pCanDestroy->f_Track();
+				ListenSocket->f_Destroy() > pCanDestroy->f_Track();
 			
 			mp_ListenSockets.f_Clear();
 			
 			for (auto& Connection : mp_Connections)
-				Connection->f_Destroy2() > pCanDestroy->f_Track();
+				Connection->f_Destroy() > pCanDestroy->f_Track();
 			mp_Connections.f_Clear();
 			
 			return pCanDestroy->m_Continuation;

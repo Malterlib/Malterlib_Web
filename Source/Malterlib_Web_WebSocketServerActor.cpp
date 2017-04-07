@@ -203,7 +203,7 @@ namespace NMib
 			auto &Internal = *mp_pInternal;
 			NConcurrency::TCActorResultVector<void> Results;
 			for (auto &ListenSocket : Internal.m_ListenSockets)
-				ListenSocket->f_Destroy2() > Results.f_AddResult();
+				ListenSocket->f_Destroy() > Results.f_AddResult();
 
 			NConcurrency::TCContinuation<void> Continuation;
 			

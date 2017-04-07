@@ -442,7 +442,7 @@ namespace NMib
 
 			if (Internal.m_WebSocket)
 			{
-				Internal.m_WebSocket->f_Destroy2() > Continuation;
+				Internal.m_WebSocket->f_Destroy() > Continuation;
 			}
 			else
 				Continuation.f_SetResult();
