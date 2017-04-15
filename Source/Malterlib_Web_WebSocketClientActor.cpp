@@ -160,10 +160,11 @@ namespace NMib
 																&CWebSocketActor::fp_OnFinishClientConnection
 																, This
 																, [this, Continuation, ConnectionActor, pRemovedPending, pPending]
-																	(
-																		CWebSocketActor::EFinishConnectionResult _Result
-																		, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo
-																	)
+																(
+																	CWebSocketActor::EFinishConnectionResult _Result
+																	, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo
+																)
+																mutable
 																{
 																	if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
 																	{

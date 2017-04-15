@@ -204,7 +204,7 @@ namespace NMib
 			NConcurrency::CActorSubscription fp_OnFinishClientConnection
 				(
 					NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-					, NFunction::TCFunction<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+					, NFunction::TCFunctionMutable<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 					, NHTTP::CRequest &&_RequestHeader
 					, NStr::CStr const &_ConnectToAddress
 					, NStr::CStr const &_URI
