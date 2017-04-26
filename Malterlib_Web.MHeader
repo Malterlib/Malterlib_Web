@@ -2,7 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 Import "../Core/Lib_Malterlib.MTarget"
-//Import "Malterlib_Web.MTarget"
+Import "../../External/curl/Curl.MTarget"
 
 %Repository "curl"
 {
