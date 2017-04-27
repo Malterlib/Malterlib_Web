@@ -320,8 +320,36 @@ namespace NMib
 			// Extract Query
 			if (iQueryMark >= 0)
 			{
-				if (!fs_PercentDecode(mp_Query, URL, iQueryMark + 1, (iFragmentMark >= 0) ? iFragmentMark : URLLength))
-					return false;
+				ch8 const *pParse = URL.f_GetStr() + iQueryMark + 1;
+				ch8 const *pEnd = URL.f_GetStr() + ((iFragmentMark >= 0) ? iFragmentMark : URLLength);
+				while (pParse < pEnd)
+				{
+					auto pStart = pParse;
+					while (pParse < pEnd && *pParse != '&')
+						++pParse;
+
+					auto pStartValue = pStart;
+					while (pStartValue < pEnd && *pStartValue != '=')
+						++pStartValue;
+					
+					NStr::CStr Key;
+					NStr::CStr Value;
+					if (pStartValue == pEnd)
+					{
+						if (!fs_PercentDecode(Key, URL, pStart - URL.f_GetStr(), pEnd - URL.f_GetStr()))
+							return false;
+					}
+					else
+					{
+						if (!fs_PercentDecode(Key, URL, pStart - URL.f_GetStr(), pStartValue - URL.f_GetStr()))
+							return false;
+						if (!fs_PercentDecode(Value, URL, (pStartValue + 1) - URL.f_GetStr(), pEnd - URL.f_GetStr()))
+							return false;
+					}
+
+					mp_Query.f_Insert({fg_Move(Key), fg_Move(Value)});
+				}
+				
 				mp_Flags |= EURLFlag_Query;
 			}
 
@@ -388,7 +416,19 @@ namespace NMib
 			if (mp_Flags & EURLFlag_Query)
 			{
 				Output += "?";
-				fs_PercentEncode(Output, mp_Query);
+				bool bFirst = true;
+				for (auto &Entry : mp_Query)
+				{
+					if (!bFirst)
+					{
+						Output += "&";
+					}
+					else
+						bFirst = false;
+					fs_PercentEncode(Output, Entry.m_Key);
+					Output += "=";
+					fs_PercentEncode(Output, Entry.m_Value);
+				}
 			}
 			if (mp_Flags & EURLFlag_Fragment)
 			{
@@ -524,8 +564,7 @@ namespace NMib
 			return "/" + FullPath;
 		}
 
-
-		NStr::CStr const &CURL::f_GetQuery() const
+		NContainer::TCVector<CURL::CQueryEntry> const &CURL::f_GetQuery() const
 		{
 			return mp_Query;
 		}
@@ -579,7 +618,7 @@ namespace NMib
 			mp_Flags |= EURLFlag_Path;
 		}
 
-		void CURL::f_SetQuery(NStr::CStr const &_Query)
+		void CURL::f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query)
 		{
 			mp_Query = _Query;
 			mp_Flags |= EURLFlag_Query;
@@ -699,6 +738,21 @@ namespace NMib
 		{
 			o_Str += f_Encode();
 		}
+		
+		void CURL::CQueryEntry::f_Format(NStr::CStrAggregate &o_Str) const
+		{
+			o_Str += NStr::CStr::CFormat("{}={}") << m_Key << m_Value;
+		}
+		
+		bool CURL::CQueryEntry::operator < (CQueryEntry const &_Right) const
+		{
+			return NContainer::fg_TupleReferences(m_Key, m_Value) < NContainer::fg_TupleReferences(_Right.m_Key, _Right.m_Value);
+		}
+
+		bool CURL::CQueryEntry::operator == (CQueryEntry const &_Right) const
+		{
+			return NContainer::fg_TupleReferences(m_Key, m_Value) == NContainer::fg_TupleReferences(_Right.m_Key, _Right.m_Value);
+		}
 
 		void CURL::f_DebugOut() const
 		{
@@ -727,7 +781,7 @@ namespace NMib
 					, f_HasHost() ? mp_Host : "<None>"
 					, f_HasPort() ? NStr::fg_Format("{}", mp_Port) : "<None>"
 					, f_HasPath() ? Path : "<None>"
-					, f_HasQuery() ? mp_Query : "<None>"
+					, f_HasQuery() ? mp_Query : fg_Default()
 					, f_HasFragment() ? mp_Fragment : "<None>"
 				)
 			;

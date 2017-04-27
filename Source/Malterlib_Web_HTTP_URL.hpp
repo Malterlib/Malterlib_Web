@@ -8,9 +8,16 @@ namespace NMib
 	namespace NHTTP
 	{
 		template <typename tf_CStream>
-		void CURL::f_Feed(tf_CStream &_Stream) const
+		void CURL::CQueryEntry::f_Stream(tf_CStream &_Stream)
 		{
-			_Stream << EVersion;
+			_Stream % m_Key;
+			_Stream % m_Value;
+		}
+		
+		template <typename tf_CStream>
+		void CURL::f_Feed(tf_CStream &_Stream, uint32 _Version) const
+		{
+			_Stream << _Version;
 			_Stream << mp_Flags;
 
 			if (mp_Flags & EURLFlag_Scheme)
@@ -26,7 +33,17 @@ namespace NMib
 			if (mp_Flags & EURLFlag_Path)
 				_Stream << mp_Paths;
 			if (mp_Flags & EURLFlag_Query)
-				_Stream << mp_Query;
+			{
+				if (_Version == 0x101)
+				{
+					NStr::CStr Query;
+					if (!mp_Query.f_IsEmpty())
+						Query = fg_Format("{}={}", mp_Query.f_GetFirst().m_Key, mp_Query.f_GetFirst().m_Value);
+					_Stream << Query;
+				}
+				else
+					_Stream << mp_Query;
+			}
 			if (mp_Flags & EURLFlag_Fragment)
 				_Stream << mp_Fragment;
 		}
@@ -71,7 +88,18 @@ namespace NMib
 				mp_Paths.f_Clear();
 
 			if (mp_Flags & EURLFlag_Query)
-				_Stream >> mp_Query;
+			{
+				if (Version == 0x101)
+				{
+					NStr::CStr Query;
+					_Stream >> Query;
+					mp_Query.f_Clear();
+					NStr::CStr Key = fg_GetStrSep(Query, "=");
+					mp_Query.f_Insert({Key, Query});
+				}
+				else
+					_Stream >> mp_Query;
+			}
 			else
 				mp_Query.f_Clear();
 			

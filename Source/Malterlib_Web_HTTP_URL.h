@@ -34,6 +34,20 @@ namespace NMib
 		*/
 		class CURL
 		{
+		public:
+			struct CQueryEntry
+			{
+				NStr::CStr m_Key;
+				NStr::CStr m_Value;
+				
+				void f_Format(NStr::CStrAggregate &o_Str) const;
+				bool operator < (CQueryEntry const &_Right) const;
+				bool operator == (CQueryEntry const &_Right) const;
+				
+				template <typename tf_CStream>
+				void f_Stream(tf_CStream &_Stream);
+			};
+			
 		private:
 			EURLFlag mp_Flags = EURLFlag_None;
 
@@ -47,7 +61,7 @@ namespace NMib
 
 			NContainer::TCVector<NStr::CStr> mp_Paths;
 
-			NStr::CStr mp_Query;
+			NContainer::TCVector<CQueryEntry> mp_Query;
 			NStr::CStr mp_Fragment;
 
 			void fp_Parse(NStr::CStr const &_Str);			
@@ -55,7 +69,7 @@ namespace NMib
 		public:
 			enum 
 			{
-				EVersion = 0x101
+				EVersion = 0x102
 			};
 			
 			CURL();
@@ -107,7 +121,7 @@ namespace NMib
 			NStr::CStr const &f_GetPassword() const;
 			NContainer::TCVector<NStr::CStr> const &f_GetPath() const;
 			NStr::CStr f_GetFullPath() const;
-			NStr::CStr const &f_GetQuery() const;
+			NContainer::TCVector<CQueryEntry> const &f_GetQuery() const;
 			NStr::CStr const &f_GetFragment() const;
 
 			// Set an URL field:
@@ -119,7 +133,7 @@ namespace NMib
 			void f_SetPassword(NStr::CStr const &_Password);
 			void f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path);
 			void f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path);
-			void f_SetQuery(NStr::CStr const &_Query);
+			void f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query);
 			void f_SetFragment(NStr::CStr const &_Fragment);
 
 			// Clear a URL field:
@@ -142,9 +156,9 @@ namespace NMib
 			static bint fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
 			static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr);
-			
+
 			template <typename tf_CStream>
-			void f_Feed(tf_CStream &_Stream) const;
+			void f_Feed(tf_CStream &_Stream, uint32 _Version = EVersion) const;
 			template <typename tf_CStream>
 			void f_Consume(tf_CStream &_Stream);
 			
