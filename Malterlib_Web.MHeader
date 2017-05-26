@@ -6,7 +6,7 @@ Import "../../External/curl/Curl.MTarget"
 
 %Repository "curl"
 {
-	!!MalterlibNeedCurl true
+//	!!MalterlibNeedCurl true
 	
 	Repository
 	{
@@ -17,6 +17,8 @@ Import "../../External/curl/Curl.MTarget"
 
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
 {
+	Property.MalterlibUseCurl true
+
 	%Group Web
 	{
 		%Group Include
@@ -38,6 +40,10 @@ Import "../../External/curl/Curl.MTarget"
 		Dependency.Indirect true
 	}
 	%Dependency Lib_Malterlib_Concurrency
+	{
+		Dependency.Indirect true
+	}	
+	%Dependency Lib_Curl
 	{
 		Dependency.Indirect true
 	}	
