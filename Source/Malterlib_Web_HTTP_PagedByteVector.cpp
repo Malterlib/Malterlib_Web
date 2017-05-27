@@ -12,7 +12,7 @@ namespace NMib
 		void CPagedByteVector::fp_InsertWhenEmpty(uint8 const* _pPtr, mint _nBytes)
 		{
 			mint nBytesLeft = _nBytes;
-			mint nBlockBytes;
+			mint nBlockBytes = 0;
 
 			while (nBytesLeft)
 			{
@@ -39,7 +39,6 @@ namespace NMib
 				return;
 			}
 
-			mint nBlockBytes;
 			mint nBytesLeft = _nBytes;
 
 			uint8 const* pEndPtr = _pPtr + _nBytes;
@@ -49,7 +48,7 @@ namespace NMib
 				// There is space in the first page.
 				mint nBytesFreeInFirstPage = mp_iFirstPageStart;
 
-				nBlockBytes = fg_Min(nBytesLeft, nBytesFreeInFirstPage);
+				mint nBlockBytes = fg_Min(nBytesLeft, nBytesFreeInFirstPage);
 
 				mp_iFirstPageStart -= nBlockBytes;
 				pEndPtr -= nBlockBytes;
@@ -61,7 +60,7 @@ namespace NMib
 
 			while(nBytesLeft)
 			{
-				nBlockBytes = fg_Min(nBytesLeft, mp_PageSize);
+				mint nBlockBytes = fg_Min(nBytesLeft, mp_PageSize);
 
 				uint8 *pNewPage = fp_InsertPage(true);
 
@@ -85,12 +84,11 @@ namespace NMib
 				return;
 			}
 
-			mint nBlockBytes;
 			mint nBytesLeft = _nBytes;
 
 			if (mp_iLastPageEnd < mp_PageSize)
 			{ // There is space in the last block
-				nBlockBytes = fg_Min(nBytesLeft, mp_PageSize - mp_iLastPageEnd);
+				mint nBlockBytes = fg_Min(nBytesLeft, mp_PageSize - mp_iLastPageEnd);
 
 				NMem::fg_MemCopy(
 							mp_lPages.f_GetLast().f_Get() + mp_iLastPageEnd
@@ -104,7 +102,7 @@ namespace NMib
 
 			while(nBytesLeft)
 			{
-				nBlockBytes = fg_Min(nBytesLeft, mp_PageSize);
+				mint nBlockBytes = fg_Min(nBytesLeft, mp_PageSize);
 
 				uint8 *pNewPage = fp_InsertPage(false);
 
