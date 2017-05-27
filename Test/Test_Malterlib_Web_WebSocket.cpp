@@ -45,12 +45,10 @@ public:
 		{
 			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost");
 		};
-#ifndef DPlatformFamily_Windows
 		DMibTestCategory("Unix")
 		{
 			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()));
 		};
-#endif
 	}
 
 	struct CState : public NPtr::TCSharedPointerIntrusiveBase<>
