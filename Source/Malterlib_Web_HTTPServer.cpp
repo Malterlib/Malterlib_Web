@@ -213,13 +213,21 @@ namespace NMib
 				void f_HandleRequest()
 				{
 					bint bHandled = false;
-					for (auto iHandler = mp_Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+					try
 					{
-						for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
+						for (auto iHandler = mp_Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
 						{
-							if (mp_Request.m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
-								bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, mp_Request);
+							for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
+							{
+								if (mp_Request.m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
+									bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, mp_Request);
+							}
 						}
+					}
+					catch (NException::CException const &_Exception)
+					{
+						fp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
+						return;
 					}
 
 					if (bHandled)
