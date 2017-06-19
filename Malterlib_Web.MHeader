@@ -15,6 +15,26 @@ Import "../../External/curl/Curl.MTarget"
 	}
 }
 
+%Repository "nginx"
+{
+	Repository
+	{
+		Type External
+		Remotes "upstream=https://github.com/nginx/nginx.git;@(Repository.Remotes)"
+	}
+}
+
+%Repository "pcre"
+{
+	Repository
+	{
+		Type External
+	}
+}
+
+Import "../../External/pcre/Lib_pcre.MTarget"
+Import "../../External/nginx/nginx.MTarget"
+
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
 {
 	Property.MalterlibUseCurl true
