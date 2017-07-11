@@ -1890,9 +1890,10 @@ namespace NMib
 				(
 					m_Timeout/2.0
 					, fg_ThisActor(m_pThis)
-					, [this]
+					, [this]() -> NConcurrency::TCContinuation<void>
 					{
 						f_UpdateTimeout();
+						return fg_Explicit();
 					}
 				)
 				> [this, Sequence](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Subscription)

@@ -441,10 +441,12 @@ namespace NMib
 						&NConcurrency::CTimerActor::f_RegisterTimer
 						, 25.0
 						, fg_ThisActor(this)
-						, [this]
+						, [this]() -> NConcurrency::TCContinuation<void>
 						{
 							auto &Internal = *mp_pInternal;
 							Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
+
+							return fg_Explicit();
 						}
 					)
 					> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)

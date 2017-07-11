@@ -1050,7 +1050,7 @@ namespace NMib
 					&NConcurrency::CTimerActor::f_OneshotTimerAbortable
 					, _Timeout
 					, fg_ThisActor(m_pThis)
-					, [this]()
+					, [this]
 					{
 						if (!m_bConnectFinished)
 						{
