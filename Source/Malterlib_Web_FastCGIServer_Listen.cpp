@@ -56,7 +56,7 @@ namespace NMib
 					AcceptedSocket.f_Accept
 						(
 							&mp_Socket
-							, [WeakConnectionActor, this](NNet::ENetTCPState _StateAdded)
+							, [WeakConnectionActor](NNet::ENetTCPState _StateAdded)
 							{
 								auto ConnectionActor = WeakConnectionActor.f_Lock();
 								if (ConnectionActor)

@@ -113,7 +113,7 @@ public:
 							(
 								&CDDPServerConnection::f_Register
 								, fg_ThisActor(this)
-								, [this](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo) // On connection
+								, [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo) // On connection
 								{
 									_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
 								}
@@ -240,7 +240,7 @@ public:
 								{
 									f_ReportError(_Error);
 								}
-								, [this](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								, [](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
 								{
 								}
 							)

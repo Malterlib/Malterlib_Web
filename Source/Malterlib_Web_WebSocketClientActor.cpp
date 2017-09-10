@@ -193,7 +193,7 @@ namespace NMib
 																, _Origin
 																, _Protocols
 															)
-															> This / [this, pRemovedPending, pPending](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+															> This / [pRemovedPending, pPending](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 															{
 																if (_Result && !*pRemovedPending)
 																	pPending->m_OnFinishConnectionSubscription = fg_Move(*_Result);
