@@ -139,7 +139,7 @@ namespace NMib
 
 			NContainer::TCMap<CEnum, CFieldValue> mp_Fields;
 
-			template<EFieldType t_FieldType>
+			template <EFieldType t_FieldType>
 			auto fp_GetField(CEnum _Field) const -> typename CFieldValue::TCTypeFromMember<t_FieldType>::CType;
 
 		public:

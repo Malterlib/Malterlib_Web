@@ -204,17 +204,37 @@ namespace NMib
 		// TCFieldsBase Protected Methods
 		//
 
-		template<typename t_CSub, typename t_CEnum>
-		template<EFieldType t_FieldType>
+		namespace NPrivate
+		{
+			template <typename t_CType>
+			struct TCFieldsBase_GetDefaultValue
+			{
+				static t_CType fs_Default()
+				{
+					return 0;
+				}
+			};
+
+			template <>
+			struct TCFieldsBase_GetDefaultValue<NStr::CStr>
+			{
+				static NStr::CStr fs_Default()
+				{
+					return {};
+				}
+			};
+		}
+
+		template <typename t_CSub, typename t_CEnum>
+		template <EFieldType t_FieldType>
 		auto TCFieldsBase<t_CSub, t_CEnum>::fp_GetField(t_CEnum _Field) const ->typename CFieldValue::TCTypeFromMember<t_FieldType>::CType
 		{
 			auto const* pValue = mp_Fields.f_FindEqual(_Field);
 			if (pValue)
 				return pValue->template f_Get<t_FieldType>();
 			else
-				return typename CFieldValue::TCTypeFromMember<t_FieldType>::CType(0);
+				return NPrivate::TCFieldsBase_GetDefaultValue<typename CFieldValue::TCTypeFromMember<t_FieldType>::CType>::fs_Default();
 		}
-
 	} // Namespace NHTTP
 
 } // Namespace NMib
