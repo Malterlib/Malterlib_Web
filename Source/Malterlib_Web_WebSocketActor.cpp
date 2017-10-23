@@ -849,7 +849,7 @@ namespace NMib
 							try
 							{
 								NNet::CSocketOperationResult Result = Internal.m_pSocket->f_Send(_pPtr, _nBytes);
-								DMibLog(DebugVerbose2, " ++++ {} Sending {} resulted in {} sent", !Internal.m_bClient, _nBytes, nSent);
+								DMibLog(DebugVerbose2, " ++++ {} Sending {} resulted in {} sent", !Internal.m_bClient, _nBytes, Result.m_nBytes);
 								
 								CombinedResults += Result;
 							
@@ -1741,7 +1741,7 @@ namespace NMib
 						CombinedResults += Result;
 						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
 							break;
-						DMibLog(DebugVerbose2, " ++++ {} Received data {}", !Internal.m_bClient, Received);
+						DMibLog(DebugVerbose2, " ++++ {} Received data {}", !Internal.m_bClient, Result.m_nBytes);
 						Internal.m_IncomingData.f_InsertBack(Data, Result.m_nBytes);
 						fp_ProcessIncoming();
 						if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
