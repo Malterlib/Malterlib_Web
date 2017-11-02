@@ -450,7 +450,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions Options;
-						Options.m_Subject = "Malterlib test Self Signed";
+						Options.m_CommonName = "Malterlib test Self Signed";
 						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						Options.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -479,7 +479,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -495,7 +495,7 @@ public:
 						TCVector<uint8> CertificateRequestData;
 
 						CSSLContext::CCertificateOptions ClientOptions;
-						ClientOptions.m_Subject = "Test Client";
+						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						
 						CSSLContext::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
@@ -519,7 +519,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -532,7 +532,7 @@ public:
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 
 						CSSLContext::CCertificateOptions ClientOptions;
-						ClientOptions.m_Subject = "Test Client";
+						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						
 						TCVector<uint8> CertificateRequestData;
@@ -544,7 +544,7 @@ public:
 						ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
 						CSSLContext::CCertificateOptions ClientOptions2;
-						ClientOptions2.m_Subject = "Test Client";
+						ClientOptions2.m_CommonName = "Test Client";
 						ClientOptions2.m_KeySetting = gc_TestTestKeySetting;
 						
 						TCVector<uint8> CertificateRequestData2;
@@ -569,7 +569,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -584,7 +584,7 @@ public:
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						
 						CSSLContext::CCertificateOptions ClientOptions;
-						ClientOptions.m_Subject = "Test Client";
+						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						
@@ -608,7 +608,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -644,7 +644,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -676,7 +676,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -691,7 +691,7 @@ public:
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						
 						CSSLContext::CCertificateOptions ClientOptions;
-						ClientOptions.m_Subject = "Test Client";
+						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						
@@ -715,7 +715,7 @@ public:
 						CSSLSettings ServerSettings;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -723,7 +723,7 @@ public:
 						
 						CSSLSettings ServerSettings2;
 						CSSLContext::CCertificateOptions ServerOptions2;
-						ServerOptions2.m_Subject = "Malterlib test Self Signed";
+						ServerOptions2.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions2.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions2.m_KeySetting = gc_TestTestKeySetting;
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
@@ -751,7 +751,7 @@ public:
 						CSSLSettings ServerSettings;
 						
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -781,7 +781,7 @@ public:
 						TCVector<uint8, NMem::CAllocator_HeapSecure> RootKeyData;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -792,7 +792,7 @@ public:
 						TCVector<uint8> RequestData;
 
 						CSSLContext::CCertificateOptions RequestOptions;
-						RequestOptions.m_Subject = "Malterlib test request";
+						RequestOptions.m_CommonName = "Malterlib test request";
 						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -828,7 +828,7 @@ public:
 						TCVector<uint8, NMem::CAllocator_HeapSecure> RootKeyData;
 
 						CSSLContext::CCertificateOptions ServerOptions;
-						ServerOptions.m_Subject = "Malterlib test Self Signed";
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
 						
@@ -839,7 +839,7 @@ public:
 						TCVector<uint8> RequestData;
 
 						CSSLContext::CCertificateOptions RequestOptions;
-						RequestOptions.m_Subject = "Malterlib test request";
+						RequestOptions.m_CommonName = "Malterlib test request";
 						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
 						
