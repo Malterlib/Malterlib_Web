@@ -392,18 +392,18 @@ public:
 				;
 				
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 0.5).f_CallSync(20.0);
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(20.0);
 				pState->f_StartListen(ListenAddress, ServerFactory);
 				
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 0.5).f_CallSync(20.0);
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(20.0);
 				pState->f_Connect(_Address, ClientFactory);
 				
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
 				{
 					DMibTestPath("Non timeout");
-					NSys::fg_Thread_Sleep(1.5);
+					NSys::fg_Thread_Sleep(3.0);
 
 					DMibLock(pState->m_Lock);
 					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
@@ -412,7 +412,7 @@ public:
 				{
 					DMibTestPath("Timeout");
 					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing).f_CallSync(20.0);
-					NSys::fg_Thread_Sleep(1.5);
+					NSys::fg_Thread_Sleep(3.0);
 					
 					DMibLock(pState->m_Lock);
 					DMibTest
