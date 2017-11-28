@@ -39,15 +39,16 @@ public:
 			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
+		 	, bool _bTestTimeout = false
 		)
 	{
 		DMibTestCategory("IP")
 		{
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost");
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout);
 		};
 		DMibTestCategory("Unix")
 		{
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()));
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()), false);
 		};
 	}
 
@@ -322,6 +323,7 @@ public:
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, CStr const &_Address
+		 	, bool _bTestTimeout
 		)
 	{
 		DMibTestSuite("Connection")
@@ -381,6 +383,8 @@ public:
 					
 				}
 			}
+
+			if (_bTestTimeout)
 			{
 				DMibTestPath("Timeout");
 				NPtr::TCSharedPointer<CState> pState = fg_Construct();
@@ -403,7 +407,7 @@ public:
 					return;
 				{
 					DMibTestPath("Non timeout");
-					NSys::fg_Thread_Sleep(3.0);
+					NSys::fg_Thread_Sleep(2.0);
 
 					DMibLock(pState->m_Lock);
 					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
@@ -412,7 +416,7 @@ public:
 				{
 					DMibTestPath("Timeout");
 					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing).f_CallSync(20.0);
-					NSys::fg_Thread_Sleep(3.0);
+					NSys::fg_Thread_Sleep(2.0);
 					
 					DMibLock(pState->m_Lock);
 					DMibTest
@@ -438,6 +442,7 @@ public:
 					}
 					, ""
 					, ""
+				 	, true
 				)
 			;
 		};
@@ -467,6 +472,7 @@ public:
 					}
 					, ""
 					, ""
+				 	, true
 				)
 			;
 		};
