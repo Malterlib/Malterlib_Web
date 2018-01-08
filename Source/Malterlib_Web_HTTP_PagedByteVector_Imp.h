@@ -18,11 +18,6 @@ namespace NMib
 
 		}
 
-		CPagedByteVector::~CPagedByteVector()
-		{
-
-		}
-
 		bint CPagedByteVector::f_IsEmpty() const
 		{
 			if (mp_lPages.f_IsEmpty())

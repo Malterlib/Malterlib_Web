@@ -9,6 +9,39 @@ namespace NMib
 	namespace NHTTP
 	{
 
+		namespace
+		{
+			struct CThreadLocal
+			{
+				mint m_PageSize = 0;
+			};
+
+			NAggregate::TCAggregate<NThread::TCThreadLocal<CThreadLocal>> g_ThreadLocal = {DAggregateInit};
+		}
+
+		CPagedByteVector::CPageSizeScope::CPageSizeScope(mint _PageSize)
+		{
+			(**g_ThreadLocal).m_PageSize = _PageSize;
+		}
+
+		CPagedByteVector::CPageSizeScope::~CPageSizeScope()
+		{
+			(**g_ThreadLocal).m_PageSize = 0;
+		}
+
+		only_parameters_aliased void CPagedByteVector::CPageAllocator::f_Free(void *_pBlock, mint _Size)
+		{
+			mint PageSize = (**g_ThreadLocal).m_PageSize;
+			DMibFastCheck(PageSize != 0);
+			NMem::CAllocator_Heap::f_Free(_pBlock, PageSize);
+		}
+
+		CPagedByteVector::~CPagedByteVector()
+		{
+			CPageSizeScope PageScope(mp_PageSize);
+			mp_lPages.f_Clear();
+		}
+
 		void CPagedByteVector::fp_InsertWhenEmpty(uint8 const* _pPtr, mint _nBytes)
 		{
 			mint nBytesLeft = _nBytes;
@@ -148,6 +181,7 @@ namespace NMib
 			}
 			
 			mp_nBytes -= _nBytes;
+			CPageSizeScope PageScope(mp_PageSize);
 			mp_lPages.f_Remove(0, iCurPage);
 		}
 
@@ -182,6 +216,7 @@ namespace NMib
 			}
 
 			mp_nBytes -= _nBytes;
+			CPageSizeScope PageScope(mp_PageSize);
 			mp_lPages.f_Remove(iCurPage + 1, iLastPage - iCurPage);
 		}
 
@@ -225,8 +260,7 @@ namespace NMib
 
 		uint8 *CPagedByteVector::fp_InsertPage(bint _bFront)
 		{
-			mint PageSize = mp_PageSize;
-			NPtr::TCUniquePointer<uint8> pNewPage = fg_Explicit((uint8 *)NMem::fg_Alloc(PageSize));
+			NPtr::TCUniquePointer<uint8, CPageAllocator> pNewPage = fg_Explicit((uint8 *)NMem::fg_Alloc(mp_PageSize));
 
 			if (_bFront)
 				return mp_lPages.f_InsertFirst(fg_Move(pNewPage)).f_Get();

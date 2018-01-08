@@ -14,9 +14,24 @@ namespace NMib
 		{
 		private:
 
+			struct CPageSizeScope
+			{
+				CPageSizeScope(mint _PageSize);
+				~CPageSizeScope();
+			};
+
+			struct CPageAllocator : public NMem::CAllocator_Heap
+			{
+				enum
+				{
+					mc_bIsDefault = false
+				};
+				only_parameters_aliased static void f_Free(void *_pBlock, mint _Size);
+			};
+
 			mint mp_PageSize;
 			mint mp_nBytes;
-			NContainer::TCVector<NPtr::TCUniquePointer<uint8>> mp_lPages;
+			NContainer::TCVector<NPtr::TCUniquePointer<uint8, CPageAllocator>> mp_lPages;
 
 			mint mp_iFirstPageStart;
 			mint mp_iLastPageEnd;
@@ -29,7 +44,12 @@ namespace NMib
 		public:
 
 			inline CPagedByteVector(mint _PageSize = 1024);
-			inline ~CPagedByteVector();
+			~CPagedByteVector();
+
+			CPagedByteVector(CPagedByteVector &&) = delete;
+			CPagedByteVector(CPagedByteVector const &) = delete;
+			CPagedByteVector &operator = (CPagedByteVector &&) = delete;
+			CPagedByteVector &operator = (CPagedByteVector const &) = delete;
 
 			inline bint f_IsEmpty() const;
 			inline mint f_GetLen() const;

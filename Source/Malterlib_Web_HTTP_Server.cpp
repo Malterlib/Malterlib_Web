@@ -210,8 +210,8 @@ namespace NMib
 
 		CConnectionWorker::~CConnectionWorker()
 		{
-			mp_NewConnectionsList.f_DeleteAll();
-			mp_ConnectionsList.f_DeleteAll();
+			mp_NewConnectionsList.f_DeleteAllDefiniteType();
+			mp_ConnectionsList.f_DeleteAllDefiniteType();
 		}
 
 		// Thread safe
