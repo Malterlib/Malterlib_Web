@@ -5,6 +5,7 @@
 
 #include <Mib/Web/FastCGIServer>
 #include <Mib/Web/NGINXLauncher>
+#include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/File/ExeFS>
 
 #ifndef DPlatform_Windows
@@ -24,7 +25,7 @@ namespace NMib
 	{
 		// CHTTPServerInternal
 
-		class CHTTPServerInternal
+		class CHTTPServer::CHTTPServerInternal : public NConcurrency::CActor
 		{
 		private:
 
@@ -36,13 +37,15 @@ namespace NMib
 			{
 				NStr::CStr m_Path;
 				CHTTPRequestHandler *m_pHandler;
+				NConcurrency::TCActor<CHTTPRequestHandlerActor> m_HandlerActor;
 			};
 
 			NContainer::TCMap<int, NContainer::TCVector<CHandlerEntry> > mp_Handlers;
 
 			NFunction::TCFunction<void(NStr::CStr const &_Log, bool _bError)> mp_LogFunction;
+			bool mp_bActorHandlers = false;
 
-			static void fp_ReportRequestError(NPtr::TCSharedPointer<CFastCGIRequest> const& _pRequest, uint32 _Status, NStr::CStr const& _Error)
+			static void fsp_ReportRequestError(NPtr::TCSharedPointer<CFastCGIRequest> const& _pRequest, uint32 _Status, NStr::CStr const& _Error)
 			{
 				CHTTPResponseHeader Header;
 				NStr::CStr Content = NStr::CStr::CFormat("{}: {}") << _Status << _Error;
@@ -69,7 +72,7 @@ namespace NMib
 
 			public:
 
-				CHTTPRequest mp_Request;
+				NPtr::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
 				NPtr::TCSharedPointer<CFastCGIRequest> mp_pRequest;
 				
 				CConnection(NPtr::TCSharedPointer<CFastCGIRequest> const& _pRequest, CHTTPServerInternal& _Internal)
@@ -146,7 +149,7 @@ namespace NMib
 						StrLen = (pEntryEndPos - pEqualsPos);
 						fs_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
 
-						mp_Request.m_Variables[CurKey] = CurValue;
+						mp_pHTTPRequest->m_Variables[CurKey] = CurValue;
 						
 						pCurPos = pEntryEndPos + 1;
 					}
@@ -154,14 +157,14 @@ namespace NMib
 				
 				void f_HandleRequest(NPtr::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params)
 				{
-					mp_Request.m_RequestedURI = _Params["DOCUMENT_URI"];
+					mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
 					auto* pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
 					if (pRemoteIP)
-						mp_Request.m_ClientIP = *pRemoteIP;
+						mp_pHTTPRequest->m_ClientIP = *pRemoteIP;
 
 					auto* pMethod = _Params.f_FindEqual("REQUEST_METHOD");
 					if (pMethod)
-						mp_Request.m_Method = *pMethod;
+						mp_pHTTPRequest->m_Method = *pMethod;
 
 					if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
 					{
@@ -176,7 +179,7 @@ namespace NMib
 						auto* pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
 						if (!pContentLength)
 						{
-							fp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for POST"));
+							fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for POST"));
 							return;
 						}
 						
@@ -193,7 +196,7 @@ namespace NMib
 									{
 										if (nPostBytes != pData->f_GetLen())
 										{
-											fp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
+											fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
 										}
 										else
 										{
@@ -212,28 +215,88 @@ namespace NMib
 				
 				void f_HandleRequest()
 				{
+					auto &Internal = mp_Internal;
 					bint bHandled = false;
-					try
+					if (Internal.mp_bActorHandlers)
 					{
-						for (auto iHandler = mp_Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+						struct CHandlers
+						{
+							NContainer::TCVector<NConcurrency::TCActor<CHTTPRequestHandlerActor>> m_Handlers;
+							mint m_iHandler = 0;
+
+							NFunction::TCFunction<void (NPtr::TCSharedPointer<CHandlers> const &_pHandlers, NPtr::TCSharedPointer<CHTTPConnection> const &_pConnection, NPtr::TCSharedPointer<CHTTPRequest> const &_pRequest)> m_fHandleNext;
+						};
+
+						NPtr::TCSharedPointer<CHTTPConnection> pConnection = fg_Explicit(this);
+
+						auto pRequest = mp_pRequest;
+
+						NPtr::TCSharedPointer<CHandlers> pHandlers = fg_Construct();
+						pHandlers->m_fHandleNext = [this](NPtr::TCSharedPointer<CHandlers> const &_pHandlers, NPtr::TCSharedPointer<CHTTPConnection> const &_pConnection, NPtr::TCSharedPointer<CHTTPRequest> const &_pRequest)
+							{
+								if (_pHandlers->m_iHandler >= _pHandlers->m_Handlers.f_GetLen())
+								{
+									fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
+									return;
+								}
+
+								auto &Handler = _pHandlers->m_Handlers[_pHandlers->m_iHandler];
+
+								Handler(&CHTTPRequestHandlerActor::f_HandleRequest, _pConnection, _pRequest) > [this, _pHandlers, _pConnection, _pRequest](NConcurrency::TCAsyncResult<bool> &&_Result)
+									{
+										if (!_Result)
+										{
+											DMibLog(Error, "Internal error: {}", _Result.f_GetExceptionStr());
+											fsp_ReportRequestError(mp_pRequest, 500, "Internal error");
+											return;
+										}
+										if (*_Result)
+										{
+											f_Send();
+											return;
+										}
+										++_pHandlers->m_iHandler;
+										_pHandlers->m_fHandleNext(_pHandlers, _pConnection, _pRequest);
+									}
+								;
+							}
+						;
+
+						for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
 						{
 							for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
 							{
-								if (mp_Request.m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
-									bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, mp_Request);
+								if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
+									pHandlers->m_Handlers.f_Insert(iInnerHandler->m_HandlerActor);
+							}
+						}
+
+						pHandlers->m_fHandleNext(pHandlers, pConnection, mp_pHTTPRequest);
+					}
+					else
+					{
+					try
+					{
+							for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+						{
+							for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
+							{
+									if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
+										bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, *mp_pHTTPRequest);
 							}
 						}
 					}
 					catch (NException::CException const &_Exception)
 					{
-						fp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
+							fsp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
 						return;
 					}
 
 					if (bHandled)
 						f_Send();
 					else
-						fp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_Request.m_RequestedURI));
+							fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
+					}
 				}			
 
 			};
@@ -282,9 +345,25 @@ namespace NMib
 
 			void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority)
 			{
+				if (mp_bActorHandlers)
+					DMibError("Cannot mix actor an non-actor handlers");
+
 				CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
 				NewEntry.m_Path = _Path;
 				NewEntry.m_pHandler = _pHandler;
+			}
+
+			void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Handler, int _Priority)
+			{
+				if (!mp_bActorHandlers)
+				{
+					if (!mp_Handlers.f_IsEmpty())
+						DMibError("Cannot mix actor an non-actor handlers");
+					mp_bActorHandlers = true;
+				}
+				CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
+				NewEntry.m_Path = _Path;
+				NewEntry.m_HandlerActor = _Handler;
 			}
 
 			bint f_Run(CHTTPServerOptions const& _Options)
@@ -310,7 +389,7 @@ namespace NMib
 							
 							if (!pURI)
 							{
-								fp_ReportRequestError(_pRequest, 500, "No URI specified");
+								fsp_ReportRequestError(_pRequest, 500, "No URI specified");
 								return;
 							}
 							
@@ -357,32 +436,37 @@ namespace NMib
 
 		CHTTPServer::CHTTPServer()
 		{
-			mp_pInternal = fg_Construct();
+			mp_Internal = fg_Construct();
 		}
 
 		CHTTPServer::~CHTTPServer()
 		{
-			mp_pInternal = nullptr;
+			mp_Internal.f_Clear();
 		}
 
 		void CHTTPServer::f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority)
 		{
-			mp_pInternal->f_AddHandlerForPath(_Path, _pHandler, _Priority);
+			mp_Internal(&CHTTPServerInternal::f_AddHandlerForPath, _Path, _pHandler, _Priority).f_CallSync();
+		}
+
+		void CHTTPServer::f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Actor, int _Priority)
+		{
+			mp_Internal(&CHTTPServerInternal::f_AddHandlerActorForPath, _Path, _Actor, _Priority).f_CallSync();
 		}
 
 		bint CHTTPServer::f_Run(CHTTPServerOptions const& _Options)
 		{
-			return mp_pInternal->f_Run(_Options);
+			return mp_Internal(&CHTTPServerInternal::f_Run, _Options).f_CallSync();
 		}
 
 		bint CHTTPServer::f_IsRunning()
 		{
-			return mp_pInternal->f_IsRunning();
+			return mp_Internal(&CHTTPServerInternal::f_IsRunning).f_CallSync();
 		}
 
 		bint CHTTPServer::f_Stop()
 		{
-			return mp_pInternal->f_Stop();
+			return mp_Internal(&CHTTPServerInternal::f_Stop).f_CallSync();
 		}
 
 		// CHTTPResponseHeader Public Methods
@@ -712,6 +796,13 @@ namespace NMib
 			}
 		};
 
+		NStr::CStr CHTTPRequest::f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue)
+		{
+			if (auto pVariable = m_Variables.f_FindEqual(_Variable))
+				return *pVariable;
+			return _DefaultValue;
+		}
+
 		NStr::CStr CHTTPRequest::fs_LookupHost(NStr::CStr const& _IP)
 		{
 			uint8 IP0 = 0;
@@ -764,13 +855,15 @@ namespace NMib
 			const NStr::CStr TagStart = "<!--USERDATA(";
 			const NStr::CStr TagEnd = ")-->";
 
+			auto &Blocks = mp_pState->m_Blocks;
+
 			int iTagPos, iEndTagPos;
 			CBlock NewBlock;
 			while ((iTagPos = Template.f_Find(TagStart)) != -1)
 			{
 				if (iTagPos > 0)
 				{
-					CBlock &NewBlock = mp_lBlocks.f_Insert();
+					CBlock &NewBlock = Blocks.f_Insert();
 					NewBlock.m_Type = EBlock_HTML;
 					NewBlock.m_Text = Template.f_Extract(0, iTagPos);
 					Template = Template.f_Extract(iTagPos + TagStart.f_GetLen());
@@ -782,7 +875,7 @@ namespace NMib
 				if (iEndTagPos == -1)
 					break;
 
-				CBlock &NewBlock = mp_lBlocks.f_Insert();
+				CBlock &NewBlock = Blocks.f_Insert();
 				NewBlock.m_Type = EBlock_UserData;
 				NewBlock.m_Text = Template.f_Extract(0, iEndTagPos);
 
@@ -791,7 +884,7 @@ namespace NMib
 
 			if (!Template.f_IsEmpty())
 			{
-				CBlock &NewBlock = mp_lBlocks.f_Insert();
+				CBlock &NewBlock = Blocks.f_Insert();
 				NewBlock.m_Type = EBlock_HTML;
 				NewBlock.m_Text = Template;
 			}
@@ -927,6 +1020,57 @@ namespace NMib
 		{
 			mp_Present = EPresent_None;
 			mp_ContentStream.f_Clear();
+		}
+
+		void CHTMLTemplate::fsp_AsyncWrite(NPtr::TCSharedPointer<CAsyncWriteState> const &_pState)
+		{
+			auto &WriteState = *_pState;
+			auto &State = *WriteState.m_pState;
+
+			mint nBlocks = State.m_Blocks.f_GetLen();
+
+			if (WriteState.m_iBlock == nBlocks)
+			{
+				WriteState.m_Continuation.f_SetResult();
+				return;
+			}
+
+			for (; WriteState.m_iBlock < nBlocks; ++WriteState.m_iBlock)
+			{
+				auto &Block = State.m_Blocks[WriteState.m_iBlock];
+
+				if (Block.m_Type == EBlock_HTML)
+					WriteState.m_pConnection->f_Write(Block.m_Text);
+				else if (Block.m_Type == EBlock_UserData)
+				{
+					WriteState.m_fWriteBlock(Block.m_Text) > WriteState.m_Continuation / [_pState]
+						{
+							++_pState->m_iBlock;
+							fsp_AsyncWrite(_pState);
+						}
+					;
+				}
+			}
+		}
+
+		NConcurrency::TCContinuation<void> CHTMLTemplate::f_WriteTemplateAsync
+			(
+				 NPtr::TCSharedPointer<CHTTPConnection> const &_pConnection
+				 , CHTTPResponseHeader const &_BaseHeader
+				 , NFunction::TCFunction<NConcurrency::TCContinuation<void> (NStr::CStr const& _BlockName)> &&_fWriteBlock
+			)
+		{
+			_pConnection->f_Write(_BaseHeader);
+
+			NPtr::TCSharedPointer<CAsyncWriteState> pWriteState = fg_Construct();
+
+			pWriteState->m_pState = mp_pState;
+			pWriteState->m_pConnection = _pConnection;
+			pWriteState->m_fWriteBlock = fg_Move(_fWriteBlock);
+
+			fsp_AsyncWrite(pWriteState);
+
+			return pWriteState->m_Continuation;
 		}
 	}
 }
