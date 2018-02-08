@@ -118,7 +118,51 @@ namespace NMib
 				NStr::CStr m_Error;
 				EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 			};
-			
+
+			struct CMaybeSecureByteVector : public NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>
+			{
+				CMaybeSecureByteVector(NContainer::CByteVector &&_Vector)
+					: NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
+				{
+				}
+				CMaybeSecureByteVector(NContainer::CSecureByteVector &&_Vector)
+					: NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
+				{
+				}
+				CMaybeSecureByteVector(NContainer::CSecureByteVector const &_Vector)
+					: NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
+				{
+				}
+				CMaybeSecureByteVector(NContainer::CByteVector const &_Vector)
+					: NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
+				{
+				}
+
+				using NContainer::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>::operator =;
+
+				mint f_GetLen() const
+				{
+					if (this->f_GetTypeID() == 0)
+						return this->f_Get<0>().f_GetLen();
+					else
+						return this->f_Get<1>().f_GetLen();
+				}
+
+				uint8 const *f_GetArray() const
+				{
+					if (this->f_GetTypeID() == 0)
+						return this->f_Get<0>().f_GetArray();
+					else
+						return this->f_Get<1>().f_GetArray();
+				}
+			};
+
+			struct CMessageBuffers
+			{
+				CMaybeSecureByteVector m_Data = NContainer::CByteVector{};
+				NContainer::TCVector<mint> m_Markers;
+			};
+
 		public:
 			
 			CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout);
@@ -126,8 +170,10 @@ namespace NMib
 			
 			void f_SetTimeout(fp64 _Seconds);
 			
-			NConcurrency::TCContinuation<void> f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pMessage, uint32 _Priority);
 			NConcurrency::TCContinuation<void> f_SendText(NStr::CStr const &_Data, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendTextBuffer(NPtr::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority);
+			NConcurrency::TCContinuation<void> f_SendTextBuffers(NPtr::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority);
 			NConcurrency::TCContinuation<void> f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData);
 			NConcurrency::TCContinuation<void> f_SendPong(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData);
 			

@@ -87,6 +87,8 @@ public:
 		NStr::CStr m_ClientConnectionCloseMessage;
 		NStr::CStr m_ServerConnectionCloseMessage;
 
+		NContainer::TCVector<NStr::CStr> m_Messages;
+
 		bool m_bCleared = false;
 		
 		void f_Clear()
@@ -234,6 +236,13 @@ public:
 								pState->m_Event.f_Signal();
 							}
 						;
+						Result.m_fOnReceiveTextMessage = [pState](NStr::CStr const &_Message)
+							{
+								DMibLock(pState->m_Lock);
+								pState->m_Messages.f_Insert(_Message);
+								pState->m_Event.f_Signal();
+							}
+						;
 
 						pState->m_ClientSocket = Result.f_Accept
 							(
@@ -342,8 +351,6 @@ public:
 			else
 				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
-				DMibTestPath("Disconnect");
-				
 				NPtr::TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup 
 					= g_OnScopeExit > [&]
@@ -361,12 +368,44 @@ public:
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
 				{
+					DMibTestPath("Messages");
+
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(20.0);
+					NContainer::CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
+					NPtr::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(20.0);
+
+					NPtr::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
+					NContainer::CSecureByteVector SecureBuffer = Buffer;
+					pMessageBuffers->m_Data = SecureBuffer;
+					pMessageBuffers->m_Markers = {0, 4};
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(20.0);
+
+					bool bTimedOut = false;
+					while (!bTimedOut)
+					{
+						{
+							DMibLock(pState->m_Lock);
+							if (pState->m_Messages.f_GetLen() >= 4)
+								break;
+						}
+						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+					}
+
+					DMibExpectFalse(bTimedOut);
+					DMibExpect(pState->m_Messages.f_GetLen(), ==, 4)(NTest::ETest_FailAndStop);
+					DMibExpect(pState->m_Messages[0], ==, "TestTextReply");
+					DMibExpect(pState->m_Messages[1], ==, "TestBuffReply");
+					DMibExpect(pState->m_Messages[2], ==, "TestReply");
+					DMibExpect(pState->m_Messages[3], ==, "BuffReply");
+				}
+
+ 				{
 					DMibTestPath("Disconnect");
 
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();
 					
 					bool bTimedOut = false;
-					
 					while (!bTimedOut)
 					{
 						{

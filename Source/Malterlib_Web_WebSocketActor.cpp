@@ -522,14 +522,15 @@ namespace NMib
 			return Continuation;
 		}		
 		
-		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _Message, uint32 _Priority)
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> const &_pMessage, uint32 _Priority)
 		{
 			auto &Internal = *mp_pInternal;
 			DMibLog(DebugVerbose2, " ++++ {} f_SendBinary", !Internal.m_bClient);
 			
 			NConcurrency::TCContinuation<void> Result;
-			
-			mint nBytes = _Message->f_GetLen();
+
+			auto &Massage = *_pMessage;
+			mint nBytes = Massage.f_GetLen();
 
 			if (nBytes > Internal.m_MaxMessageSize)
 			{
@@ -545,14 +546,14 @@ namespace NMib
 			
 			if (nBytes <= Internal.m_Framentationsize)
 			{
-				auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _Message, _Priority);
+				auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
 				NewMessage.m_pContinuation = fg_Construct(Result);
 				DMibLog(DebugVerbose2, " ++++ {} Queue non-fragmented", !Internal.m_bClient);
 				fp_UpdateSend();
 				return Result;
 			}
 			
-			Internal.f_QueueFragmentedMessage(EOpcode_BinaryFrame, _Message->f_GetArray(), nBytes, _Priority)
+			Internal.f_QueueFragmentedMessage(EOpcode_BinaryFrame, Massage.f_GetArray(), nBytes, _Priority)
 				.m_pContinuation = fg_Construct(Result)
 			;
 			
@@ -591,6 +592,89 @@ namespace NMib
 			
 			return Result;
 		}
+
+		
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendTextBuffer(NPtr::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority)
+		{
+			auto &Internal = *mp_pInternal;
+			
+			NConcurrency::TCContinuation<void> Result;
+
+			auto &Message = *_pMessage;
+						
+			mint nBytes = Message.f_GetLen();
+			
+			if (_Priority == TCLimitsInt<uint32>::mc_Max)
+				return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
+			if (nBytes > Internal.m_MaxMessageSize)
+				return DMibErrorInstance("Message is bigger than max message size");
+
+			Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, Message.f_GetArray(), nBytes, _Priority)
+				.m_pContinuation = fg_Construct(Result)
+			;
+			
+			fp_UpdateSend();
+			
+			return Result;
+		}
+
+		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendTextBuffers(NPtr::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority)
+		{
+			auto &Internal = *mp_pInternal;
+			
+			if (_Priority == TCLimitsInt<uint32>::mc_Max)
+				return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
+			auto &MessageBuffers = *_pMessageBuffers;
+
+			auto &MessageMarkers = MessageBuffers.m_Markers;
+			auto &Message = MessageBuffers.m_Data;
+			mint const *pMessageMarkersArray = MessageMarkers.f_GetArray();
+			mint nMessages = MessageMarkers.f_GetLen();
+			mint MessageLength = Message.f_GetLen();
+			uint8 const *pMessageArray = Message.f_GetArray();
+
+			for (mint iMessage = 0; iMessage < nMessages; ++iMessage)
+			{
+				mint iStart = pMessageMarkersArray[iMessage];
+				mint iEnd = iMessage == (nMessages - 1) ? MessageLength : pMessageMarkersArray[iMessage + 1];
+				mint nBytes = nBytes = iEnd - iStart;
+
+				if (nBytes > Internal.m_MaxMessageSize)
+					return DMibErrorInstance("Message is bigger than max message size");
+			}
+
+			NConcurrency::TCContinuation<void> Result;
+
+			for (mint iMessage = 0; iMessage < nMessages; ++iMessage)
+			{
+				bool bIsLastMessage = iMessage == (nMessages - 1);
+
+				mint iStart = pMessageMarkersArray[iMessage];
+				mint iEnd = bIsLastMessage ? MessageLength : pMessageMarkersArray[iMessage + 1];
+				mint nBytes = nBytes = iEnd - iStart;
+
+				if (bIsLastMessage)
+					nBytes = MessageLength - iStart;
+				else
+					nBytes = pMessageMarkersArray[iMessage + 1] - iStart;
+
+				auto &OutMsg = Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, pMessageArray + iStart, nBytes, _Priority);
+
+				if (bIsLastMessage)
+				{
+					// OK, assuming messages are send in the order they are queued attaching the continuation to the last message should 
+					// behave as assumed.
+					OutMsg.m_pContinuation = fg_Construct(Result);
+				}
+			}
+			
+			fp_UpdateSend();
+			
+			return Result;
+		}
+
 		NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPing(NPtr::TCSharedPointer<NContainer::TCVector<uint8, NMem::CAllocator_HeapSecure>> _ApplicationData)
 		{
 			auto &Internal = *mp_pInternal;
