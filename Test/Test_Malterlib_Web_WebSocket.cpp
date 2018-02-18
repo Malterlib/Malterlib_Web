@@ -345,6 +345,7 @@ public:
 			if (_Address == "localhost")
 			{
 				CNetAddressTCPv4 Address;
+				Address.f_SetLocalhost();
 				Address.m_Port = 10500;
 				ListenAddress = Address;
 			}

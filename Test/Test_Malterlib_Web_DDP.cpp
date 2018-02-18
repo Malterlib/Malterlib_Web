@@ -95,12 +95,15 @@ public:
 		{
 			TCContinuation<CServer *> Continuation;
 			m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
-			
+
+			NNet::CNetAddressTCPv4 ToListenTo;
+			ToListenTo.m_Port = 10501;
+			ToListenTo.f_SetLocalhost();
+
 			m_WebsocketServer
 				(
-					&CWebSocketServerActor::f_StartListen
-					, 10501
-					, 1
+					&CWebSocketServerActor::f_StartListenAddress
+				 	, NContainer::TCVector<NNet::CNetAddress>{ToListenTo}
 					, NNet::ENetFlag_None
 					, fg_ConcurrentActor()
 					, [this](CWebSocketNewServerConnection &&_ConnectionInfo)
