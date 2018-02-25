@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_HTTPServer.h"
@@ -671,7 +671,15 @@ namespace NMib
 			}
 		}
 
-		
+		void CHTTPServerOptions::f_ParseSettings(NEncoding::CEJSON const &_Params)
+		{
+			m_ListeningPort = _Params.f_GetMemberValue("Port", m_ListeningPort).f_Integer();
+			m_FastCGIListenStartPort = _Params.f_GetMemberValue("FCGIPort", m_FastCGIListenStartPort).f_Integer();
+			m_nMaxThreads = _Params.f_GetMemberValue("Threads", m_nMaxThreads).f_Integer();
+			m_StaticRoot = _Params.f_GetMemberValue("StaticRoot", m_StaticRoot).f_String();
+			m_WebRoot = _Params.f_GetMemberValue("WebRoot", m_WebRoot).f_String();
+			m_NGINXPath = _Params.f_GetMemberValue("NginxPath", m_NGINXPath).f_String();
+		}
 
 		// For Development Use Only
 

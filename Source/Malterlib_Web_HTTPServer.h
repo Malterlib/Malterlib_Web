@@ -1,9 +1,10 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
 
 #include <Mib/Core/Core>
+#include <Mib/Encoding/EJSON>
 
 namespace NMib
 {
@@ -106,9 +107,9 @@ namespace NMib
 
 		struct CHTTPServerOptions
 		{
-			uint32 m_nMaxThreads;
-			uint16 m_ListeningPort;
-			uint16 m_FastCGIListenStartPort;
+			uint32 m_nMaxThreads = 1;
+			uint16 m_ListeningPort = 8080;
+			uint16 m_FastCGIListenStartPort = 9000;
 			NStr::CStr m_StaticRoot;
 			NStr::CStr m_NGINXPath;
 			NStr::CStr m_WebRoot;
@@ -133,6 +134,7 @@ namespace NMib
 			// Uses the same options (without the -) and uses key-value structure. .hrf style.
 			void f_ParseSettings(NRegistry::CRegistry_CStr const& _Params);
 			void f_ParseSettings(NRegistry::CRegistryPreserve_CStr const& _Params);
+			void f_ParseSettings(NEncoding::CEJSON const &_Params);
 
 		private:
 			template <typename tf_CRegistry>
