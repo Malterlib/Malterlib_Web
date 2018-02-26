@@ -50,33 +50,38 @@ namespace NMib
 				auto StateAdded = mp_Socket.f_GetState();
 				if (StateAdded & NNet::ENetTCPState_Connection)
 				{
-					NConcurrency::TCActor<CFastCGIConnectionActor> ConnectionActor = NConcurrency::fg_ConstructActor<CFastCGIConnectionActor>(mp_Server, mp_ServerInternal);
-					NNet::CSocket AcceptedSocket;
-					NConcurrency::TCWeakActor<CFastCGIConnectionActor> WeakConnectionActor = ConnectionActor;
-					AcceptedSocket.f_Accept
-						(
-							&mp_Socket
-							, [WeakConnectionActor](NNet::ENetTCPState _StateAdded)
-							{
-								auto ConnectionActor = WeakConnectionActor.f_Lock();
-								if (ConnectionActor)
+					while (true)
+					{
+						NConcurrency::TCActor<CFastCGIConnectionActor> ConnectionActor = NConcurrency::fg_ConstructActor<CFastCGIConnectionActor>(mp_Server, mp_ServerInternal);
+						NConcurrency::TCWeakActor<CFastCGIConnectionActor> WeakConnectionActor = ConnectionActor;
+						NNet::CSocket AcceptedSocket;
+						AcceptedSocket.f_Accept
+							(
+								&mp_Socket
+								, [WeakConnectionActor](NNet::ENetTCPState _StateAdded)
 								{
-									ConnectionActor(&CFastCGIConnectionActor::f_StateAdded, _StateAdded)
-										> NConcurrency::fg_DiscardResult()
-									;
+									auto ConnectionActor = WeakConnectionActor.f_Lock();
+									if (ConnectionActor)
+									{
+										ConnectionActor(&CFastCGIConnectionActor::f_StateAdded, _StateAdded)
+											> NConcurrency::fg_DiscardResult()
+										;
+									}
 								}
-							}
-						)
-					;
-					NPtr::TCSharedPointer<NNet::CSocket> pSocket = fg_Construct(fg_Move(AcceptedSocket));
-					
-					ConnectionActor(&CFastCGIConnectionActor::f_SetSocket, pSocket)
-						> NConcurrency::fg_DiscardResult()
-					;					
+							)
+						;
+						if (!AcceptedSocket.f_IsValid())
+							break;
+						NPtr::TCSharedPointer<NNet::CSocket> pSocket = fg_Construct(fg_Move(AcceptedSocket));
 
-					mp_Server(&CFastCGIServer::CInternal::f_AddConnection, ConnectionActor)
-						> NConcurrency::fg_DiscardResult()
-					;
+						ConnectionActor(&CFastCGIConnectionActor::f_SetSocket, pSocket)
+							> NConcurrency::fg_DiscardResult()
+						;
+
+						mp_Server(&CFastCGIServer::CInternal::f_AddConnection, ConnectionActor)
+							> NConcurrency::fg_DiscardResult()
+						;
+					}
 				}
 			}
 		}
