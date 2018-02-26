@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_HTTPRequestHandler_ExeFS.h"
@@ -79,6 +79,9 @@ namespace NMib
 				{
 					DMibLock(mp_Lock);
 
+					if (!mp_pFSInterface->f_FileExists(Filename))
+						return false;
+
 					if (_Req.m_Method == "HEAD")
 					{
 						CMibFilePos nBytes = mp_pFSInterface->f_GetFileSize(Filename);
@@ -86,9 +89,6 @@ namespace NMib
 						return true;
 					}
 
-					if (!mp_pFSInterface->f_FileExists(Filename))
-						return false;
-					
 					NPtr::TCSharedPointer<NStream::CBinaryStreamDefaultRef> pStream = mp_pFSInterface->f_OpenStream(Filename, NFile::EFileOpen_Read);
 
 					if (!pStream)
