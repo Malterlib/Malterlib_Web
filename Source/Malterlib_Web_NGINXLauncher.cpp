@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -162,17 +162,20 @@ namespace NMib
 						{
 						case NProcess::EProcessLaunchState_Launched:
 							{
-								DMibTrace("Launched: {}\n", _State.f_Get<NProcess::EProcessLaunchState_Launched>());
+								DMibLogWithCategory(Malterlib/Web/NGINXLauncher, Info, "nginx launched: {}", _State.f_Get<NProcess::EProcessLaunchState_Launched>());
 							}
 							break;
 						case NProcess::EProcessLaunchState_LaunchFailed:
 							{
-								DMibTrace("Launch Failed: {}\n", _State.f_Get<NProcess::EProcessLaunchState_LaunchFailed>());
+								DMibLogWithCategory(Malterlib/Web/NGINXLauncher, Error, "nginx launch failed: {}", _State.f_Get<NProcess::EProcessLaunchState_LaunchFailed>());
 							}
 							break;
 						case NProcess::EProcessLaunchState_Exited:
 							{
-								DMibTrace("Exited: {}\n", _State.f_Get<NProcess::EProcessLaunchState_Exited>());
+								if (_State.f_Get<NProcess::EProcessLaunchState_Exited>())
+									DMibLogWithCategory(Malterlib/Web/NGINXLauncher, Error, "nginx exited: {}", _State.f_Get<NProcess::EProcessLaunchState_Exited>());
+								else
+									DMibLogWithCategory(Malterlib/Web/NGINXLauncher, Info, "nginx exited: {}", _State.f_Get<NProcess::EProcessLaunchState_Exited>());
 							}
 							break;
 						}
@@ -183,7 +186,7 @@ namespace NMib
 			LaunchParams.m_fOnOutput 
 				= [](NProcess::EProcessLaunchOutputType _OutputType, NStr::CStr const &_Output)
 				{
-					DMibTrace("{}", _Output);
+					DMibLogWithCategory(Malterlib/Web/nginx, Info, "{}", _Output.f_TrimRight());
 				}
 			;
 
