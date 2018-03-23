@@ -15,8 +15,8 @@ namespace NMib
 		/// Server
 		/// ======
 		
-		CFastCGIServer::CFastCGIServer(NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest)
-			: mp_pInternal(NConcurrency::fg_ConstructActor<CInternal>(fg_Move(_fOnRequest)))
+		CFastCGIServer::CFastCGIServer(NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest, uint16 _FastCGIListenStartPort, uint16 _nListen)
+			: mp_pInternal(NConcurrency::fg_ConstructActor<CInternal>(fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen))
 		{
 		}
 		

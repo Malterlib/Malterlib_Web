@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -17,7 +17,7 @@ namespace NMib
 			friend class CFastCGIRequest;
 			friend class CFastCGIConnectionActor;
 		public:
-			CInternal(NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest);
+			CInternal(NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest, uint16 _FastCGIListenStartPort, uint16 _nListen);
 			~CInternal();
 			
 			void f_Construct();
@@ -28,7 +28,7 @@ namespace NMib
 		private:
 
 			NConcurrency::TCContinuation<void> fp_Destroy();
-			void fp_Startup();
+			void fp_Startup(uint16 _FastCGIListenStartPort, uint16 _nListen);
 			
 		private:
 			NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> mp_ListenSockets;

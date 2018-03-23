@@ -12,11 +12,16 @@ namespace NMib
 	namespace NWeb
 	{
 		using namespace NFastCGI;
-		CFastCGIServer::CInternal::CInternal(NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest)
+		CFastCGIServer::CInternal::CInternal
+			(
+			 	NFunction::TCFunction<void (NPtr::TCSharedPointer<CFastCGIRequest> const& _Request)> &&_fOnRequest
+			 	, uint16 _FastCGIListenStartPort
+			 	, uint16 _nListen
+			)
 			: mp_pCanDestroyTracker(fg_Construct())
 			, mp_fOnRequest(fg_Move(_fOnRequest))
 		{
-			fp_Startup();
+			fp_Startup(_FastCGIListenStartPort, _nListen);
 		}
 		
 		CFastCGIServer::CInternal::~CInternal()
@@ -50,10 +55,10 @@ namespace NMib
 			return pCanDestroy->m_Continuation;
 		}
 			
-		void CFastCGIServer::CInternal::fp_Startup()
+		void CFastCGIServer::CInternal::fp_Startup(uint16 _FastCGIListenStartPort, uint16 _nListen)
 		{
-			mint nThreads = NSys::fg_Thread_GetVirtualCores();
-			uint16 StartListen = 9000;
+			mint nThreads = _nListen;
+			uint16 StartListen = _FastCGIListenStartPort;
 			
 			mp_ListenSockets.f_SetLen(nThreads);
 
