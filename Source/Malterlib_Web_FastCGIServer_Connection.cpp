@@ -103,23 +103,34 @@ namespace NMib
 		
 		void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::TCVector<uint8> const& _Data, ERequestType _Type)
 		{
-			auto* pData = _Data.f_GetArray();
-			mint Sent = 0;
+			auto *pData = _Data.f_GetArray();
 			mint ToSend = _Data.f_GetLen();
-			while (Sent < ToSend)
+			uint8 Padding[8] = {};
+			uint8 HeaderData[8] = {};
+
+			while (ToSend)
 			{
-				mint ThisTime = fg_Min(ToSend - Sent, 16*1024 - (sizeof(CHeader)));
-				NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
+				mint ThisTime = fg_Min(ToSend, 64*1024 - (sizeof(CHeader)));
+				NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+				Stream.f_OpenReadWrite(HeaderData, 8, 0);
+
+				mint PaddingSize = 0;
+				if (ThisTime & 7)
+					PaddingSize = 8 - (ThisTime & 7);
 				
 				CHeader Header;
 				Header.m_Type = _Type;
 				Header.m_RequestID = mp_RecordInfo.m_ID;
 				Header.m_ContentLength = ThisTime;
+				Header.m_PaddingLength = PaddingSize;
 				Stream << Header;
-				
-				fp_SendData(Stream.f_MoveVector());
-				fp_SendData(pData + Sent, ThisTime);
-				Sent += ThisTime;
+
+				fp_SendData((uint8 const *)Stream.f_GetBuffer(), Stream.f_GetLength());
+				fp_SendData(pData, ThisTime);
+				fp_SendData(Padding, PaddingSize);
+
+				pData += ThisTime;
+				ToSend -= ThisTime;
 			}
 		}
 		
@@ -392,7 +403,7 @@ namespace NMib
 			{
 				try
 				{
-					mint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray(), ToSend);
+					mint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray() + mp_OutgoingPosition, ToSend);
 					mp_OutgoingPosition += Sent;
 				}
 				catch (NNet::CExceptionNet const& _Exception)

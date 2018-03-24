@@ -94,9 +94,9 @@ namespace NMib
 				NStr::CStr Contents;
 				
 				Contents += NStr::CStr::CFormat("daemon off;\n") << PidFile;
-	#ifdef DDebug
-				
-				Contents += NStr::CStr::CFormat("master_process off;\n") << PidFile;
+	#ifdef DMibDebug
+//				Contents += NStr::CStr::CFormat("master_process off;\n") << PidFile;
+				Contents += NStr::CStr::CFormat("error_log logs/error.log_ debug;\n") << PidFile;
 	#endif
 				Contents += NStr::CStr::CFormat("pid {};\n") << PidFile;
 	//#ifdef DPlatformFamily_Windows

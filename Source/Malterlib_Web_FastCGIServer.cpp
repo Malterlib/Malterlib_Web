@@ -74,14 +74,12 @@ namespace NMib
 		void CFastCGIRequest::f_SendStdOutput(NStr::CStr const& _Output)
 		{
 			DMibRequire(!mp_bFinished);
-			auto Output = fg_ForceStrUTF8(_Output);
-			f_SendStdOutput((uint8 const*)Output.f_GetStr(), Output.f_GetLen());
+			f_SendStdOutput((uint8 const*)_Output.f_GetStr(), _Output.f_GetLen());
 		}
 		void CFastCGIRequest::f_SendStdError(NStr::CStr const& _Output)
 		{
 			DMibRequire(!mp_bFinished);
-			auto Output = fg_ForceStrUTF8(_Output);
-			f_SendStdError((uint8 const*)Output.f_GetStr(), Output.f_GetLen());
+			f_SendStdError((uint8 const*)_Output.f_GetStr(), _Output.f_GetLen());
 		}
 		
 		void CFastCGIRequest::f_SendStdOutput(uint8 const* _pOutput, mint _Len)
