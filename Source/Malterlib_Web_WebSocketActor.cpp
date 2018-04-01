@@ -1457,7 +1457,7 @@ namespace NMib
 							auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
 							switch (ConnectionInfo.m_pResponse->f_Parse(Internal.m_IncomingData))
 							{
-							case NHTTP::ERequestStatus_Complete:
+							case NHTTP::EResponseStatus_Complete:
 								{
 									
 									auto &EntityFields = ConnectionInfo.m_pResponse->f_GetEntityFields();
@@ -1534,12 +1534,12 @@ namespace NMib
 									
 								}
 								break;
-							case NHTTP::ERequestStatus_Invalid:
+							case NHTTP::EResponseStatus_Invalid:
 								{
 									fp_Disconnect(EWebSocketStatus_ProtocolError, "Invalid HTTP request header", true, EWebSocketCloseOrigin_Local);
 								}
 								return;
-							case NHTTP::ERequestStatus_InProgress:
+							case NHTTP::EResponseStatus_InProgress:
 								break;
 							default:
 								{
