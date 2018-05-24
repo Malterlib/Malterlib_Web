@@ -64,13 +64,12 @@ namespace NMib::NWeb
 			EMethod _Method
 			, NStr::CStr const &_URL
 			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
-			, NStr::CStr const &_Data
+			, NContainer::CByteVector const &_Data
 		)
 	{
 		return NConcurrency::TCContinuation<CCurlActor::CResult>::fs_RunProtected() > [&]
 			{
-
-				CStr Data(_Data);
+				NContainer::CByteVector::CIteratorConst DataIterator = _Data.f_GetIterator();
 
 				*g_CurlInit;
 
@@ -113,14 +112,14 @@ namespace NMib::NWeb
 				if (_Method == EMethod_POST)
 				{
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
-					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, Data.f_GetStr()));
-					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, Data.f_GetLen()));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
 				}
 				else if (_Method == EMethod_PUT)
 				{
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
-					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Data));
-					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, Data.f_GetLen()));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &DataIterator));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, _Data.f_GetLen()));
 
 					auto fReadCallback =
 						[](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
@@ -129,9 +128,10 @@ namespace NMib::NWeb
 
 							if (Bytes > 0)
 							{
-								CStr &DataSource = *static_cast<CStr*>(_pData);
-								NMem::fg_MemCopy(_pBuffer, DataSource.f_GetStr(), Bytes);
-								DataSource = DataSource.f_Extract(Bytes);
+								NContainer::CByteVector::CIteratorConst &DataSource = *static_cast<NContainer::CByteVector::CIteratorConst *>(_pData);
+								Bytes = fg_Min(DataSource.f_GetLen(), Bytes);
+								NMem::fg_MemCopy(_pBuffer, &*DataSource, Bytes);
+								DataSource += Bytes;
 							}
 
 							return Bytes;

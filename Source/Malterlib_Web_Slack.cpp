@@ -2,9 +2,9 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_Slack.h"
-#include "Mib/Encoding/JSON"
-#include "Mib/Encoding/JSONShortcuts"
-#include "Mib/Web/Curl"
+#include <Mib/Encoding/JSON>
+#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Web/Curl>
 
 namespace NMib::NWeb
 {
@@ -165,7 +165,15 @@ namespace NMib::NWeb
 
 		NConcurrency::TCContinuation<void> Continuation;
 		auto &Internal = *mp_pInternal;
-		Internal.m_CurlActor(&CCurlActor::f_Request,CCurlActor::EMethod_POST, _IncomingWebhook.f_Encode(), TCMap<CStr, CStr>{}, SlackMessage.f_ToString())
+		auto SlackMessageString = SlackMessage.f_ToString();
+		Internal.m_CurlActor
+			(
+			 	&CCurlActor::f_Request
+			 	,CCurlActor::EMethod_POST
+			 	, _IncomingWebhook.f_Encode()
+			 	, TCMap<CStr, CStr>{}
+			 	, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
+			)
 			> Continuation / [Continuation](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != 200)

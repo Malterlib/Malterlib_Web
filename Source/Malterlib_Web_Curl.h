@@ -40,7 +40,7 @@ namespace NMib::NWeb
 				EMethod _Method
 				, NStr::CStr const &_URL
 				, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
-				, NStr::CStr const &_Data
+				, NContainer::CByteVector const &_Data
 			)
 		;
 	};
