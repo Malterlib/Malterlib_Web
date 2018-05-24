@@ -869,7 +869,7 @@ namespace NMib
 			return true;
 		}
 		
-		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved)
+		void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved, bool _bUpperCase)
 		{
 			NStr::CStr Str = _Str;
 			
@@ -884,9 +884,7 @@ namespace NMib
 			{
 				uch8 Character = (uch8)*pParse;
 				if (Character <= 32 || Character >= 128 || NStr::fg_StrFindChar(pReserved, Character) >= 0)
-				{
-					o_Result += NStr::CStr::CFormat("%{nfh,sf0,sj2}") << Character;
-				}
+					o_Result += NStr::CStr::CFormat(_bUpperCase ? "%{nfh,sf0,sj2,nc}" : "%{nfh,sf0,sj2}") << Character;
 				else
 					o_Result.f_AddChar(*pParse);
 				++pParse;
