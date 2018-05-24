@@ -105,9 +105,14 @@ namespace NMib::NWeb
 					}
 				;
 
-				pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
-				pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
-				pHeaders = curl_slist_append(pHeaders, "Expect:");
+				if (!_Headers.f_FindEqual("Accept"))
+					pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
+
+				if (!_Headers.f_FindEqual("Content-Type"))
+					pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
+
+				if (!_Headers.f_FindEqual("Expect"))
+					pHeaders = curl_slist_append(pHeaders, "Expect:");
 
 				if (_Method == EMethod_POST)
 				{
