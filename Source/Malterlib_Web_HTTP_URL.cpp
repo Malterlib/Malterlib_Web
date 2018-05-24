@@ -624,6 +624,12 @@ namespace NMib
 			mp_Flags |= EURLFlag_Query;
 		}
 
+		void CURL::f_AddQueryEntry(CQueryEntry const &_QueryEntry)
+		{
+			mp_Query.f_Insert(_QueryEntry);
+			mp_Flags |= EURLFlag_Query;
+		}
+
 		void CURL::f_SetFragment(NStr::CStr const &_Fragment)
 		{
 			mp_Fragment = _Fragment;
