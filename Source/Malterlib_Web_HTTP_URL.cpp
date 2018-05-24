@@ -329,25 +329,28 @@ namespace NMib
 						++pParse;
 
 					auto pStartValue = pStart;
-					while (pStartValue < pEnd && *pStartValue != '=')
+					while (pStartValue < pParse && *pStartValue != '=')
 						++pStartValue;
 					
 					NStr::CStr Key;
 					NStr::CStr Value;
-					if (pStartValue == pEnd)
+					if (pStartValue == pParse)
 					{
-						if (!fs_PercentDecode(Key, URL, pStart - URL.f_GetStr(), pEnd - URL.f_GetStr()))
+						if (!fs_PercentDecode(Key, URL, pStart - URL.f_GetStr(), pParse - URL.f_GetStr()))
 							return false;
 					}
 					else
 					{
 						if (!fs_PercentDecode(Key, URL, pStart - URL.f_GetStr(), pStartValue - URL.f_GetStr()))
 							return false;
-						if (!fs_PercentDecode(Value, URL, (pStartValue + 1) - URL.f_GetStr(), pEnd - URL.f_GetStr()))
+						if (!fs_PercentDecode(Value, URL, (pStartValue + 1) - URL.f_GetStr(), pParse - URL.f_GetStr()))
 							return false;
 					}
 
 					mp_Query.f_Insert({fg_Move(Key), fg_Move(Value)});
+
+					if (*pParse == '&')
+						++pParse;
 				}
 				
 				mp_Flags |= EURLFlag_Query;
@@ -817,7 +820,7 @@ namespace NMib
 			NStr::CStr Result;
 			char Ch0, Ch1;
 
-			while(pPtr != pEnd)
+			while (pPtr != pEnd)
 			{
 				if (*pPtr == '%')
 				{
