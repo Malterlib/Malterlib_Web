@@ -9,19 +9,14 @@
 #include <Mib/Storage/Optional>
 #include <Mib/Web/HTTP/URL>
 
+#include "Malterlib_Web_AWS_Credentials.h"
+
 namespace NMib::NWeb
 {
 	struct CCurlActor;
 
 	struct CAwsS3Actor : public NConcurrency::CActor
 	{
-		struct CCredentials
-		{
-			NStr::CStr m_Region;
-			NStr::CStr m_AccessKeyID;
-			NStr::CStrSecure m_SecretKey;
-		};
-
 		struct CUserIdentity
 		{
 			NStr::CStr m_ID;
@@ -81,7 +76,7 @@ namespace NMib::NWeb
 
 		NConcurrency::TCContinuation<void> f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
 
-		CAwsS3Actor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CCredentials const &_Credentials);
+		CAwsS3Actor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
 		~CAwsS3Actor();
 
 	private:

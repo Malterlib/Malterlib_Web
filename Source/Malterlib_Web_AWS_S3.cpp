@@ -1,225 +1,35 @@
 // Copyright © 2018 Nonna Holding AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include "Malterlib_Web_AWS_S3.h"
-
 #include <Mib/Encoding/JSON>
 #include <Mib/Encoding/JSONShortcuts>
 #include <Mib/Web/Curl>
 #include <Mib/Network/SSL>
 #include <Mib/XML/XML>
 
+#include "Malterlib_Web_AWS_S3.h"
+#include "Malterlib_Web_AWS_Internal.h"
+
 namespace NMib::NWeb
 {
-	using namespace NEncoding;
-	using namespace NStorage;
-	using namespace NContainer;
-	using namespace NStr;
-	using namespace NConcurrency;
-
 	struct CAwsS3Actor::CInternal
 	{
-		CInternal(TCActor<CCurlActor> const &_CurlActor, CCredentials const &_Credentials)
+		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
 			: m_CurlActor{_CurlActor}
 			, m_Credentials{_Credentials}
 		{
 		}
 
-		CCredentials m_Credentials;
+		CAwsCredentials m_Credentials;
 		TCActor<CCurlActor> m_CurlActor;
 	};
 
-	CAwsS3Actor::CAwsS3Actor(TCActor<CCurlActor> const &_CurlActor, CCredentials const &_Credentials)
+	CAwsS3Actor::CAwsS3Actor(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
 		: mp_pInternal{fg_Construct(_CurlActor, _Credentials)}
 	{
 	}
 
 	CAwsS3Actor::~CAwsS3Actor() = default;
-
-	namespace
-	{
-		ch8 const *fg_MethodToStr(CCurlActor::EMethod _Method)
-		{
-			switch (_Method)
-			{
-				case CCurlActor::EMethod_GET: return "GET";
-				case CCurlActor::EMethod_POST: return "POST";
-				case CCurlActor::EMethod_PUT: return "PUT";
-				case CCurlActor::EMethod_DELETE: return "DELETE";
-			}
-		}
-	}
-
-	TCMap<CStr, CStr> fg_SignAWSRequest
-		(
-		 	NHTTP::CURL const &_URL
-		 	, TCVector<uint8> const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsS3Actor::CCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		)
-	{
-		NTime::CTime CurrentTime = NTime::CTime::fs_NowUTC();
-		auto CurrentDateTime = NTime::CTimeConvert{CurrentTime}.f_ExtractDateTime();
-
-		auto PayloadHash = NDataProcessing::CHash_SHA256::fs_DigestFromData(_Contents).f_GetString();
-		auto CurrentTimeISO8601 = fg_GetISO8601TimeStr(CurrentTime);
-		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f
-			<< CurrentDateTime.m_Year
-			<< CurrentDateTime.m_Month
-			<< CurrentDateTime.m_DayOfMonth
-			<< _Credentials.m_Region
-			<< _Service
-		;
-
-		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
-		AWSHeaders["x-amz-date"] = CurrentTimeISO8601;
-		AWSHeaders["Host"] = _URL.f_GetHost();
-		AWSHeaders["x-amz-content-sha256"] = PayloadHash;
-
-		CStr CanonicalRequest = "{}\n"_f << fg_MethodToStr(_Method); // HTTPRequestMethod
-		CanonicalRequest += "{}\n"_f << _URL.f_GetFullPath(); // CanonicalURI
-
-		// CanonicalQueryString
-		{
-			TCSet<NHTTP::CURL::CQueryEntry> QueryParams;
-			for (auto &QueryParam : _URL.f_GetQuery())
-				QueryParams[QueryParam];
-
-			CStr CannonicalQuery;
-			for (auto &QueryParam : QueryParams)
-			{
-				CStr ParamName;
-				CStr ParamValue;
-
-				NHTTP::CURL::fs_PercentEncode(ParamName, QueryParam.m_Key, nullptr, true);
-				NHTTP::CURL::fs_PercentEncode(ParamValue, QueryParam.m_Value, nullptr, true);
-
-				fg_AddStrSep(CannonicalQuery, "{}={}"_f << ParamName << ParamValue, "&");
-			}
-
-			CanonicalRequest += "{}\n"_f << CannonicalQuery;
-		}
-
-		// CanonicalHeaders, SignedHeaders
-		CStr SignedHeaders;
-		{
-			TCMap<CStr, CStr> CanonicalHeaders;
-			for (auto &Value : AWSHeaders)
-				CanonicalHeaders[AWSHeaders.fs_GetKey(Value).f_LowerCase()] = Value;
-
-			auto fTrimHeader = [](CStr const &_Header)
-				{
-					CStr Trimmed = _Header.f_Trim();
-					CStr WithoutConsecutiveSpace;
-
-					for (auto *pParse = Trimmed.f_GetStr(); *pParse;)
-					{
-						if (*pParse == ' ')
-						{
-							while (*pParse == ' ')
-								++pParse;
-							WithoutConsecutiveSpace.f_AddChar(' ');
-							continue;
-						}
-
-						WithoutConsecutiveSpace.f_AddChar(*pParse);
-						++pParse;
-					}
-
-					return WithoutConsecutiveSpace;
-				}
-			;
-
-			for (auto &Header : CanonicalHeaders)
-			{
-				auto &HeaderName = CanonicalHeaders.fs_GetKey(Header);
-				CanonicalRequest += "{}:{}\n"_f << HeaderName << fTrimHeader(Header);
-				fg_AddStrSep(SignedHeaders, HeaderName, ";");
-			}
-			CanonicalRequest += "\n";
-			CanonicalRequest += "{}\n"_f << SignedHeaders;
-		}
-
-		CanonicalRequest += "{}"_f << PayloadHash; // HashedPayload
-
-		CStr StringToSign = "AWS4-HMAC-SHA256\n";
-
-		StringToSign += "{}\n"_f << CurrentTimeISO8601; // Timstamp
-		StringToSign += "{}\n"_f << Scope; // Scope
-		StringToSign += "{}"_f << NDataProcessing::CHash_SHA256::fs_DigestFromData(CanonicalRequest.f_GetStr(), CanonicalRequest.f_GetLen()).f_GetString(); // CanonicalRequestHash;
-
-
-
-		CStr Signature;
-		{
-			auto fHMAC = [](NDataProcessing::CHashDigest_SHA256 const &_Key, CStr const &_Data) -> NDataProcessing::CHashDigest_SHA256
-				{
-					NContainer::CSecureByteVector Key{_Key.f_GetData(), _Key.fs_GetSize()};
-					return NNet::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
-				}
-			;
-			NDataProcessing::CHashDigest_SHA256 KeyDate;
-			{
-				CStrSecure SecretStr = "AWS4" + _Credentials.m_SecretKey;
-				CStr Date ="{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
-				NContainer::CSecureByteVector Secret((uint8 const *)SecretStr.f_GetStr(), SecretStr.f_GetLen());
-				NContainer::CSecureByteVector Data((uint8 const *)Date.f_GetStr(), Date.f_GetLen());
-				KeyDate = NNet::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
-			}
-
-			auto KeyRegion = fHMAC(KeyDate, _Credentials.m_Region);
-			auto KeyService = fHMAC(KeyRegion, _Service);
-			auto KeySigning = fHMAC(KeyService, "aws4_request");
-
-			Signature = fHMAC(KeySigning, StringToSign).f_GetString();
-		}
-
-		TCMap<CStr, CStr> Headers = AWSHeaders;
-		Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}"_f
-			<< _Credentials.m_AccessKeyID
-			<< Scope
-			<< SignedHeaders
-			<< Signature
-		;
-
-		return Headers;
-	}
-
-	namespace
-	{
-		template <typename tf_CReturn>
-		void fg_ReportAWSError(TCContinuation<tf_CReturn> const &_Continuation, CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
-		{
-			NXML::CXMLDocument ErrorReturn;
-			do
-			{
-				if (!ErrorReturn.f_ParseString(_Result.m_Body))
-					break;
-
-				auto pErrorNode = ErrorReturn.f_GetChildNode(ErrorReturn.f_GetRootNode(), "Error");
-				if (!pErrorNode)
-					break;
-
-				auto pCodeNode = ErrorReturn.f_GetChildNode(pErrorNode, "Code");
-				auto pMessageNode = ErrorReturn.f_GetChildNode(pErrorNode, "Message");
-				if (!pCodeNode || !pMessageNode)
-					break;
-
-				auto Code = ErrorReturn.f_GetNodeText(pCodeNode);
-				auto Message = ErrorReturn.f_GetNodeText(pMessageNode);
-				if (!Code || !Message)
-					break;
-
-				_Continuation.f_SetException(DMibErrorInstance("{} request failed with status {}: {} - {}"_f << _pRequestDescription << _Result.m_StatusCode << Code << Message));
-				return;
-			}
-			while (false);
-
-			_Continuation.f_SetException(DMibErrorInstance("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body));
-		}
-	}
 
 	TCContinuation<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
 	{
