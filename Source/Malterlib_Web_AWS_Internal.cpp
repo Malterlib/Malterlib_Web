@@ -20,6 +20,8 @@ namespace NMib::NWeb
 			case CCurlActor::EMethod_PUT: return "PUT";
 			case CCurlActor::EMethod_DELETE: return "DELETE";
 		}
+
+		return "";
 	}
 
 	TCMap<CStr, CStr> fg_SignAWSRequest
