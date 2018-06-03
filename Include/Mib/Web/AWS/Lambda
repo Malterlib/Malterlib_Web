@@ -1,0 +1,4 @@
+// Copyright © 2018 Nonna Holding AB
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+#include "../../../../Source/Malterlib_Web_AWS_Lambda.h"

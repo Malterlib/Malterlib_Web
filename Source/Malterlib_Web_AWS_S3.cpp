@@ -47,20 +47,10 @@ namespace NMib::NWeb
 				if (_ContinuationToken)
 					NewURL.f_AddQueryEntry({"continuation-token", _ContinuationToken});
 
-				TCMap<CStr, CStr> Headers = fg_SignAWSRequest(NewURL, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "s3");
-
-				Internal.m_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, NewURL.f_Encode(), Headers, CByteVector{})
-					> Continuation / [=](CCurlActor::CResult &&_Result)
+				fg_DoAWSRequestXML("List bucket", Internal.m_CurlActor, 200, NewURL, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "s3")
+					> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 					{
-						if (_Result.m_StatusCode != 200)
-							return fg_ReportAWSError(Continuation, _Result, "List bucket");
-
-						NXML::CXMLDocument Results;
-						if (!Results.f_ParseString(_Result.m_Body))
-						{
-							Continuation.f_SetException(DMibErrorInstance("List bucket request failed to parse result"));
-							return;
-						}
+						auto &[Results, CurlResult] = _Result;
 
 						auto fReportInvalidXML = [&](CStr const &_Entry)
 							{
@@ -216,14 +206,9 @@ namespace NMib::NWeb
 		auto Digest = NDataProcessing::CHash_MD5::fs_DigestFromData(_Data);
 		AWSHeaders["Content-MD5"] = NDataProcessing::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
 
-		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3");
-
-		Internal.m_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_PUT, AWSUrl.f_Encode(), Headers, _Data)
-			> Continuation / [=](CCurlActor::CResult &&_Result)
+		fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3")
+			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
-				if (_Result.m_StatusCode != 200)
-					return fg_ReportAWSError(Continuation, _Result, "Delete object");
-
 				Continuation.f_SetResult();
 			}
 		;
@@ -250,14 +235,9 @@ namespace NMib::NWeb
 
 		TCContinuation<void> Continuation;
 
-		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3");
-
-		Internal.m_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_DELETE, AWSUrl.f_Encode(), Headers, CByteVector{})
-			> Continuation / [=](CCurlActor::CResult &&_Result)
+		fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3")
+			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
-				if (_Result.m_StatusCode != 204)
-					return fg_ReportAWSError(Continuation, _Result, "Delete object");
-
 				Continuation.f_SetResult();
 			}
 		;

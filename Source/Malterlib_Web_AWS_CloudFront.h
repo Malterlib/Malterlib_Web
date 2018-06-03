@@ -17,7 +17,21 @@ namespace NMib::NWeb
 
 	struct CAwsCloudFrontActor : public NConcurrency::CActor
 	{
+		enum EFunctionEventType
+		{
+			EFunctionEventType_ViewerRequest
+			, EFunctionEventType_ViewerResponse
+			, EFunctionEventType_OriginRequest
+			, EFunctionEventType_OriginResponse
+		};
+
 		NConcurrency::TCContinuation<NStr::CStr> f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths);
+		NConcurrency::TCContinuation<void> f_UpdateDistributionLambdaFunctions
+			(
+			 	NStr::CStr const &_DistributionID
+			 	, NContainer::TCMap<EFunctionEventType, NStr::CStr> const &_FunctionAssociations
+			)
+		;
 
 		CAwsCloudFrontActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
 		~CAwsCloudFrontActor();

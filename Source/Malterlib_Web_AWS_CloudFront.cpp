@@ -34,9 +34,8 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/invalidation"_f << _DistributionID};
 
-		TCVector<uint8> Contents;
+		NXML::CXMLDocument PostDocument(false);
 		{
-			NXML::CXMLDocument PostDocument(false);
 			//auto pRoot = PostDocument.f_GetRootNode();
 			auto pBatch = PostDocument.f_CreateDefaultDocument("InvalidationBatch");
 			PostDocument.f_SetAttribute(pBatch, "xmlns", "http://cloudfront.amazonaws.com/doc/2017-10-30/");
@@ -52,28 +51,14 @@ namespace NMib::NWeb
 			}
 
 			PostDocument.f_SetText(PostDocument.f_CreateElement(pPaths, "Quantity"), "{}"_f << _Paths.f_GetLen());
-
-			CStr ContentsStr = PostDocument.f_GetAsString(NXML::EXMLOutputDialect_Compact);
-			DMibConOut("{}\n", ContentsStr);
-			Contents.f_Insert((uint8 const *)ContentsStr.f_GetStr(), ContentsStr.f_GetLen());
 		}
 
 		TCContinuation<NStr::CStr> Continuation;
 
-		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(AWSUrl, Contents, CCurlActor::EMethod_POST, Internal.m_Credentials, {}, "cloudfront");
-
-		Internal.m_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_POST, AWSUrl.f_Encode(), Headers, Contents)
-			> Continuation / [=](CCurlActor::CResult &&_Result)
+		fg_DoAWSRequestXML("Create invalidation", Internal.m_CurlActor, 201, AWSUrl, fg_Move(PostDocument), CCurlActor::EMethod_POST, Internal.m_Credentials, {}, "cloudfront")
+			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
-				if (_Result.m_StatusCode != 201)
-					return fg_ReportAWSError(Continuation, _Result, "Create invalidation");
-
-				NXML::CXMLDocument Results;
-				if (!Results.f_ParseString(_Result.m_Body))
-				{
-					Continuation.f_SetException(DMibErrorInstance("Create invalidation request failed to parse result"));
-					return;
-				}
+				auto &[Results, CurlResult] = _Result;
 
 				auto fReportInvalidXML = [&](CStr const &_Entry)
 					{
@@ -98,5 +83,155 @@ namespace NMib::NWeb
 		;
 
 		return Continuation;
+	}
+
+	NConcurrency::TCContinuation<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions
+		(
+			NStr::CStr const &_DistributionID
+			, NContainer::TCMap<EFunctionEventType, NStr::CStr> const &_FunctionAssociations
+		)
+	{
+		auto &Internal = *mp_pInternal;
+		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/config"_f << _DistributionID};
+
+		TCContinuation<void> Continuation;
+
+		fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront")
+			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			{
+				auto &Results = fg_Get<0>(_Result);
+				auto &CurlResult = fg_Get<1>(_Result);
+
+				auto fReportInvalidXML = [&](CStr const &_Entry)
+					{
+						Continuation.f_SetException(DMibErrorInstance("Update distribution lamba functions failed to find a valid '{}' in XML"_f << _Entry));
+					}
+				;
+
+				auto pDistributionConfig = Results.f_GetChildNode(Results.f_GetRootNode(), "DistributionConfig");
+				if (!pDistributionConfig)
+					return fReportInvalidXML("DistributionConfig");
+
+				bool bNeedUpdate = false;
+
+				auto fUpdateCacheBehavior = [&](NXML::CXMLNode *_pBehaviour)
+					{
+						auto pAssociations = Results.f_GetChildNode(_pBehaviour, "LambdaFunctionAssociations");
+						if (!pAssociations)
+							pAssociations = Results.f_CreateElement(_pBehaviour, "LambdaFunctionAssociations");
+
+						auto pAssociationsItems = Results.f_GetChildNode(pAssociations, "Items");
+						if (!pAssociationsItems)
+							pAssociationsItems = Results.f_CreateElement(pAssociations, "Items");
+
+						TCMap<CStr, CStr> AssociationsToUpdate;
+
+						for (auto &Function : _FunctionAssociations)
+						{
+							CStr AssociationType;
+							switch (_FunctionAssociations.fs_GetKey(Function))
+							{
+								case EFunctionEventType_ViewerRequest: AssociationType = "viewer-request"; break;
+								case EFunctionEventType_ViewerResponse: AssociationType = "viewer-response"; break;
+								case EFunctionEventType_OriginRequest: AssociationType = "origin-request"; break;
+								case EFunctionEventType_OriginResponse: AssociationType = "origin-response"; break;
+							}
+							AssociationsToUpdate[AssociationType] = Function;
+						}
+
+						int64 nAssociations = 0;
+						auto pQuantity = Results.f_GetChildNode(pAssociations, "Quantity");
+						if (!pQuantity)
+							pQuantity = Results.f_CreateElement(pAssociations, "Quantity");
+						else
+							nAssociations = Results.f_GetNodeText(pQuantity, "0").f_ToInt(0);
+
+						bool bChanged = false;
+
+						for (NXML::CXMLDocument::CNodeIterator iAssociationItem(pAssociationsItems); iAssociationItem; ++iAssociationItem)
+						{
+							auto pEventType = Results.f_GetChildNode(iAssociationItem, "EventType");
+							if (!pEventType)
+								continue;
+
+							CStr Type = Results.f_GetNodeText(pEventType);
+
+							auto pFunction = AssociationsToUpdate.f_FindEqual(Type);
+							if (!pFunction)
+								continue;
+
+							auto pLambdaARN = Results.f_GetChildNode(iAssociationItem, "LambdaFunctionARN");
+							if (pLambdaARN)
+							{
+								if (Results.f_GetNodeText(pLambdaARN) == *pFunction)
+								{
+									AssociationsToUpdate.f_Remove(Type);
+									continue;
+								}
+							}
+							else
+								pLambdaARN = Results.f_CreateElement(iAssociationItem, "LambdaFunctionARN");
+
+							bChanged = true;
+							Results.f_SetText(pLambdaARN, *pFunction);
+							AssociationsToUpdate.f_Remove(Type);
+						}
+
+						for (auto &Function : AssociationsToUpdate)
+						{
+							auto pAssociationItem = Results.f_CreateElement(pAssociationsItems, "LambdaFunctionAssociation");
+							Results.f_SetText(Results.f_CreateElement(pAssociationItem, "EventType"), AssociationsToUpdate.fs_GetKey(Function));
+							Results.f_SetText(Results.f_CreateElement(pAssociationItem, "LambdaFunctionARN"), Function);
+							++nAssociations;
+							bChanged = true;
+						}
+
+						if (bChanged)
+						{
+							bNeedUpdate = true;
+							Results.f_SetText(pQuantity, CStr::fs_ToStr(nAssociations));
+						}
+					}
+				;
+
+
+				if (auto pBehavior = Results.f_GetChildNode(pDistributionConfig, "DefaultCacheBehavior"))
+					fUpdateCacheBehavior(pBehavior);
+
+				if (auto pCacheBehaviors = Results.f_GetChildNode(pDistributionConfig, "CacheBehaviors"))
+				{
+					if (auto pCacheBehaviorsItems = Results.f_GetChildNode(pCacheBehaviors, "Items"))
+					{
+						for (NXML::CXMLDocument::CNodeIterator iBehaviorItem(pCacheBehaviorsItems); iBehaviorItem; ++iBehaviorItem)
+						{
+							if (Results.f_GetValue(iBehaviorItem) != "CacheBehavior")
+								continue;
+
+							fUpdateCacheBehavior(iBehaviorItem);
+						}
+					}
+				}
+
+				if (!bNeedUpdate)
+				{
+					Continuation.f_SetResult();
+					return;
+				}
+
+				TCMap<CStr, CStr> Headers;
+				if (auto pHeader = CurlResult.m_Headers.f_FindEqual("etag"))
+					Headers["If-Match"] = *pHeader;
+
+				fg_DoAWSRequestXML("Update distribution", Internal.m_CurlActor, 200, AWSUrl, fg_Move(Results), CCurlActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront")
+					> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+					{
+						Continuation.f_SetResult();
+					}
+				;
+			}
+		;
+
+		return Continuation;
+
 	}
 }
