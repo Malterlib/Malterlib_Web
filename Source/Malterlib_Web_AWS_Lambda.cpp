@@ -447,7 +447,7 @@ namespace NMib::NWeb
 				{
 					CFunctionInfo FunctionInfo;
 					FunctionInfo.m_Version = _Results.f_GetMemberValue("Version", "").f_String();
-					FunctionInfo.m_Arn = _Results.f_GetMemberValue("FunctionArn", "").f_String();
+					FunctionInfo.m_Arn = "{}:{}"_f << _Results.f_GetMemberValue("FunctionArn", "").f_String() << FunctionInfo.m_Version;
 
 					if (FunctionInfo.m_Version.f_IsEmpty())
 						return Continuation.f_SetException(DMibErrorInstance("No Version entry found for created function"));
