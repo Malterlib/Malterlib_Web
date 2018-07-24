@@ -48,7 +48,7 @@ public:
 		};
 		DMibTestCategory("Unix")
 		{
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, fg_Format("UNIX:{}/Websocket.socket", NFile::CFile::fs_GetProgramDirectory()), false);
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + NNet::fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << NFile::CFile::fs_GetProgramDirectory()), false);
 		};
 	}
 
