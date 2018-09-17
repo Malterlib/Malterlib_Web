@@ -40,6 +40,11 @@ namespace NMib::NWeb
 		}
 	}
 
+	NEncoding::CEJSON CCurlActor::CResult::f_ToJSON() const
+	{
+		return NEncoding::CEJSON::fs_FromString(m_Body);
+	}
+
 	namespace
 	{
 		class CCurlInit
