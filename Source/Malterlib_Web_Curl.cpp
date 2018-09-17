@@ -122,6 +122,7 @@ namespace NMib::NWeb
 				if (_Method == EMethod_POST)
 				{
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
 				}
