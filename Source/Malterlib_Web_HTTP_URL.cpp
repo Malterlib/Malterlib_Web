@@ -621,6 +621,12 @@ namespace NMib
 			mp_Flags |= EURLFlag_Path;
 		}
 
+		void CURL::f_AppendPath(NContainer::TCVector<NStr::CStr> const &_Path)
+		{
+			mp_Paths.f_Insert(_Path);
+			mp_Flags |= EURLFlag_Path;
+		}
+
 		void CURL::f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query)
 		{
 			mp_Query = _Query;

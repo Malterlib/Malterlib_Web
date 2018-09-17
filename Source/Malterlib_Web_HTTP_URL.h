@@ -133,6 +133,7 @@ namespace NMib
 			void f_SetPassword(NStr::CStr const &_Password);
 			void f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path);
 			void f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path);
+			void f_AppendPath(NContainer::TCVector<NStr::CStr> const &_Path);
 			void f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query);
 			void f_AddQueryEntry(CQueryEntry const &_QueryEntry);
 			void f_SetFragment(NStr::CStr const &_Fragment);
