@@ -70,6 +70,7 @@ namespace NMib::NWeb
 			, NStr::CStr const &_URL
 			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
 			, NContainer::CByteVector const &_Data
+		 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 		)
 	{
 		return NConcurrency::TCContinuation<CCurlActor::CResult>::fs_RunProtected() > [&]
@@ -109,6 +110,12 @@ namespace NMib::NWeb
 						curl_slist_free_all(pHeaders);
 					}
 				;
+
+				CStr CookieStr;
+				for (auto &Cookie : _Cookies)
+					CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
+
+				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, CookieStr.f_GetStr()));
 
 				if (!_Headers.f_FindEqual("Accept"))
 					pHeaders = curl_slist_append(pHeaders, "Accept: application/json");

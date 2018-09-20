@@ -173,6 +173,7 @@ namespace NMib::NWeb
 			 	, _IncomingWebhook.f_Encode()
 			 	, TCMap<CStr, CStr>{}
 			 	, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
+			 	, TCMap<CStr, CStr>{}
 			)
 			> Continuation / [Continuation](CCurlActor::CResult &&_Result)
 			{

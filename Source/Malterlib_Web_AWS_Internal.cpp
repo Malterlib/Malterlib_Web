@@ -237,7 +237,7 @@ namespace NMib::NWeb
 
 		TCContinuation<NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Continuation;
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents)
+		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
 			> Continuation / [=](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != _ExpectedStatus)
@@ -348,7 +348,7 @@ namespace NMib::NWeb
 
 		TCContinuation<NEncoding::CJSON> Continuation;
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents)
+		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
 			> Continuation / [=](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != _ExpectedStatus)
