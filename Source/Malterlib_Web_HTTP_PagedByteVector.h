@@ -127,7 +127,8 @@ namespace NMib
 			bint f_IsValidReadPosition(NStream::CFilePos _Pos) const;
 			void f_Flush(bint _bLocalCacheOnly);
 			NStream::CFilePos f_GetLength() const;
-			void f_SetLength(NStream::CFilePos _Length) ;
+			mint f_ContainerLengthLimit() const;
+			void f_SetLength(NStream::CFilePos _Length);
 
 		};		
 

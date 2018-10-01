@@ -280,6 +280,12 @@ namespace NMib
 		}
 
 		template <typename t_CInherit>
+		mint TCBinaryStreamPagedByteVector<t_CInherit>::f_ContainerLengthLimit() const
+		{
+			return NStream::fg_CapLengthLimit(f_GetLength() - f_GetPosition());
+		}
+
+		template <typename t_CInherit>
 		void TCBinaryStreamPagedByteVector<t_CInherit>::f_SetLength(NStream::CFilePos _Length) 
 		{ 
 			DMibPDebugBreak; // Not supported
