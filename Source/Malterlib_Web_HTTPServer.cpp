@@ -451,8 +451,11 @@ namespace NMib
 				case 200:
 					Response = "HTTP/1.1 200 OK";
 					break;
+				case 403:
+					Response = "HTTP/1.1 403 Forbidden";
+					break;
 				case 404:
-					Response = "HTTP/1.1 500 Not Found";
+					Response = "HTTP/1.1 404 Not Found";
 					break;
 				case 500:
 					Response = "HTTP/1.1 500 Internal Server Error";
