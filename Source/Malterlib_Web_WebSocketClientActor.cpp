@@ -1,4 +1,4 @@
-﻿// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
@@ -87,7 +87,7 @@ namespace NMib
 					{
 						CPendingConnection &Pending = mp_PendingConnects.f_Insert();
 						
-						Pending.m_pSocket = _SocketFactory();
+						Pending.m_pSocket = _SocketFactory(_ConnectToAddress);
 						
 						auto *pPending = &Pending;
 						
