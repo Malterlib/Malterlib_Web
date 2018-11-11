@@ -121,6 +121,7 @@ namespace NMib
 			NStr::CStr const &f_GetPassword() const;
 			NContainer::TCVector<NStr::CStr> const &f_GetPath() const;
 			NStr::CStr f_GetFullPath() const;
+			NStr::CStr f_GetFullPathPercentEncoded(bool _bUpperCase = false) const;
 			NContainer::TCVector<CQueryEntry> const &f_GetQuery() const;
 			NStr::CStr const &f_GetFragment() const;
 

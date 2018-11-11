@@ -558,6 +558,18 @@ namespace NMib
 			return mp_Paths;
 		}
 		
+		NStr::CStr CURL::f_GetFullPathPercentEncoded(bool _bUpperCase) const
+		{
+			NStr::CStr FullPath;
+			for (auto &Path : mp_Paths)
+			{
+				NStr::CStr Encoded;
+				fs_PercentEncode(Encoded, Path, nullptr, _bUpperCase);
+				fg_AddStrSep(FullPath, Encoded, "/");
+			}
+			return "/" + FullPath;
+		}
+
 		NStr::CStr CURL::f_GetFullPath() const
 		{
 			NStr::CStr FullPath;
