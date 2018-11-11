@@ -58,7 +58,7 @@ namespace NMib::NWeb
 			AWSHeaders["Content-Type"] = "application/xml";
 
 		CStr CanonicalRequest = "{}\n"_f << fg_MethodToStr(_Method); // HTTPRequestMethod
-		CanonicalRequest += "{}\n"_f << _URL.f_GetFullPath(); // CanonicalURI
+		CanonicalRequest += "{}\n"_f << _URL.f_GetFullPathPercentEncoded(true); // CanonicalURI
 
 		// CanonicalQueryString
 		{
