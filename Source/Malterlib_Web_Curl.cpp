@@ -111,6 +111,8 @@ namespace NMib::NWeb
 					}
 				;
 
+				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
+
 				CStr CookieStr;
 				for (auto &Cookie : _Cookies)
 					CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
