@@ -72,6 +72,19 @@ namespace NMib::NWeb
 		 	, bool _bTrace = false
 		)
 	;
+
+	TCContinuation<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
+		(
+		 	CStr const &_Description
+		 	, TCActor<CCurlActor> const &_CurlActor
+		 	, uint32 _ExpectedStatus
+		 	, NHTTP::CURL const &_URL
+		 	, CAwsCredentials const &_Credentials
+		 	, TCMap<CStr, CStr> const &_AWSHeaders
+		 	, CStr const &_Service
+		 	, bool _bTrace = false
+		)
+	;
 }
 
 #include "Malterlib_Web_AWS_Internal.hpp"

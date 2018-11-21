@@ -31,6 +31,52 @@ namespace NMib::NWeb
 
 	CAwsS3Actor::~CAwsS3Actor() = default;
 
+	NConcurrency::TCContinuation<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
+	{
+		auto &Internal = *mp_pInternal;
+		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
+
+		TCContinuation<CAwsS3Actor::CObjectInfoMetaData> Continuation;
+
+		fg_DoAWSRequestHEAD("Get meta data", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3")
+			> Continuation / [=](NContainer::TCMap<NStr::CStr, NStr::CStr> &&_Headers)
+			{
+				CAwsS3Actor::CObjectInfoMetaData MetaData;
+
+				for (auto &HeaderValue : _Headers)
+				{
+					auto &Header = _Headers.fs_GetKey(HeaderValue);
+					if (Header == "cache-control")
+						MetaData.m_CacheControl = HeaderValue;
+					else if (Header == "content-length")
+						MetaData.m_ContentLength = HeaderValue.f_ToInt(uint64(0));
+					else if (Header == "cache-control")
+						MetaData.m_CacheControl = HeaderValue;
+					else if (Header == "content-type")
+						MetaData.m_ContentType = HeaderValue;
+					else if (Header == "content-encoding")
+						MetaData.m_ContentEncoding = HeaderValue;
+					else if (Header == "content-disposition")
+						MetaData.m_ContentDisposition = HeaderValue;
+					else if (Header == "etag")
+						MetaData.m_ETag = HeaderValue;
+					else if (Header == "date")
+						MetaData.m_Date = HeaderValue;
+					else if (Header == "last-modified")
+						MetaData.m_LastModified = HeaderValue;
+					else if (Header == "x-amz-website​-redirect-location")
+						MetaData.m_RedirectLocation = HeaderValue;
+					else if (Header.f_StartsWith("x-amz-meta-"))
+						MetaData.m_MetaData[Header.f_Extract(11)] = HeaderValue;
+				}
+
+				Continuation.f_SetResult(fg_Move(MetaData));
+			}
+		;
+
+		return Continuation;
+	}
+
 	TCContinuation<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
 	{
 		auto &Internal = *mp_pInternal;

@@ -16,6 +16,7 @@ namespace NMib::NWeb
 		switch (_Method)
 		{
 			case CCurlActor::EMethod_GET: return "GET";
+			case CCurlActor::EMethod_HEAD: return "HEAD";
 			case CCurlActor::EMethod_POST: return "POST";
 			case CCurlActor::EMethod_PUT: return "PUT";
 			case CCurlActor::EMethod_DELETE: return "DELETE";
@@ -366,6 +367,36 @@ namespace NMib::NWeb
 					CAwsErrorData ErrorData{"ErrorParse", _Result.m_StatusCode};
 					Continuation.f_SetException(DMibErrorInstanceAws("{} request failed to parse result: {}"_f << _Description << _Exception, ErrorData));
 				}
+			}
+		;
+
+		return Continuation;
+	}
+
+	TCContinuation<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
+		(
+		 	CStr const &_Description
+		 	, TCActor<CCurlActor> const &_CurlActor
+		 	, uint32 _ExpectedStatus
+		 	, NHTTP::CURL const &_URL
+		 	, CAwsCredentials const &_Credentials
+		 	, TCMap<CStr, CStr> const &_AWSHeaders
+		 	, CStr const &_Service
+		 	, bool _bTrace
+		)
+	{
+		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
+		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CCurlActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
+
+		TCContinuation<NContainer::TCMap<NStr::CStr, NStr::CStr>> Continuation;
+
+		_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_HEAD, _URL.f_Encode(), Headers, NContainer::CByteVector{}, TCMap<CStr, CStr>{})
+			> Continuation / [=](CCurlActor::CResult &&_Result)
+			{
+				if (_Result.m_StatusCode != _ExpectedStatus)
+					return fg_ReportAWSErrorJSON(Continuation, _Result, _Description);
+
+				return Continuation.f_SetResult(fg_Move(_Result.m_Headers));
 			}
 		;
 
