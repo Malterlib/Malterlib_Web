@@ -2,8 +2,21 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_Curl.h"
+#include <Mib/Network/SSL>
 
 #include <curl/curl.h>
+
+#ifndef DPlatformFamily_Linux
+
+extern "C"
+{
+	void curl_ca_external_fallback(X509_STORE *_pStore)
+	{
+		NMib::NNet::CSSLContext::fs_GetSystemCertificates(_pStore);
+	}
+}
+
+#endif
 
 namespace NMib::NWeb
 {
