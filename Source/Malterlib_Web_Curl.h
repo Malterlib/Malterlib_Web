@@ -16,6 +16,7 @@ namespace NMib::NWeb
 		enum EMethod
 		{
 			EMethod_GET
+			, EMethod_HEAD
 			, EMethod_POST
 			, EMethod_PUT
 			, EMethod_DELETE

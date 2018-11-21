@@ -174,9 +174,9 @@ namespace NMib::NWeb
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
 				}
 				else if (_Method == EMethod_DELETE)
-				{
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-				}
+				else if (_Method == EMethod_HEAD)
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
 
 				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
 
