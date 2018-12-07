@@ -5,26 +5,19 @@
 #include <Mib/Core/Core>
 #include "Malterlib_Web_HTTP_HTTP.h"
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
+	//
+	// Utility Methods
+	//
 
-	namespace NHTTP
-	{
+	class CPagedByteVector;
 
-		//
-		// Utility Methods
-		//
+	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep);
 
-		class CPagedByteVector;
-
-		NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep);
-
-		bint fg_PeekLine(CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+	bint fg_PeekLine(CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
+}
 
 #ifndef DMibPNoShortCuts
-using namespace NMib::NHTTP;
+	using namespace NMib::NWeb::NHTTP;
 #endif

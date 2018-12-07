@@ -17,7 +17,7 @@ MUST send an opening handshake
 */
 
 using namespace NMib::NWeb;
-using namespace NMib::NNet;
+using namespace NMib::NNetwork;
 using namespace NMib;
 using namespace NMib::NTest;
 using namespace NMib::NThread;
@@ -36,7 +36,7 @@ public:
 
 	void fp_Test
 		(
-			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
+			NFunction::TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 		 	, bool _bTestTimeout = false
@@ -48,11 +48,11 @@ public:
 		};
 		DMibTestCategory("Unix")
 		{
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + NNet::fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << NFile::CFile::fs_GetProgramDirectory()), false);
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + NNetwork::fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << NFile::CFile::fs_GetProgramDirectory()), false);
 		};
 	}
 
-	struct CState : public NPtr::TCSharedPointerIntrusiveBase<>
+	struct CState : public NStorage::TCSharedPointerIntrusiveBase<>
 	{
 		struct CServerConnection
 		{
@@ -111,14 +111,14 @@ public:
 			}
 		}
 		
-		void f_StartListen(CNetAddress _ListenAddress, NNet::FVirtualSocketFactory const &_ServerFactory)
+		void f_StartListen(CNetAddress _ListenAddress, NNetwork::FVirtualSocketFactory const &_ServerFactory)
 		{
-			NPtr::TCSharedPointer<CState> pState = fg_Explicit(this);
+			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ServerActor
 				(
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(_ListenAddress)
-					, NMib::NNet::ENetFlag_None
+					, NMib::NNetwork::ENetFlag_None
 					, NMib::NConcurrency::fg_ConcurrentActor()
 					, [pState](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
@@ -204,15 +204,15 @@ public:
 			DMibAssertTrue(pState->m_ListenCallbackReference);
 		}
 		
-		void f_Connect(CStr const &_Address, NNet::FVirtualSocketFactory const &_ClientFactory)
+		void f_Connect(CStr const &_Address, NNetwork::FVirtualSocketFactory const &_ClientFactory)
 		{
-			NPtr::TCSharedPointer<CState> pState = fg_Explicit(this);
+			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
 					, _Address
 					, ""
-					, NNet::ENetAddressType_None
+					, NNetwork::ENetAddressType_None
 					, 10500
 					, "/Test"
 					, fg_Format("http://{}", _Address)
@@ -265,7 +265,7 @@ public:
 		}
 	};
 	
-	bool fp_TestConnect(NPtr::TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
+	bool fp_TestConnect(NStorage::TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
 	{
 		auto pState = _pState;
 		DMibTestPath("Connect");
@@ -328,7 +328,7 @@ public:
 	
 	void fp_TestImp
 		(
-			NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories
+			NFunction::TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, CStr const &_Address
@@ -352,7 +352,7 @@ public:
 			else
 				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
-				NPtr::TCSharedPointer<CState> pState = fg_Construct();
+				NStorage::TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup 
 					= g_OnScopeExit > [&]
 					{
@@ -373,10 +373,10 @@ public:
 
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(20.0);
 					NContainer::CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
-					NPtr::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
+					NStorage::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(20.0);
 
-					NPtr::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
+					NStorage::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					NContainer::CSecureByteVector SecureBuffer = Buffer;
 					pMessageBuffers->m_Data = SecureBuffer;
 					pMessageBuffers->m_Markers = {0, 4};
@@ -427,7 +427,7 @@ public:
 			if (_bTestTimeout)
 			{
 				DMibTestPath("Timeout");
-				NPtr::TCSharedPointer<CState> pState = fg_Construct();
+				NStorage::TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup 
 					= g_OnScopeExit > [&]
 					{
@@ -476,7 +476,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						return {nullptr, nullptr};
 					}
@@ -490,7 +490,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -501,12 +501,12 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -520,7 +520,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -532,13 +532,13 @@ public:
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						
-						TCVector<uint8> CertificateRequestData;
+						CByteVector CertificateRequestData;
 
 						CSSLContext::CCertificateOptions ClientOptions;
 						ClientOptions.m_CommonName = "Test Client";
@@ -547,7 +547,7 @@ public:
 						CSSLContext::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
 						CSSLContext::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
 
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -560,7 +560,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -572,7 +572,7 @@ public:
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -581,7 +581,7 @@ public:
 						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						
-						TCVector<uint8> CertificateRequestData;
+						CByteVector CertificateRequestData;
 						CSSLContext::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
 						CSSLContext::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
 						
@@ -593,11 +593,11 @@ public:
 						ClientOptions2.m_CommonName = "Test Client";
 						ClientOptions2.m_KeySetting = gc_TestTestKeySetting;
 						
-						TCVector<uint8> CertificateRequestData2;
+						CByteVector CertificateRequestData2;
 						CSSLContext::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
 						CSSLContext::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
 						
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -610,7 +610,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -623,7 +623,7 @@ public:
 						
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -636,7 +636,7 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -649,7 +649,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -662,13 +662,13 @@ public:
 						
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -685,7 +685,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -698,13 +698,13 @@ public:
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -717,7 +717,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -730,7 +730,7 @@ public:
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -743,7 +743,7 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -756,7 +756,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -774,12 +774,12 @@ public:
 						ServerOptions2.m_KeySetting = gc_TestTestKeySetting;
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
 						
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -792,7 +792,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 						
@@ -803,11 +803,11 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -820,11 +820,11 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
-						TCVector<uint8> RootCertData;
-						TCVector<uint8, NMem::CAllocator_HeapSecure> RootKeyData;
+						CByteVector RootCertData;
+						CSecureByteVector RootKeyData;
 
 						CSSLContext::CCertificateOptions ServerOptions;
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
@@ -833,9 +833,9 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
 
-						TCVector<uint8> ChildCertData;
-						TCVector<uint8, NMem::CAllocator_HeapSecure> ChildKeyData;
-						TCVector<uint8> RequestData;
+						CByteVector ChildCertData;
+						CSecureByteVector ChildKeyData;
+						CByteVector RequestData;
 
 						CSSLContext::CCertificateOptions RequestOptions;
 						RequestOptions.m_CommonName = "Malterlib test request";
@@ -849,12 +849,12 @@ public:
 						ServerSettings.m_PublicCertificateData = ChildCertData;
 						ServerSettings.m_PrivateKeyData = ChildKeyData; 
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_CACertificateData = RootCertData;
 						
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
@@ -867,11 +867,11 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
-						TCVector<uint8> RootCertData;
-						TCVector<uint8, NMem::CAllocator_HeapSecure> RootKeyData;
+						CByteVector RootCertData;
+						CSecureByteVector RootKeyData;
 
 						CSSLContext::CCertificateOptions ServerOptions;
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
@@ -880,9 +880,9 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
 
-						TCVector<uint8> ChildCertData;
-						TCVector<uint8, NMem::CAllocator_HeapSecure> ChildKeyData;
-						TCVector<uint8> RequestData;
+						CByteVector ChildCertData;
+						CSecureByteVector ChildKeyData;
+						CByteVector RequestData;
 
 						CSSLContext::CCertificateOptions RequestOptions;
 						RequestOptions.m_CommonName = "Malterlib test request";
@@ -896,13 +896,13 @@ public:
 						ServerSettings.m_PublicCertificateData = ChildCertData;
 						ServerSettings.m_PrivateKeyData = ChildKeyData; 
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = RootCertData;
 						
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}

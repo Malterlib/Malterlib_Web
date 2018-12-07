@@ -83,7 +83,7 @@ namespace NMib::NWeb
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
 
 		TCContinuation<CAwsS3Actor::CListBucket> Continuation;
-		NPtr::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
+		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
 		auto fDoRequest = [=](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
 			{
@@ -94,7 +94,7 @@ namespace NMib::NWeb
 					NewURL.f_AddQueryEntry({"continuation-token", _ContinuationToken});
 
 				fg_DoAWSRequestXML("List bucket", Internal.m_CurlActor, 200, NewURL, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "s3")
-					> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+					> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 					{
 						auto &[Results, CurlResult] = _Result;
 
@@ -240,7 +240,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	NConcurrency::TCContinuation<void> CAwsS3Actor::f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::TCVector<uint8> &&_Data)
+	NConcurrency::TCContinuation<void> CAwsS3Actor::f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
@@ -249,11 +249,11 @@ namespace NMib::NWeb
 
 		auto AWSHeaders = fg_GetPutHeaders(_Info);
 		AWSHeaders["Content-Length"] = "{}"_f << _Data.f_GetLen();
-		auto Digest = NDataProcessing::CHash_MD5::fs_DigestFromData(_Data);
-		AWSHeaders["Content-MD5"] = NDataProcessing::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
+		auto Digest = NCryptography::CHash_MD5::fs_DigestFromData(_Data);
+		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
 
 		fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3")
-			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				Continuation.f_SetResult();
 			}
@@ -268,7 +268,7 @@ namespace NMib::NWeb
 			, NStr::CStr const &_Key
 			, CPutObjectInfo const &_Info
 			, uint64 _TotalSize
-		 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::TCVector<uint8>> ()> &&_fGetPart
+		 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::CByteVector> ()> &&_fGetPart
 		)
 	{
 		return DMibErrorInstance("Not implemented");
@@ -282,7 +282,7 @@ namespace NMib::NWeb
 		TCContinuation<void> Continuation;
 
 		fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3")
-			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				Continuation.f_SetResult();
 			}

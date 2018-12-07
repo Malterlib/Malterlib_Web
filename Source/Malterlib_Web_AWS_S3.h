@@ -77,14 +77,14 @@ namespace NMib::NWeb
 		NConcurrency::TCContinuation<CListBucket> f_ListBucket(NStr::CStr const &_BucketName);
 
 		NConcurrency::TCContinuation<CObjectInfoMetaData> f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
-		NConcurrency::TCContinuation<void> f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::TCVector<uint8> &&_Data);
+		NConcurrency::TCContinuation<void> f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data);
 		NConcurrency::TCContinuation<void> f_PutObjectMultipart
 			(
 			 	NStr::CStr const &_BucketName
 			 	, NStr::CStr const &_Key
 			 	, CPutObjectInfo const &_Info
 			 	, uint64 _TotalSize
-			 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::TCVector<uint8>> ()> &&_fGetPart
+			 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::CByteVector> ()> &&_fGetPart
 			)
 		;
 
@@ -96,10 +96,10 @@ namespace NMib::NWeb
 	private:
 		struct CInternal;
 
-		NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 
 #ifndef DMibPNoShortCuts
-using namespace NMib::NWeb;
+	using namespace NMib::NWeb;
 #endif

@@ -14,5 +14,5 @@ namespace NMib::NWeb
 }
 
 #ifndef DMibPNoShortCuts
-using namespace NMib::NWeb;
+	using namespace NMib::NWeb;
 #endif

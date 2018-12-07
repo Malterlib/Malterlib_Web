@@ -3,32 +3,25 @@
 
 #include <Mib/Core/Core>
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
-
-	namespace NHTTP
+	class CServer
 	{
+		private:
+			class CDetails;
+			NStorage::TCUniquePointer<CDetails> mp_pD;
 
-		class CServer
-		{
-			private:
-				class CDetails;
-				NPtr::TCUniquePointer<CDetails> mp_pD;
+		public:
+			struct CConfig
+			{
+				uint16 m_Port;
+			};
 
-			public:
-				struct CConfig
-				{
-					uint16 m_Port;
-				};
+		public:
+			CServer(CConfig const& _Config);
+			~CServer();
 
-			public:
-				CServer(CConfig const& _Config);
-				~CServer();
-
-				bint f_Start(NStr::CStr& _oError);
-				void f_Stop();
-		};
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+			bint f_Start(NStr::CStr& _oError);
+			void f_Stop();
+	};
+}

@@ -28,7 +28,7 @@ namespace NMib::NWeb
 	TCMap<CStr, CStr> fg_SignAWSRequest
 		(
 		 	NHTTP::CURL const &_URL
-		 	, TCVector<uint8> const &_Contents
+		 	, CByteVector const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders
@@ -39,7 +39,7 @@ namespace NMib::NWeb
 		NTime::CTime CurrentTime = NTime::CTime::fs_NowUTC();
 		auto CurrentDateTime = NTime::CTimeConvert{CurrentTime}.f_ExtractDateTime();
 
-		auto PayloadHash = NDataProcessing::CHash_SHA256::fs_DigestFromData(_Contents).f_GetString();
+		auto PayloadHash = NCryptography::CHash_SHA256::fs_DigestFromData(_Contents).f_GetString();
 		auto CurrentTimeISO8601 = fg_GetISO8601TimeStr(CurrentTime);
 		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f
 			<< CurrentDateTime.m_Year
@@ -131,26 +131,26 @@ namespace NMib::NWeb
 
 		StringToSign += "{}\n"_f << CurrentTimeISO8601; // Timstamp
 		StringToSign += "{}\n"_f << Scope; // Scope
-		StringToSign += "{}"_f << NDataProcessing::CHash_SHA256::fs_DigestFromData(CanonicalRequest.f_GetStr(), CanonicalRequest.f_GetLen()).f_GetString(); // CanonicalRequestHash;
+		StringToSign += "{}"_f << NCryptography::CHash_SHA256::fs_DigestFromData(CanonicalRequest.f_GetStr(), CanonicalRequest.f_GetLen()).f_GetString(); // CanonicalRequestHash;
 
 		if (_bTrace)
 			DMibConOut("StringToSign: {}\n", StringToSign);
 
 		CStr Signature;
 		{
-			auto fHMAC = [](NDataProcessing::CHashDigest_SHA256 const &_Key, CStr const &_Data) -> NDataProcessing::CHashDigest_SHA256
+			auto fHMAC = [](NCryptography::CHashDigest_SHA256 const &_Key, CStr const &_Data) -> NCryptography::CHashDigest_SHA256
 				{
 					NContainer::CSecureByteVector Key{_Key.f_GetData(), _Key.fs_GetSize()};
-					return NNet::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
+					return NNetwork::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
 				}
 			;
-			NDataProcessing::CHashDigest_SHA256 KeyDate;
+			NCryptography::CHashDigest_SHA256 KeyDate;
 			{
 				CStrSecure SecretStr = "AWS4" + _Credentials.m_SecretKey;
 				CStr Date ="{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
 				NContainer::CSecureByteVector Secret((uint8 const *)SecretStr.f_GetStr(), SecretStr.f_GetLen());
 				NContainer::CSecureByteVector Data((uint8 const *)Date.f_GetStr(), Date.f_GetLen());
-				KeyDate = NNet::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
+				KeyDate = NNetwork::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
 			}
 
 			auto KeyRegion = fHMAC(KeyDate, _Credentials.m_Region);
@@ -210,13 +210,13 @@ namespace NMib::NWeb
 		_Continuation.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData));
 	}
 
-	TCContinuation<NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
+	TCContinuation<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
 		 	CStr const &_Description
 		 	, TCActor<CCurlActor> const &_CurlActor
 		 	, uint32 _ExpectedStatus
 		 	, NHTTP::CURL const &_URL
-		 	, NContainer::TCVariant<void, TCVector<uint8>, NXML::CXMLDocument> const &_Contents
+		 	, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders
@@ -224,10 +224,10 @@ namespace NMib::NWeb
 		 	, bool _bTrace
 		)
 	{
-		TCVector<uint8> Contents;
+		CByteVector Contents;
 
-		if (_Contents.f_IsOfType<TCVector<uint8>>())
-			Contents = _Contents.f_GetAsType<TCVector<uint8>>();
+		if (_Contents.f_IsOfType<CByteVector>())
+			Contents = _Contents.f_GetAsType<CByteVector>();
 		else if (_Contents.f_IsOfType<NXML::CXMLDocument>())
 		{
 			CStr ContentsStr = _Contents.f_GetAsType<NXML::CXMLDocument>().f_GetAsString(NXML::EXMLOutputDialect_Compact);
@@ -236,7 +236,7 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
 
-		TCContinuation<NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Continuation;
+		TCContinuation<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Continuation;
 
 		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
 			> Continuation / [=](CCurlActor::CResult &&_Result)
@@ -319,7 +319,7 @@ namespace NMib::NWeb
 		 	, TCActor<CCurlActor> const &_CurlActor
 		 	, uint32 _ExpectedStatus
 		 	, NHTTP::CURL const &_URL
-		 	, NContainer::TCVariant<void, TCVector<uint8>, NEncoding::CJSON> const &_Contents
+		 	, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders
@@ -327,10 +327,10 @@ namespace NMib::NWeb
 		 	, bool _bTrace
 		)
 	{
-		TCVector<uint8> Contents;
+		CByteVector Contents;
 
-		if (_Contents.f_IsOfType<TCVector<uint8>>())
-			Contents = _Contents.f_GetAsType<TCVector<uint8>>();
+		if (_Contents.f_IsOfType<CByteVector>())
+			Contents = _Contents.f_GetAsType<CByteVector>();
 		else if (_Contents.f_IsOfType<NEncoding::CJSON>())
 		{
 			CStr ContentsStr = _Contents.f_GetAsType<NEncoding::CJSON>().f_ToString(nullptr);

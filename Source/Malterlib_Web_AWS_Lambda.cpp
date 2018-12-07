@@ -49,7 +49,7 @@ namespace NMib::NWeb
 				_pFileFunc->opaque = this;
 			}
 
-			TCVector<uint8> f_GetOutFile(CStr const &_Path)
+			CByteVector f_GetOutFile(CStr const &_Path)
 			{
 				auto pFile = mp_OutFiles.f_FindEqual(_Path);
 				if (!pFile)
@@ -220,7 +220,7 @@ namespace NMib::NWeb
 		struct CCodeBlob
 		{
 			CStr m_Base64;
-			NDataProcessing::CHashDigest_SHA256 m_SHA256;
+			NCryptography::CHashDigest_SHA256 m_SHA256;
 		};
 
 		TCContinuation<CCodeBlob> f_CreateCodeBlob(TCMap<CStr, CStr> const &_Files)
@@ -272,7 +272,7 @@ namespace NMib::NWeb
 
 					auto OutFileData = Adaptor.f_GetOutFile("OutFile.zip");
 
-					return {NDataProcessing::fg_Base64Encode(OutFileData), NDataProcessing::CHash_SHA256::fs_DigestFromData(OutFileData)};
+					return {NEncoding::fg_Base64Encode(OutFileData), NCryptography::CHash_SHA256::fs_DigestFromData(OutFileData)};
 				}
 			;
 		}
@@ -602,10 +602,10 @@ namespace NMib::NWeb
 
 							auto &ExistingConfigJSON = ExistingFunction["Configuration"];
 
-							NContainer::TCVector<uint8> HashData;
-							NDataProcessing::fg_Base64Decode(ExistingConfigJSON["CodeSha256"].f_String(), HashData);
+							NContainer::CByteVector HashData;
+							NEncoding::fg_Base64Decode(ExistingConfigJSON["CodeSha256"].f_String(), HashData);
 
-							auto Hash = NDataProcessing::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
+							auto Hash = NCryptography::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
 
 							CFunctionInfo LatestFunctionInfo
 								{
@@ -626,9 +626,9 @@ namespace NMib::NWeb
 										{
 											for (auto &VersionJSON : _VersionsJSON["Versions"].f_Array())
 											{
-												NContainer::TCVector<uint8> HashData;
-												NDataProcessing::fg_Base64Decode(VersionJSON["CodeSha256"].f_String(), HashData);
-												auto CodeHash = NDataProcessing::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
+												NContainer::CByteVector HashData;
+												NEncoding::fg_Base64Decode(VersionJSON["CodeSha256"].f_String(), HashData);
+												auto CodeHash = NCryptography::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
 												if (CodeHash == _CodeBlob.m_SHA256)
 												{
 													CStr Version = VersionJSON.f_GetMemberValue("Version", "").f_String();

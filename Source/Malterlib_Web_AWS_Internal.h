@@ -14,6 +14,7 @@ namespace NMib::NWeb
 	using namespace NContainer;
 	using namespace NStr;
 	using namespace NConcurrency;
+	using namespace NStorage;
 
 	struct CAwsErrorData
 	{
@@ -34,7 +35,7 @@ namespace NMib::NWeb
 	TCMap<CStr, CStr> fg_SignAWSRequest
 		(
 		 	NHTTP::CURL const &_URL
-		 	, TCVector<uint8> const &_Contents
+		 	, CByteVector const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders
@@ -43,13 +44,13 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCContinuation<NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
+	TCContinuation<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
 		 	CStr const &_Description
 		 	, TCActor<CCurlActor> const &_CurlActor
 		 	, uint32 _ExpectedStatus
 		 	, NHTTP::CURL const &_URL
-		 	, NContainer::TCVariant<void, TCVector<uint8>, NXML::CXMLDocument> const &_Contents
+		 	, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders
@@ -64,7 +65,7 @@ namespace NMib::NWeb
 		 	, TCActor<CCurlActor> const &_CurlActor
 		 	, uint32 _ExpectedStatus
 		 	, NHTTP::CURL const &_URL
-		 	, NContainer::TCVariant<void, TCVector<uint8>, NEncoding::CJSON> const &_Contents
+		 	, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
 		 	, CCurlActor::EMethod _Method
 		 	, CAwsCredentials const &_Credentials
 		 	, TCMap<CStr, CStr> const &_AWSHeaders

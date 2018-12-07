@@ -39,10 +39,10 @@ namespace NMib::NWeb
 	private:
 		struct CInternal;
 
-		NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 
 #ifndef DMibPNoShortCuts
-using namespace NMib::NWeb;
+	using namespace NMib::NWeb;
 #endif

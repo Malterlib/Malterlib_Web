@@ -3,12 +3,6 @@
 
 #pragma once
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
-
-	namespace NHTTP
-	{
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+}

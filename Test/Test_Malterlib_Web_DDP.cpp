@@ -8,7 +8,7 @@
 #include <Mib/Encoding/EJSON>
 
 using namespace NMib::NWeb;
-using namespace NMib::NNet;
+using namespace NMib::NNetwork;
 using namespace NMib;
 using namespace NMib::NTest;
 using namespace NMib::NAtomic;
@@ -25,7 +25,7 @@ public:
 	
 	struct CServer : public CActor
 	{
-		CServer(NNet::FVirtualSocketFactory const &_ServerFactory)
+		CServer(NNetwork::FVirtualSocketFactory const &_ServerFactory)
 			: m_ServerFactory(_ServerFactory)
 		{
 			auto &Collection = m_Data["testCollection"];
@@ -50,7 +50,7 @@ public:
 			return fg_Explicit();
 		}
 
-		NNet::FVirtualSocketFactory m_ServerFactory;
+		NNetwork::FVirtualSocketFactory m_ServerFactory;
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
 
 		CMutual m_Lock;
@@ -96,15 +96,15 @@ public:
 			TCContinuation<CServer *> Continuation;
 			m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
 
-			NNet::CNetAddressTCPv4 ToListenTo;
+			NNetwork::CNetAddressTCPv4 ToListenTo;
 			ToListenTo.m_Port = 10501;
 			ToListenTo.f_SetLocalhost();
 
 			m_WebsocketServer
 				(
 					&CWebSocketServerActor::f_StartListenAddress
-				 	, NContainer::TCVector<NNet::CNetAddress>{ToListenTo}
-					, NNet::ENetFlag_None
+				 	, NContainer::TCVector<NNetwork::CNetAddress>{ToListenTo}
+					, NNetwork::ENetFlag_None
 					, fg_ConcurrentActor()
 					, [this](CWebSocketNewServerConnection &&_ConnectionInfo)
 					{
@@ -138,7 +138,7 @@ public:
 											CStr PasswordDigest = LoginParams["password"]["digest"].f_AsString();
 											CStr Password = "testpass";
 											
-											CStr RightDigest = NDataProcessing::CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
+											CStr RightDigest = NCryptography::CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
 											
 											if (PasswordDigest != RightDigest)
 											{
@@ -282,7 +282,7 @@ public:
 		}
 	};
 	
-	void fp_Test(NFunction::TCFunction<NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory> ()> const &_fGetFactories)
+	void fp_Test(NFunction::TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories)
 	{
 		DMibTestSuite("Connection")
 		{
@@ -508,7 +508,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						return {nullptr, nullptr};
 					}
@@ -519,7 +519,7 @@ public:
 		{
 			fp_Test
 				(
-					[]() -> NContainer::TCTuple<NNet::FVirtualSocketFactory, NNet::FVirtualSocketFactory>
+					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
 
@@ -530,12 +530,12 @@ public:
 						
 						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
-						NPtr::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						NPtr::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 						
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}

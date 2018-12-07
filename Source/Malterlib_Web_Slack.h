@@ -29,7 +29,7 @@ namespace NMib::NWeb
 			uint8 m_Blue = 0;
 		};
 
-		using CColor = NContainer::TCVariant<EPredefinedColor, CRgbColor>;
+		using CColor = NStorage::TCVariant<EPredefinedColor, CRgbColor>;
 
 		struct CField
 		{
@@ -98,10 +98,10 @@ namespace NMib::NWeb
 	private:
 		struct CInternal;
 
-		NPtr::TCUniquePointer<CInternal> mp_pInternal;
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 
 #ifndef DMibPNoShortCuts
-using namespace NMib::NWeb;
+	using namespace NMib::NWeb;
 #endif

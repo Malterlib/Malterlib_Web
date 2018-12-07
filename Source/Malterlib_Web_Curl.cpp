@@ -12,7 +12,7 @@ extern "C"
 {
 	void curl_ca_external_fallback(X509_STORE *_pStore)
 	{
-		NMib::NNet::CSSLContext::fs_GetSystemCertificates(_pStore);
+		NMib::NNetwork::CSSLContext::fs_GetSystemCertificates(_pStore);
 	}
 }
 
@@ -25,8 +25,8 @@ namespace NMib::NWeb
 	
 	struct CCurlActor::CState
 	{
-		TCVector<uint8> m_Headers;
-		TCVector<uint8> m_Body;
+		CByteVector m_Headers;
+		CByteVector m_Body;
 	};
 
 	CCurlActor::CResult::CResult(CState const &_State)
@@ -74,7 +74,7 @@ namespace NMib::NWeb
 			}
 		};
 		
-		NAggregate::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
+		NStorage::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
 	}
 	
 	NConcurrency::TCContinuation<CCurlActor::CResult> CCurlActor::f_Request
@@ -163,7 +163,7 @@ namespace NMib::NWeb
 							{
 								NContainer::CByteVector::CIteratorConst &DataSource = *static_cast<NContainer::CByteVector::CIteratorConst *>(_pData);
 								Bytes = fg_Min(DataSource.f_GetLen(), Bytes);
-								NMem::fg_MemCopy(_pBuffer, &*DataSource, Bytes);
+								NMemory::fg_MemCopy(_pBuffer, &*DataSource, Bytes);
 								DataSource += Bytes;
 							}
 

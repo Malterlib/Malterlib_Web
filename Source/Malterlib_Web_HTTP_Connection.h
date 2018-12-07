@@ -3,41 +3,34 @@
 
 #include <Mib/Core/Core>
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
-
-	namespace NHTTP
+	enum EConnectionState
 	{
+		EConnectionState_Connected
+		, EConnectionState_Disconnected
+	};
 
-		enum EConnectionState
-		{
-				EConnectionState_Connected
-			,	EConnectionState_Disconnected
-		};
+	class CConnectionWorker;
 
-		class CConnectionWorker;
-		
-		class CConnection
-		{
-			private:
-				class CDetails;
-				NPtr::TCUniquePointer<CDetails> mp_pD;
+	class CConnection
+	{
+		private:
+			class CDetails;
+			NStorage::TCUniquePointer<CDetails> mp_pD;
 
-				DMibListLinkD_Link(CConnection, mp_Link);
+			DMibListLinkD_Link(CConnection, mp_Link);
 
-				friend CConnectionWorker;
+			friend CConnectionWorker;
 
-			public:
-				CConnection(NPtr::TCUniquePointer<NNet::CSocket> _pSock);
-				~CConnection();
+		public:
+			CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock);
+			~CConnection();
 
-				bint f_IsConnected() const;
+			bint f_IsConnected() const;
 
-				void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
+			void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
 
-				void f_Process();
-		};
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+			void f_Process();
+	};
+}

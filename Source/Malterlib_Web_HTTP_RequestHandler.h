@@ -6,56 +6,49 @@
 #include "Malterlib_Web_HTTP_HTTP.h"
 #include "Malterlib_Web_HTTP_Response.h"
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
-	
-	namespace NHTTP
+	class CRequest;
+
+	class IRequestHandler
 	{
+	public:
+		virtual ~IRequestHandler() {}
 
-		class CRequest;
+		// Must be able to tell if a request can be handled from just the fields, no content.
+		virtual EStatus f_CanHandle(CRequest const& _Req);
 
-		class IRequestHandler
+		// NOTE: The request must be handled on a separate thread from the one this is called on.
+		virtual void f_Handle(NStorage::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response);
+	};
+
+	class CStaticRequestHandler : public IRequestHandler
+	{
+	private:
+
+		class CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
+
+		struct CLocation
 		{
-		public:
-			virtual ~IRequestHandler() {}
-
-			// Must be able to tell if a request can be handled from just the fields, no content.
-			virtual EStatus f_CanHandle(CRequest const& _Req);
-
-			// NOTE: The request must be handled on a separate thread from the one this is called on.
-			virtual void f_Handle(NPtr::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response);
+			NContainer::TCVector<CStr> mp_Prefix;
+			CStr mp_LocalRoot;
 		};
 
-		class CStaticRequestHandler : public IRequestHandler
-		{
-		private:
+		NContainer::TCVector< CLocations > mp_lServedLocations;
 
-			class CDetails;
-			NPtr::TCUniquePointer<CDetails> mp_pD;
+	public:
+		CStaticRequestHandler();
+		~CStaticRequestHandler();
 
-			struct CLocation
-			{
-				NContainer::TCVector<CStr> mp_Prefix;
-				CStr mp_LocalRoot;
-			};
+		void f_ServeLocation(CStr const& _LocalRoot, NContainer::TCVector<CStr> const& _lPrefix);
+		void f_ServeLocation(CStr const& _LocalRoot, CStr const& _EncodedPrefix); // Percent encoded prefix
 
-			NContainer::TCVector< CLocations > mp_lServedLocations;
+		// From IRequestHandler
 
-		public:
-			CStaticRequestHandler();
-			~CStaticRequestHandler();
+		bint f_CanHandle(CRequest const& _Req) override;
 
-			void f_ServeLocation(CStr const& _LocalRoot, NContainer::TCVector<CStr> const& _lPrefix);
-			void f_ServeLocation(CStr const& _LocalRoot, CStr const& _EncodedPrefix); // Percent encoded prefix
+		void f_Handle(NStorage::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response) override;
 
-			// From IRequestHandler
-
-			bint f_CanHandle(CRequest const& _Req) override;
-
-			void f_Handle(NPtr::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response) override;
-
-		};
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+	};
+}

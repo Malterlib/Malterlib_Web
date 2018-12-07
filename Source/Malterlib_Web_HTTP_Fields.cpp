@@ -3,81 +3,74 @@
 
 #include "Malterlib_Web_HTTP_Fields.h"
 
-namespace NMib
+namespace NMib::NWeb::NHTTP
 {
+	//
+	// Global Utility Methods
+	//
 
-	namespace NHTTP
+	struct CFieldValueAsStringVisitor
 	{
+	private:
+		EFieldType mp_FieldType;
+		bint mp_bOK;
+		CStringValue mp_Result;
 
-		//
-		// Global Utility Methods
-		//
+	public:
 
-		struct CFieldValueAsStringVisitor
+		CFieldValueAsStringVisitor(EFieldType _Type)
+			: mp_FieldType(_Type)
+			, mp_bOK(true)
+		{}
+
+		bint f_HasResult() const { return mp_bOK; }
+		CStringValue f_GetResult() { return fg_Move(mp_Result); }
+
+		template<typename t_CType>
+		void operator()(t_CType const& _Value)
 		{
-		private:
-			EFieldType mp_FieldType;
-			bint mp_bOK;
-			CStringValue mp_Result;
-
-		public:
-
-			CFieldValueAsStringVisitor(EFieldType _Type)
-				: mp_FieldType(_Type)
-				, mp_bOK(true)
-			{}
-
-			bint f_HasResult() const { return mp_bOK; }
-			CStringValue f_GetResult() { return fg_Move(mp_Result); }
-
-			template<typename t_CType>
-			void operator()(t_CType const& _Value)
-			{
-				mp_bOK = false;
-			}
-
-		};
-
-		template<>
-		void CFieldValueAsStringVisitor::operator()<NStr::CStr>(NStr::CStr const& _Value)
-		{
-			mp_Result = CStringValue::fs_CreateDynamicString(_Value);
+			mp_bOK = false;
 		}
 
-		template<>
-		void CFieldValueAsStringVisitor::operator()<mint>(mint const& _Value)
+	};
+
+	template<>
+	void CFieldValueAsStringVisitor::operator()<NStr::CStr>(NStr::CStr const& _Value)
+	{
+		mp_Result = CStringValue::fs_CreateDynamicString(_Value);
+	}
+
+	template<>
+	void CFieldValueAsStringVisitor::operator()<mint>(mint const& _Value)
+	{
+		mp_Result = CStringValue::fs_CreateDynamicString(NStr::fg_Format("{}", _Value));
+	}
+
+	template<>
+	void CFieldValueAsStringVisitor::operator()<ETransferEncoding>(ETransferEncoding const& _Value)
+	{
+		mp_Result = CStringValue::fs_CreateStaticString( fg_HTTP_GetTransferEncodingName(_Value) );
+	}
+
+	template<>
+	void CFieldValueAsStringVisitor::operator()<EConnectionToken>(EConnectionToken const& _Value)
+	{
+		mp_Result = CStringValue::fs_CreateStaticString( fg_HTTP_GetConnectionTokenName(_Value) );
+	}
+
+	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value)
+	{
+		CFieldValueAsStringVisitor Visitor(_Value.f_GetTypeID());
+
+		fg_Visit(Visitor, _Value);
+
+		if (Visitor.f_HasResult())
 		{
-			mp_Result = CStringValue::fs_CreateDynamicString(NStr::fg_Format("{}", _Value));
+			return Visitor.f_GetResult();
 		}
-
-		template<>
-		void CFieldValueAsStringVisitor::operator()<ETransferEncoding>(ETransferEncoding const& _Value)
+		else
 		{
-			mp_Result = CStringValue::fs_CreateStaticString( fg_HTTP_GetTransferEncodingName(_Value) );
+			return CStringValue::fs_CreateStaticString("");
 		}
-
-		template<>
-		void CFieldValueAsStringVisitor::operator()<EConnectionToken>(EConnectionToken const& _Value)
-		{
-			mp_Result = CStringValue::fs_CreateStaticString( fg_HTTP_GetConnectionTokenName(_Value) );
-		}
-
-		CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value)
-		{
-			CFieldValueAsStringVisitor Visitor(_Value.f_GetTypeID());
-
-			fg_Visit(Visitor, _Value);
-
-			if (Visitor.f_HasResult())
-			{
-				return Visitor.f_GetResult();
-			}
-			else
-			{
-				return CStringValue::fs_CreateStaticString("");
-			}
-		}
-
-	} // Namespace NHTTP
-
-} // Namespace NMib
+	}
+}

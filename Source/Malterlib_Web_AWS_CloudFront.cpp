@@ -56,7 +56,7 @@ namespace NMib::NWeb
 		TCContinuation<NStr::CStr> Continuation;
 
 		fg_DoAWSRequestXML("Create invalidation", Internal.m_CurlActor, 201, AWSUrl, fg_Move(PostDocument), CCurlActor::EMethod_POST, Internal.m_Credentials, {}, "cloudfront")
-			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				auto &[Results, CurlResult] = _Result;
 
@@ -97,7 +97,7 @@ namespace NMib::NWeb
 		TCContinuation<void> Continuation;
 
 		fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront")
-			> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				auto &Results = fg_Get<0>(_Result);
 				auto &CurlResult = fg_Get<1>(_Result);
@@ -223,7 +223,7 @@ namespace NMib::NWeb
 					Headers["If-Match"] = *pHeader;
 
 				fg_DoAWSRequestXML("Update distribution", Internal.m_CurlActor, 200, AWSUrl, fg_Move(Results), CCurlActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront")
-					> Continuation / [=](NContainer::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+					> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 					{
 						Continuation.f_SetResult();
 					}

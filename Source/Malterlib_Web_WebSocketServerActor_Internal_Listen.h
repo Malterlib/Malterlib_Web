@@ -8,32 +8,26 @@
 
 #include "Malterlib_Web_WebSocket.h"
 
-namespace NMib
+namespace NMib::NWeb::NWebSocket
 {
-	namespace NWeb
+	class CListenActor : public NConcurrency::CActor
 	{
-		namespace NWebSocket
-		{
-			class CListenActor : public NConcurrency::CActor
-			{
-			public:
-				CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize, fp64 _Timeout);
-				~CListenActor();
-				
-				void f_SetSocket(NPtr::TCUniquePointer<NNet::ICSocket> &&_pSocket);
-				void f_StateAdded(NNet::ENetTCPState _StateAdded);
-				
-			private:
-				NConcurrency::TCContinuation<void> fp_Destroy();
-				void fp_ProcessState();
-				
-			private:
-				NPtr::TCUniquePointer<NNet::ICSocket> mp_pSocket;
-				mint mp_MaxMessageSize;
-				mint mp_FragmentationSize;
-				fp64 mp_Timeout;
-				NConcurrency::TCWeakActor<CWebSocketServerActor> mp_Server;
-			};
-		}
-	}
+	public:
+		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize, fp64 _Timeout);
+		~CListenActor();
+
+		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
+		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
+
+	private:
+		NConcurrency::TCContinuation<void> fp_Destroy();
+		void fp_ProcessState();
+
+	private:
+		NStorage::TCUniquePointer<NNetwork::ICSocket> mp_pSocket;
+		mint mp_MaxMessageSize;
+		mint mp_FragmentationSize;
+		fp64 mp_Timeout;
+		NConcurrency::TCWeakActor<CWebSocketServerActor> mp_Server;
+	};
 }

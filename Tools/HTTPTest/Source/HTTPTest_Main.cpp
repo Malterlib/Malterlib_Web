@@ -5,6 +5,8 @@
 #include <Mib/HTTP/All>
 
 using namespace NMib;
+using namespace NMib::NWeb;
+
 
 class CHTTPApp : public NMib::CApplication
 {
