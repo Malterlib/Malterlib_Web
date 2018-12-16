@@ -35,7 +35,7 @@ namespace NMib::NWeb::NHTTP
 			inline CLinkedRequest(CRequest&& _ToMove);
 			inline ~CLinkedRequest();
 
-			DMibListLinkD_Link(CRequest, mp_Link);
+			DMibListLinkD_Link(CLinkedRequest, mp_Link);
 		};
 
 		DMibListLinkD_List(CLinkedRequest, mp_Link) mp_OpenRequests;

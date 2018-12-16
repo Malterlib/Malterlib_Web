@@ -34,8 +34,6 @@ namespace NMib::NWeb::NHTTP
 
 		NContainer::CByteVector mp_Content;
 
-		DMibListLinkD_Link(CRequest, mp_Link);
-
 		EParse fp_ParseHeader(CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr _Text);
 
