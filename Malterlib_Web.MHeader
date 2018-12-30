@@ -65,10 +65,14 @@ Import "../../External/nginx/nginx.MTarget"
 	}	
 	%Dependency Lib_Curl
 	{
+		!DocumentationEnabled true
+
 		Dependency.Indirect true
 	}
 	%Dependency Lib_zlib
 	{
+		!DocumentationEnabled true
+		
 		Dependency.Indirect true
 	}
 }
