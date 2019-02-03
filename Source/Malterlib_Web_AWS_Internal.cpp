@@ -11,6 +11,8 @@
 
 namespace NMib::NWeb
 {
+	DMibImpErrorClassImplement(CExceptionAws);
+
 	ch8 const *fg_MethodToStr(CCurlActor::EMethod _Method)
 	{
 		switch (_Method)

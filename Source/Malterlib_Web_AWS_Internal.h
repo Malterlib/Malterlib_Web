@@ -25,7 +25,7 @@ namespace NMib::NWeb
 		uint32 m_StatusCode = 0;
 	};
 
-	DMibImpErrorSpecificClass(CExceptionAws, NMib::NException::CException, CAwsErrorData);
+	DMibImpErrorSpecificClassDefine(CExceptionAws, NMib::NException::CException, CAwsErrorData);
 
 #	define DMibErrorAws(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
 #	define DMibErrorInstanceAws(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
