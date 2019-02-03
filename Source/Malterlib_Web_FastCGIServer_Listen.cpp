@@ -31,7 +31,7 @@ namespace NMib::NWeb::NFastCGI
 	NConcurrency::TCContinuation<void> CListenActor::fp_Destroy()
 	{
 		mp_Socket.f_Close();
-		return NConcurrency::TCContinuation<void>::fs_Finished();
+		return fg_Explicit();
 	}
 
 	void CListenActor::f_StateAdded(NNetwork::ENetTCPState _StateAdded)

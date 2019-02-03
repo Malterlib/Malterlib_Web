@@ -38,7 +38,7 @@ namespace NMib::NWeb
 
 	NConcurrency::TCContinuation<void> CWebSocketClientActor::fp_Destroy()
 	{
-		return NConcurrency::TCContinuation<void>::fs_Finished();
+		return fg_Explicit();
 	}
 
 	NConcurrency::TCContinuation<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect

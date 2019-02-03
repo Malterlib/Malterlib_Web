@@ -44,7 +44,7 @@ namespace NMib::NWeb
 
 		fp_ClearState();
 
-		return NConcurrency::TCContinuation<void>::fs_Finished();
+		return fg_Explicit();
 	}
 
 	void CFastCGIConnectionActor::f_StateAdded(NNetwork::ENetTCPState _StateAdded)
