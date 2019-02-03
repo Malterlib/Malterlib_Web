@@ -17,12 +17,14 @@ namespace NMib::NWeb::NHTTP
 
 	CPagedByteVector::CPageSizeScope::CPageSizeScope(mint _PageSize)
 	{
+		DMibThreadLocalScopeEnter;
 		(**g_ThreadLocal).m_PageSize = _PageSize;
 	}
 
 	CPagedByteVector::CPageSizeScope::~CPageSizeScope()
 	{
 		(**g_ThreadLocal).m_PageSize = 0;
+		DMibThreadLocalScopeExit;
 	}
 
 	only_parameters_aliased void CPagedByteVector::CPageAllocator::f_Free(void *_pBlock, mint _Size)
