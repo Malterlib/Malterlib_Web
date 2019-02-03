@@ -225,7 +225,7 @@ namespace NMib::NWeb
 
 		TCContinuation<CCodeBlob> f_CreateCodeBlob(TCMap<CStr, CStr> const &_Files)
 		{
-			return g_ConcurrentDispatch > [=]() -> CCodeBlob
+			return g_ConcurrentDispatch / [=]() -> CCodeBlob
 				{
 					CMiniZipAdaptor Adaptor({});
 

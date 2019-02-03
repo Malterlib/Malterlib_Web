@@ -86,7 +86,7 @@ namespace NMib::NWeb
 		 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 		)
 	{
-		return NConcurrency::TCContinuation<CCurlActor::CResult>::fs_RunProtected() > [&]
+		return NConcurrency::TCContinuation<CCurlActor::CResult>::fs_RunProtected() / [&]
 			{
 				NContainer::CByteVector::CIteratorConst DataIterator = _Data.f_GetIterator();
 
