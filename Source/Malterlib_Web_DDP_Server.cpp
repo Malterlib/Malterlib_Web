@@ -101,7 +101,7 @@ namespace NMib::NWeb
 				auto pSessionID = JSON.f_GetMember("session");
 				if (fg_ValidateType(pSessionID, NEncoding::EJSONType_String))
 					ConnectionInfo.m_Session = pSessionID->f_String();
-				m_OnConnection(ConnectionInfo);
+				m_OnConnection(ConnectionInfo) > NConcurrency::fg_DiscardResult();
 			}
 		}
 		else if (MessageType == "method")
@@ -132,7 +132,7 @@ namespace NMib::NWeb
 			if (pRandomSeed)
 				MethodInfo.m_RandomSeed = *pRandomSeed;
 
-			m_OnMethod(MethodInfo);
+			m_OnMethod(MethodInfo) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "sub")
 		{
@@ -158,7 +158,7 @@ namespace NMib::NWeb
 			if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
 				SubscribeInfo.m_Parameters = pParams->f_Array();
 
-			m_OnSubscribe(SubscribeInfo);
+			m_OnSubscribe(SubscribeInfo) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "unsub")
 		{
@@ -169,7 +169,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			m_OnUnSubscribe(pSubscriptionID->f_String());
+			m_OnUnSubscribe(pSubscriptionID->f_String()) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "ping")
 		{
@@ -215,7 +215,7 @@ namespace NMib::NWeb
 
 	void CDDPServerConnection::CInternal::fp_OnError(NStr::CStr const &_Message)
 	{
-		m_OnError(_Message);
+		m_OnError(_Message) > NConcurrency::fg_DiscardResult();
 	}
 
 	struct CDDPServerConnection::CConnectionInfo::CInternal
@@ -404,7 +404,7 @@ namespace NMib::NWeb
 								, [this, _Reason, _Message, _Origin]
 								{
 									auto &Internal = *mp_pInternal;
-									Internal.m_OnClose(_Reason, _Message, _Origin);
+									Internal.m_OnClose(_Reason, _Message, _Origin) > NConcurrency::fg_DiscardResult();
 								}
 							)
 							> NConcurrency::fg_DiscardResult()

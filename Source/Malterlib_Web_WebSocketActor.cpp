@@ -826,7 +826,7 @@ namespace NMib::NWeb
 				if (!Internal.m_bOnCloseCalled)
 				{
 					Internal.m_bOnCloseCalled = true;
-					Internal.m_OnClose(_Status, _Reason, _Origin);
+					Internal.m_OnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
 				}
 
 				if (!_bFatal)
@@ -860,14 +860,14 @@ namespace NMib::NWeb
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
 				ConnectionInfo.m_ErrorStatus = _Status;
 				ConnectionInfo.m_Error = _Reason;
-				Internal.m_OnFinishClientConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
+				Internal.m_OnFinishClientConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 			}
 			else
 			{
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CConnectionInfo>();
 				ConnectionInfo.m_ErrorStatus = _Status;
 				ConnectionInfo.m_Error = _Reason;
-				Internal.m_OnFinishConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
+				Internal.m_OnFinishConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 			}
 		}
 
@@ -883,7 +883,7 @@ namespace NMib::NWeb
 			if (!Internal.m_bOnCloseCalled)
 			{
 				Internal.m_bOnCloseCalled = true;
-				Internal.m_OnClose(_Status, _Reason, _Origin);
+				Internal.m_OnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
 			}
 
 			Internal.m_pSocket.f_Clear();
@@ -1377,7 +1377,7 @@ namespace NMib::NWeb
 				else
 				{
 					// Otherwise we let the application reply
-					m_OnReceivePing(fg_Construct(fg_Move(_Message.m_Data)));
+					m_OnReceivePing(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 				}
 			}
 			break;
@@ -1387,7 +1387,7 @@ namespace NMib::NWeb
 				if (m_pTimeoutPingMessage && _Message.m_Data == *m_pTimeoutPingMessage)
 					f_OnTimeoutPongReceived();
 				else if (!m_OnReceivePong.f_IsEmpty())
-					m_OnReceivePong(fg_Construct(fg_Move(_Message.m_Data)));
+					m_OnReceivePong(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		default:
@@ -1408,13 +1408,13 @@ namespace NMib::NWeb
 			{
 				NStr::CStr Data;
 				Data.f_AddStr(_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
-				m_OnReceiveTextMessage(fg_Move(Data));
+				m_OnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		case EOpcode_BinaryFrame:
 			{
 				DMibLog(DebugVerbose2, " ++++ {} call m_OnReceiveBinaryMessage", !m_bClient);
-				m_OnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data)));
+				m_OnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		default:
@@ -1531,7 +1531,7 @@ namespace NMib::NWeb
 								ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
 								Internal.m_State = EState_Connected;
-								Internal.m_OnFinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
+								Internal.m_OnFinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 								bMoreWork = true;
 
 							}
@@ -1631,7 +1631,7 @@ namespace NMib::NWeb
 								ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
 
-								Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
+								Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 								bMoreWork = true;
 							}
 							break;

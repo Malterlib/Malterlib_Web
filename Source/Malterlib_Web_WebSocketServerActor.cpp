@@ -208,7 +208,7 @@ namespace NMib::NWeb
 					{
 					case CWebSocketActor::EFinishConnectionResult_Error:
 						{
-							mp_pInternal->m_OnFailedConnection(fg_Move(_ConnectionInfo));
+							mp_pInternal->m_OnFailedConnection(fg_Move(_ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 							pSubscription->f_Clear();
 						}
 						break;
@@ -216,7 +216,7 @@ namespace NMib::NWeb
 						{
 							auto Protocols = _ConnectionInfo.m_Protocols;
 							CWebSocketNewServerConnection Connection(fg_Move(_ConnectionInfo), fg_Move(Protocols), _Connection);
-							mp_pInternal->m_OnNewConnection(fg_Move(Connection));
+							mp_pInternal->m_OnNewConnection(fg_Move(Connection)) > NConcurrency::fg_DiscardResult();
 							pSubscription->f_Clear();
 						}
 						break;

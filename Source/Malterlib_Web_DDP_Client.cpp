@@ -605,7 +605,7 @@ namespace NMib::NWeb
 				for (auto &Observation : _CollectionObservations.m_Observations)
 				{
 					if (Observation.m_NotifyOn & _Notification)
-						Observation.m_Callback(_Notification, _Message);
+						Observation.m_Callback(_Notification, _Message) > NConcurrency::fg_DiscardResult();
 				}
 			}
 		;
@@ -713,7 +713,7 @@ namespace NMib::NWeb
 			}
 
 			if (pSub->m_NotifyOn & ESubscriptionNotification_Ready)
-				pSub->m_Callback(ESubscriptionNotification_Ready, NEncoding::CEJSON());
+				pSub->m_Callback(ESubscriptionNotification_Ready, NEncoding::CEJSON()) > NConcurrency::fg_DiscardResult();
 		}
 	}
 
@@ -789,7 +789,7 @@ namespace NMib::NWeb
 				}
 
 				if (pSub->m_NotifyOn & ESubscriptionNotification_Error)
-					pSub->m_Callback(ESubscriptionNotification_Error, _Message);
+					pSub->m_Callback(ESubscriptionNotification_Error, _Message) > NConcurrency::fg_DiscardResult();
 			}
 		}
 
