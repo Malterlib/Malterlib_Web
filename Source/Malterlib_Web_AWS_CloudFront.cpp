@@ -29,7 +29,7 @@ namespace NMib::NWeb
 
 	CAwsCloudFrontActor::~CAwsCloudFrontActor() = default;
 
-	NConcurrency::TCContinuation<NStr::CStr> CAwsCloudFrontActor::f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths)
+	NConcurrency::TCFuture<NStr::CStr> CAwsCloudFrontActor::f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/invalidation"_f << _DistributionID};
@@ -53,16 +53,16 @@ namespace NMib::NWeb
 			PostDocument.f_SetText(PostDocument.f_CreateElement(pPaths, "Quantity"), "{}"_f << _Paths.f_GetLen());
 		}
 
-		TCContinuation<NStr::CStr> Continuation;
+		TCPromise<NStr::CStr> Promise;
 
 		fg_DoAWSRequestXML("Create invalidation", Internal.m_CurlActor, 201, AWSUrl, fg_Move(PostDocument), CCurlActor::EMethod_POST, Internal.m_Credentials, {}, "cloudfront")
-			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				auto &[Results, CurlResult] = _Result;
 
 				auto fReportInvalidXML = [&](CStr const &_Entry)
 					{
-						Continuation.f_SetException(DMibErrorInstance("Create invalidation request failed to find a valid '{}' in XML"_f << _Entry));
+						Promise.f_SetException(DMibErrorInstance("Create invalidation request failed to find a valid '{}' in XML"_f << _Entry));
 					}
 				;
 
@@ -78,14 +78,14 @@ namespace NMib::NWeb
 				if (ID.f_IsEmpty())
 					return fReportInvalidXML("Invalidation.Id text");
 
-				Continuation.f_SetResult(ID);
+				Promise.f_SetResult(ID);
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions
+	NConcurrency::TCFuture<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions
 		(
 			NStr::CStr const &_DistributionID
 			, NContainer::TCMap<EFunctionEventType, NStr::CStr> const &_FunctionAssociations
@@ -94,17 +94,17 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/config"_f << _DistributionID};
 
-		TCContinuation<void> Continuation;
+		TCPromise<void> Promise;
 
 		fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront")
-			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
 				auto &Results = fg_Get<0>(_Result);
 				auto &CurlResult = fg_Get<1>(_Result);
 
 				auto fReportInvalidXML = [&](CStr const &_Entry)
 					{
-						Continuation.f_SetException(DMibErrorInstance("Update distribution lamba functions failed to find a valid '{}' in XML"_f << _Entry));
+						Promise.f_SetException(DMibErrorInstance("Update distribution lamba functions failed to find a valid '{}' in XML"_f << _Entry));
 					}
 				;
 
@@ -214,7 +214,7 @@ namespace NMib::NWeb
 
 				if (!bNeedUpdate)
 				{
-					Continuation.f_SetResult();
+					Promise.f_SetResult();
 					return;
 				}
 
@@ -223,15 +223,15 @@ namespace NMib::NWeb
 					Headers["If-Match"] = *pHeader;
 
 				fg_DoAWSRequestXML("Update distribution", Internal.m_CurlActor, 200, AWSUrl, fg_Move(Results), CCurlActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront")
-					> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+					> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 					{
-						Continuation.f_SetResult();
+						Promise.f_SetResult();
 					}
 				;
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 
 	}
 }

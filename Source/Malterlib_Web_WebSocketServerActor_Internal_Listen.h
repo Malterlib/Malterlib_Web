@@ -20,7 +20,7 @@ namespace NMib::NWeb::NWebSocket
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destroy();
+		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_ProcessState();
 
 	private:

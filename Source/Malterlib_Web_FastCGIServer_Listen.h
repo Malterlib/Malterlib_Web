@@ -20,7 +20,7 @@ namespace NMib::NWeb::NFastCGI
 
 	private:
 
-		NConcurrency::TCContinuation<void> fp_Destroy();
+		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_ProcessState();
 
 	private:

@@ -168,15 +168,15 @@ namespace NMib::NWeb
 
 		void f_SetTimeout(fp64 _Seconds);
 
-		NConcurrency::TCContinuation<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority);
-		NConcurrency::TCContinuation<void> f_SendText(NStr::CStr const &_Data, uint32 _Priority);
-		NConcurrency::TCContinuation<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority);
-		NConcurrency::TCContinuation<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority);
-		NConcurrency::TCContinuation<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
-		NConcurrency::TCContinuation<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendText(NStr::CStr const &_Data, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
 
-		NConcurrency::TCContinuation<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
-		NConcurrency::TCContinuation<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
+		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
+		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
 
 		void f_DebugStopProcessing();
 
@@ -370,7 +370,7 @@ namespace NMib::NWeb
 		void f_SetDefaultFragmentationSize(mint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
-		NConcurrency::TCContinuation<CWebSocketNewClientConnection> f_Connect
+		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect
 			(
 				NStr::CStr const &_ConnectToAddress	// The server to connect to
 				, NStr::CStr const &_BindAddress	// The src address to bind to. Leave empty to not bind
@@ -385,7 +385,7 @@ namespace NMib::NWeb
 		; // You will receive an exception if connection fails
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destroy() override;
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		struct CPendingConnection
 		{
@@ -407,7 +407,7 @@ namespace NMib::NWeb
 		CWebSocketServerActor();
 		~CWebSocketServerActor();
 
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_StartListen
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_StartListen
 			(
 				uint16 _StartListen		// The port to listen to
 				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
@@ -419,7 +419,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_StartListenAddress
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_StartListenAddress
 			(
 				NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo // The addresses to listen to
 				, NMib::NNetwork::ENetFlag _ListenFlags
@@ -436,7 +436,7 @@ namespace NMib::NWeb
 
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destroy() override;
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);
 

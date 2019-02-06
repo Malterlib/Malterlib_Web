@@ -28,7 +28,7 @@ namespace NMib::NWeb::NFastCGI
 		fp_ProcessState();
 	}
 
-	NConcurrency::TCContinuation<void> CListenActor::fp_Destroy()
+	NConcurrency::TCFuture<void> CListenActor::fp_Destroy()
 	{
 		mp_Socket.f_Close();
 		return fg_Explicit();

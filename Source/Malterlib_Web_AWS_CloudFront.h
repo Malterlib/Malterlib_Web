@@ -25,8 +25,8 @@ namespace NMib::NWeb
 			, EFunctionEventType_OriginResponse
 		};
 
-		NConcurrency::TCContinuation<NStr::CStr> f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths);
-		NConcurrency::TCContinuation<void> f_UpdateDistributionLambdaFunctions
+		NConcurrency::TCFuture<NStr::CStr> f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths);
+		NConcurrency::TCFuture<void> f_UpdateDistributionLambdaFunctions
 			(
 			 	NStr::CStr const &_DistributionID
 			 	, NContainer::TCMap<EFunctionEventType, NStr::CStr> const &_FunctionAssociations

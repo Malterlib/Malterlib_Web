@@ -90,7 +90,7 @@ namespace NMib::NWeb
 			static NStr::CStr fs_EscapeString(NStr::CStr const &_String); // Escapes string so formatting is not applied
 		};
 
-		NConcurrency::TCContinuation<void> f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message);
+		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message);
 
 		CSlackActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor);
 		~CSlackActor();

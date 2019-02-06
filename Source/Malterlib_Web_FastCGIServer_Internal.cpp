@@ -37,7 +37,7 @@ namespace NMib::NWeb
 			_Connection->f_Destroy() > mp_pCanDestroyTracker->f_Track();
 	}
 
-	NConcurrency::TCContinuation<void> CFastCGIServer::CInternal::fp_Destroy()
+	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::fp_Destroy()
 	{
 		auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
 
@@ -50,7 +50,7 @@ namespace NMib::NWeb
 			Connection->f_Destroy() > pCanDestroy->f_Track();
 		mp_Connections.f_Clear();
 
-		return pCanDestroy->m_Continuation;
+		return pCanDestroy->f_Future();
 	}
 
 	void CFastCGIServer::CInternal::fp_Startup(uint16 _FastCGIListenStartPort, uint16 _nListen)

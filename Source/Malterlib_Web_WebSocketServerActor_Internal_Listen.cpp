@@ -26,7 +26,7 @@ namespace NMib::NWeb::NWebSocket
 		fp_ProcessState();
 	}
 
-	NConcurrency::TCContinuation<void> CListenActor::fp_Destroy()
+	NConcurrency::TCFuture<void> CListenActor::fp_Destroy()
 	{
 		if (mp_pSocket)
 			mp_pSocket.f_Clear();

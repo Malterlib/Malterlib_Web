@@ -38,7 +38,7 @@ namespace NMib::NWeb
 		mp_ProcessingThread = 0;
 	}
 
-	NConcurrency::TCContinuation<void> CFastCGIConnectionActor::fp_Destroy()
+	NConcurrency::TCFuture<void> CFastCGIConnectionActor::fp_Destroy()
 	{
 		mp_Socket.f_Close();
 

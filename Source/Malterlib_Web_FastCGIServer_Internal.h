@@ -25,7 +25,7 @@ namespace NMib::NWeb
 
 	private:
 
-		NConcurrency::TCContinuation<void> fp_Destroy();
+		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_Startup(uint16 _FastCGIListenStartPort, uint16 _nListen);
 
 	private:

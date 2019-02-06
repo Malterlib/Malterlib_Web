@@ -170,7 +170,7 @@ namespace NMib::NWeb
 		void f_SendChanges(NContainer::TCVector<CChange> &&_Changes);
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destroy() override;
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		void fp_AcceptConnection(NStr::CStr const &_SessionID);
 		void fp_RejectConnection();

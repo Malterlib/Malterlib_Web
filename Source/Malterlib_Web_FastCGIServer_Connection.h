@@ -26,7 +26,7 @@ namespace NMib::NWeb
 		void f_FinishRequest();
 
 	private:
-		NConcurrency::TCContinuation<void> fp_Destroy();
+		NConcurrency::TCFuture<void> fp_Destroy();
 
 		void fp_Disconnect(ch8 const* _pReason);
 		void fp_ProcessState();

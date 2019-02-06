@@ -342,20 +342,20 @@ namespace NMib::NWeb
 	{
 	}
 
-	NConcurrency::TCContinuation<void> CDDPServerConnection::fp_Destroy()
+	NConcurrency::TCFuture<void> CDDPServerConnection::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
 
 		Internal.m_WebSocketCallbacks.f_Clear();
 
-		NConcurrency::TCContinuation<void> Continuation;
+		NConcurrency::TCPromise<void> Promise;
 
 		if (Internal.m_WebSocket)
-			Internal.m_WebSocket->f_Destroy() > Continuation;
+			Internal.m_WebSocket->f_Destroy() > Promise;
 		else
-			Continuation.f_SetResult();
+			Promise.f_SetResult();
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 
 	}
 
@@ -439,7 +439,7 @@ namespace NMib::NWeb
 					&NConcurrency::CTimerActor::f_RegisterTimer
 					, 25.0
 					, fg_ThisActor(this)
-					, [this]() -> NConcurrency::TCContinuation<void>
+					, [this]() -> NConcurrency::TCFuture<void>
 					{
 						auto &Internal = *mp_pInternal;
 						Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame

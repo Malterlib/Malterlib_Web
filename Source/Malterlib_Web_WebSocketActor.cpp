@@ -86,29 +86,29 @@ namespace NMib::NWeb
 		{
 			~COutgoingMessage()
 			{
-				if (m_pContinuation)
-					m_pContinuation->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+				if (m_pPromise)
+					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
 			NStorage::TCSharedPointer<NContainer::CSecureByteVector> m_pData;
 			EOpcode m_Opcode;
-			NStorage::TCUniquePointer<NConcurrency::TCContinuation<void>> m_pContinuation;
+			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 			zbool m_bFinished;
 		};
 
-		struct COutgoingDataContinuation
+		struct COutgoingDataPromise
 		{
-			COutgoingDataContinuation() = default;
-			COutgoingDataContinuation(COutgoingDataContinuation &&) = default;
+			COutgoingDataPromise() = default;
+			COutgoingDataPromise(COutgoingDataPromise &&) = default;
 
-			~COutgoingDataContinuation()
+			~COutgoingDataPromise()
 			{
-				if (m_pContinuation)
-					m_pContinuation->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+				if (m_pPromise)
+					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
 			mint m_Position = 0;
-			NStorage::TCUniquePointer<NConcurrency::TCContinuation<void>> m_pContinuation;
+			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 		};
 
 		struct CPendingCallbackRegister
@@ -149,8 +149,8 @@ namespace NMib::NWeb
 
 		~CInternal()
 		{
-			if (m_pCloseContinuation)
-				m_pCloseContinuation->f_SetException(DMibErrorInstance("Abandoned close"));
+			if (m_pClosePromise)
+				m_pClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
 		}
 
 		struct CClientConnectionInput
@@ -167,7 +167,7 @@ namespace NMib::NWeb
 
 		NHTTP::CPagedByteVector m_IncomingData;
 		NHTTP::CPagedByteVector m_OutgoingData;
-		std::deque<COutgoingDataContinuation> m_OutgoingDataContinuations;
+		std::deque<COutgoingDataPromise> m_OutgoingDataPromises;
 		mint m_nSentBytes = 0;
 
 		NStorage::TCVariant<void, CConnectionInfo, CClientConnectionInfo> m_ConnectionInfo;
@@ -185,7 +185,7 @@ namespace NMib::NWeb
 		NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 		NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
 
-		NStorage::TCSharedPointer<NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo>> m_pCloseContinuation;
+		NStorage::TCSharedPointer<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_pClosePromise;
 		NContainer::TCLinkedList<NFunction::TCFunction<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
 		NStorage::TCUniquePointer<CPendingCallbackRegister> m_pPendingCallbackRegister;
@@ -272,7 +272,7 @@ namespace NMib::NWeb
 		class CDeferredCalbackReference : public NConcurrency::CActorSubscriptionReference
 		{
 		public:
-			NConcurrency::TCContinuation<void> f_Destroy() override
+			NConcurrency::TCFuture<void> f_Destroy() override
 			{
 				if (!m_pCombinedReferences)
 					return fg_Explicit();
@@ -378,12 +378,12 @@ namespace NMib::NWeb
 			f_SendMessage(pPending->m_Opcode, pPending->m_pData->f_GetArray(), pPending->m_pData->f_GetLen(), bFinished);
 			OutgoingData = m_OutgoingData.f_GetLen();
 
-			if (pPending->m_pContinuation)
+			if (pPending->m_pPromise)
 			{
-				COutgoingDataContinuation Continuation;
-				Continuation.m_Position = m_nSentBytes + OutgoingData;
-				Continuation.m_pContinuation = fg_Move(pPending->m_pContinuation);
-				m_OutgoingDataContinuations.push_back(fg_Move(Continuation));
+				COutgoingDataPromise Promise;
+				Promise.m_Position = m_nSentBytes + OutgoingData;
+				Promise.m_pPromise = fg_Move(pPending->m_pPromise);
+				m_OutgoingDataPromises.push_back(fg_Move(Promise));
 			}
 
 			pList->f_Remove(*pPending);
@@ -414,10 +414,10 @@ namespace NMib::NWeb
 		Internal.m_bDebugNoProcessing = true;
 	}
 
-	NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
+	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
 	{
 		auto &Internal = *mp_pInternal;
-		if (Internal.m_pCloseContinuation)
+		if (Internal.m_pClosePromise)
 			return DMibErrorInstance("Socket close already initiated");
 
 		if (!Internal.m_pSocket)
@@ -428,11 +428,11 @@ namespace NMib::NWeb
 			return fg_Explicit(CloseInfo);
 		}
 
-		auto pCloseContinuation = Internal.m_pCloseContinuation = fg_Construct();
+		auto pClosePromise = Internal.m_pClosePromise = fg_Construct();
 
 		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
 
-		return *pCloseContinuation;
+		return *pClosePromise;
 	}
 
 	void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
@@ -442,7 +442,7 @@ namespace NMib::NWeb
 		m_OnShutdown.f_Clear();
 	}
 
-	NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime)
+	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -471,19 +471,19 @@ namespace NMib::NWeb
 		NStorage::TCSharedPointer<CState> pState = fg_Construct();
 		pState->m_WebSocketActor = fg_ThisActor(this);
 
-		NConcurrency::TCContinuation<CWebSocketActor::CCloseInfo> Continuation;
+		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
 
 		Internal.m_OnShutdown.f_Insert
 			(
-				[pState, Continuation, this](NStr::CStr const &_Error)
+				[pState, Promise, this](NStr::CStr const &_Error)
 				{
 					auto &Internal = *mp_pInternal;
 					if (!pState->m_bHandled)
 					{
 						if (!_Error.f_IsEmpty())
-							Continuation.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
+							Promise.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
 						else
-							Continuation.f_SetResult(fg_Move(Internal.m_CloseInfo));
+							Promise.f_SetResult(fg_Move(Internal.m_CloseInfo));
 						pState->f_Finish();
 					}
 				}
@@ -491,11 +491,11 @@ namespace NMib::NWeb
 		;
 
 		pState->m_WebSocketActor(&NWeb::CWebSocketActor::f_Close, _Status, _Reason)
-			> [pState, Continuation](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
+			> [pState, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
 			{
 				if (!_Result && !pState->m_bHandled)
 				{
-					Continuation.f_SetException(fg_Move(_Result));
+					Promise.f_SetException(fg_Move(_Result));
 					pState->f_Finish();
 				}
 			}
@@ -505,11 +505,11 @@ namespace NMib::NWeb
 			(
 				_MaxLingerTime
 				, pState->m_WebSocketActor
-				, [pState, Continuation]()
+				, [pState, Promise]()
 				{
 					if (!pState->m_bHandled)
 					{
-						Continuation.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
+						Promise.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
 						pState->f_Finish();
 					}
 				}
@@ -521,86 +521,73 @@ namespace NMib::NWeb
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority)
 	{
 		auto &Internal = *mp_pInternal;
 		DMibLog(DebugVerbose2, " ++++ {} f_SendBinary", !Internal.m_bClient);
-
-		NConcurrency::TCContinuation<void> Result;
 
 		auto &Massage = *_pMessage;
 		mint nBytes = Massage.f_GetLen();
 
 		if (nBytes > Internal.m_MaxMessageSize)
-		{
-			Result.f_SetException(DMibErrorInstance("Message is bigger than max message size"));
-			return Result;
-		}
+			return DMibErrorInstance("Message is bigger than max message size");
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
-		{
-			Result.f_SetException(DMibErrorInstance("0xffffffff priority is reserved for internal messages"));
-			return Result;
-		}
+			return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
+		NConcurrency::TCPromise<void> Result;
 
 		if (nBytes <= Internal.m_Framentationsize)
 		{
 			auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
-			NewMessage.m_pContinuation = fg_Construct(Result);
+			NewMessage.m_pPromise = fg_Construct(Result);
 			DMibLog(DebugVerbose2, " ++++ {} Queue non-fragmented", !Internal.m_bClient);
 			fp_UpdateSend();
-			return Result;
+			return Result.f_MoveFuture();
 		}
 
 		Internal.f_QueueFragmentedMessage(EOpcode_BinaryFrame, Massage.f_GetArray(), nBytes, _Priority)
-			.m_pContinuation = fg_Construct(Result)
+			.m_pPromise = fg_Construct(Result)
 		;
 
 		DMibLog(DebugVerbose2, " ++++ {} Queue fragmented", !Internal.m_bClient);
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendText(NStr::CStr const& _Data, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendText(NStr::CStr const& _Data, uint32 _Priority)
 	{
 		auto &Internal = *mp_pInternal;
-
-		NConcurrency::TCContinuation<void> Result;
 
 		NStr::CStr Data = _Data;
 
 		mint nBytes = Data.f_GetLen();
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
-		{
-			Result.f_SetException(DMibErrorInstance("0xffffffff priority is reserved for internal messages"));
-			return Result;
-		}
+			return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
 		if (nBytes > Internal.m_MaxMessageSize)
-		{
-			Result.f_SetException(DMibErrorInstance("Message is bigger than max message size"));
-			return Result;
-		}
+			return DMibErrorInstance("Message is bigger than max message size");
+
+		NConcurrency::TCPromise<void> Result;
 
 		Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, (uint8 const *)Data.f_GetStr(), nBytes, _Priority)
-			.m_pContinuation = fg_Construct(Result)
+			.m_pPromise = fg_Construct(Result)
 		;
 
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
 
 
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority)
 	{
 		auto &Internal = *mp_pInternal;
-
-		NConcurrency::TCContinuation<void> Result;
 
 		auto &Message = *_pMessage;
 
@@ -612,16 +599,18 @@ namespace NMib::NWeb
 		if (nBytes > Internal.m_MaxMessageSize)
 			return DMibErrorInstance("Message is bigger than max message size");
 
+		NConcurrency::TCPromise<void> Result;
+
 		Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, Message.f_GetArray(), nBytes, _Priority)
-			.m_pContinuation = fg_Construct(Result)
+			.m_pPromise = fg_Construct(Result)
 		;
 
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -647,7 +636,7 @@ namespace NMib::NWeb
 				return DMibErrorInstance("Message is bigger than max message size");
 		}
 
-		NConcurrency::TCContinuation<void> Result;
+		NConcurrency::TCPromise<void> Result;
 
 		for (mint iMessage = 0; iMessage < nMessages; ++iMessage)
 		{
@@ -666,52 +655,48 @@ namespace NMib::NWeb
 
 			if (bIsLastMessage)
 			{
-				// OK, assuming messages are send in the order they are queued attaching the continuation to the last message should
+				// OK, assuming messages are sent in the order they are queued attaching the promise to the last message should
 				// behave as assumed.
-				OutMsg.m_pContinuation = fg_Construct(Result);
+				OutMsg.m_pPromise = fg_Construct(Result);
 			}
 		}
 
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<void> Result;
 		mint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_MaxMessageSize)
-		{
-			Result.f_SetException(DMibErrorInstance("Message is bigger than max message size"));
-			return Result;
-		}
+			return DMibErrorInstance("Message is bigger than max message size");
+
+		NConcurrency::TCPromise<void> Result;
 
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Ping, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
-		NewMessage.m_pContinuation = fg_Construct(Result);
+		NewMessage.m_pPromise = fg_Construct(Result);
 
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
-	NConcurrency::TCContinuation<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
+
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<void> Result;
 		mint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_MaxMessageSize)
-		{
-			Result.f_SetException(DMibErrorInstance("Message is bigger than max message size"));
-			return Result;
-		}
+			return DMibErrorInstance("Message is bigger than max message size");
 
+		NConcurrency::TCPromise<void> Result;
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Pong, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
-		NewMessage.m_pContinuation = fg_Construct(Result);
+		NewMessage.m_pPromise = fg_Construct(Result);
 
 		fp_UpdateSend();
 
-		return Result;
+		return Result.f_MoveFuture();
 	}
 
 	void CWebSocketActor::fp_StateAdded(NNetwork::ENetTCPState _StateAdded)
@@ -818,10 +803,10 @@ namespace NMib::NWeb
 			{
 				Internal.m_CloseInfo.m_Status = _Status;
 				Internal.m_CloseInfo.m_Reason = _Reason;
-				if (Internal.m_pCloseContinuation)
+				if (Internal.m_pClosePromise)
 				{
-					Internal.m_pCloseContinuation->f_SetResult(Internal.m_CloseInfo);
-					Internal.m_pCloseContinuation.f_Clear();
+					Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
+					Internal.m_pClosePromise.f_Clear();
 				}
 				if (!Internal.m_bOnCloseCalled)
 				{
@@ -875,10 +860,10 @@ namespace NMib::NWeb
 		{
 			Internal.m_CloseInfo.m_Status = _Status;
 			Internal.m_CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
-			if (Internal.m_pCloseContinuation)
+			if (Internal.m_pClosePromise)
 			{
-				Internal.m_pCloseContinuation->f_SetResult(Internal.m_CloseInfo);
-				Internal.m_pCloseContinuation.f_Clear();
+				Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
+				Internal.m_pClosePromise.f_Clear();
 			}
 			if (!Internal.m_bOnCloseCalled)
 			{
@@ -964,15 +949,15 @@ namespace NMib::NWeb
 			mint PrevSent = Internal.m_nSentBytes;
 			Internal.m_nSentBytes += SentBytes;
 
-			while (!Internal.m_OutgoingDataContinuations.empty())
+			while (!Internal.m_OutgoingDataPromises.empty())
 			{
-				auto &Continuation = Internal.m_OutgoingDataContinuations.front();
-				mint Diff = Continuation.m_Position - PrevSent;
+				auto &Promise = Internal.m_OutgoingDataPromises.front();
+				mint Diff = Promise.m_Position - PrevSent;
 				if (Diff <= SentBytes)
 				{
-					Continuation.m_pContinuation->f_SetResult();
-					Continuation.m_pContinuation.f_Clear();
-					Internal.m_OutgoingDataContinuations.pop_front();
+					Promise.m_pPromise->f_SetResult();
+					Promise.m_pPromise.f_Clear();
+					Internal.m_OutgoingDataPromises.pop_front();
 					continue;
 				}
 				break;
@@ -1227,7 +1212,7 @@ namespace NMib::NWeb
 			{
 				if (!Internal.m_bPendingMessage)
 				{
-					fp_Disconnect(EWebSocketStatus_ProtocolError, "Continuation frame without start frame", false, EWebSocketCloseOrigin_Local);
+					fp_Disconnect(EWebSocketStatus_ProtocolError, "Promise frame without start frame", false, EWebSocketCloseOrigin_Local);
 					return false;
 				}
 			}
@@ -1976,7 +1961,7 @@ namespace NMib::NWeb
 			(
 				m_Timeout/2.0
 				, fg_ThisActor(m_pThis)
-				, [this]() -> NConcurrency::TCContinuation<void>
+				, [this]() -> NConcurrency::TCFuture<void>
 				{
 					f_UpdateTimeout();
 					return fg_Explicit();

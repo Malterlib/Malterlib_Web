@@ -44,7 +44,7 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCContinuation<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
+	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
 		 	CStr const &_Description
 		 	, TCActor<CCurlActor> const &_CurlActor
@@ -59,7 +59,7 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCContinuation<NEncoding::CJSON> fg_DoAWSRequestJSON
+	TCFuture<NEncoding::CJSON> fg_DoAWSRequestJSON
 		(
 		 	CStr const &_Description
 		 	, TCActor<CCurlActor> const &_CurlActor
@@ -74,7 +74,7 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCContinuation<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
+	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
 		 	CStr const &_Description
 		 	, TCActor<CCurlActor> const &_CurlActor

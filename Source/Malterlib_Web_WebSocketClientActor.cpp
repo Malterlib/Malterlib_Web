@@ -36,12 +36,12 @@ namespace NMib::NWeb
 		mp_Timeout = _Timeout;
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketClientActor::fp_Destroy()
+	NConcurrency::TCFuture<void> CWebSocketClientActor::fp_Destroy()
 	{
 		return fg_Explicit();
 	}
 
-	NConcurrency::TCContinuation<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
+	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
 		(
 			NStr::CStr const& _ConnectToAddress
 			, NStr::CStr const& _BindToAddress
@@ -56,12 +56,12 @@ namespace NMib::NWeb
 	{
 		if (!_SocketFactory)
 			_SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
-		NConcurrency::TCContinuation<CWebSocketNewClientConnection> Continuation;
+		NConcurrency::TCPromise<CWebSocketNewClientConnection> Promise;
 
 		if (_ConnectToAddress.f_IsEmpty())
 		{
-			Continuation.f_SetException(DMibErrorInstance("Connect to address cannot be empty"));
-			return Continuation;
+			Promise.f_SetException(DMibErrorInstance("Connect to address cannot be empty"));
+			return Promise.f_MoveFuture();
 		}
 
 		if (!mp_AddressResolver)
@@ -71,16 +71,16 @@ namespace NMib::NWeb
 
 		mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _ConnectToAddress, _PreferAddress)
 			+ mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _BindToAddress, _PreferAddress)
-			> [Continuation, _Port, pRequest, this, _ConnectToAddress, _URI, _Origin, _Protocols, _SocketFactory]
+			> [Promise, _Port, pRequest, this, _ConnectToAddress, _URI, _Origin, _Protocols, _SocketFactory]
 			(
 				NConcurrency::TCAsyncResult<NNetwork::CNetAddress> &&_Result
 				, NConcurrency::TCAsyncResult<NNetwork::CNetAddress> &&_BindToResult
 			)
 			{
 				if (!_Result)
-					Continuation.f_SetException(_Result);
+					Promise.f_SetException(_Result);
 				else if (!_BindToResult)
-					Continuation.f_SetException(_BindToResult);
+					Promise.f_SetException(_BindToResult);
 				else
 				{
 					CPendingConnection &Pending = mp_PendingConnects.f_Insert();
@@ -102,23 +102,23 @@ namespace NMib::NWeb
 						Pending.m_pSocket->f_AsyncConnect
 							(
 								fg_Move(Address)
-								, [pStateReceived, pPending, WeakThis, Continuation, this, pRequest, _ConnectToAddress, _URI, _Origin, _Protocols](::NMib::NNetwork::ENetTCPState _StateAdded)
+								, [pStateReceived, pPending, WeakThis, Promise, this, pRequest, _ConnectToAddress, _URI, _Origin, _Protocols](::NMib::NNetwork::ENetTCPState _StateAdded)
 								{
 									auto This = WeakThis.f_Lock();
 									if (!This)
 									{
-										Continuation.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
+										Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
 										return;
 									}
 									This
 										(
 											&CActor::f_Dispatch
-											, [WeakThis, pStateReceived, _StateAdded, this, pPending, Continuation, pRequest, _ConnectToAddress, _URI, _Origin, _Protocols]
+											, [WeakThis, pStateReceived, _StateAdded, this, pPending, Promise, pRequest, _ConnectToAddress, _URI, _Origin, _Protocols]
 											{
 												auto This = WeakThis.f_Lock();
 												if (!This)
 												{
-													Continuation.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
+													Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
 													return;
 												}
 												if (*pStateReceived)
@@ -157,7 +157,7 @@ namespace NMib::NWeb
 														(
 															&CWebSocketActor::fp_OnFinishClientConnection
 															, This
-															, [this, Continuation, ConnectionActor, pRemovedPending, pPending]
+															, [this, Promise, ConnectionActor, pRemovedPending, pPending]
 															(
 																CWebSocketActor::EFinishConnectionResult _Result
 																, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo
@@ -166,7 +166,7 @@ namespace NMib::NWeb
 															{
 																if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
 																{
-																	Continuation.f_SetException(DMibErrorInstance(_ConnectionInfo.m_Error));
+																	Promise.f_SetException(DMibErrorInstance(_ConnectionInfo.m_Error));
 																}
 																else
 																{
@@ -180,7 +180,7 @@ namespace NMib::NWeb
 																		)
 																	;
 
-																	Continuation.f_SetResult(fg_Move(NewConnection));
+																	Promise.f_SetResult(fg_Move(NewConnection));
 																}
 																*pRemovedPending = true;
 																mp_PendingConnects.f_Remove(*pPending);
@@ -201,7 +201,7 @@ namespace NMib::NWeb
 												}
 												else if (_StateAdded == NNetwork::ENetTCPState_Closed)
 												{
-													Continuation.f_SetException(DMibErrorInstance(pPending->m_pSocket->f_GetCloseReason()));
+													Promise.f_SetException(DMibErrorInstance(pPending->m_pSocket->f_GetCloseReason()));
 													*pStateReceived = true;
 													mp_PendingConnects.f_Remove(*pPending);
 												}
@@ -218,12 +218,12 @@ namespace NMib::NWeb
 					}
 					catch (NNetwork::CExceptionNet const &_Exception)
 					{
-						Continuation.f_SetException(_Exception);
+						Promise.f_SetException(_Exception);
 					}
 				}
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 }

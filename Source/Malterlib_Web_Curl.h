@@ -36,7 +36,7 @@ namespace NMib::NWeb
 			NEncoding::CEJSON f_ToJSON() const;
 		};
 		
-		NConcurrency::TCContinuation<CResult> f_Request
+		NConcurrency::TCFuture<CResult> f_Request
 			(
 				EMethod _Method
 				, NStr::CStr const &_URL

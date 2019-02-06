@@ -68,7 +68,7 @@ namespace NMib::NWeb
 			NStr::CStr m_Version;
 		};
 
-		NConcurrency::TCContinuation<CFunctionInfo> f_CreateOrUpdateFunction
+		NConcurrency::TCFuture<CFunctionInfo> f_CreateOrUpdateFunction
 			(
 			 	NStr::CStr const &_FunctionName
 			 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Files

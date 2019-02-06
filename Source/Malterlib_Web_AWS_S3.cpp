@@ -31,15 +31,15 @@ namespace NMib::NWeb
 
 	CAwsS3Actor::~CAwsS3Actor() = default;
 
-	NConcurrency::TCContinuation<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
+	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCContinuation<CAwsS3Actor::CObjectInfoMetaData> Continuation;
+		TCPromise<CAwsS3Actor::CObjectInfoMetaData> Promise;
 
 		fg_DoAWSRequestHEAD("Get meta data", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3")
-			> Continuation / [=](NContainer::TCMap<NStr::CStr, NStr::CStr> &&_Headers)
+			> Promise / [=](NContainer::TCMap<NStr::CStr, NStr::CStr> &&_Headers)
 			{
 				CAwsS3Actor::CObjectInfoMetaData MetaData;
 
@@ -70,19 +70,19 @@ namespace NMib::NWeb
 						MetaData.m_MetaData[Header.f_Extract(11)] = HeaderValue;
 				}
 
-				Continuation.f_SetResult(fg_Move(MetaData));
+				Promise.f_SetResult(fg_Move(MetaData));
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	TCContinuation<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
+	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
 
-		TCContinuation<CAwsS3Actor::CListBucket> Continuation;
+		TCPromise<CAwsS3Actor::CListBucket> Promise;
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
 		auto fDoRequest = [=](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
@@ -94,13 +94,13 @@ namespace NMib::NWeb
 					NewURL.f_AddQueryEntry({"continuation-token", _ContinuationToken});
 
 				fg_DoAWSRequestXML("List bucket", Internal.m_CurlActor, 200, NewURL, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "s3")
-					> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+					> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 					{
 						auto &[Results, CurlResult] = _Result;
 
 						auto fReportInvalidXML = [&](CStr const &_Entry)
 							{
-								Continuation.f_SetException(DMibErrorInstance("List bucket request failed to find a valid '{}' in XML"_f << _Entry));
+								Promise.f_SetException(DMibErrorInstance("List bucket request failed to find a valid '{}' in XML"_f << _Entry));
 							}
 						;
 
@@ -169,7 +169,7 @@ namespace NMib::NWeb
 						}
 						pResult->m_BucketName = Results.f_GetChildValue(pListBucketResult, "Name", _BucketName);
 
-						Continuation.f_SetResult(*pResult);
+						Promise.f_SetResult(*pResult);
 					}
 				;
 			}
@@ -177,7 +177,7 @@ namespace NMib::NWeb
 
 		fDoRequest(fDoRequest, "");
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
 	namespace
@@ -240,12 +240,12 @@ namespace NMib::NWeb
 		}
 	}
 
-	NConcurrency::TCContinuation<void> CAwsS3Actor::f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data)
+	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCContinuation<void> Continuation;
+		TCPromise<void> Promise;
 
 		auto AWSHeaders = fg_GetPutHeaders(_Info);
 		AWSHeaders["Content-Length"] = "{}"_f << _Data.f_GetLen();
@@ -253,41 +253,41 @@ namespace NMib::NWeb
 		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
 
 		fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3")
-			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
-				Continuation.f_SetResult();
+				Promise.f_SetResult();
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<void> CAwsS3Actor::f_PutObjectMultipart
+	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObjectMultipart
 		(
 			NStr::CStr const &_BucketName
 			, NStr::CStr const &_Key
 			, CPutObjectInfo const &_Info
 			, uint64 _TotalSize
-		 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::CByteVector> ()> &&_fGetPart
+		 	, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
 		)
 	{
 		return DMibErrorInstance("Not implemented");
 	}
 
-	NConcurrency::TCContinuation<void> CAwsS3Actor::f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
+	NConcurrency::TCFuture<void> CAwsS3Actor::f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCContinuation<void> Continuation;
+		TCPromise<void> Promise;
 
 		fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3")
-			> Continuation / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
-				Continuation.f_SetResult();
+				Promise.f_SetResult();
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 }

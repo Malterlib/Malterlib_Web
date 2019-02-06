@@ -167,7 +167,7 @@ namespace NMib::NWeb
 		NConcurrency::CActorSubscription m_WebSocketCallbackSubscription;
 		NConcurrency::TCActor<CWebSocketClientActor> m_ConnectionFactory;
 		NNetwork::FVirtualSocketFactory m_SocketFactory;
-		NConcurrency::TCContinuation<CConnectInfo> m_ConnectContinuation;
+		NConcurrency::TCPromise<CConnectInfo> m_ConnectPromise;
 
 		NStr::CStr m_UserName;
 		NStr::CStrSecure m_Password;
@@ -312,7 +312,7 @@ namespace NMib::NWeb
 	{
 	}
 
-	NConcurrency::TCContinuation<CDDPClient::CConnectInfo> CDDPClient::f_Connect
+	NConcurrency::TCFuture<CDDPClient::CConnectInfo> CDDPClient::f_Connect
 		(
 			NStr::CStr const &_UserName
 			, NStr::CStrSecure const &_Password
@@ -327,12 +327,12 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
-		NConcurrency::TCContinuation<CConnectInfo> Continuation;
+		NConcurrency::TCPromise<CConnectInfo> Promise;
 
 		if (Internal.m_bConnectCalled)
 		{
-			Continuation.f_SetException(DMibErrorInstance("The DDP client can only be connected once"));
-			return Continuation;
+			Promise.f_SetException(DMibErrorInstance("The DDP client can only be connected once"));
+			return Promise.f_MoveFuture();
 		}
 
 		Internal.m_bConnectCalled = true;
@@ -344,7 +344,7 @@ namespace NMib::NWeb
 		if (_NotificationActor)
 			WeakNotificationActor = _NotificationActor.f_Weak();
 
-		Internal.m_ConnectContinuation = Continuation;
+		Internal.m_ConnectPromise = Promise;
 		Internal.m_ConnectionFactory
 			(
 				&CWebSocketClientActor::f_Connect
@@ -363,7 +363,7 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				if (!_Result)
 				{
-					Internal.m_ConnectContinuation.f_SetException(_Result);
+					Internal.m_ConnectPromise.f_SetException(_Result);
 					return;
 				}
 
@@ -413,8 +413,8 @@ namespace NMib::NWeb
 								mp_pInternal->m_WebSocketCallbackSubscription = fg_Move(_Result.f_Get());
 							else
 							{
-								if (!Internal.m_ConnectContinuation.f_IsSet())
-									Internal.m_ConnectContinuation.f_SetException(fg_Move(_Result));
+								if (!Internal.m_ConnectPromise.f_IsSet())
+									Internal.m_ConnectPromise.f_SetException(fg_Move(_Result));
 							}
 						}
 					)
@@ -424,50 +424,50 @@ namespace NMib::NWeb
 			}
 		;
 
-		return Internal.m_ConnectContinuation;
+		return Internal.m_ConnectPromise;
 	}
 
-	NConcurrency::TCContinuation<void> CDDPClient::fp_Destroy()
+	NConcurrency::TCFuture<void> CDDPClient::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
 
 		Internal.m_ConnectTimeoutTimerRef.f_Clear();
 
-		if (!Internal.m_ConnectContinuation.f_IsSet())
-			Internal.m_ConnectContinuation.f_SetException(DMibErrorInstance("Destroy called before connection finished"));
-		NConcurrency::TCContinuation<void> Continuation;
+		if (!Internal.m_ConnectPromise.f_IsSet())
+			Internal.m_ConnectPromise.f_SetException(DMibErrorInstance("Destroy called before connection finished"));
+		NConcurrency::TCPromise<void> Promise;
 
 		if (Internal.m_WebSocket)
 		{
-			Internal.m_WebSocket->f_Destroy() > Continuation;
+			Internal.m_WebSocket->f_Destroy() > Promise;
 		}
 		else
-			Continuation.f_SetResult();
+			Promise.f_SetResult();
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<NEncoding::CEJSON> CDDPClient::f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params)
+	NConcurrency::TCFuture<NEncoding::CEJSON> CDDPClient::f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<NEncoding::CEJSON> Continuation;
+		NConcurrency::TCPromise<NEncoding::CEJSON> Promise;
 		Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Continuation](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
+				, [Promise](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
-						Continuation.f_SetException(DMibErrorInstance(_Error));
+						Promise.f_SetException(DMibErrorInstance(_Error));
 					else
-						Continuation.f_SetResult(fg_Move(_Result));
+						Promise.f_SetResult(fg_Move(_Result));
 				}
 			)
 		;
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<NEncoding::CEJSON> CDDPClient::f_MethodWithUpdated
+	NConcurrency::TCFuture<NEncoding::CEJSON> CDDPClient::f_MethodWithUpdated
 		(
 			NStr::CStr const &_MethodName
 			, NContainer::TCVector<NEncoding::CEJSON> const &_Params
@@ -476,17 +476,17 @@ namespace NMib::NWeb
 		)
 	{
 		auto &Internal = *mp_pInternal;
-		NConcurrency::TCContinuation<NEncoding::CEJSON> Continuation;
+		NConcurrency::TCPromise<NEncoding::CEJSON> Promise;
 		uint64 MethodID = Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Continuation](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
+				, [Promise](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
-						Continuation.f_SetException(DMibErrorInstance(_Error));
+						Promise.f_SetException(DMibErrorInstance(_Error));
 					else
-						Continuation.f_SetResult(fg_Move(_Result));
+						Promise.f_SetResult(fg_Move(_Result));
 				}
 			)
 		;
@@ -499,7 +499,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 
 	}
 
@@ -525,7 +525,7 @@ namespace NMib::NWeb
 		return CallbackHandle;
 	}
 
-	NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CDDPClient::f_Subscribe
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CDDPClient::f_Subscribe
 		(
 			NConcurrency::TCActor<CActor> const &_Actor
 			, NStr::CStr const &_SubscriptionName
@@ -559,26 +559,26 @@ namespace NMib::NWeb
 		Internal.fp_SendMessage(Message);
 
 		auto CallbackHandle = Subscription.m_Callback.f_Register(_Actor, fg_Move(_Callback), &Internal, &Subscription);
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Continuation;
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		if (!_bWaitForResponse)
 		{
-			Continuation.f_SetResult(fg_Move(CallbackHandle));
-			return Continuation;
+			Promise.f_SetResult(fg_Move(CallbackHandle));
+			return Promise.f_MoveFuture();
 		}
 
 		auto CallbackHandleMove = fg_LambdaMove(CallbackHandle);
-		Subscription.m_OnReady = [Continuation, CallbackHandleMove]
+		Subscription.m_OnReady = [Promise, CallbackHandleMove]
 			{
-				Continuation.f_SetResult(fg_Move(*CallbackHandleMove));
+				Promise.f_SetResult(fg_Move(*CallbackHandleMove));
 			}
 		;
-		Subscription.m_OnError = [Continuation](NStr::CStr const &_Error)
+		Subscription.m_OnError = [Promise](NStr::CStr const &_Error)
 			{
-				Continuation.f_SetException(DMibErrorInstance(_Error));
+				Promise.f_SetException(DMibErrorInstance(_Error));
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
 	void CDDPClient::f_AccessData(NFunction::TCFunction<void (CDataAccessor const &_Accessor)> const &_ProcessData)
@@ -588,8 +588,8 @@ namespace NMib::NWeb
 
 	void CDDPClient::CInternal::fp_OnError(NStr::CStr const &_Error)
 	{
-		if (!m_ConnectContinuation.f_IsSet())
-			m_ConnectContinuation.f_SetException(DMibErrorInstance(_Error));
+		if (!m_ConnectPromise.f_IsSet())
+			m_ConnectPromise.f_SetException(DMibErrorInstance(_Error));
 	}
 
 	void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJSON const &_Message)
@@ -897,8 +897,8 @@ namespace NMib::NWeb
 
 				if (m_UserName.f_IsEmpty())
 				{
-					if (!m_ConnectContinuation.f_IsSet())
-						m_ConnectContinuation.f_SetResult(m_SessionID);
+					if (!m_ConnectPromise.f_IsSet())
+						m_ConnectPromise.f_SetResult(m_SessionID);
 				}
 				else
 				{
@@ -994,8 +994,8 @@ namespace NMib::NWeb
 				{
 					if (!_Error.f_IsEmpty())
 						fp_SendLoginMessage();
-					else if (!m_ConnectContinuation.f_IsSet())
-						m_ConnectContinuation.f_SetResult(fp_ExtractConnectInfo(_Result));
+					else if (!m_ConnectPromise.f_IsSet())
+						m_ConnectPromise.f_SetResult(fp_ExtractConnectInfo(_Result));
 				}
 			)
 		;
@@ -1015,12 +1015,12 @@ namespace NMib::NWeb
 				, NContainer::fg_CreateVector<NEncoding::CEJSON>(LoginParams)
 				, [this](NStr::CStr const &_Error, NEncoding::CEJSON &&_Result)
 				{
-					if (!m_ConnectContinuation.f_IsSet())
+					if (!m_ConnectPromise.f_IsSet())
 					{
 						if (!_Error.f_IsEmpty())
-							m_ConnectContinuation.f_SetException(DMibErrorInstance(_Error));
+							m_ConnectPromise.f_SetException(DMibErrorInstance(_Error));
 						else
-							m_ConnectContinuation.f_SetResult(fp_ExtractConnectInfo(_Result));
+							m_ConnectPromise.f_SetResult(fp_ExtractConnectInfo(_Result));
 					}
 				}
 			)
@@ -1051,8 +1051,8 @@ namespace NMib::NWeb
 				{
 					if (!m_bConnectFinished)
 					{
-						if (!m_ConnectContinuation.f_IsSet())
-							m_ConnectContinuation.f_SetException(DMibErrorInstance("Timed out waiting for reply to connect message"));
+						if (!m_ConnectPromise.f_IsSet())
+							m_ConnectPromise.f_SetException(DMibErrorInstance("Timed out waiting for reply to connect message"));
 					}
 				}
 			)

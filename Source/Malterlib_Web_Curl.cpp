@@ -77,7 +77,7 @@ namespace NMib::NWeb
 		NStorage::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
 	}
 	
-	NConcurrency::TCContinuation<CCurlActor::CResult> CCurlActor::f_Request
+	NConcurrency::TCFuture<CCurlActor::CResult> CCurlActor::f_Request
 		(
 			EMethod _Method
 			, NStr::CStr const &_URL
@@ -86,7 +86,7 @@ namespace NMib::NWeb
 		 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 		)
 	{
-		return NConcurrency::TCContinuation<CCurlActor::CResult>::fs_RunProtected() / [&]
+		return NConcurrency::TCFuture<CCurlActor::CResult>::fs_RunProtected() / [&]
 			{
 				NContainer::CByteVector::CIteratorConst DataIterator = _Data.f_GetIterator();
 

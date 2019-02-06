@@ -223,7 +223,7 @@ namespace NMib::NWeb
 			NCryptography::CHashDigest_SHA256 m_SHA256;
 		};
 
-		TCContinuation<CCodeBlob> f_CreateCodeBlob(TCMap<CStr, CStr> const &_Files)
+		TCFuture<CCodeBlob> f_CreateCodeBlob(TCMap<CStr, CStr> const &_Files)
 		{
 			return g_ConcurrentDispatch / [=]() -> CCodeBlob
 				{
@@ -277,7 +277,7 @@ namespace NMib::NWeb
 			;
 		}
 
-		TCContinuation<CJSON> f_GetFunction(CStr const &_FunctionName)
+		TCFuture<CJSON> f_GetFunction(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}"_f << m_Credentials.m_Region << _FunctionName};
 			return fg_DoAWSRequestJSON("Get function", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
@@ -416,7 +416,7 @@ namespace NMib::NWeb
 			return Config;
 		}
 
-		TCContinuation<CFunctionInfo> f_CreateFunction
+		TCFuture<CFunctionInfo> f_CreateFunction
 			(
 				CStr const &_FunctionName
 				, CCodeBlob const &_CodeBlob
@@ -440,28 +440,28 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			TCContinuation<CFunctionInfo> Continuation;
+			TCPromise<CFunctionInfo> Promise;
 
 			fg_DoAWSRequestJSON("Create function", m_CurlActor, 201, AWSUrl, Request, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda")
-				> Continuation / [=](CJSON &&_Results)
+				> Promise / [=](CJSON &&_Results)
 				{
 					CFunctionInfo FunctionInfo;
 					FunctionInfo.m_Version = _Results.f_GetMemberValue("Version", "").f_String();
 					FunctionInfo.m_Arn = "{}:{}"_f << _Results.f_GetMemberValue("FunctionArn", "").f_String() << FunctionInfo.m_Version;
 
 					if (FunctionInfo.m_Version.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No Version entry found for created function"));
+						return Promise.f_SetException(DMibErrorInstance("No Version entry found for created function"));
 					if (FunctionInfo.m_Arn.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No FunctionArn entry found for created function"));
+						return Promise.f_SetException(DMibErrorInstance("No FunctionArn entry found for created function"));
 
-					Continuation.f_SetResult(fg_Move(FunctionInfo));
+					Promise.f_SetResult(fg_Move(FunctionInfo));
 				}
 			;
 
-			return Continuation;
+			return Promise.f_MoveFuture();
 		}
 
-		TCContinuation<void> f_UpdateFunctionConfiguration
+		TCFuture<void> f_UpdateFunctionConfiguration
 			(
 				CStr const &_FunctionName
 				, CFunctionConfiguration const &_Config
@@ -472,19 +472,19 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			TCContinuation<void> Continuation;
+			TCPromise<void> Promise;
 
 			fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda")
-				> Continuation / [=](CJSON &&_Results)
+				> Promise / [=](CJSON &&_Results)
 				{
-					Continuation.f_SetResult();
+					Promise.f_SetResult();
 				}
 			;
 
-			return Continuation;
+			return Promise.f_MoveFuture();
 		}
 
-		TCContinuation<CFunctionInfo> f_UpdateFunctionCode
+		TCFuture<CFunctionInfo> f_UpdateFunctionCode
 			(
 				CStr const &_FunctionName
 				, CCodeBlob const &_CodeBlob
@@ -498,54 +498,54 @@ namespace NMib::NWeb
 			if (_Config.m_bPublish)
 				Request["Publish"] = *_Config.m_bPublish;
 
-			TCContinuation<CFunctionInfo> Continuation;
+			TCPromise<CFunctionInfo> Promise;
 
 			fg_DoAWSRequestJSON("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda")
-				> Continuation / [=](CJSON &&_Results)
+				> Promise / [=](CJSON &&_Results)
 				{
 					CFunctionInfo FunctionInfo;
 					FunctionInfo.m_Version = _Results.f_GetMemberValue("Version", "").f_String();
 					FunctionInfo.m_Arn = _Results.f_GetMemberValue("FunctionArn", "").f_String();
 
 					if (FunctionInfo.m_Version.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No Version entry found for updated function"));
+						return Promise.f_SetException(DMibErrorInstance("No Version entry found for updated function"));
 					if (FunctionInfo.m_Arn.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No FunctionArn entry found for updated function"));
+						return Promise.f_SetException(DMibErrorInstance("No FunctionArn entry found for updated function"));
 
-					Continuation.f_SetResult(fg_Move(FunctionInfo));
+					Promise.f_SetResult(fg_Move(FunctionInfo));
 				}
 			;
 
-			return Continuation;
+			return Promise.f_MoveFuture();
 		}
 
-		TCContinuation<CJSON> f_GetFunctionVersions(CStr const &_FunctionName)
+		TCFuture<CJSON> f_GetFunctionVersions(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
 			return fg_DoAWSRequestJSON("Get function versions", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
-		TCContinuation<CFunctionInfo> f_PublishVersion(CStr const &_FunctionName)
+		TCFuture<CFunctionInfo> f_PublishVersion(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
-			TCContinuation<CFunctionInfo> Continuation;
+			TCPromise<CFunctionInfo> Promise;
 			fg_DoAWSRequestJSON("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda")
-				> Continuation / [=](CJSON &&_Results)
+				> Promise / [=](CJSON &&_Results)
 				{
 					CFunctionInfo FunctionInfo;
 					FunctionInfo.m_Version = _Results.f_GetMemberValue("Version", "").f_String();
 					FunctionInfo.m_Arn = _Results.f_GetMemberValue("FunctionArn", "").f_String();
 
 					if (FunctionInfo.m_Version.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No Version entry found for updated function"));
+						return Promise.f_SetException(DMibErrorInstance("No Version entry found for updated function"));
 					if (FunctionInfo.m_Arn.f_IsEmpty())
-						return Continuation.f_SetException(DMibErrorInstance("No FunctionArn entry found for updated function"));
+						return Promise.f_SetException(DMibErrorInstance("No FunctionArn entry found for updated function"));
 
-					Continuation.f_SetResult(fg_Move(FunctionInfo));
+					Promise.f_SetResult(fg_Move(FunctionInfo));
 				}
 			;
 
-			return Continuation;
+			return Promise.f_MoveFuture();
 		}
 	};
 
@@ -556,7 +556,7 @@ namespace NMib::NWeb
 
 	CAwsLambdaActor::~CAwsLambdaActor() = default;
 
-	TCContinuation<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction
+	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction
 		(
 		 	CStr const &_FunctionName
 		 	, TCMap<CStr, CStr> const &_Files
@@ -565,8 +565,8 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		TCContinuation<CFunctionInfo> Continuation;
-		Internal.f_CreateCodeBlob(_Files) > Continuation / [=](CInternal::CCodeBlob &&_CodeBlob)
+		TCPromise<CFunctionInfo> Promise;
+		Internal.f_CreateCodeBlob(_Files) > Promise / [=](CInternal::CCodeBlob &&_CodeBlob)
 			{
 				auto &Internal = *mp_pInternal;
 
@@ -584,14 +584,14 @@ namespace NMib::NWeb
 							{
 								if (_Exception.f_GetSpecific().m_StatusCode == 404)
 								{
-									Internal.f_CreateFunction(_FunctionName, _CodeBlob, _Config) > Continuation;
+									Internal.f_CreateFunction(_FunctionName, _CodeBlob, _Config) > Promise;
 									return;
 								}
 							}
 							catch (NException::CException const &)
 							{
 							}
-							return Continuation.f_SetException(_ExistingFunction);
+							return Promise.f_SetException(_ExistingFunction);
 						}
 
 						auto &ExistingFunction = fg_Const(*_ExistingFunction);
@@ -614,12 +614,12 @@ namespace NMib::NWeb
 								}
 							;
 
-							TCContinuation<CFunctionInfo> UpdateFunctionCodeContinuation;
+							TCPromise<CFunctionInfo> UpdateFunctionCodePromise;
 							if (Hash != _CodeBlob.m_SHA256)
-								UpdateFunctionCodeContinuation = Internal.f_UpdateFunctionCode(_FunctionName, _CodeBlob, _Config);
+								Internal.f_UpdateFunctionCode(_FunctionName, _CodeBlob, _Config) > UpdateFunctionCodePromise;
 							else
 							{
-								Internal.f_GetFunctionVersions(_FunctionName) > UpdateFunctionCodeContinuation / [=](CJSON const &_VersionsJSON)
+								Internal.f_GetFunctionVersions(_FunctionName) > UpdateFunctionCodePromise / [=](CJSON const &_VersionsJSON)
 									{
 										auto &Internal = *mp_pInternal;
 										try
@@ -635,7 +635,7 @@ namespace NMib::NWeb
 
 													if (Version == "$LATEST")
 														continue;
-													UpdateFunctionCodeContinuation.f_SetResult
+													UpdateFunctionCodePromise.f_SetResult
 														(
 															CFunctionInfo
 															{
@@ -648,13 +648,13 @@ namespace NMib::NWeb
 												}
 											}
 											if (_Config.m_bPublish && *_Config.m_bPublish)
-												Internal.f_PublishVersion(_FunctionName) > UpdateFunctionCodeContinuation;
+												Internal.f_PublishVersion(_FunctionName) > UpdateFunctionCodePromise;
 											else
-												UpdateFunctionCodeContinuation.f_SetResult(LatestFunctionInfo);
+												UpdateFunctionCodePromise.f_SetResult(LatestFunctionInfo);
 										}
 										catch (NException::CException const &_Exception)
 										{
-											UpdateFunctionCodeContinuation.f_SetException(DMibErrorInstance("Unexpected return from get function versions: {}"_f << _Exception));
+											UpdateFunctionCodePromise.f_SetException(DMibErrorInstance("Unexpected return from get function versions: {}"_f << _Exception));
 										}
 									}
 								;
@@ -686,27 +686,27 @@ namespace NMib::NWeb
 							if (_Config.m_TimeoutSeconds && _Config.m_TimeoutSeconds != ExistingConfig.m_TimeoutSeconds)
 								bChangedConfig = true;
 
-							TCContinuation<void> UpdateFunctionConfigurationContinuation;
+							TCFuture<void> UpdateFunctionConfigurationFuture;
 							if (bChangedConfig)
-								UpdateFunctionConfigurationContinuation = Internal.f_UpdateFunctionConfiguration(_FunctionName, _Config);
+								UpdateFunctionConfigurationFuture = Internal.f_UpdateFunctionConfiguration(_FunctionName, _Config);
 							else
-								UpdateFunctionConfigurationContinuation.f_SetResult();
+								UpdateFunctionConfigurationFuture = fg_Explicit();
 
-							UpdateFunctionCodeContinuation + UpdateFunctionConfigurationContinuation > Continuation / [Continuation](CFunctionInfo &&_Info, CVoidTag)
+							UpdateFunctionCodePromise + UpdateFunctionConfigurationFuture > Promise / [Promise](CFunctionInfo &&_Info, CVoidTag)
 								{
-									Continuation.f_SetResult(fg_Move(_Info));
+									Promise.f_SetResult(fg_Move(_Info));
 								}
 							;
 						}
 						catch (NException::CException const &_Exception)
 						{
-							Continuation.f_SetException(DMibErrorInstance("Unexpected return from get function: {}"_f << _Exception));
+							Promise.f_SetException(DMibErrorInstance("Unexpected return from get function: {}"_f << _Exception));
 						}
 					}
 				;
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 }

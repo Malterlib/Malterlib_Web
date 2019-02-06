@@ -46,7 +46,7 @@ namespace NMib::NWeb
 		m_OnFailedConnection.f_Clear();
 	}
 
-	NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListenAddress
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListenAddress
 		(
 			NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo
 			, NMib::NNetwork::ENetFlag _ListenFlags
@@ -60,7 +60,7 @@ namespace NMib::NWeb
 		if (!SocketFactory)
 			SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> Ret;
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Ret;
 		try
 		{
 			if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
@@ -117,10 +117,10 @@ namespace NMib::NWeb
 			mp_pInternal->f_Clear();
 			Ret.f_SetCurrentException();
 		}
-		return Ret;
+		return Ret.f_MoveFuture();
 	}
 
-	NConcurrency::TCContinuation<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListen
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListen
 		(
 			uint16 _StartListen
 			, uint16 _nListen
@@ -143,21 +143,21 @@ namespace NMib::NWeb
 		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, _Actor, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
 	}
 
-	NConcurrency::TCContinuation<void> CWebSocketServerActor::fp_Destroy()
+	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
 		NConcurrency::TCActorResultVector<void> Results;
 		for (auto &ListenSocket : Internal.m_ListenSockets)
 			ListenSocket->f_Destroy() > Results.f_AddResult();
 
-		NConcurrency::TCContinuation<void> Continuation;
+		NConcurrency::TCPromise<void> Promise;
 
-		Results.f_GetResults() > [Continuation](NConcurrency::TCAsyncResult<NContainer::TCVector<NConcurrency::TCAsyncResult<void>>> &&_Results)
+		Results.f_GetResults() > [Promise](NConcurrency::TCAsyncResult<NContainer::TCVector<NConcurrency::TCAsyncResult<void>>> &&_Results)
 			{
 
 				if (!_Results)
 				{
-					Continuation.f_SetException(DMibErrorInstance(fg_Format("Results.f_GetResults() failed: {}", _Results.f_GetExceptionStr())));
+					Promise.f_SetException(DMibErrorInstance(fg_Format("Results.f_GetResults() failed: {}", _Results.f_GetExceptionStr())));
 					return;
 				};
 
@@ -179,15 +179,15 @@ namespace NMib::NWeb
 
 				if (!Errors.f_IsEmpty())
 				{
-					Continuation.f_SetException(DMibErrorInstance(Errors));
+					Promise.f_SetException(DMibErrorInstance(Errors));
 					return;
 				}
 
-				Continuation.f_SetResult();
+				Promise.f_SetResult();
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 
 	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> && _Connection)

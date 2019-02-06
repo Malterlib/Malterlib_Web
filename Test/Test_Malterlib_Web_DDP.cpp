@@ -43,7 +43,7 @@ public:
 		{
 		}
 		
-		TCContinuation<void> fp_Destroy() override
+		TCFuture<void> fp_Destroy() override
 		{
 			if (m_WebsocketServer)
 				return m_WebsocketServer->f_Destroy();
@@ -91,9 +91,9 @@ public:
 			return Ret;
 		}
 		
-		TCContinuation<CServer *> f_Start()
+		TCFuture<CServer *> f_Start()
 		{
-			TCContinuation<CServer *> Continuation;
+			TCPromise<CServer *> Promise;
 			m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
 
 			NNetwork::CNetAddressTCPv4 ToListenTo;
@@ -261,24 +261,24 @@ public:
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
-				> fg_ConcurrentActor() / [this, Continuation](NConcurrency::TCAsyncResult<CActorSubscription> &&_Result)
+				> fg_ConcurrentActor() / [this, Promise](NConcurrency::TCAsyncResult<CActorSubscription> &&_Result)
 				{
 					DMibLock(m_Lock);
 					if (_Result)
 					{
 						m_ListenCallbackReference = fg_Move(*_Result);
 						m_Event.f_Signal();
-						Continuation.f_SetResult(this);
+						Promise.f_SetResult(this);
 					}
 					else
 					{
 						f_ReportError(_Result.f_GetExceptionStr());
-						Continuation.f_SetException(_Result);
+						Promise.f_SetException(_Result);
 					}
 				}
 			;
 			
-			return Continuation;
+			return Promise.f_MoveFuture();
 		}
 	};
 	

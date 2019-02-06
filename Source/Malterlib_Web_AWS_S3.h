@@ -74,21 +74,21 @@ namespace NMib::NWeb
 			EStorageClass m_StorageClass = EStorageClass_Unknown;
 		};
 
-		NConcurrency::TCContinuation<CListBucket> f_ListBucket(NStr::CStr const &_BucketName);
+		NConcurrency::TCFuture<CListBucket> f_ListBucket(NStr::CStr const &_BucketName);
 
-		NConcurrency::TCContinuation<CObjectInfoMetaData> f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
-		NConcurrency::TCContinuation<void> f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data);
-		NConcurrency::TCContinuation<void> f_PutObjectMultipart
+		NConcurrency::TCFuture<CObjectInfoMetaData> f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
+		NConcurrency::TCFuture<void> f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data);
+		NConcurrency::TCFuture<void> f_PutObjectMultipart
 			(
 			 	NStr::CStr const &_BucketName
 			 	, NStr::CStr const &_Key
 			 	, CPutObjectInfo const &_Info
 			 	, uint64 _TotalSize
-			 	, NConcurrency::TCActorFunctor<NConcurrency::TCContinuation<NContainer::CByteVector> ()> &&_fGetPart
+			 	, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
 			)
 		;
 
-		NConcurrency::TCContinuation<void> f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
+		NConcurrency::TCFuture<void> f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key);
 
 		CAwsS3Actor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
 		~CAwsS3Actor();

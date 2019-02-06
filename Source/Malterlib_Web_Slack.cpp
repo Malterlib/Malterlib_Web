@@ -58,7 +58,7 @@ namespace NMib::NWeb
 		return OutString;
 	}
 
-	NConcurrency::TCContinuation<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
+	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
 	{
 		CEJSON SlackMessage(EJSONType_Object);
 
@@ -163,7 +163,7 @@ namespace NMib::NWeb
 			}
 		}
 
-		NConcurrency::TCContinuation<void> Continuation;
+		NConcurrency::TCPromise<void> Promise;
 		auto &Internal = *mp_pInternal;
 		auto SlackMessageString = SlackMessage.f_ToString();
 		Internal.m_CurlActor
@@ -175,17 +175,17 @@ namespace NMib::NWeb
 			 	, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
 			 	, TCMap<CStr, CStr>{}
 			)
-			> Continuation / [Continuation](CCurlActor::CResult &&_Result)
+			> Promise / [Promise](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != 200)
 				{
-					Continuation.f_SetException(DMibErrorInstance("Slack request failed with status {}: {}"_f << _Result.m_StatusCode << _Result.m_Body));
+					Promise.f_SetException(DMibErrorInstance("Slack request failed with status {}: {}"_f << _Result.m_StatusCode << _Result.m_Body));
 					return;
 				}
-				Continuation.f_SetResult();
+				Promise.f_SetResult();
 			}
 		;
 
-		return Continuation;
+		return Promise.f_MoveFuture();
 	}
 }

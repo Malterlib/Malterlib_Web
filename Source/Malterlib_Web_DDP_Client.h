@@ -94,7 +94,7 @@ namespace NMib::NWeb
 		;
 		~CDDPClient();
 
-		NConcurrency::TCContinuation<CConnectInfo> f_Connect
+		NConcurrency::TCFuture<CConnectInfo> f_Connect
 			(
 				NStr::CStr const &_UserName
 				, NStr::CStrSecure const &_Password
@@ -105,8 +105,8 @@ namespace NMib::NWeb
 				, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
-		NConcurrency::TCContinuation<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
-		NConcurrency::TCContinuation<NEncoding::CEJSON> f_MethodWithUpdated
+		NConcurrency::TCFuture<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
+		NConcurrency::TCFuture<NEncoding::CEJSON> f_MethodWithUpdated
 			(
 				NStr::CStr const &_MethodName
 				, NContainer::TCVector<NEncoding::CEJSON> const &_Params
@@ -114,7 +114,7 @@ namespace NMib::NWeb
 				, NFunction::TCFunction<void ()> &&_fOnUpdated
 			)
 		;
-		NConcurrency::TCContinuation<NConcurrency::CActorSubscription> f_Subscribe
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Subscribe
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
 				, NStr::CStr const &_SubscriptionName
@@ -141,7 +141,7 @@ namespace NMib::NWeb
 
 	private:
 
-		NConcurrency::TCContinuation<void> fp_Destroy() override;
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
