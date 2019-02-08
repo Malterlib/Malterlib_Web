@@ -5,6 +5,7 @@
 #include <Mib/Web/WebSocket>
 #include <Mib/Encoding/EJSON>
 #include <Mib/Storage/Variant>
+#include <Mib/Storage/Indirection>
 
 namespace NMib::NWeb
 {
