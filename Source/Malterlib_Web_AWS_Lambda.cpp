@@ -189,7 +189,7 @@ namespace NMib::NWeb
 		};
 	}
 
-	struct CAwsLambdaActor::CInternal
+	struct CAwsLambdaActor::CInternal : public NConcurrency::CActorInternal
 	{
 		
 		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)

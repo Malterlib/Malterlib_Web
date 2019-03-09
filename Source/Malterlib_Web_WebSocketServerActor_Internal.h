@@ -9,7 +9,7 @@
 
 namespace NMib::NWeb
 {
-	struct CWebSocketServerActor::CInternal
+	struct CWebSocketServerActor::CInternal : public NConcurrency::CActorInternal
 	{
 
 		CInternal(CWebSocketServerActor *_pThis)

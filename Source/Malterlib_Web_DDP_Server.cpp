@@ -3,11 +3,10 @@
 #include "Malterlib_Web_DDP_Client.h"
 
 #include <Mib/Concurrency/ActorCallbackManager>
-#include <Mib/Concurrency/Actor/Timer>
 
 namespace NMib::NWeb
 {
-	struct CDDPServerConnection::CInternal
+	struct CDDPServerConnection::CInternal : public NConcurrency::CActorInternal
 	{
 		CDDPServerConnection *mp_pServerConnection;
 		NStorage::TCUniquePointer<CWebSocketNewServerConnection> m_pNewWebsocketConnection;

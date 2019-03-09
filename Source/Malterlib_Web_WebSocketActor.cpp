@@ -3,7 +3,6 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/ActorCallbackManager>
-#include <Mib/Concurrency/Actor/Timer>
 
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
@@ -122,7 +121,7 @@ namespace NMib::NWeb
 		};
 	}
 
-	struct CWebSocketActor::CInternal
+	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
 		CInternal(CWebSocketActor *_pThis, bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
 			: m_pThis(_pThis)

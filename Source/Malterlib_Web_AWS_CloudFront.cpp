@@ -9,7 +9,7 @@
 
 namespace NMib::NWeb
 {
-	struct CAwsCloudFrontActor::CInternal
+	struct CAwsCloudFrontActor::CInternal : public NConcurrency::CActorInternal
 	{
 		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
 			: m_CurlActor{_CurlActor}

@@ -4,7 +4,6 @@
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Cryptography/Hashes/SHA>
 #include <Mib/Cryptography/RandomID>
-#include <Mib/Concurrency/Actor/Timer>
 #include <Mib/Concurrency/ConcurrencyDefines>
 
 #include "Malterlib_Web_DDP_Client.h"
@@ -24,7 +23,7 @@ namespace NMib::NWeb
 		}
 	};
 
-	struct CDDPClient::CInternal
+	struct CDDPClient::CInternal : public NConcurrency::CActorInternal
 	{
 		enum EChangeOperation
 		{

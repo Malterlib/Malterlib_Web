@@ -13,7 +13,7 @@ namespace NMib::NWeb
 	using namespace NContainer;
 	using namespace NStr;
 
-	struct CSlackActor::CInternal
+	struct CSlackActor::CInternal : public NConcurrency::CActorInternal
 	{
 		CInternal(NConcurrency::TCActor<CCurlActor> const &_CurlActor)
 			: m_CurlActor{_CurlActor}
