@@ -14,6 +14,8 @@ namespace NMib::NWeb::NHTTP
 		{
 			CPageSizeScope(mint _PageSize);
 			~CPageSizeScope();
+
+			DMibThreadLocalScopeDebugMember;
 		};
 
 		struct CPageAllocator : public NMemory::CAllocator_Heap
