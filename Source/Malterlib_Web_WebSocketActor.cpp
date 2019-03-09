@@ -161,6 +161,7 @@ namespace NMib::NWeb
 	public:
 		CWebSocketActor *m_pThis = nullptr;
 		NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
+		NMib::NNetwork::CNetAddress m_PeerAddress;
 
 		EState m_State = EState_None;
 
@@ -844,6 +845,7 @@ namespace NMib::NWeb
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
 				ConnectionInfo.m_ErrorStatus = _Status;
 				ConnectionInfo.m_Error = _Reason;
+				ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 				Internal.m_OnFinishClientConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 			}
 			else
@@ -851,6 +853,7 @@ namespace NMib::NWeb
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CConnectionInfo>();
 				ConnectionInfo.m_ErrorStatus = _Status;
 				ConnectionInfo.m_Error = _Reason;
+				ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 				Internal.m_OnFinishConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 			}
 		}
@@ -1513,7 +1516,7 @@ namespace NMib::NWeb
 									}
 								}
 								ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
-								ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
+								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 								Internal.m_State = EState_Connected;
 								Internal.m_OnFinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 								bMoreWork = true;
@@ -1613,7 +1616,7 @@ namespace NMib::NWeb
 								ConnectionInfo.m_ID = *pKey;
 								ConnectionInfo.m_ProtocolVersion = *pVersion;
 								ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
-								ConnectionInfo.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
+								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 
 								Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 								bMoreWork = true;
@@ -1849,6 +1852,13 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 		Internal.m_pSocket = fg_Move(_pSocket);
+		try
+		{
+			Internal.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
+		}
+		catch (NNetwork::CExceptionNet const &)
+		{
+		}
 		fp_ProcessState();
 	}
 
