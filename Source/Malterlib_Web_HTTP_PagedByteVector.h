@@ -62,7 +62,7 @@ namespace NMib::NWeb::NHTTP
 		void f_RemoveFront(mint _nBytes);
 		void f_RemoveBack(mint _nBytes);
 
-		enum class EMatchResult
+		enum EMatchResult
 		{
 			EMatchResult_None
 			, EMatchResult_Partial
