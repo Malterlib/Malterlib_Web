@@ -34,18 +34,18 @@ namespace NMib::NWeb::NHTTP
 
 		NContainer::CByteVector mp_Content;
 
-		EParse fp_ParseHeader(CPagedByteVector &_Data);
+		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr _Text);
 
 		// If content can be parsed returns true and sets _oNextParseState to the parse state to use
 		// to parse it.
-		bool fp_ParseContent(CPagedByteVector const &_Data, EParseState &_oNextParseState);
+		bool fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &_oNextParseState);
 
-		EParse fp_ParseChunkedData(CPagedByteVector &_Data);
+		EParse fp_ParseChunkedData(NContainer::CPagedByteVector &_Data);
 
-		EParse fp_ParseContent_Plain(CPagedByteVector &_Data);
-		EParse fp_ParseContent_Chunked(CPagedByteVector &_Data);
-		EParse fp_ParseContent_Chunked_Trailers(CPagedByteVector &_Data);
+		EParse fp_ParseContent_Plain(NContainer::CPagedByteVector &_Data);
+		EParse fp_ParseContent_Chunked(NContainer::CPagedByteVector &_Data);
+		EParse fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 	public:
@@ -59,7 +59,7 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr f_GetErrors() const;
 
 		// See the comment for f_Parse in CRequest in HTTP_Request.h
-		ERequestStatus f_Parse(CPagedByteVector &_Data);
+		ERequestStatus f_Parse(NContainer::CPagedByteVector &_Data);
 		void f_WriteHeaders(COutputMethod const &_fOutput);
 
 		CRequestLine const &f_GetRequestLine() const;

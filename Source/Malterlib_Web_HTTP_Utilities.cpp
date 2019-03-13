@@ -2,7 +2,6 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_HTTP_Utilities.h"
-#include "Malterlib_Web_HTTP_PagedByteVector.h"
 
 namespace NMib::NWeb::NHTTP
 {
@@ -36,7 +35,7 @@ namespace NMib::NWeb::NHTTP
 	// Peeks an ASCII line terminated by CRLF from _Data, starting at _iPos.
 	// On success returns true and sets _iPos to the first byte after the CRLF
 	// On failure returns false and does not alter _iPos
-	bint fg_PeekLine(CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine)
+	bint fg_PeekLine(NContainer::CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine)
 	{
 		NStr::CStr Result;
 		static uint8 const CRLFCRLF[] = { '\r', '\n', '\r', '\n'};

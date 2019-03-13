@@ -82,7 +82,7 @@ namespace NMib::NWeb::NHTTP
 				- The request is not complete yet and f_Parse should be called again as new data arrives.
 					_Data may or may not have been altered in this case.
 	*/
-	ERequestStatus CRequest::f_Parse(CPagedByteVector& _Data)
+	ERequestStatus CRequest::f_Parse(NContainer::CPagedByteVector& _Data)
 	{
 		return mp_pD->f_Parse(_Data);
 	}
@@ -169,7 +169,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Errors;
 	}
 
-	ERequestStatus CRequest::CDetails::f_Parse(CPagedByteVector& _Data)
+	ERequestStatus CRequest::CDetails::f_Parse(NContainer::CPagedByteVector& _Data)
 	{
 		if (mp_Status == ERequestStatus_Empty)
 			mp_ParseState = EParseState_Header;
@@ -358,7 +358,7 @@ namespace NMib::NWeb::NHTTP
 	//
 	// CRequest::CDetails Private Methods
 	//
-	EParse CRequest::CDetails::fp_ParseHeader(CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseHeader(NContainer::CPagedByteVector& _Data)
 	{
 		// A header will always end with a CRLFCRLF sequence
 		// So we use that to detect if we have a complete header available.
@@ -436,7 +436,7 @@ namespace NMib::NWeb::NHTTP
 		return EParse_OK;
 	}
 
-	bool CRequest::CDetails::fp_ParseContent(CPagedByteVector const& _Data, EParseState& _oNextParseState)
+	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const& _Data, EParseState& _oNextParseState)
 	{
 		bint bContentExpected = false;
 
@@ -528,7 +528,7 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
-	EParse CRequest::CDetails::fp_ParseContent_Plain(CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Plain(NContainer::CPagedByteVector& _Data)
 	{
 		if (!mp_EntityFields.f_HasField(EEntityField_ContentLength))
 			return EParse_Invalid;
@@ -561,7 +561,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// RFC 2616 Section 3.6.1 HTTP Message
-	EParse CRequest::CDetails::fp_ParseContent_Chunked(CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Chunked(NContainer::CPagedByteVector& _Data)
 	{
 		// Read chunks
 
@@ -638,7 +638,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// RFC 2616 Section 3.6.1 HTTP Message
-	EParse CRequest::CDetails::fp_ParseContent_Chunked_Trailers(CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector& _Data)
 	{
 		// Read trailers
 

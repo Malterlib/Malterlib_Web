@@ -15,14 +15,12 @@ up a HTTP message header.
 #pragma once
 #include <Mib/Core/Core>
 #include <Mib/Storage/Variant>
+#include <Mib/Container/PagedByteVector>
 #include "Malterlib_Web_HTTP_HTTP.h"
 #include "Malterlib_Web_HTTP_URL.h"
-#include "Malterlib_Web_HTTP_PagedByteVector.h"
 
 namespace NMib::NWeb::NHTTP
 {
-	class CPagedByteVector;
-
 	typedef NFunction::TCFunction<void (uint8 const *_pBytes, mint _nBytes)> COutputMethod;
 
 	// Request line fields

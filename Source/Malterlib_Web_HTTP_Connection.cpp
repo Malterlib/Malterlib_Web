@@ -1,9 +1,9 @@
 // Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
+#include <Mib/Container/PagedByteVector>
 #include "Malterlib_Web_HTTP_Connection.h"
 #include "Malterlib_Web_HTTP_Request.h"
-#include "Malterlib_Web_HTTP_PagedByteVector.h"
 
 namespace NMib::NWeb::NHTTP
 {
@@ -21,7 +21,7 @@ namespace NMib::NWeb::NHTTP
 
 		NStorage::TCUniquePointer<NMib::NNetwork::CSocket> mp_pSocket;
 
-		CPagedByteVector mp_IncomingBuffer;
+		NContainer::CPagedByteVector mp_IncomingBuffer;
 
 		bint mp_bFirstProcess;
 

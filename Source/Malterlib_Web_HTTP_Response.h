@@ -107,7 +107,7 @@ namespace NMib::NWeb::NHTTP
 
 		CResponseContent f_Complete();
 
-		EResponseStatus f_Parse(CPagedByteVector& _Data);
+		EResponseStatus f_Parse(NContainer::CPagedByteVector& _Data);
 	};
 }
 

@@ -3,6 +3,7 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Container/PagedByteVector>
 
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
@@ -29,7 +30,7 @@ namespace NMib::NWeb
 {
 	static ch8 const gs_PingMessageData[] = "WdI6Q6-HvOxlK5Vc";
 
-	typedef NHTTP::TCBinaryStreamPagedByteVector<NStream::CBinaryStreamBigEndian> CBinaryStreamPagedByteVector;
+	typedef NContainer::TCBinaryStreamPagedByteVector<NStream::CBinaryStreamBigEndian> CBinaryStreamPagedByteVector;
 	namespace
 	{
 		enum EState
@@ -165,8 +166,8 @@ namespace NMib::NWeb
 
 		EState m_State = EState_None;
 
-		NHTTP::CPagedByteVector m_IncomingData;
-		NHTTP::CPagedByteVector m_OutgoingData;
+		NContainer::CPagedByteVector m_IncomingData;
+		NContainer::CPagedByteVector m_OutgoingData;
 		std::deque<COutgoingDataPromise> m_OutgoingDataPromises;
 		mint m_nSentBytes = 0;
 

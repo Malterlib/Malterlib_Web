@@ -47,7 +47,7 @@ namespace NMib::NWeb::NHTTP
 		EParseState mp_ParseState;
 		NStr::CStr mp_Errors;
 
-		EParse fp_ParseHeader(CPagedByteVector &_Data);
+		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr _Text);
 		EParse fp_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value);
 
@@ -59,7 +59,7 @@ namespace NMib::NWeb::NHTTP
 		CEntityFields m_EntityFields;
 		CStatusLine m_Status;
 
-		EResponseStatus f_Parse(CPagedByteVector& _Data);
+		EResponseStatus f_Parse(NContainer::CPagedByteVector& _Data);
 	};
 
 	//
@@ -171,7 +171,7 @@ namespace NMib::NWeb::NHTTP
 	//
 	// CRequest::CDetails Private Methods
 	//
-	EParse CResponseDetails::fp_ParseHeader(CPagedByteVector& _Data)
+	EParse CResponseDetails::fp_ParseHeader(NContainer::CPagedByteVector& _Data)
 	{
 		// A header will always end with a CRLFCRLF sequence
 		// So we use that to detect if we have a complete header available.
@@ -285,7 +285,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 
-	EResponseStatus CResponseDetails::f_Parse(CPagedByteVector& _Data)
+	EResponseStatus CResponseDetails::f_Parse(NContainer::CPagedByteVector& _Data)
 	{
 
 		if (mp_Status == EResponseStatus_Empty)
@@ -356,7 +356,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Status;
 	}
 
-	EResponseStatus CResponseHeader::f_Parse(CPagedByteVector& _Data)
+	EResponseStatus CResponseHeader::f_Parse(NContainer::CPagedByteVector& _Data)
 	{
 		return mp_pD->f_Parse(_Data);
 	}

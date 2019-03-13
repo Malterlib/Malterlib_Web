@@ -3,6 +3,8 @@
 
 #pragma once
 #include <Mib/Core/Core>
+#include <Mib/Container/PagedByteVector>
+
 #include "Malterlib_Web_HTTP_HTTP.h"
 
 namespace NMib::NWeb::NHTTP
@@ -11,11 +13,9 @@ namespace NMib::NWeb::NHTTP
 	// Utility Methods
 	//
 
-	class CPagedByteVector;
-
 	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep);
 
-	bint fg_PeekLine(CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
+	bint fg_PeekLine(NContainer::CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
 }
 
 #ifndef DMibPNoShortCuts

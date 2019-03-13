@@ -3,9 +3,8 @@
 
 #pragma once
 #include <Mib/Core/Core>
-#include <utility>
+#include <Mib/Container/PagedByteVector>
 #include "Malterlib_Web_HTTP_Fields.h"
-#include "Malterlib_Web_HTTP_PagedByteVector.h"
 
 namespace NMib::NWeb::NHTTP
 {
@@ -55,7 +54,7 @@ namespace NMib::NWeb::NHTTP
 					- The request is not complete yet and f_Parse should be called again as new data arrives.
 						_Data may or may not have been altered in this case.
 		*/
-		ERequestStatus f_Parse(CPagedByteVector& _Data);
+		ERequestStatus f_Parse(NContainer::CPagedByteVector& _Data);
 		void f_WriteHeaders(COutputMethod const &_fOutput);
 
 		CRequestLine const &f_GetRequestLine() const;
@@ -67,7 +66,6 @@ namespace NMib::NWeb::NHTTP
 		CGeneralFields &f_GetGeneralFields();
 		CRequestFields &f_GetRequestFields();
 		CEntityFields &f_GetEntityFields();
-
 	};
 }
 
