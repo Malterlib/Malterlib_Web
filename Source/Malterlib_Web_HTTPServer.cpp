@@ -449,6 +449,9 @@ namespace NMib::NWeb
 			case 200:
 				Response = "HTTP/1.1 200 OK";
 				break;
+			case 400:
+				Response = "HTTP/1.1 400 Bad Request";
+				break;
 			case 403:
 				Response = "HTTP/1.1 403 Forbidden";
 				break;

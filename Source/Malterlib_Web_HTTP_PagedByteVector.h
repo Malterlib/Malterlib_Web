@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -62,9 +62,23 @@ namespace NMib::NWeb::NHTTP
 		void f_RemoveFront(mint _nBytes);
 		void f_RemoveBack(mint _nBytes);
 
+		enum class EMatchResult
+		{
+			EMatchResult_None
+			, EMatchResult_Partial
+			, EMatchResult_Full
+		};
+
 		// If _pMatch is found at the front it is removed and this returns true.
 		// else this returns false and the data is untouched.
 		bint f_ExpectAndRemoveFront(uint8 const* _pMatch, mint _nMatchBytes);
+
+		// If _pMatch is found at the front it is removed and this returns EMatchResult_Full.
+		// If the buffer ends before a whole _pMatch is found (but all existing buffer bytes match
+		// _pMatch ) then EMatchResult_Partial is returned and the buffer is untouched.
+		// If the buffer cannot match _pMatch then EMatchResult_None is returned and the buffer
+		// is untouched.
+		EMatchResult f_ExpectAndRemoveFrontEx(uint8 const* _pMatch, mint _nMatchBytes);
 
 		// tf_FReader is of the format: void (mint _iStart, uint8 const* _pPtr, mint _nBytes)
 		template <typename tf_FReader>
@@ -86,12 +100,31 @@ namespace NMib::NWeb::NHTTP
 		template <typename tf_FReader>
 		inline bint f_ReadBack(mint _nBytes, tf_FReader &&_fReader) const;
 
+		bint f_FindFront(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos) const;
+
 		// tf_FReader is of the format: void (mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
 		template <typename tf_FReader>
 		inline bint f_ReadFrontUntil(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos, tf_FReader &&_fReader) const;
 
-		bint f_FindFront(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos) const;
+		// Searches from the front for _pMatch.
+		// If a full match is found EMatchResult_Full is returned and _oPos is set to the offset of
+		// the start of _pMatch in the buffer.
+		// If the buffer ends with a prefix of _pMatch EMatchResult_Partial is returned and _oPos is set
+		// to the offset of the start of the potential match.
+			// NOTE: This doesn't mean that a match will definitely occur at this pos in the future!
+			// just that it could.
+		// If the buffer does not contain either a full match of _pMatch or end with a partial match
+		// then EMatchResult_None is returned and _oPos is unchanged.
+		EMatchResult f_FindFrontEx(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos) const;
 
+		// tf_FReader is of the format: void (mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
+		// Reads bytes ( fed to _fReader ) until either a full match of _pMatch is found or the buffer ends
+		// with a partial match for _pMatch, or ( differing from f_ReadFrontUntil above ) the buffer ends.
+		// Return value works the same as for f_FindFrontEx
+		template <typename tf_FReader>
+		inline EMatchResult f_ReadFrontUntilEx(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos, tf_FReader &&_fReader) const;
+
+		EMatchResult f_StartsWithEx(uint8 const* _pMatch, mint _nMatchBytes);
 	};
 
 	template <typename t_CInherit = NStream::CBinaryStreamLittleEndian>
@@ -129,7 +162,6 @@ namespace NMib::NWeb::NHTTP
 		NStream::CFilePos f_GetLength() const;
 		mint f_ContainerLengthLimit() const;
 		void f_SetLength(NStream::CFilePos _Length);
-
 	};
 }
 

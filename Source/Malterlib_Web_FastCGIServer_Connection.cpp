@@ -367,7 +367,7 @@ namespace NMib::NWeb
 			break;
 		case ERequestType_Data:
 			{
-				fp_OnStdIn(_pData, _DataLen);
+				fp_OnStdData(_pData, _DataLen);
 			}
 			break;
 		// Should have been taken care of separately

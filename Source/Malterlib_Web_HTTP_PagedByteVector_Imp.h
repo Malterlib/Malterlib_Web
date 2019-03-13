@@ -165,6 +165,29 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
+	// tf_FReader is of the format: void (mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
+	template <typename tf_FReader>
+	CPagedByteVector::EMatchResult CPagedByteVector::f_ReadFrontUntilEx(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos, tf_FReader &&_fReader) const
+	{
+		mint iEnd = f_GetLen();
+		EMatchResult Result = f_FindFrontEx(_pMatch, _nMatchBytes, iEnd);
+
+		// The return value does not matter here. Either iEnd is set to the start of a (potential)
+		// match or it is left as the end of the buffer.
+
+		f_ReadFront
+			(
+				iEnd
+				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bint
+				{
+					return fg_Forward<tf_FReader>(_fReader)(_iStart, _pPtr, _nBytes, iEnd);
+				}
+			)
+		;
+		_oPos = iEnd;
+		return Result;
+	}
+
 
 	///
 	/// Stream

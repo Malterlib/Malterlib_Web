@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_HTTP_PagedByteVector.h"
@@ -220,38 +220,17 @@ namespace NMib::NWeb::NHTTP
 	// else this returns false and the data is untouched.
 	bint CPagedByteVector::f_ExpectAndRemoveFront(uint8 const* _pMatch, mint _nMatchBytes)
 	{
-		bint bFound = false;
-		mint iMatchPos = 0;
-		f_ReadFront
-			(
-				_nMatchBytes
-				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bint
-				{
-					if (NMemory::fg_MemCmp(_pMatch + iMatchPos, _pPtr, _nBytes) == 0)
-					{
-						iMatchPos += _nBytes;
-						if (iMatchPos == _nMatchBytes)
-						{
-							bFound = true;
-							return false;
-						}
-						else
-						{
-							return true;
-						}
-					}
-					else
-					{
-						bFound = false;
-						return false;
-					}
-				}
-			)
-		;
-		if (bFound)
+		return f_ExpectAndRemoveFrontEx(_pMatch, _nMatchBytes) == EMatchResult_Full;
+	}
+
+	CPagedByteVector::EMatchResult CPagedByteVector::f_ExpectAndRemoveFrontEx(uint8 const* _pMatch, mint _nMatchBytes)
+	{
+		EMatchResult Result = f_StartsWithEx(_pMatch, _nMatchBytes);
+
+		if (Result == EMatchResult_Full)
 			f_RemoveFront(_nMatchBytes);
 
-		return bFound;
+		return Result;
 	}
 
 	uint8 *CPagedByteVector::fp_InsertPage(bint _bFront)
@@ -266,7 +245,21 @@ namespace NMib::NWeb::NHTTP
 
 	bint CPagedByteVector::f_FindFront(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos) const
 	{
+		mint Pos = 0;
+
+		if (f_FindFrontEx( _pMatch, _nMatchBytes, Pos ) == EMatchResult_Full)
+		{
+			_oPos = Pos;
+			return true;
+		}
+		else
+			return false;
+	}
+
+	CPagedByteVector::EMatchResult CPagedByteVector::f_FindFrontEx(uint8 const* _pMatch, mint _nMatchBytes, mint& _oPos) const
+	{
 		bint bFound = false;
+		bint bDoesNotMatch = false;
 		mint iFoundPos = 0;
 
 		f_ReadFront
@@ -305,6 +298,7 @@ namespace NMib::NWeb::NHTTP
 										else
 										{
 											bFound = false;
+											bDoesNotMatch = true;
 											return false;
 										}
 									}
@@ -324,8 +318,56 @@ namespace NMib::NWeb::NHTTP
 		;
 
 		if (bFound)
+		{
 			_oPos = iFoundPos;
+			return EMatchResult_Full;
+		}
+		else if ( !bDoesNotMatch )
+		{
+			_oPos = iFoundPos;
+			return EMatchResult_Partial;
+		}
+		else
+			return EMatchResult_None;
+	}
 
-		return bFound;
+	CPagedByteVector::EMatchResult CPagedByteVector::f_StartsWithEx(uint8 const* _pMatch, mint _nMatchBytes)
+	{
+		bint bFound = false;
+		bool bDoesNotMatch = false;
+		mint iMatchPos = 0;
+
+		f_ReadFront
+			(
+				_nMatchBytes
+				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bint
+				{
+					if (NMemory::fg_MemCmp(_pMatch + iMatchPos, _pPtr, _nBytes) == 0)
+					{
+						iMatchPos += _nBytes;
+						if (iMatchPos == _nMatchBytes)
+						{
+							bFound = true;
+							return false;
+						}
+						else
+							return true;
+					}
+					else
+					{
+						bFound = false;
+						bDoesNotMatch = true;
+						return false;
+					}
+				}
+			)
+		;
+
+		if (bFound)
+			return EMatchResult_Full;
+		else if ( !bDoesNotMatch )
+			return EMatchResult_Partial;
+		else
+			return EMatchResult_None;
 	}
 }
