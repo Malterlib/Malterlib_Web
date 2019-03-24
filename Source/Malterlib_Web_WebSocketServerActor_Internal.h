@@ -11,7 +11,6 @@ namespace NMib::NWeb
 {
 	struct CWebSocketServerActor::CInternal : public NConcurrency::CActorInternal
 	{
-
 		CInternal(CWebSocketServerActor *_pThis)
 			: m_pThis(_pThis)
 			, m_OnNewConnection(_pThis, false)
@@ -27,8 +26,6 @@ namespace NMib::NWeb
 
 		CWebSocketServerActor *m_pThis;
 		NContainer::TCVector<NConcurrency::TCActor<NWebSocket::CListenActor>> m_ListenSockets;
-		NContainer::TCSet<NConcurrency::TCActor<CWebSocketActor>> m_Connections;
-		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> m_pCanDestroyTracker;
 		NConcurrency::TCActorSubscriptionManager<void (CWebSocketNewServerConnection &&_NewConnection)> m_OnNewConnection;
 		NConcurrency::TCActorSubscriptionManager<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> m_OnFailedConnection;
 		fp64 m_Timeout;

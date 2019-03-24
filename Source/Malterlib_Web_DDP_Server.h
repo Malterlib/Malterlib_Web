@@ -159,12 +159,12 @@ namespace NMib::NWeb
 		NConcurrency::CActorSubscription f_Register
 			(
 				NConcurrency::TCActor<CActor> const &_Actor
-				, NFunction::TCFunction<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
-				, NFunction::TCFunction<void (CMethodInfo const &_MethodInfo)> &&_fOnMethod
-				, NFunction::TCFunction<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
-				, NFunction::TCFunction<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
-				, NFunction::TCFunction<void (NStr::CStr const &_Error)> &&_fOnError
-				, NFunction::TCFunction<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				, NFunction::TCFunctionMovable<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
+				, NFunction::TCFunctionMovable<void (CMethodInfo const &_MethodInfo)> &&_fOnMethod
+				, NFunction::TCFunctionMovable<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
+				, NFunction::TCFunctionMovable<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
+				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)> &&_fOnError
+				, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
 

@@ -199,11 +199,11 @@ namespace NMib::NWeb
 		NConcurrency::CActorSubscription fp_SetCallbacks
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-				, NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage)> &&_fReceiveBinaryMessage
-				, NFunction::TCFunctionMutable<void (NStr::CStr const &_Message)> &&_fReceiveTextMessage
-				, NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> &&_fReceivePing
-				, NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> &&_fReceivePong
-				, NFunction::TCFunctionMutable<void (EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage)> &&_fReceiveBinaryMessage
+				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Message)> &&_fReceiveTextMessage
+				, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> &&_fReceivePing
+				, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> &&_fReceivePong
+				, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
 
@@ -230,7 +230,7 @@ namespace NMib::NWeb
 		void fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
 		void fp_ProcessIncoming();
 		bool fp_ProcessIncomingMessage();
-		void fp_ProcessState();
+		void fp_ProcessState(NNetwork::ENetTCPState _StateAdded);
 		void fp_UpdateSend();
 		void fp_Shutdown();
 		void fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader);
@@ -242,13 +242,13 @@ namespace NMib::NWeb
 		NConcurrency::CActorSubscription fp_OnFinishServerConnection
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-				, NFunction::TCFunction<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+				, NFunction::TCFunctionMovable<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 			)
 		;
 		NConcurrency::CActorSubscription fp_OnFinishClientConnection
 			(
 				NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-				, NFunction::TCFunctionMutable<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+				, NFunction::TCFunctionMovable<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 				, NHTTP::CRequest &&_RequestHeader
 				, NStr::CStr const &_ConnectToAddress
 				, NStr::CStr const &_URI
@@ -266,11 +266,11 @@ namespace NMib::NWeb
 
 	struct CWebSocketNewConnection
 	{
-		NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_Message)> m_fOnReceiveBinaryMessage;
-		NFunction::TCFunctionMutable<void (NStr::CStr const &_Message)> m_fOnReceiveTextMessage;
-		NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> m_fOnReceivePing;
-		NFunction::TCFunctionMutable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> m_fOnReceivePong;
-		NFunction::TCFunctionMutable<void (EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+		NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_Message)> m_fOnReceiveBinaryMessage;
+		NFunction::TCFunctionMovable<void (NStr::CStr const &_Message)> m_fOnReceiveTextMessage;
+		NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> m_fOnReceivePing;
+		NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_ApplicationData)> m_fOnReceivePong;
+		NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 
 		CWebSocketNewConnection(CWebSocketNewConnection &&_Other)
 			: mp_Connection(fg_Move(_Other.mp_Connection))
@@ -389,8 +389,11 @@ namespace NMib::NWeb
 
 		struct CPendingConnection
 		{
+			~CPendingConnection();
+
 			NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
 			NConcurrency::CActorSubscription m_OnFinishConnectionSubscription;
+			NStorage::TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 		};
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
@@ -413,8 +416,8 @@ namespace NMib::NWeb
 				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
 				, NMib::NNetwork::ENetFlag _ListenFlags
 				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor // The actor to receive new connections
-				, NFunction::TCFunction<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection
-				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NFunction::TCFunctionMovable<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection
+				, NFunction::TCFunctionMovable<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
 				, NNetwork::FVirtualSocketFactory &&_SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			)
 		;
@@ -424,8 +427,8 @@ namespace NMib::NWeb
 				NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo // The addresses to listen to
 				, NMib::NNetwork::ENetFlag _ListenFlags
 				, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor // The actor to receive new connections
-				, NFunction::TCFunction<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection
-				, NFunction::TCFunction<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NFunction::TCFunctionMovable<void (CWebSocketNewServerConnection &&_Connection)> &&_fNewConnection	// The functor called on the actor for each new connection
+				, NFunction::TCFunctionMovable<void (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> &&_fFailedConnection	// The functor called on the actor for each connection attempt that failed
 				, NNetwork::FVirtualSocketFactory &&_SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			)
 		;

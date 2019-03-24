@@ -377,8 +377,7 @@ public:
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(20.0);
 
 					NStorage::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
-					NContainer::CSecureByteVector SecureBuffer = Buffer;
-					pMessageBuffers->m_Data = SecureBuffer;
+					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(20.0);
 
