@@ -60,7 +60,7 @@ namespace NMib::NWeb::NHTTP
 
 	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value)
 	{
-		CFieldValueAsStringVisitor Visitor(_Value.f_GetTypeID());
+		CFieldValueAsStringVisitor Visitor((EFieldType)_Value.f_GetTypeID());
 
 		fg_Visit(Visitor, _Value);
 

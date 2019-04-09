@@ -223,12 +223,12 @@ namespace NMib::NWeb::NHTTP
 
 	template <typename t_CSub, typename t_CEnum>
 	template <EFieldType t_FieldType>
-	auto TCFieldsBase<t_CSub, t_CEnum>::fp_GetField(t_CEnum _Field) const ->typename CFieldValue::TCTypeFromMember<t_FieldType>::CType
+	auto TCFieldsBase<t_CSub, t_CEnum>::fp_GetField(t_CEnum _Field) const ->CFieldValue::TCTypeFromMember<t_FieldType>
 	{
 		auto const* pValue = mp_Fields.f_FindEqual(_Field);
 		if (pValue)
 			return pValue->template f_Get<t_FieldType>();
 		else
-			return NPrivate::TCFieldsBase_GetDefaultValue<typename CFieldValue::TCTypeFromMember<t_FieldType>::CType>::fs_Default();
+			return NPrivate::TCFieldsBase_GetDefaultValue<CFieldValue::TCTypeFromMember<t_FieldType>>::fs_Default();
 	}
 }

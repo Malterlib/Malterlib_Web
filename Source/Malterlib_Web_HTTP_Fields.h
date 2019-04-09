@@ -77,18 +77,21 @@ namespace NMib::NWeb::NHTTP
 
 	enum EFieldType
 	{
-			EFieldType_String				// CStr
-		,	EFieldType_Mint					// mint
-		,	EFieldType_TransferEncoding		// ETransferEncoding
-		,	EFieldType_ConnectionToken		// EConnectionToken
+		EFieldType_String				// CStr
+		, EFieldType_Mint				// mint
+		, EFieldType_TransferEncoding	// ETransferEncoding
+		, EFieldType_ConnectionToken	// EConnectionToken
 	};
 
-	typedef NStorage::TCStreamableVariant<EFieldType
-								,	NStr::CStr, EFieldType_String
-								,	mint, EFieldType_Mint
-								,	ETransferEncoding, EFieldType_TransferEncoding
-								, 	EConnectionToken, EFieldType_ConnectionToken
-							> CFieldValue;
+	using CFieldValue = NStorage::TCStreamableVariant
+		<
+			EFieldType
+			, NStorage::TCMember<NStr::CStr, EFieldType_String>
+			, NStorage::TCMember<mint, EFieldType_Mint>
+			, NStorage::TCMember<ETransferEncoding, EFieldType_TransferEncoding>
+			, NStorage::TCMember<EConnectionToken, EFieldType_ConnectionToken>
+		>
+	;
 
 	// This is used to wrap a string value that may be static or dynamic.
 	// Static strings are stored as pointers, without allocation.
@@ -134,7 +137,7 @@ namespace NMib::NWeb::NHTTP
 		NContainer::TCMap<CEnum, CFieldValue> mp_Fields;
 
 		template <EFieldType t_FieldType>
-		auto fp_GetField(CEnum _Field) const -> typename CFieldValue::TCTypeFromMember<t_FieldType>::CType;
+		auto fp_GetField(CEnum _Field) const -> CFieldValue::TCTypeFromMember<t_FieldType>;
 
 	public:
 		TCFieldsBase();

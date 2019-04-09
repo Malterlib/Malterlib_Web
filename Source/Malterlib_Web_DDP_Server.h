@@ -144,12 +144,12 @@ namespace NMib::NWeb
 			= NStorage::TCStreamableVariant
 			<
 				EChange
-				, CAdded, EChange_Added
-				, CChanged, EChange_Changed
-				, CRemoved, EChange_Removed
-				, CReady, EChange_Ready
-				, CUpdated, EChange_Updated
-				, CNoSub, EChange_NoSub
+				, NStorage::TCMember<CAdded, EChange_Added>
+				, NStorage::TCMember<CChanged, EChange_Changed>
+				, NStorage::TCMember<CRemoved, EChange_Removed>
+				, NStorage::TCMember<CReady, EChange_Ready>
+				, NStorage::TCMember<CUpdated, EChange_Updated>
+				, NStorage::TCMember<CNoSub, EChange_NoSub>
 			>
 		;
 
