@@ -27,8 +27,6 @@ namespace NMib::NWeb
 		, mp_IncomingPosition(0)
 		, mp_ServerActor(_ServerActor)
 		, mp_OutgoingPosition(0)
-		, mp_ServerInternal(_ServerInternal)
-		, mp_ProcessingThread(0)
 		, mp_pOnRequest(_pOnRequest)
 	{
 	}
@@ -241,7 +239,7 @@ namespace NMib::NWeb
 
 	void CFastCGIConnectionActor::fp_OnParams()
 	{
-		NPtr::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), mp_pParams);
+		NStorage::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), mp_pParams);
 		(*mp_pOnRequest)(pRequest) > NConcurrency::fg_DiscardResult();
 	}
 

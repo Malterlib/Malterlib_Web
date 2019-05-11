@@ -186,7 +186,7 @@ namespace NMib
 						mp_pRequest->f_OnStdInputRaw
 							(
 								NConcurrency::g_ActorFunctor(NConcurrency::fg_ConcurrentActor())
-							 	> [nPostBytes, pData, _pThis](NContainer::CByteVector &&_Data, bool _bEOF) -> NConcurrency::TCContinuation<void>
+							 	/ [nPostBytes, pData, _pThis](NContainer::CByteVector &&_Data, bool _bEOF) -> NConcurrency::TCFuture<void>
 								{
 									pData->f_Insert(_Data);
 									
@@ -307,7 +307,7 @@ namespace NMib
 					(
 					 	&CFastCGIServer::f_Start
 						, NConcurrency::g_ActorFunctor(NConcurrency::fg_ConcurrentActor())
-					 	> [this](NStorage::TCSharedPointer<CFastCGIRequest> const& _pRequest) -> NConcurrency::TCContinuation<void>
+					 	/ [this](NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest) -> NConcurrency::TCFuture<void>
 						{
 							auto& Params = _pRequest->f_GetParams();
 							auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
@@ -335,7 +335,7 @@ namespace NMib
 						}
 					 	, mp_Options.m_FastCGIListenStartPort
 					 	, mp_Options.m_nMaxThreads
-					 	, NNet::CNetAddressTCPv4(NNet::CNetAddressIPv4(127, 0, 0, 1), 0)
+					 	, NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
 					)
 					> NConcurrency::fg_DiscardResult()
 				;

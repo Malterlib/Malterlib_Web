@@ -21,7 +21,7 @@ namespace NMib::NWeb
 				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
-				, NNet::CNetAddress const &_BindAddress
+				, NNetwork::CNetAddress const &_BindAddress
 			)
 		;
 
