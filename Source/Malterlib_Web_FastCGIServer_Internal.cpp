@@ -2,6 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/WeakActor>
 
 #include "Malterlib_Web_FastCGIServer_Internal.h"
 #include "Malterlib_Web_FastCGIServer_Listen.h"
@@ -10,91 +11,109 @@
 namespace NMib::NWeb
 {
 	using namespace NFastCGI;
-	CFastCGIServer::CInternal::CInternal
-		(
-			NFunction::TCFunction<void (NStorage::TCSharedPointer<CFastCGIRequest> const& _Request)> &&_fOnRequest
-			, uint16 _FastCGIListenStartPort
-			, uint16 _nListen
-		)
-		: mp_pCanDestroyTracker(fg_Construct())
-		, mp_fOnRequest(fg_Move(_fOnRequest))
+
+	CFastCGIServer::CInternal::CInternal(CFastCGIServer *_pThis)
+		: mp_pThis(_pThis)
 	{
-		fp_Startup(_FastCGIListenStartPort, _nListen);
 	}
 
 	CFastCGIServer::CInternal::~CInternal()
 	{
 	}
 
-	void CFastCGIServer::CInternal::f_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection)
+	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
+		(
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			, uint16 _FastCGIListenStartPort
+			, uint16 _nListen
+			, NNetwork::CNetAddress const &_BindAddress
+		)
 	{
-		mp_Connections[_Connection];
-	}
+		if (mp_pOnRequest)
+			return DMibErrorInstance("Already started");
+		mp_pOnRequest = fg_Construct(fg_Move(_fOnRequest));
 
-	void CFastCGIServer::CInternal::f_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const& _Connection)
-	{
-		if (mp_Connections.f_Remove(_Connection))
-			_Connection->f_Destroy() > mp_pCanDestroyTracker->f_Track();
-	}
-
-	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::fp_Destroy()
-	{
-		auto pCanDestroy = fg_Move(mp_pCanDestroyTracker);
-
-		for (auto& ListenSocket : mp_ListenSockets)
-			ListenSocket->f_Destroy() > pCanDestroy->f_Track();
-
-		mp_ListenSockets.f_Clear();
-
-		for (auto& Connection : mp_Connections)
-			Connection->f_Destroy() > pCanDestroy->f_Track();
-		mp_Connections.f_Clear();
-
-		return pCanDestroy->f_Future();
-	}
-
-	void CFastCGIServer::CInternal::fp_Startup(uint16 _FastCGIListenStartPort, uint16 _nListen)
-	{
 		mint nThreads = _nListen;
 		uint16 StartListen = _FastCGIListenStartPort;
 
-		mp_ListenSockets.f_SetLen(nThreads);
+		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> ListenSockets;
+		ListenSockets.f_SetLen(nThreads);
+		auto Cleanup = g_OnScopeExit > [&]
+			{
+				for (auto &ListenSocket : ListenSockets)
+					ListenSocket->f_Destroy() > NConcurrency::fg_DiscardResult();
+			}
+		;
 
-		auto ConcurrentActor = NConcurrency::fg_ConcurrentActor();
 		for (mint i = 0; i < nThreads; ++i)
 		{
-			NNetwork::CNetAddressTCPv4 AnyAddress;
-			AnyAddress.m_Port = StartListen + i;
-			NNetwork::CNetAddress Address;
-			Address.f_Set(AnyAddress);
+			NNetwork::CNetAddress Address = _BindAddress;
+			Address.f_SetPort(StartListen + i);
 
-			NConcurrency::TCActor<CListenActor> &ListenActor = mp_ListenSockets[i];
-			ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), *this);
+			NConcurrency::TCActor<CListenActor> &ListenActor = ListenSockets[i];
+			ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(mp_pThis), mp_pOnRequest);
 
 			NNetwork::CSocket ListenSocket;
-			ListenSocket.f_Listen
-				(
-					Address
-					, [ListenActor, ConcurrentActor](NNetwork::ENetTCPState _StateAdded)
-					{
-						ListenActor(&CListenActor::f_StateAdded, _StateAdded)
-							> ConcurrentActor / [](NConcurrency::TCAsyncResult<void>&& _Result)
-							{
-							}
-						;
-					}
-					, NMib::NNetwork::ENetFlag_None
-				)
-			;
+			try
+			{
+				ListenSocket.f_Listen
+					(
+						Address
+						, [WeakListenActor = ListenActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)
+						{
+							auto ListenActor = WeakListenActor.f_Lock();
+							if (!ListenActor)
+								return;
+							ListenActor(&CListenActor::f_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+						}
+						, NNetwork::ENetFlag_None
+					)
+				;
+			}
+			catch (NException::CException const &_Exception)
+			{
+				using namespace NStr;
+				return DMibErrorInstance("Failed to listen in FastCGI server: {}"_f <<_Exception);
+			}
 
 			NStorage::TCSharedPointer<NNetwork::CSocket> pSocket = fg_Construct(fg_Move(ListenSocket));
 
-			ListenActor(&CListenActor::f_SetSocket, pSocket)
-				> ConcurrentActor / [](NConcurrency::TCAsyncResult<void>&& _Result)
-				{
-				}
-			;
-
+			ListenActor(&CListenActor::f_SetSocket, pSocket) > NConcurrency::fg_DiscardResult();
 		}
+
+		mp_ListenSockets = fg_Move(ListenSockets);
+
+		return fg_Explicit();
+	}
+
+	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection)
+	{
+		auto &Internal = *mp_pInternal;
+		Internal.mp_Connections[_Connection];
+	}
+
+	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection)
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.mp_Connections.f_Remove(_Connection))
+			_Connection->f_Destroy() > Internal.mp_pCanDestroyTracker->f_Track();
+	}
+
+	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
+	{
+		auto &Internal = *mp_pInternal;
+
+		auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
+
+		for (auto& ListenSocket : Internal.mp_ListenSockets)
+			ListenSocket->f_Destroy() > pCanDestroy->f_Track();
+
+		Internal.mp_ListenSockets.f_Clear();
+
+		for (auto& Connection : Internal.mp_Connections)
+			Connection->f_Destroy() > pCanDestroy->f_Track();
+		Internal.mp_Connections.f_Clear();
+
+		return pCanDestroy->f_Future();
 	}
 }

@@ -5,28 +5,30 @@
 
 #include <Mib/Core/Core>
 #include <Mib/Concurrency/ConcurrencyDefines>
+#include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/ActorFunctor>
+#include <Mib/Network/Address>
 
 namespace NMib::NWeb
 {
 	class CFastCGIConnectionActor;
+	namespace NFastCGI
+	{
+		class CListenActor;
+	}
 
 	class CFastCGIRequest
 	{
 	public:
-		CFastCGIRequest(NConcurrency::TCActor<CFastCGIConnectionActor> const& _ConnectionActor, CFastCGIConnectionActor& _InternalActor);
+		CFastCGIRequest(NConcurrency::TCActor<CFastCGIConnectionActor> const &_ConnectionActor, NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> const &_pParams);
 		~CFastCGIRequest();
 
-		// All callbacks called in the context of the fast CGI processing loop.
-		// You should try not to do any blocking calls from this callback as this will
-		// limit the concurrency of the web server.
-		// You should only call these functions from the
+		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
+		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
+		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback);
+		void f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback);
 
-		void f_OnStdInputRaw(NFunction::TCFunction<void (uint8 const* _pData, mint _Len, bool _bEOF)>&& _fCallback);
-		void f_OnData(NFunction::TCFunction<void (uint8 const* _pData, mint _Len, bool _bEOF)>&& _fCallback);
-		void f_OnStdInput(NFunction::TCFunction<void (NStr::CStr const& _Input, bool _bEOF)>&& _fCallback);
-		void f_OnAbort(NFunction::TCFunction<void ()>&& _fCallback);
-
-		NContainer::TCMap<NStr::CStr, NStr::CStr> const& f_GetParams();
+		NContainer::TCMap<NStr::CStr, NStr::CStr> const &f_GetParams();
 
 		void f_SendStdOutput(NStr::CStr const& _Output);
 		void f_SendStdError(NStr::CStr const& _Output);
@@ -37,26 +39,40 @@ namespace NMib::NWeb
 		void f_FinishRequest();
 
 	private:
-		NConcurrency::TCActor<CFastCGIConnectionActor> mp_pActor;
-		CFastCGIConnectionActor& mp_InternalActor;
-		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> mp_pCanDestroyTracker;
+		NConcurrency::TCActor<CFastCGIConnectionActor> mp_ConnectionActor;
+		NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> mp_pParams;
 		zbool mp_bFinished;
 	};
 
-	class CFastCGIServer
+	class CFastCGIServer : public NConcurrency::CActor
 	{
 	public:
 		class CInternal;
 
-		// When the request goes out of scope it will be automatically finished
-		CFastCGIServer(NFunction::TCFunction<void (NStorage::TCSharedPointer<CFastCGIRequest> const& _Request)>&& _fOnRequest, uint16 _FastCGIListenStartPort, uint16 _nListen);
+		CFastCGIServer();
 		~CFastCGIServer();
 
+		NConcurrency::TCFuture<void> f_Start
+			(
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+				, uint16 _FastCGIListenStartPort
+				, uint16 _nListen
+				, NNetwork::CNetAddress const &_BindAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
+			)
+		;
+
 	private:
-		NConcurrency::TCActor<CInternal> mp_pInternal;
+		friend class CFastCGIConnectionActor;
+		friend class NFastCGI::CListenActor;
+
+		NConcurrency::TCFuture<void> fp_Destroy();
+		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection);
+		void fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection);
+
+		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb;
+using namespace NMib::NWeb;
 #endif

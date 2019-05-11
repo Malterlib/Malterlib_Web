@@ -12,7 +12,12 @@ namespace NMib::NWeb::NFastCGI
 	class CListenActor : public NConcurrency::CActor
 	{
 	public:
-		CListenActor(NConcurrency::TCActor<CFastCGIServer::CInternal> const& _Server, CFastCGIServer::CInternal& _ServerInternal);
+		CListenActor
+			(
+				NConcurrency::TCActor<CFastCGIServer> const &_Server
+				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+			)
+		;
 		~CListenActor();
 
 		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket>const& _pSocket);
@@ -25,7 +30,7 @@ namespace NMib::NWeb::NFastCGI
 
 	private:
 		NNetwork::CSocket mp_Socket;
-		NConcurrency::TCActor<CFastCGIServer::CInternal> mp_Server;
-		CFastCGIServer::CInternal& mp_ServerInternal;
+		NConcurrency::TCActor<CFastCGIServer> mp_Server;
+		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> mp_pOnRequest;
 	};
 }

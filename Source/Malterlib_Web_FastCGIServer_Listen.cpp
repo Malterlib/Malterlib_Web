@@ -12,9 +12,13 @@
 
 namespace NMib::NWeb::NFastCGI
 {
-	CListenActor::CListenActor(NConcurrency::TCActor<CFastCGIServer::CInternal> const& _Server, CFastCGIServer::CInternal& _ServerInternal)
+	CListenActor::CListenActor
+		(
+			NConcurrency::TCActor<CFastCGIServer> const &_Server
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+		)
 		: mp_Server(_Server)
-		, mp_ServerInternal(_ServerInternal)
+		, mp_pOnRequest(_pOnRequest)
 	{
 	}
 
@@ -22,7 +26,7 @@ namespace NMib::NWeb::NFastCGI
 	{
 	}
 
-	void CListenActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket>const& _pSocket)
+	void CListenActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> const &_pSocket)
 	{
 		mp_Socket = fg_Move(*_pSocket);
 		fp_ProcessState();
@@ -48,7 +52,7 @@ namespace NMib::NWeb::NFastCGI
 		{
 			while (true)
 			{
-				NConcurrency::TCActor<CFastCGIConnectionActor> ConnectionActor = NConcurrency::fg_ConstructActor<CFastCGIConnectionActor>(mp_Server, mp_ServerInternal);
+				NConcurrency::TCActor<CFastCGIConnectionActor> ConnectionActor = NConcurrency::fg_ConstructActor<CFastCGIConnectionActor>(mp_Server, mp_pOnRequest);
 				NConcurrency::TCWeakActor<CFastCGIConnectionActor> WeakConnectionActor = ConnectionActor;
 				NNetwork::CSocket AcceptedSocket;
 				AcceptedSocket.f_Accept
@@ -70,13 +74,9 @@ namespace NMib::NWeb::NFastCGI
 					break;
 				NStorage::TCSharedPointer<NNetwork::CSocket> pSocket = fg_Construct(fg_Move(AcceptedSocket));
 
-				ConnectionActor(&CFastCGIConnectionActor::f_SetSocket, pSocket)
-					> NConcurrency::fg_DiscardResult()
-				;
+				ConnectionActor(&CFastCGIConnectionActor::f_SetSocket, pSocket) > NConcurrency::fg_DiscardResult();
 
-				mp_Server(&CFastCGIServer::CInternal::f_AddConnection, ConnectionActor)
-					> NConcurrency::fg_DiscardResult()
-				;
+				mp_Server(&CFastCGIServer::fp_AddConnection, ConnectionActor) > NConcurrency::fg_DiscardResult();
 			}
 		}
 	}

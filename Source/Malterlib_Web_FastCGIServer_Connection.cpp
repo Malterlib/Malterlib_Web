@@ -17,25 +17,37 @@ namespace NMib::NWeb
 		, m_Role(ERequestRole_Invalid)
 	{
 	}
-	CFastCGIConnectionActor::CFastCGIConnectionActor(NConcurrency::TCActor<CFastCGIServer::CInternal> const& _pServer, CFastCGIServer::CInternal& _ServerInternal)
+
+	CFastCGIConnectionActor::CFastCGIConnectionActor
+		(
+			NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+		)
 		: mp_NeededData(0)
 		, mp_IncomingPosition(0)
-		, mp_pServer(_pServer)
+		, mp_ServerActor(_ServerActor)
 		, mp_OutgoingPosition(0)
 		, mp_ServerInternal(_ServerInternal)
 		, mp_ProcessingThread(0)
+		, mp_pOnRequest(_pOnRequest)
 	{
 	}
 
 	CFastCGIConnectionActor::~CFastCGIConnectionActor()
 	{
+		if (!mp_bConnectionRemoved)
+		{
+			mp_bConnectionRemoved = true;
+			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActor(this)) > NConcurrency::fg_DiscardResult();
+		}
 	}
 
 	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> const& _pSocket)
 	{
+		if (mp_bDestroyed)
+			return;
 		mp_Socket = fg_Move(*_pSocket);
 		fp_ProcessState();
-		mp_ProcessingThread = 0;
 	}
 
 	NConcurrency::TCFuture<void> CFastCGIConnectionActor::fp_Destroy()
@@ -56,7 +68,7 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::fp_ClearState()
 	{
 		mp_RecordInfo = CRecordInfo();
-		mp_Params.f_Clear();
+		mp_pParams->f_Clear();
 		mp_fOnStdInputRaw.f_Clear();
 		mp_fOnData.f_Clear();
 		mp_fOnStdInputStr.f_Clear();
@@ -75,10 +87,11 @@ namespace NMib::NWeb
 
 		mp_Socket.f_Close();
 
-		mp_pServer(&CFastCGIServer::CInternal::f_RemoveConnection, fg_ThisActor(this))
-			> NConcurrency::fg_DiscardResult()
-		;
-
+		if (!mp_bConnectionRemoved)
+		{
+			mp_bConnectionRemoved = true;
+			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActor(this)) > NConcurrency::fg_DiscardResult();
+		}
 	}
 
 	bool CFastCGIConnectionActor::fp_ProcessManagementRecord(CHeader const& _Header, uint8 const* _pData, mint _DataLen)
@@ -144,6 +157,26 @@ namespace NMib::NWeb
 		fp_SendStdOutput(_Data, ERequestType_StdErr);
 	}
 
+	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	{
+		mp_fOnStdInputRaw = fg_Move(_fCallback);
+	}
+
+	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	{
+		mp_fOnData = fg_Move(_fCallback);
+	}
+
+	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
+	{
+		mp_fOnStdInputStr = fg_Move(_fCallback);
+	}
+
+	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
+	{
+		mp_fOnAbort = fg_Move(_fCallback);
+	}
+
 	void CFastCGIConnectionActor::f_FinishRequest()
 	{
 		NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
@@ -188,37 +221,35 @@ namespace NMib::NWeb
 
 	}
 
-
 	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnStdInputRaw)
-			mp_fOnStdInputRaw(_pData, _Len, _Len == 0);
+			mp_fOnStdInputRaw(NContainer::CByteVector(_pData, _Len), _Len == 0) > NConcurrency::fg_DiscardResult();
 		else if (mp_fOnStdInputStr)
 		{
 			NStr::CStr String;
 			String.f_AddStr((ch8 const*)_pData, _Len);
-			mp_fOnStdInputStr(String, _Len == 0);
+			mp_fOnStdInputStr(String, _Len == 0) > NConcurrency::fg_DiscardResult();
 		}
 	}
 
 	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnData)
-			mp_fOnData(_pData, _Len, _Len == 0);
+			mp_fOnData(NContainer::CByteVector(_pData, _Len), _Len == 0) > NConcurrency::fg_DiscardResult();
 	}
 
-	void CFastCGIConnectionActor::fp_OnParams(NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params)
+	void CFastCGIConnectionActor::fp_OnParams()
 	{
-		NStorage::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), *this);
-		mp_ServerInternal.mp_fOnRequest(pRequest);
+		NPtr::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), mp_pParams);
+		(*mp_pOnRequest)(pRequest) > NConcurrency::fg_DiscardResult();
 	}
 
 	void CFastCGIConnectionActor::fp_OnAbort()
 	{
 		if (mp_fOnAbort)
-			mp_fOnAbort();
+			mp_fOnAbort() > NConcurrency::fg_DiscardResult();
 	}
-
 
 	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const& _Header, uint8 const* _pData, mint _DataLen)
 	{
@@ -289,7 +320,7 @@ namespace NMib::NWeb
 		case ERequestType_Params:
 			{
 				if (_DataLen == 0)
-					fp_OnParams(mp_Params);
+					fp_OnParams();
 				else
 				{
 					try
@@ -348,7 +379,7 @@ namespace NMib::NWeb
 							Value.f_SetAt(ValueLen, 0);
 							Value.f_SetStrLen(ValueLen);
 
-							mp_Params(Key, Value);
+							(*mp_pParams)(Key, Value);
 						}
 					}
 					catch (NException::CException const& _Exception)
@@ -438,17 +469,6 @@ namespace NMib::NWeb
 	{
 		if (!mp_Socket.f_IsValid() )
 			return;
-
-		mp_ProcessingThread = NSys::fg_Thread_GetCurrentUID();
-		auto Cleanup
-			= fg_OnScopeExit
-			(
-				[&]
-				{
-					mp_ProcessingThread = 0;
-				}
-			)
-		;
 
 		auto StateAdded = mp_Socket.f_GetState();
 		if (StateAdded & NNetwork::ENetTCPState_Closed)
