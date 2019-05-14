@@ -2,6 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Cryptography/Exception>
 
 #include "Malterlib_Web_FastCGIServer_Internal.h"
 #include "Malterlib_Web_FastCGIServer_Connection.h"
@@ -433,6 +434,11 @@ namespace NMib::NWeb
 				mint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray() + mp_OutgoingPosition, ToSend);
 				mp_OutgoingPosition += Sent;
 			}
+			catch (NCryptography::CExceptionCryptography const& _Exception)
+			{
+				fp_Disconnect(_Exception.f_GetErrorStr());
+				return;
+			}
 			catch (NNetwork::CExceptionNet const& _Exception)
 			{
 				fp_Disconnect(_Exception.f_GetErrorStr());
@@ -487,6 +493,11 @@ namespace NMib::NWeb
 						break;
 					mp_IncomingData.f_Insert(Data, Received);
 				}
+			}
+			catch (NCryptography::CExceptionCryptography const& _Exception)
+			{
+				fp_Disconnect(_Exception.f_GetErrorStr());
+				return;
 			}
 			catch (NNetwork::CExceptionNet const& _Exception)
 			{

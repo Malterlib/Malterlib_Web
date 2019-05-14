@@ -5,6 +5,7 @@
 #include <Mib/Concurrency/WeakActor>
 #include <Mib/Encoding/Base64>
 #include <Mib/Network/Sockets/TCP>
+#include <Mib/Cryptography/Exception>
 
 #include "Malterlib_Web_WebSocket.h"
 
@@ -216,6 +217,10 @@ namespace NMib::NWeb
 					, BindToAddress
 				)
 			;
+		}
+		catch (NCryptography::CExceptionCryptography const &_Exception)
+		{
+			co_return _Exception;
 		}
 		catch (NNetwork::CExceptionNet const &_Exception)
 		{

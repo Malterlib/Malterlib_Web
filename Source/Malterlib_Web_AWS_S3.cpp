@@ -4,7 +4,6 @@
 #include <Mib/Encoding/JSON>
 #include <Mib/Encoding/JSONShortcuts>
 #include <Mib/Web/Curl>
-#include <Mib/Network/SSL>
 #include <Mib/XML/XML>
 
 #include "Malterlib_Web_AWS_S3.h"

@@ -6,7 +6,7 @@
 #include <Mib/Encoding/JSON>
 #include <Mib/Encoding/JSONShortcuts>
 #include <Mib/Web/Curl>
-#include <Mib/Network/SSL>
+#include <Mib/Cryptography/MessageAuthentication>
 #include <Mib/XML/XML>
 
 namespace NMib::NWeb
@@ -143,7 +143,7 @@ namespace NMib::NWeb
 			auto fHMAC = [](NCryptography::CHashDigest_SHA256 const &_Key, CStr const &_Data) -> NCryptography::CHashDigest_SHA256
 				{
 					NContainer::CSecureByteVector Key{_Key.f_GetData(), _Key.fs_GetSize()};
-					return NNetwork::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
+					return NCryptography::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
 				}
 			;
 			NCryptography::CHashDigest_SHA256 KeyDate;
@@ -152,7 +152,7 @@ namespace NMib::NWeb
 				CStr Date ="{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
 				NContainer::CSecureByteVector Secret((uint8 const *)SecretStr.f_GetStr(), SecretStr.f_GetLen());
 				NContainer::CSecureByteVector Data((uint8 const *)Date.f_GetStr(), Date.f_GetLen());
-				KeyDate = NNetwork::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
+				KeyDate = NCryptography::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
 			}
 
 			auto KeyRegion = fHMAC(KeyDate, _Credentials.m_Region);

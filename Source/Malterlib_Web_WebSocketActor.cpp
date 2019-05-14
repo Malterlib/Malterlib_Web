@@ -10,6 +10,7 @@
 
 #include <Mib/Cryptography/Hashes/SHA>
 #include <Mib/Cryptography/RandomData>
+#include <Mib/Cryptography/Exception>
 #include <Mib/Encoding/Base64>
 
 #include <Mib/Encoding/JSON>
@@ -907,6 +908,10 @@ namespace NMib::NWeb
 				Internal.m_bShutdownCalled = true;
 			}
 		}
+		catch (NCryptography::CExceptionCryptography const &_Error)
+		{
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+		}
 		catch (NNetwork::CExceptionNet const &_Error)
 		{
 			fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
@@ -953,6 +958,12 @@ namespace NMib::NWeb
 								return false;
 							}
 							return true;
+						}
+						catch (NCryptography::CExceptionCryptography const &_Error)
+						{
+							fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+							bDisconnected = true;
+							return false;
 						}
 						catch (NNetwork::CExceptionNet const &_Error)
 						{
@@ -1850,6 +1861,11 @@ namespace NMib::NWeb
 						return;
 				}
 			}
+			catch (NCryptography::CExceptionCryptography const& _Exception)
+			{
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+				return;
+			}
 			catch (NNetwork::CExceptionNet const& _Exception)
 			{
 				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
@@ -1902,6 +1918,9 @@ namespace NMib::NWeb
 			try
 			{
 				Internal.m_PeerAddress = Internal.m_pSocket->f_GetPeerAddress();
+			}
+			catch (NCryptography::CExceptionCryptography const &)
+			{
 			}
 			catch (NNetwork::CExceptionNet const &)
 			{

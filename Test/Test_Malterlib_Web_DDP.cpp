@@ -6,6 +6,7 @@
 #include <Mib/Web/DDPClient>
 #include <Mib/Network/Sockets/SSL>
 #include <Mib/Encoding/EJSON>
+#include <Mib/Cryptography/Certificate>
 
 using namespace NMib::NWeb;
 using namespace NMib::NNetwork;
@@ -18,6 +19,7 @@ using namespace NMib::NConcurrency;
 using namespace NMib::NStr;
 using namespace NMib::NEncoding;
 using namespace NMib::NTime;
+using namespace NMib::NCryptography;
 
 class CDDP_Tests : public NMib::NTest::CTest
 {
@@ -523,12 +525,12 @@ public:
 					{
 						CSSLSettings ServerSettings;
 
-						CSSLContext::CCertificateOptions ServerOptions;
+						CCertificateOptions ServerOptions;
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = CSSLKeySettings_EC_secp256r1{};
+						ServerOptions.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
 						
-						CSSLContext::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 

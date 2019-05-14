@@ -2,7 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_Curl.h"
-#include <Mib/Network/SSL>
+#include <Mib/Cryptography/Certificate>
 
 #include <curl/curl.h>
 
@@ -12,7 +12,7 @@ extern "C"
 {
 	void curl_ca_external_fallback(X509_STORE *_pStore)
 	{
-		NMib::NNetwork::CSSLContext::fs_GetSystemCertificates(_pStore);
+		NMib::NCryptography::CCertificate::fs_GetSystemCertificates(_pStore);
 	}
 }
 
