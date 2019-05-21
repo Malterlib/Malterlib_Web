@@ -1,10 +1,11 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
 
 #include <Mib/Core/Core>
 #include <Mib/Encoding/EJSON>
+#include <Mib/Container/Registry>
 
 namespace NMib::NWeb
 {
@@ -128,10 +129,10 @@ namespace NMib::NWeb
 			-http_threads <num>
 				Sets the number of worker threads to use for the web server. (Default 1)
 		*/
-		void f_ParseCmdLine(NContainer::CRegistry_CStr &_Params);
+		void f_ParseCmdLine(NContainer::CRegistry &_Params);
 		// Uses the same options (without the -) and uses key-value structure. .hrf style.
-		void f_ParseSettings(NContainer::CRegistry_CStr const& _Params);
-		void f_ParseSettings(NContainer::CRegistryPreserve_CStr const& _Params);
+		void f_ParseSettings(NContainer::CRegistry const& _Params);
+		void f_ParseSettings(NContainer::CRegistryPreserveWhitespace const& _Params);
 		void f_ParseSettings(NEncoding::CEJSON const &_Params);
 
 	private:

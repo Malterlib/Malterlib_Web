@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_HTTPServer.h"
@@ -31,7 +31,7 @@ namespace NMib
 			CHTTPServerOptions mp_Options;
 			NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
 			NConcurrency::TCActor<CFastCGIServer> mp_pFastCGIServer;
-			
+
 			struct CHandlerEntry
 			{
 				NStr::CStr m_Path;
@@ -64,14 +64,14 @@ namespace NMib
 
 				CHTTPResponseHeader mp_Header;
 				NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
-				
+
 				CHTTPServerInternal& mp_Internal;
 
 			public:
 
 				CHTTPRequest mp_Request;
 				NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
-				
+
 				CConnection(NStorage::TCSharedPointer<CFastCGIRequest> const& _pRequest, CHTTPServerInternal& _Internal)
 					: mp_pRequest(_pRequest)
 					, mp_ContentStream(NContainer::CByteVector())
@@ -110,12 +110,12 @@ namespace NMib
 					mp_Header.m_ContentLength = mp_ContentStream.f_GetLength();
 
 					NStr::CStr HeaderStr = mp_Header.f_Generate();
-					
+
 					mp_pRequest->f_SendStdOutput(HeaderStr);
 					mp_pRequest->f_SendStdOutput((uint8 const*)mp_ContentStream.f_GetBuffer(), mp_Header.m_ContentLength);
-					mp_pRequest->f_FinishRequest(); 
+					mp_pRequest->f_FinishRequest();
 				}
-				
+
 				void fp_ParseVariables(char const* _pData, mint _Len)
 				{
 					char const* pCurPos = _pData;
@@ -135,8 +135,8 @@ namespace NMib
 						{
 							pCurPos = pEntryEndPos + 1;
 							continue;
-						}					
-						
+						}
+
 						size_t StrLen;
 						NStr::CStr CurKey, CurValue;
 
@@ -147,11 +147,11 @@ namespace NMib
 						fs_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
 
 						mp_Request.m_Variables[CurKey] = CurValue;
-						
+
 						pCurPos = pEntryEndPos + 1;
 					}
 				}
-				
+
 				void f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params)
 				{
 					mp_Request.m_RequestedURI = _Params["DOCUMENT_URI"];
@@ -168,7 +168,7 @@ namespace NMib
 						auto* pQuery = _Params.f_FindEqual("QUERY_STRING");
 						if (pQuery && !pQuery->f_IsEmpty())
 							fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
-						
+
 					}
 					else if (fg_StrCmpNoCase(*pMethod, "POST") == 0)
 					{
@@ -179,17 +179,17 @@ namespace NMib
 							fp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for POST"));
 							return;
 						}
-						
+
 						int nPostBytes = ContentLengthField.f_ToInt();
 						NStorage::TCSharedPointer<NContainer::CByteVector> pData = fg_Construct();
-						
+
 						mp_pRequest->f_OnStdInputRaw
 							(
 								NConcurrency::g_ActorFunctor(NConcurrency::fg_ConcurrentActor())
 							 	/ [nPostBytes, pData, _pThis](NContainer::CByteVector &&_Data, bool _bEOF) -> NConcurrency::TCFuture<void>
 								{
 									pData->f_Insert(_Data);
-									
+
 									if (_bEOF)
 									{
 										if (nPostBytes != pData->f_GetLen())
@@ -211,7 +211,7 @@ namespace NMib
 
 					_pThis->f_HandleRequest();
 				}
-				
+
 				void f_HandleRequest()
 				{
 					bint bHandled = false;
@@ -236,16 +236,16 @@ namespace NMib
 						f_Send();
 					else
 						fp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_Request.m_RequestedURI));
-				}			
+				}
 
 			};
-			
+
 			static mint fs_URLDecode(ch8 const* _pSrc, mint _SrcLen, ch8 *_pDst, mint _DstLen, bool _bFormURL)
 			{
 				mint j = 0;
-				for (mint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++) 
+				for (mint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
 				{
-					if 
+					if
 						(
 							_pSrc[i] == '%'
 							&& NStr::fg_CharIsHexNumber(* (uch8 *) (_pSrc + i + 1))
@@ -257,12 +257,12 @@ namespace NMib
 						uint8 UpperValue = NStr::fg_CharIsNumber(Upper) ? (Upper - '0') : (10 + (Upper - 'a'));
 						uint8 LowerValue = NStr::fg_CharIsNumber(Lower) ? (Lower - '0') : (10 + (Lower - 'a'));
 						_pDst[j] = (ch8)(UpperValue << 4 | LowerValue);
-						
+
 						i += 2;
 					}
-					else if (_bFormURL && _pSrc[i] == '+') 
+					else if (_bFormURL && _pSrc[i] == '+')
 						_pDst[j] = ' ';
-					else 
+					else
 						_pDst[j] = _pSrc[i];
 				}
 
@@ -270,8 +270,8 @@ namespace NMib
 
 				return j;
 			}
-			
-			
+
+
 		public:
 			CHTTPServerInternal()
 			{
@@ -301,7 +301,7 @@ namespace NMib
 				mp_pNGINXLauncher->f_SetListen(mp_Options.m_ListeningPort);
 				mp_pNGINXLauncher->f_SetStaticRoot(mp_Options.m_StaticRoot);
 				mp_pNGINXLauncher->f_Launch();
-				
+
 				mp_pFastCGIServer = fg_Construct();
 				mp_pFastCGIServer
 					(
@@ -311,13 +311,13 @@ namespace NMib
 						{
 							auto& Params = _pRequest->f_GetParams();
 							auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
-							
+
 							if (!pURI)
 							{
 								fp_ReportRequestError(_pRequest, 500, "No URI specified");
 								return fg_Explicit();
 							}
-							
+
 							NStr::CStr URI = *pURI;
 	#if DMibEnableDTrace > 0
 							NTime::CClock Clock;
@@ -326,7 +326,7 @@ namespace NMib
 
 							// Check registered handlers
 							NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(_pRequest, *this);
-							
+
 							pConnection->f_HandleRequest(pConnection, Params);
 
 							DMibDTrace("HTTPServer: URI Served ({fe3} s): {}\n", Clock.f_GetTime() << URI);
@@ -352,7 +352,7 @@ namespace NMib
 				mp_pNGINXLauncher.f_Clear();
 				mp_pFastCGIServer->f_BlockDestroy();
 				mp_pFastCGIServer.f_Clear();
-				
+
 				return true;
 			}
 
@@ -395,10 +395,10 @@ namespace NMib
 		// CHTTPResponseHeader Public Methods
 
 
-		CHTTPResponseHeader::CHTTPResponseHeader() 
+		CHTTPResponseHeader::CHTTPResponseHeader()
 			: m_MimeType("text/html; charset=UTF-8")
 			, m_ContentLength(0)
-			, m_AllowMethods("GET") 
+			, m_AllowMethods("GET")
 			, m_Status(200)
 		{
 		}
@@ -446,7 +446,7 @@ namespace NMib
 			m_Status = _ToMove.m_Status;
 			return *this;
 		}
-		
+
 		NStr::CStr CHTTPResponseHeader::f_Generate() const
 		{
 			NStr::CStr Response;
@@ -484,7 +484,7 @@ namespace NMib
 			}
 
 			Response += NStr::CStr::CFormat("\r\nStatus: {}") << Status;
-			
+
 			NTime::CTime NowTime = NTime::CTime::fs_NowUTC();
 			Response += NStr::CStr::CFormat("\r\nDate: {}") << NTime::fg_GetAscTimeStr(NowTime);
 
@@ -515,10 +515,10 @@ namespace NMib
 	//		Response += "\r\nConnection: close";
 
 			Response += "\r\n\r\n";
-			
+
 			return Response;
 		}
-		
+
 		struct CMimeTypes
 		{
 			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Types;
@@ -564,19 +564,19 @@ namespace NMib
 				m_Types["bmp"] = "image/bmp";
 			}
 		};
-		
+
 		CMimeTypes g_MimeTypes;
 
 		void CHTTPResponseHeader::f_SetMimeTypeFromFilename(NStr::CStr const& _Filename)
 		{
 			auto pMimeType = g_MimeTypes.m_Types.f_FindEqual(NFile::CFile::fs_GetExtension(_Filename).f_LowerCase());
-			
+
 			if (pMimeType)
 				m_MimeType = *pMimeType;
 			else
 				m_MimeType = "text/plain";
 		}
-		
+
 		void CHTTPResponseHeader::f_SetPlainMime()
 		{
 			m_MimeType = "text/plain";
@@ -585,13 +585,13 @@ namespace NMib
 
 		// CHTTPServer Options Public Methods
 
-		void CHTTPServerOptions::f_ParseCmdLine(NContainer::CRegistry_CStr &_Params)
+		void CHTTPServerOptions::f_ParseCmdLine(NContainer::CRegistry &_Params)
 		{
 			// Process command line args.
-			NStr::CStr CurArg;		
+			NStr::CStr CurArg;
 			for (auto PIter = _Params.f_GetChildIterator(); PIter; ++PIter)
 			{
-				NContainer::CRegistry_CStr const& CurChild = *PIter;
+				NContainer::CRegistry const& CurChild = *PIter;
 				CurArg = CurChild.f_GetThisValue();
 
 				if (CurArg.f_CmpNoCase("-http_port") == 0)
@@ -639,16 +639,16 @@ namespace NMib
 			}
 		}
 
-		void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistry_CStr const& _Params)
+		void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistry const& _Params)
 		{
 			fp_ParseSettings(_Params);
 		}
-		
-		void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistryPreserve_CStr const& _Params)
+
+		void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistryPreserveWhitespace const& _Params)
 		{
 			fp_ParseSettings(_Params);
 		}
-		
+
 		template <typename tf_CRegistry>
 		void CHTTPServerOptions::fp_ParseSettings(tf_CRegistry const& _Params)
 		{
@@ -814,12 +814,12 @@ namespace NMib
 		{
 
 		}
-		
+
 		///
 		/// CHTTPServerOptions
 		/// ==================
-		
-		CHTTPServerOptions::CHTTPServerOptions() 
+
+		CHTTPServerOptions::CHTTPServerOptions()
 			: m_nMaxThreads(NSys::fg_Thread_GetVirtualCores())
 			, m_ListeningPort(8080)
 			, m_FastCGIListenStartPort(9000)
@@ -827,8 +827,8 @@ namespace NMib
 			, m_WebRoot(NFile::CFile::fs_AppendPath(NFile::CFile::fs_GetProgramDirectory(), "webroot"))
 		{
 		}
-		
-		
+
+
 		///
 		/// CHTTPCachedConnection
 		/// =====================
@@ -844,7 +844,7 @@ namespace NMib
 		}
 
 		CHTTPCachedConnection::CHTTPCachedConnection(CHTTPCachedConnection && _ToMove)
-		{			
+		{
 			*this = fg_Move(_ToMove);
 		}
 
@@ -898,7 +898,7 @@ namespace NMib
 			mp_Present |= EPresent_Header;
 		}
 
-		bint CHTTPCachedConnection::f_HasHeader() 
+		bint CHTTPCachedConnection::f_HasHeader()
 		{
 			return mp_Present & EPresent_Header;
 		}
@@ -915,10 +915,10 @@ namespace NMib
 		{
 			return mp_Timestamp;
 		}
-			
-		bint CHTTPCachedConnection::f_IsValid(fp32 _MaxSecondsOld) 
+
+		bint CHTTPCachedConnection::f_IsValid(fp32 _MaxSecondsOld)
 		{
-			if (!mp_Timestamp.f_IsValid()) 
+			if (!mp_Timestamp.f_IsValid())
 				return false;
 
 			if ( (NTime::CTime::fs_NowUTC() - mp_Timestamp).f_GetSeconds() > _MaxSecondsOld )
