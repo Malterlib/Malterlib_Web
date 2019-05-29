@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -41,7 +41,7 @@ namespace NMib::NWeb
 	private:
 		NConcurrency::TCActor<CFastCGIConnectionActor> mp_ConnectionActor;
 		NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> mp_pParams;
-		zbool mp_bFinished;
+		bool mp_bFinished = false;
 	};
 
 	class CFastCGIServer : public NConcurrency::CActor

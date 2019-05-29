@@ -21,7 +21,7 @@ namespace NMib::NWeb::NHTTP
 			CServer(CConfig const& _Config);
 			~CServer();
 
-			bint f_Start(NStr::CStr& _oError);
+			bool f_Start(NStr::CStr& _oError);
 			void f_Stop();
 	};
 }

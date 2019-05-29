@@ -46,7 +46,7 @@ namespace NMib::NWeb::NHTTP
 
 		// From IRequestHandler
 
-		bint f_CanHandle(CRequest const& _Req) override;
+		bool f_CanHandle(CRequest const& _Req) override;
 
 		void f_Handle(NStorage::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response) override;
 

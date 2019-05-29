@@ -11,7 +11,7 @@ namespace NMib::NWeb::NHTTP
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	static bint fg_ParseU16Base10(uint16 &_oNum, NStr::CStr const &_Str, aint _Start, aint _End);
+	static bool fg_ParseU16Base10(uint16 &_oNum, NStr::CStr const &_Str, aint _Start, aint _End);
 
 	//
 	// CURL Public Methods
@@ -146,13 +146,13 @@ namespace NMib::NWeb::NHTTP
 		return mp_Flags;
 	}
 
-	bint CURL::f_IsValid() const
+	bool CURL::f_IsValid() const
 	{
 		return mp_Flags & EURLFlag_Valid;
 	}
 
 	// Does the URL have a scheme, host & path?
-	bint CURL::f_IsFullURL() const
+	bool CURL::f_IsFullURL() const
 	{
 		return f_HasAll(EURLFlag_Scheme | EURLFlag_Host | EURLFlag_Path);
 	}
@@ -170,7 +170,7 @@ namespace NMib::NWeb::NHTTP
 		mp_Fragment.f_Clear();
 	}
 
-	bint CURL::f_Decode(NStr::CStr const &_URL)
+	bool CURL::f_Decode(NStr::CStr const &_URL)
 	{
 		f_Clear();
 		// The point of all of this is to touch the memory manager as little as possible.
@@ -442,52 +442,52 @@ namespace NMib::NWeb::NHTTP
 
 	// Test if the URL has a field:
 
-	bint CURL::f_HasAll(EURLFlag _Flags) const
+	bool CURL::f_HasAll(EURLFlag _Flags) const
 	{
 		return (mp_Flags & _Flags) == _Flags;
 	}
 
-	bint CURL::f_HasAny(EURLFlag _Flags) const
+	bool CURL::f_HasAny(EURLFlag _Flags) const
 	{
 		return (mp_Flags & _Flags);
 	}
 
-	bint CURL::f_HasScheme() const
+	bool CURL::f_HasScheme() const
 	{
 		return mp_Flags & EURLFlag_Scheme;
 	}
 
-	bint CURL::f_HasHost() const
+	bool CURL::f_HasHost() const
 	{
 		return mp_Flags & EURLFlag_Host;
 	}
 
-	bint CURL::f_HasPort() const
+	bool CURL::f_HasPort() const
 	{
 		return mp_Flags & EURLFlag_Port;
 	}
 
-	bint CURL::f_HasUsername() const
+	bool CURL::f_HasUsername() const
 	{
 		return mp_Flags & EURLFlag_Username;
 	}
 
-	bint CURL::f_HasPassword() const
+	bool CURL::f_HasPassword() const
 	{
 		return mp_Flags & EURLFlag_Password;
 	}
 
-	bint CURL::f_HasPath() const
+	bool CURL::f_HasPath() const
 	{
 		return mp_Flags & EURLFlag_Path;
 	}
 
-	bint CURL::f_HasQuery() const
+	bool CURL::f_HasQuery() const
 	{
 		return mp_Flags & EURLFlag_Query;
 	}
 
-	bint CURL::f_HasFragment() const
+	bool CURL::f_HasFragment() const
 	{
 		return mp_Flags & EURLFlag_Fragment;
 	}
@@ -709,7 +709,7 @@ namespace NMib::NWeb::NHTTP
 	// Utility Methods
 	//
 
-	static bint fg_DecodeHexChar(char &_oNum, char _Ch)
+	static bool fg_DecodeHexChar(char &_oNum, char _Ch)
 	{
 		if (_Ch >= '0' && _Ch <= '9')
 			_oNum = _Ch - '0';
@@ -725,7 +725,7 @@ namespace NMib::NWeb::NHTTP
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	bint fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End)
+	bool fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
 		if (_End == -1)
 			_End = _Str.f_GetLen();
@@ -819,7 +819,7 @@ namespace NMib::NWeb::NHTTP
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	bint CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
+	bool CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
 		if (_End == -1)
 			_End = _Str.f_GetLen();

@@ -214,7 +214,7 @@ namespace NMib
 
 				void f_HandleRequest()
 				{
-					bint bHandled = false;
+					bool bHandled = false;
 					try
 					{
 						for (auto iHandler = mp_Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
@@ -289,7 +289,7 @@ namespace NMib
 				NewEntry.m_pHandler = _pHandler;
 			}
 
-			bint f_Run(CHTTPServerOptions const& _Options)
+			bool f_Run(CHTTPServerOptions const& _Options)
 			{
 				if (f_IsRunning())
 					return false;
@@ -342,12 +342,12 @@ namespace NMib
 				return true;
 			}
 
-			bint f_IsRunning()
+			bool f_IsRunning()
 			{
 				return !mp_pFastCGIServer.f_IsEmpty();
 			}
 
-			bint f_Stop()
+			bool f_Stop()
 			{
 				mp_pNGINXLauncher.f_Clear();
 				mp_pFastCGIServer->f_BlockDestroy();
@@ -377,17 +377,17 @@ namespace NMib
 			mp_pInternal->f_AddHandlerForPath(_Path, _pHandler, _Priority);
 		}
 
-		bint CHTTPServer::f_Run(CHTTPServerOptions const& _Options)
+		bool CHTTPServer::f_Run(CHTTPServerOptions const& _Options)
 		{
 			return mp_pInternal->f_Run(_Options);
 		}
 
-		bint CHTTPServer::f_IsRunning()
+		bool CHTTPServer::f_IsRunning()
 		{
 			return mp_pInternal->f_IsRunning();
 		}
 
-		bint CHTTPServer::f_Stop()
+		bool CHTTPServer::f_Stop()
 		{
 			return mp_pInternal->f_Stop();
 		}
@@ -712,7 +712,7 @@ namespace NMib
 			}
 
 			// This could be called for any thread - assume nothing.
-			bint f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
+			bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
 			{
 				CHTTPResponseHeader ResponseHeader;
 				_Connection.f_Write(ResponseHeader);
@@ -748,7 +748,7 @@ namespace NMib
 
 		// CHTMLTemplate
 
-		CHTMLTemplate::CHTMLTemplate(NStr::CStr const& _Filename, bint _bExeFs)
+		CHTMLTemplate::CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs)
 		{
 			NStr::CStr Template;
 			if (!_bExeFs)
@@ -898,11 +898,11 @@ namespace NMib
 			mp_Present |= EPresent_Header;
 		}
 
-		bint CHTTPCachedConnection::f_HasHeader()
+		bool CHTTPCachedConnection::f_HasHeader()
 		{
 			return mp_Present & EPresent_Header;
 		}
-		bint CHTTPCachedConnection::f_HasContent()
+		bool CHTTPCachedConnection::f_HasContent()
 		{
 			return mp_Present & EPresent_Content;
 		}
@@ -916,7 +916,7 @@ namespace NMib
 			return mp_Timestamp;
 		}
 
-		bint CHTTPCachedConnection::f_IsValid(fp32 _MaxSecondsOld)
+		bool CHTTPCachedConnection::f_IsValid(fp32 _MaxSecondsOld)
 		{
 			if (!mp_Timestamp.f_IsValid())
 				return false;

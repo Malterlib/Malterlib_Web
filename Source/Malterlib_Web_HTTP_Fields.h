@@ -149,7 +149,7 @@ namespace NMib::NWeb::NHTTP
 
 		inline void f_Clear();
 
-		inline bint f_HasField(CEnum _Field) const;
+		inline bool f_HasField(CEnum _Field) const;
 
 		// Returns:
 		//	EParse_OK 			- The field was known and parsed OK

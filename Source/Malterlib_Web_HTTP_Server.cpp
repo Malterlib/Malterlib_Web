@@ -59,7 +59,7 @@ namespace NMib::NWeb::NHTTP
 		CDetails(CConfig const& _Config);
 		~CDetails();
 
-		bint f_Start(NStr::CStr& _oError);
+		bool f_Start(NStr::CStr& _oError);
 		void f_Stop();
 	};
 
@@ -77,7 +77,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	bint CServer::CDetails::f_Start(NStr::CStr& _oError)
+	bool CServer::CDetails::f_Start(NStr::CStr& _oError)
 	{
 		if (mp_State != EState_Stopped)
 		{
@@ -185,7 +185,7 @@ namespace NMib::NWeb::NHTTP
 
 	}
 
-	bint CServer::f_Start(NStr::CStr & _oError)
+	bool CServer::f_Start(NStr::CStr & _oError)
 	{
 		return mp_pD->f_Start(_oError);
 	}

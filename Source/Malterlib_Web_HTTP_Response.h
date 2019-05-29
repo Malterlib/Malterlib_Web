@@ -35,7 +35,7 @@ namespace NMib::NWeb::NHTTP
 		CResponseStage();
 		~CResponseStage();
 
-		bint f_IsValid() const;
+		bool f_IsValid() const;
 
 		void f_Abort();
 	};

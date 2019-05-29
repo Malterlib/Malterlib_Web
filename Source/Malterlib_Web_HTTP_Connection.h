@@ -27,7 +27,7 @@ namespace NMib::NWeb::NHTTP
 			CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock);
 			~CConnection();
 
-			bint f_IsConnected() const;
+			bool f_IsConnected() const;
 
 			void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
 

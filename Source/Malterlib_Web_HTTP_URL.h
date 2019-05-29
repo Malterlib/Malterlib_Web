@@ -85,29 +85,29 @@ namespace NMib::NWeb::NHTTP
 
 		EURLFlag f_GetFlags() const;
 
-		bint f_IsValid() const;
+		bool f_IsValid() const;
 
 		// Does the URL have a scheme, host  &path?
-		bint f_IsFullURL() const;
+		bool f_IsFullURL() const;
 
 		void f_Clear();
 
-		bint f_Decode(NStr::CStr const &_URL);
+		bool f_Decode(NStr::CStr const &_URL);
 		NStr::CStr f_Encode() const;
 
 		// Test if the URL has a field:
 
-		bint f_HasAll(EURLFlag _Flags) const;
-		bint f_HasAny(EURLFlag _Flags) const;
+		bool f_HasAll(EURLFlag _Flags) const;
+		bool f_HasAny(EURLFlag _Flags) const;
 
-		bint f_HasScheme() const;
-		bint f_HasHost() const;
-		bint f_HasPort() const;
-		bint f_HasUsername() const;
-		bint f_HasPassword() const;
-		bint f_HasPath() const;
-		bint f_HasQuery() const;
-		bint f_HasFragment() const;
+		bool f_HasScheme() const;
+		bool f_HasHost() const;
+		bool f_HasPort() const;
+		bool f_HasUsername() const;
+		bool f_HasPassword() const;
+		bool f_HasPath() const;
+		bool f_HasQuery() const;
+		bool f_HasFragment() const;
 
 		// Access an URL field:
 
@@ -154,7 +154,7 @@ namespace NMib::NWeb::NHTTP
 
 		// _Start can range from 0 -> Len-1
 		// _End can range from 0 -> Len or be -1 which == Len
-		static bint fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
+		static bool fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
 		static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, bool _bUpperCase = false);
 

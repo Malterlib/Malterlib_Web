@@ -26,6 +26,6 @@ namespace NMib::NWeb
 		~CHTTPRequestHandler_ExeFs();
 
 		// This could be called for any thread - assume nothing.
-		bint f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) override;
+		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) override;
 	};
 }

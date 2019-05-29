@@ -152,7 +152,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template<typename t_CSub, typename t_CEnum>
-	bint TCFieldsBase<t_CSub, t_CEnum>::f_HasField(CEnum _Field) const
+	bool TCFieldsBase<t_CSub, t_CEnum>::f_HasField(CEnum _Field) const
 	{
 		return mp_Fields.f_FindEqual(_Field) != nullptr;
 	}

@@ -23,7 +23,7 @@ namespace NMib::NWeb::NHTTP
 
 		NContainer::CPagedByteVector mp_IncomingBuffer;
 
-		bint mp_bFirstProcess;
+		bool mp_bFirstProcess;
 
 		CRequest mp_PendingRequest; // If a request is awaiting content it is stored here.
 
@@ -44,7 +44,7 @@ namespace NMib::NWeb::NHTTP
 		CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock);
 		~CDetails();
 
-		bint f_IsConnected() const;
+		bool f_IsConnected() const;
 
 		void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
 
@@ -93,7 +93,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 
-	bint CConnection::CDetails::f_IsConnected() const
+	bool CConnection::CDetails::f_IsConnected() const
 	{
 		if (!mp_pSocket->f_IsValid() || mp_pSocket->f_GetState() & NNetwork::ENetTCPState_Closed)
 			return false;
@@ -205,7 +205,7 @@ namespace NMib::NWeb::NHTTP
 
 	}
 
-	bint CConnection::f_IsConnected() const
+	bool CConnection::f_IsConnected() const
 	{
 		return mp_pD->f_IsConnected();
 	}

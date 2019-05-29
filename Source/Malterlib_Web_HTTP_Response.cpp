@@ -84,7 +84,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	bint CResponseStage::f_IsValid() const
+	bool CResponseStage::f_IsValid() const
 	{
 		return mp_pD ? true : false;
 	}
@@ -293,14 +293,14 @@ namespace NMib::NWeb::NHTTP
 		else if (mp_Status != EResponseStatus_InProgress)
 			return EResponseStatus_Invalid;
 
-		bint bContinueParsing = true;
+		bool bContinueParsing = true;
 
 		// EParse is used as a result from the various sub-parsing methods
 		// This lambda takes that result and the parse state to move to
 		// and sets the real parse state along with a flag on whether or not
 		// to continue parsing.
 		auto fl_HandleParseResult =
-			[&](EParse _Result, EParseState _NextParseState, bint& _bContinueParsing)
+			[&](EParse _Result, EParseState _NextParseState, bool& _bContinueParsing)
 			{
 				switch( _Result )
 				{

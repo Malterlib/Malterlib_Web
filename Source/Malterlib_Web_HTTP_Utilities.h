@@ -15,7 +15,7 @@ namespace NMib::NWeb::NHTTP
 
 	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep);
 
-	bint fg_PeekLine(NContainer::CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
+	bool fg_PeekLine(NContainer::CPagedByteVector const& _Data, mint& _iPos, NStr::CStr& _oLine);
 }
 
 #ifndef DMibPNoShortCuts

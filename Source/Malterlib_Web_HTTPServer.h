@@ -84,13 +84,13 @@ namespace NMib::NWeb
 		void f_Write(uint8 const* _pData, mint _nBytes) override;
 		void f_Write(CHTTPResponseHeader const& _Header) override;
 
-		bint f_HasHeader();
-		bint f_HasContent();
+		bool f_HasHeader();
+		bool f_HasContent();
 
 		void f_SetTimestamp();
 		NTime::CTime f_GetTimestamp();
 
-		bint f_IsValid(fp32 _MaxSecondsOld) ;
+		bool f_IsValid(fp32 _MaxSecondsOld) ;
 		void f_Forward(CHTTPConnection& _Dest);
 		void f_Clear();
 	};
@@ -101,7 +101,7 @@ namespace NMib::NWeb
 		virtual ~CHTTPRequestHandler() {}
 
 		// This could be called for any thread - assume nothing.
-		virtual bint f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
+		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
 	};
 
 	struct CHTTPServerOptions
@@ -153,9 +153,9 @@ namespace NMib::NWeb
 			The HTTPServer does not take ownership of the handler.
 		*/
 		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority);
-		bint f_Run(CHTTPServerOptions const& _Options);
-		bint f_IsRunning();
-		bint f_Stop();
+		bool f_Run(CHTTPServerOptions const& _Options);
+		bool f_IsRunning();
+		bool f_Stop();
 
 	};
 
@@ -196,10 +196,10 @@ namespace NMib::NWeb
 		NContainer::TCVector<CBlock> mp_lBlocks;
 
 	public:
-		CHTMLTemplate(NStr::CStr const& _Filename, bint _bExeFs);
+		CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs);
 		~CHTMLTemplate();
 
-		bint f_IsEmpty() const { return mp_lBlocks.f_IsEmpty(); }
+		bool f_IsEmpty() const { return mp_lBlocks.f_IsEmpty(); }
 		CIteratorConst f_GetIterator() const { return mp_lBlocks.f_GetIterator(); }
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);

@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -65,12 +65,12 @@ namespace NMib::NWeb
 
 			NFastCGI::ERequestType m_Type;
 			uint16 m_ID;
-			zbool m_bBegun;
-			zbool m_bInvalid;
-			zbool m_bKeepConnection;
-			zbool m_bFinished;
-			zbool m_bSentStdOut;
-			zbool m_bSentStdErr;
+			bool m_bBegun = false;
+			bool m_bInvalid = false;
+			bool m_bKeepConnection = false;
+			bool m_bFinished = false;
+			bool m_bSentStdOut = false;
+			bool m_bSentStdErr = false;
 			NFastCGI::ERequestRole m_Role;
 		};
 	private:

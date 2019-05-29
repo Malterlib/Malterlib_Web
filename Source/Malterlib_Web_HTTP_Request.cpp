@@ -176,14 +176,14 @@ namespace NMib::NWeb::NHTTP
 		else if (mp_Status != ERequestStatus_InProgress)
 			return ERequestStatus_Invalid;
 
-		bint bContinueParsing = true;
+		bool bContinueParsing = true;
 
 		// EParse is used as a result from the various sub-parsing methods
 		// This lambda takes that result and the parse state to move to
 		// and sets the real parse state along with a flag on whether or not
 		// to continue parsing.
 		auto fl_HandleParseResult =
-			[&](EParse _Result, EParseState _NextParseState, bint& _bContinueParsing)
+			[&](EParse _Result, EParseState _NextParseState, bool& _bContinueParsing)
 			{
 				switch( _Result )
 				{
@@ -438,7 +438,7 @@ namespace NMib::NWeb::NHTTP
 
 	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const& _Data, EParseState& _oNextParseState)
 	{
-		bint bContentExpected = false;
+		bool bContentExpected = false;
 
 		switch(mp_RequestLine.f_GetMethod())
 		{
@@ -543,7 +543,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_ReadFront
 				(
 					ContentLength
-					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bint
+					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
 					{
 						NMemory::fg_MemCopy(mp_Content.f_GetArray() + iCurPos, _pPtr, _nBytes);
 						iCurPos += _nBytes;
@@ -616,7 +616,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_ReadFront
 				(
 					ChunkSize
-					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bint
+					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
 					{
 						mp_Content.f_Insert(_pPtr, _nBytes);
 						return true;

@@ -13,7 +13,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	private:
 		EFieldType mp_FieldType;
-		bint mp_bOK;
+		bool mp_bOK;
 		CStringValue mp_Result;
 
 	public:
@@ -23,7 +23,7 @@ namespace NMib::NWeb::NHTTP
 			, mp_bOK(true)
 		{}
 
-		bint f_HasResult() const { return mp_bOK; }
+		bool f_HasResult() const { return mp_bOK; }
 		CStringValue f_GetResult() { return fg_Move(mp_Result); }
 
 		template<typename t_CType>
