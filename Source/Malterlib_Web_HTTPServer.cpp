@@ -350,8 +350,11 @@ namespace NMib
 			bool f_Stop()
 			{
 				mp_pNGINXLauncher.f_Clear();
-				mp_pFastCGIServer->f_BlockDestroy();
-				mp_pFastCGIServer.f_Clear();
+				if (mp_pFastCGIServer)
+				{
+					mp_pFastCGIServer->f_BlockDestroy();
+					mp_pFastCGIServer.f_Clear();
+				}
 
 				return true;
 			}
