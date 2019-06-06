@@ -6,6 +6,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Encoding/EJSON>
 #include <Mib/Container/Registry>
+#include <Mib/Concurrency/ConcurrencyManager>
 
 namespace NMib::NWeb
 {
@@ -15,6 +16,8 @@ namespace NMib::NWeb
 		NStr::CStr m_Method;
 		NStr::CStr m_ClientIP;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Variables;
+
+		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
 
 		static NStr::CStr fs_LookupHost(NStr::CStr const& _IP);
 	};
@@ -40,7 +43,7 @@ namespace NMib::NWeb
 		void f_SetMimeTypeFromFilename(NStr::CStr const& _Filename);
 	};
 
-	class CHTTPConnection
+	class CHTTPConnection : public NStorage::TCSharedPointerIntrusiveBase<>
 	{
 	public:
 		virtual ~CHTTPConnection() {}
@@ -51,7 +54,6 @@ namespace NMib::NWeb
 
 		virtual void f_Write(CHTTPResponseHeader const& _Header) = 0;
 	};
-
 
 	class CHTTPCachedConnection : public CHTTPConnection
 	{
@@ -104,6 +106,11 @@ namespace NMib::NWeb
 		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
 	};
 
+	struct CHTTPRequestHandlerActor : public NConcurrency::CActor
+	{
+		virtual NConcurrency::TCFuture<bool> f_HandleRequest(NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest) = 0;
+	};
+
 	struct CHTTPServerOptions
 	{
 		uint32 m_nMaxThreads = 1;
@@ -142,7 +149,8 @@ namespace NMib::NWeb
 
 	class CHTTPServer
 	{
-		NStorage::TCUniquePointer<class CHTTPServerInternal> mp_pInternal;
+		struct CHTTPServerInternal;
+		NConcurrency::TCActor<CHTTPServerInternal> mp_Internal;
 
 	public:
 		CHTTPServer();
@@ -153,10 +161,10 @@ namespace NMib::NWeb
 			The HTTPServer does not take ownership of the handler.
 		*/
 		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority);
+		void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Actor, int _Priority);
 		bool f_Run(CHTTPServerOptions const& _Options);
 		bool f_IsRunning();
 		bool f_Stop();
-
 	};
 
 	/*
@@ -191,31 +199,19 @@ namespace NMib::NWeb
 
 		typedef NContainer::TCVector<CBlock>::CIteratorConst CIteratorConst;
 
-	private:
-
-		NContainer::TCVector<CBlock> mp_lBlocks;
-
 	public:
 		CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs);
 		~CHTMLTemplate();
 
-		bool f_IsEmpty() const { return mp_lBlocks.f_IsEmpty(); }
-		CIteratorConst f_GetIterator() const { return mp_lBlocks.f_GetIterator(); }
+		bool f_IsEmpty() const { return mp_pState->m_Blocks.f_IsEmpty(); }
+		CIteratorConst f_GetIterator() const { return fg_Const(mp_pState->m_Blocks).f_GetIterator(); }
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
 		template <typename t_FFunc>
 		void f_WriteTemplate(CHTTPConnection & _Conn, t_FFunc const& _Func)
 		{
 			CHTTPResponseHeader ResponseHeader;
-			_Conn.f_Write(ResponseHeader);
-
-			for (auto BIter = mp_lBlocks.f_GetIterator(); BIter; ++BIter)
-			{
-				if (BIter->m_Type == EBlock_HTML)
-					_Conn.f_Write(BIter->m_Text);
-				else if (BIter->m_Type == EBlock_UserData)
-					_Func(_Conn, BIter->m_Text);
-			}
+			f_WriteTemplate(_Conn, ResponseHeader, _Func);
 		}
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
@@ -224,14 +220,41 @@ namespace NMib::NWeb
 		{
 			_Conn.f_Write(_BaseHeader);
 
-			for (auto BIter = mp_lBlocks.f_GetIterator(); BIter; ++BIter)
+			for (auto &Block : mp_pState->m_Blocks)
 			{
-				if (BIter->m_Type == EBlock_HTML)
-					_Conn.f_Write(BIter->m_Text);
-				else if (BIter->m_Type == EBlock_UserData)
-					_Func(_Conn, BIter->m_Text);
+				if (Block.m_Type == EBlock_HTML)
+					_Conn.f_Write(Block.m_Text);
+				else if (Block.m_Type == EBlock_UserData)
+					_Func(_Conn, Block.m_Text);
 			}
 		}
+
+		NConcurrency::TCFuture<void> f_WriteTemplateAsync
+			(
+				 NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+				 , CHTTPResponseHeader const &_BaseHeader
+				 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
+			)
+		;
+
+	private:
+		struct CState
+		{
+			NContainer::TCVector<CBlock> m_Blocks;
+		};
+
+		struct CAsyncWriteState
+		{
+			NStorage::TCSharedPointer<CHTTPConnection> m_pConnection;
+			NStorage::TCSharedPointer<CState> m_pState;
+			NConcurrency::TCPromise<void> m_Continuation;
+			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> m_fWriteBlock;
+			mint m_iBlock = 0;
+		};
+
+		static void fsp_AsyncWrite(NStorage::TCSharedPointer<CAsyncWriteState> const &_pState);
+
+		NStorage::TCSharedPointer<CState> mp_pState = fg_Construct();
 	};
 }
 
