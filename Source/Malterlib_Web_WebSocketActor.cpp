@@ -1841,6 +1841,18 @@ namespace NMib::NWeb
 		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 			return;
 
+		if (_StateAdded & NNetwork::ENetTCPState_Closed)
+		{
+			if (Internal.m_State != EState_Disconnected)
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+			else
+			{
+				Internal.m_pSocket.f_Clear();
+				Internal.f_ShutdownDone(NStr::CStr());
+			}
+			return;
+		}
+
 		if ((_StateAdded & NNetwork::ENetTCPState_Read) && !Internal.m_bDebugNoProcessing)
 		{
 			NNetwork::CSocketOperationResult CombinedResults;
@@ -1882,22 +1894,10 @@ namespace NMib::NWeb
 			if (Internal.m_State <= EState_Connected)
 			{
 				if (Internal.m_State == EState_Connected)
-					fp_Disconnect(EWebSocketStatus_NormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), false, EWebSocketCloseOrigin_Remote);
+					fp_Disconnect(Internal.m_CloseInfo.m_Status == EWebSocketStatus_None ? EWebSocketStatus_AbnormalClosure : EWebSocketStatus_NormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), false, EWebSocketCloseOrigin_Remote);
 				else
 					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
 			}
-		}
-
-		if (_StateAdded & NNetwork::ENetTCPState_Closed)
-		{
-			if (Internal.m_State != EState_Disconnected)
-				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
-			else
-			{
-				Internal.m_pSocket.f_Clear();
-				Internal.f_ShutdownDone(NStr::CStr());
-			}
-			return;
 		}
 
 		if ((_StateAdded & NNetwork::ENetTCPState_Write) && !Internal.m_bDebugNoProcessing)
@@ -2038,12 +2038,12 @@ namespace NMib::NWeb
 		fg_RegisterTimer
 			(
 				m_Timeout/2.0
-				, fg_ThisActor(m_pThis)
 				, [this]() -> NConcurrency::TCFuture<void>
 				{
 					f_UpdateTimeout();
 					return fg_Explicit();
 				}
+			 	, fg_ThisActor(m_pThis)
 			)
 			> [this, Sequence](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Subscription)
 			{
