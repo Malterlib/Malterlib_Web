@@ -227,6 +227,6 @@ namespace NMib::NWeb
 			co_return _Exception;
 		}
 
-		co_return co_await Promise;
+		co_return co_await Promise.f_MoveFuture();
 	}
 }

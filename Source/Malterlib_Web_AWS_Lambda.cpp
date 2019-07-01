@@ -692,7 +692,7 @@ namespace NMib::NWeb
 							else
 								UpdateFunctionConfigurationFuture = fg_Explicit();
 
-							UpdateFunctionCodePromise + UpdateFunctionConfigurationFuture > Promise / [Promise](CFunctionInfo &&_Info, CVoidTag)
+							UpdateFunctionCodePromise.f_MoveFuture() + fg_Move(UpdateFunctionConfigurationFuture) > Promise / [Promise](CFunctionInfo &&_Info, CVoidTag)
 								{
 									Promise.f_SetResult(fg_Move(_Info));
 								}
