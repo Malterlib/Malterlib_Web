@@ -152,15 +152,23 @@ namespace NMib::NWeb
 			ListenSocket->f_Destroy() > Results.f_AddResult();
 
 		for (auto &Connection : Internal.m_Subscriptions)
-			Connection->f_Destroy() > Results.f_AddResult();
+		{
+			if (Connection)
+				Connection->f_Destroy() > Results.f_AddResult();
+		}
+
+		Internal.m_Subscriptions.f_Clear();
 
 		co_await Results.f_GetResults() | NConcurrency::g_Unwrap;
 
 		co_return {};
 	}
 
-	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> && _Connection)
+	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection)
 	{
+		if (mp_bDestroyed)
+			return;
+
 		auto pSubscription = &mp_pInternal->m_Subscriptions.f_Insert();
 		NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> pHandled = fg_Construct(false);
 		_Connection
@@ -170,7 +178,7 @@ namespace NMib::NWeb
 				, [this, _Connection, pSubscription, pHandled]
 				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo)
 				{
-					if (*pHandled)
+					if (*pHandled || mp_bDestroyed)
 						return;
 
 					switch (_Result)
@@ -193,13 +201,14 @@ namespace NMib::NWeb
 						DMibPDebugBreak;
 						break;
 					}
+
 					*pHandled = true;
 					mp_pInternal->m_Subscriptions.f_Remove(*pSubscription);
 				}
 			)
-			> [pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+			> [this, pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 			{
-				if (!*pHandled)
+				if (!*pHandled && !mp_bDestroyed)
 					*pSubscription = fg_Move(*_Result);
 			}
 		;
