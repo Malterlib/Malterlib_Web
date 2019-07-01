@@ -114,7 +114,7 @@ namespace NMib::NWeb
 		catch (NException::CException const &_Exception)
 		{
 			mp_pInternal->f_Clear();
-			co_return _Exception;
+			co_return _Exception.f_ExceptionPointer();
 		}
 
 		DMibNeverGetHere;
