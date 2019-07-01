@@ -99,6 +99,8 @@ namespace NMib::NWeb
 		fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront")
 			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
 			{
+				auto &Internal = *mp_pInternal;
+				
 				auto &Results = fg_Get<0>(_Result);
 				auto &CurlResult = fg_Get<1>(_Result);
 
