@@ -423,7 +423,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		return Internal.m_ConnectPromise;
+		return Internal.m_ConnectPromise.f_Future();
 	}
 
 	NConcurrency::TCFuture<void> CDDPClient::fp_Destroy()

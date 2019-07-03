@@ -247,7 +247,7 @@ namespace NMib::NWeb
 		{
 			NStorage::TCSharedPointer<CHTTPConnection> m_pConnection;
 			NStorage::TCSharedPointer<CState> m_pState;
-			NConcurrency::TCPromise<void> m_Continuation;
+			NConcurrency::TCPromise<void> m_Promise;
 			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> m_fWriteBlock;
 			mint m_iBlock = 0;
 		};

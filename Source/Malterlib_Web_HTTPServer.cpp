@@ -1056,7 +1056,7 @@ namespace NMib::NWeb
 
 		if (WriteState.m_iBlock == nBlocks)
 		{
-			WriteState.m_Continuation.f_SetResult();
+			WriteState.m_Promise.f_SetResult();
 			return;
 		}
 
@@ -1068,7 +1068,7 @@ namespace NMib::NWeb
 				WriteState.m_pConnection->f_Write(Block.m_Text);
 			else if (Block.m_Type == EBlock_UserData)
 			{
-				WriteState.m_fWriteBlock(Block.m_Text) > WriteState.m_Continuation / [_pState]
+				WriteState.m_fWriteBlock(Block.m_Text) > WriteState.m_Promise / [_pState]
 					{
 						++_pState->m_iBlock;
 						fsp_AsyncWrite(_pState);
@@ -1095,6 +1095,6 @@ namespace NMib::NWeb
 
 		fsp_AsyncWrite(pWriteState);
 
-		return pWriteState->m_Continuation;
+		return pWriteState->m_Promise.f_Future();
 	}
 }

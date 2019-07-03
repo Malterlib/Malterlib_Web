@@ -437,7 +437,7 @@ namespace NMib::NWeb
 
 		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
 
-		return *pClosePromise;
+		return pClosePromise->f_Future();
 	}
 
 	void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
