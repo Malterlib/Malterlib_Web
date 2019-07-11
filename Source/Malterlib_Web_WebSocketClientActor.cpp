@@ -114,7 +114,7 @@ namespace NMib::NWeb
 					]
 				 	(::NMib::NNetwork::ENetTCPState _StateAdded) mutable
 					{
-						if (_StateAdded & NNetwork::ENetTCPState_Closed)
+						if (_StateAdded & (NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed))
 						{
 							if (!pReplied->f_Exchange(true))
 							{
