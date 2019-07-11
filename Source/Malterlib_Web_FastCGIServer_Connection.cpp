@@ -475,7 +475,7 @@ namespace NMib::NWeb
 			return;
 
 		auto StateAdded = mp_Socket.f_GetState();
-		if (StateAdded & NNetwork::ENetTCPState_Closed)
+		if (StateAdded & (NNetwork::ENetTCPState_RemoteClosed | NNetwork::ENetTCPState_Closed))
 		{
 			fp_Disconnect("Connection closed");
 			return;

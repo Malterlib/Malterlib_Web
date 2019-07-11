@@ -55,21 +55,29 @@ namespace NMib::NWeb::NFastCGI
 				NConcurrency::TCActor<CFastCGIConnectionActor> ConnectionActor = NConcurrency::fg_ConstructActor<CFastCGIConnectionActor>(mp_Server, mp_pOnRequest);
 				NConcurrency::TCWeakActor<CFastCGIConnectionActor> WeakConnectionActor = ConnectionActor;
 				NNetwork::CSocket AcceptedSocket;
-				AcceptedSocket.f_Accept
-					(
-						&mp_Socket
-						, [WeakConnectionActor](NNetwork::ENetTCPState _StateAdded)
-						{
-							auto ConnectionActor = WeakConnectionActor.f_Lock();
-							if (ConnectionActor)
+				try
+				{
+					AcceptedSocket.f_Accept
+						(
+							&mp_Socket
+							, [WeakConnectionActor](NNetwork::ENetTCPState _StateAdded)
 							{
-								ConnectionActor(&CFastCGIConnectionActor::f_StateAdded, _StateAdded)
-									> NConcurrency::fg_DiscardResult()
-								;
+								auto ConnectionActor = WeakConnectionActor.f_Lock();
+								if (ConnectionActor)
+								{
+									ConnectionActor(&CFastCGIConnectionActor::f_StateAdded, _StateAdded)
+										> NConcurrency::fg_DiscardResult()
+									;
+								}
 							}
-						}
-					)
-				;
+						)
+					;
+				}
+				catch (NException::CException const &_Exception)
+				{
+					DMibLogWithCategory(FastCGI, Error, "Exception accepting incoming connection: {}", _Exception);
+					break;
+				}
 				if (!AcceptedSocket.f_IsValid())
 					break;
 				NStorage::TCSharedPointer<NNetwork::CSocket> pSocket = fg_Construct(fg_Move(AcceptedSocket));

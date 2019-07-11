@@ -41,7 +41,10 @@ namespace NMib::NWeb
 		auto Cleanup = g_OnScopeExit > [&]
 			{
 				for (auto &ListenSocket : ListenSockets)
-					ListenSocket->f_Destroy() > NConcurrency::fg_DiscardResult();
+				{
+					if (ListenSocket)
+						ListenSocket->f_Destroy() > NConcurrency::fg_DiscardResult();
+				}
 			}
 		;
 
