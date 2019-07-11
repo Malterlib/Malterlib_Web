@@ -7,6 +7,7 @@
 #include <Mib/Encoding/EJSON>
 #include <Mib/Container/Registry>
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/ActorFunctor>
 
 namespace NMib::NWeb
 {
@@ -106,10 +107,11 @@ namespace NMib::NWeb
 		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
 	};
 
-	struct CHTTPRequestHandlerActor : public NConcurrency::CActor
-	{
-		virtual NConcurrency::TCFuture<bool> f_HandleRequest(NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest) = 0;
-	};
+	using FActorRequestHandler = NConcurrency::TCActorFunctor
+		<
+			NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest)
+		>
+	;
 
 	struct CHTTPServerOptions
 	{
@@ -161,7 +163,7 @@ namespace NMib::NWeb
 			The HTTPServer does not take ownership of the handler.
 		*/
 		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority);
-		void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Actor, int _Priority);
+		void f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandleRequest, int _Priority);
 		bool f_Run(CHTTPServerOptions const& _Options);
 		bool f_IsRunning();
 		bool f_Stop();

@@ -29,7 +29,7 @@ namespace NMib::NWeb
 		{
 			NStr::CStr m_Path;
 			CHTTPRequestHandler *m_pHandler;
-			NConcurrency::TCActor<CHTTPRequestHandlerActor> m_HandlerActor;
+			NStorage::TCSharedPointer<FActorRequestHandler> m_pHandleRequest;
 		};
 
 		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const& _pRequest, uint32 _Status, NStr::CStr const& _Error)
@@ -208,7 +208,7 @@ namespace NMib::NWeb
 				{
 					struct CHandlers
 					{
-						NContainer::TCVector<NConcurrency::TCActor<CHTTPRequestHandlerActor>> m_Handlers;
+						NContainer::TCVector<NStorage::TCSharedPointer<FActorRequestHandler>> m_Handlers;
 						mint m_iHandler = 0;
 
 						NFunction::TCFunction
@@ -242,10 +242,9 @@ namespace NMib::NWeb
 								return;
 							}
 
-							auto &Handler = _pHandlers->m_Handlers[_pHandlers->m_iHandler];
+							auto &pHandler = _pHandlers->m_Handlers[_pHandlers->m_iHandler];
 
-							Handler(&CHTTPRequestHandlerActor::f_HandleRequest, _pConnection, _pRequest)
-								> [this, _pHandlers, _pConnection, _pRequest](NConcurrency::TCAsyncResult<bool> &&_Result)
+							(*pHandler)(_pConnection, _pRequest) > [this, _pHandlers, _pConnection, _pRequest](NConcurrency::TCAsyncResult<bool> &&_Result)
 								{
 									if (!_Result)
 									{
@@ -265,12 +264,12 @@ namespace NMib::NWeb
 						}
 					;
 
-					for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+					for (auto &Handler : Internal.mp_Handlers)
 					{
-						for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
+						for (auto &InnerHandler : Handler)
 						{
-							if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
-								pHandlers->m_Handlers.f_Insert(iInnerHandler->m_HandlerActor);
+							if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(InnerHandler.m_Path) == 0)
+								pHandlers->m_Handlers.f_Insert(InnerHandler.m_pHandleRequest);
 						}
 					}
 
@@ -355,7 +354,7 @@ namespace NMib::NWeb
 			NewEntry.m_pHandler = _pHandler;
 		}
 
-		void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Handler, int _Priority)
+		void f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandler, int _Priority)
 		{
 			if (!mp_bActorHandlers)
 			{
@@ -365,7 +364,7 @@ namespace NMib::NWeb
 			}
 			CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
 			NewEntry.m_Path = _Path;
-			NewEntry.m_HandlerActor = _Handler;
+			NewEntry.m_pHandleRequest = fg_Construct(fg_Move(_fHandler));
 		}
 
 		bool f_Run(CHTTPServerOptions const& _Options)
@@ -468,9 +467,9 @@ namespace NMib::NWeb
 		mp_Internal(&CHTTPServerInternal::f_AddHandlerForPath, _Path, _pHandler, _Priority).f_CallSync();
 	}
 
-	void CHTTPServer::f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> const &_Actor, int _Priority)
+	void CHTTPServer::f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandler, int _Priority)
 	{
-		mp_Internal(&CHTTPServerInternal::f_AddHandlerActorForPath, _Path, _Actor, _Priority).f_CallSync();
+		mp_Internal(&CHTTPServerInternal::f_AddHandlerActorForPath, _Path, fg_Move(_fHandler), _Priority).f_CallSync();
 	}
 
 	bool CHTTPServer::f_Run(CHTTPServerOptions const& _Options)
