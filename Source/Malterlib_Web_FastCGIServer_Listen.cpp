@@ -75,6 +75,7 @@ namespace NMib::NWeb::NFastCGI
 				}
 				catch (NException::CException const &_Exception)
 				{
+					(void)_Exception;
 					DMibLogWithCategory(FastCGI, Error, "Exception accepting incoming connection: {}", _Exception);
 					break;
 				}
