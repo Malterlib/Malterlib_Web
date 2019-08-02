@@ -1,6 +1,6 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
- 
+
 #include <Mib/Concurrency/ConcurrencyManager>
 
 #include "Malterlib_Web_WebSocket.h"
@@ -106,7 +106,7 @@ namespace NMib::NWeb
 					ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults.f_AddResult();
 				}
 			}
-			
+
 			co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap;
 
 			co_return fg_Move(Reference);
@@ -149,7 +149,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NConcurrency::TCActorResultVector<void> Results;
 		for (auto &ListenSocket : Internal.m_ListenSockets)
-			ListenSocket->f_Destroy() > Results.f_AddResult();
+			ListenSocket.f_Destroy() > Results.f_AddResult();
 
 		for (auto &Connection : Internal.m_Subscriptions)
 		{
@@ -166,7 +166,7 @@ namespace NMib::NWeb
 
 	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection)
 	{
-		if (mp_bDestroyed)
+		if (f_IsDestroyed())
 			return;
 
 		auto pSubscription = &mp_pInternal->m_Subscriptions.f_Insert();
@@ -178,7 +178,7 @@ namespace NMib::NWeb
 				, [this, _Connection, pSubscription, pHandled]
 				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo)
 				{
-					if (*pHandled || mp_bDestroyed)
+					if (*pHandled || f_IsDestroyed())
 						return;
 
 					switch (_Result)
@@ -208,7 +208,7 @@ namespace NMib::NWeb
 			)
 			> [this, pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 			{
-				if (!*pHandled && !mp_bDestroyed)
+				if (!*pHandled && !f_IsDestroyed())
 					*pSubscription = fg_Move(*_Result);
 			}
 		;

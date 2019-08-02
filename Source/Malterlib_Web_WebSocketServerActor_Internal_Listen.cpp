@@ -30,7 +30,7 @@ namespace NMib::NWeb::NWebSocket
 	{
 		if (mp_pSocket)
 			mp_pSocket.f_Clear();
-		return fg_Explicit();
+		co_return {};
 	}
 
 	void CListenActor::f_StateAdded(NNetwork::ENetTCPState _StateAdded)

@@ -343,19 +343,16 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CDDPServerConnection::fp_Destroy()
 	{
+		NConcurrency::TCPromise<void> Promise;
+
 		auto &Internal = *mp_pInternal;
 
 		Internal.m_WebSocketCallbacks.f_Clear();
 
-		NConcurrency::TCPromise<void> Promise;
-
 		if (Internal.m_WebSocket)
-			Internal.m_WebSocket->f_Destroy() > Promise;
-		else
-			Promise.f_SetResult();
+			co_await Internal.m_WebSocket.f_Destroy().f_Wrap();
 
-		return Promise.f_MoveFuture();
-
+		co_return {};
 	}
 
 	NConcurrency::CActorSubscription CDDPServerConnection::f_Register
@@ -443,7 +440,7 @@ namespace NMib::NWeb
 						auto &Internal = *mp_pInternal;
 						Internal.m_WebSocket(&CWebSocketActor::f_SendText, "h", 0) > NConcurrency::fg_DiscardResult(); // Heartbeat frame
 
-						return fg_Explicit();
+						co_return {};
 					}
 				)
 				> [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)

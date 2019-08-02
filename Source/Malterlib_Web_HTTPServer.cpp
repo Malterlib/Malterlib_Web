@@ -190,7 +190,7 @@ namespace NMib::NWeb
 										_pThis->f_HandleRequest();
 									}
 								}
-								return fg_Explicit();
+								return NConcurrency::TCPromise<void>() <<= g_Void;
 							}
 						)
 					;
@@ -387,13 +387,14 @@ namespace NMib::NWeb
 					, NConcurrency::g_ActorFunctor(NConcurrency::fg_DynamicConcurrentActor())
 					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest) -> NConcurrency::TCFuture<void>
 					{
+						NConcurrency::TCPromise<void> Promise;
 						auto& Params = _pRequest->f_GetParams();
 						auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
 
 						if (!pURI)
 						{
 							fsp_ReportRequestError(_pRequest, 500, "No URI specified");
-							return fg_Explicit();
+							return Promise <<= g_Void;
 						}
 
 						NStr::CStr URI = *pURI;
@@ -409,7 +410,7 @@ namespace NMib::NWeb
 
 						DMibDTrace("HTTPServer: URI Served ({fe3} s): {}\n", Clock.f_GetTime() << URI);
 						//DMibTrace("Handled in {} s\n", Clock.f_GetTime());
-						return fg_Explicit();
+						return Promise <<= g_Void;
 					}
 					, mp_Options.m_FastCGIListenStartPort
 					, mp_Options.m_nMaxThreads

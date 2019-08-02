@@ -226,6 +226,8 @@ namespace NMib::NWeb
 		 	, bool _bTrace
 		)
 	{
+		TCPromise<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Promise;
+
 		CByteVector Contents;
 
 		if (_Contents.f_IsOfType<CByteVector>())
@@ -237,8 +239,6 @@ namespace NMib::NWeb
 		}
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
-
-		TCPromise<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Promise;
 
 		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)
@@ -329,6 +329,8 @@ namespace NMib::NWeb
 		 	, bool _bTrace
 		)
 	{
+		TCPromise<NEncoding::CJSON> Promise;
+
 		CByteVector Contents;
 
 		if (_Contents.f_IsOfType<CByteVector>())
@@ -348,8 +350,6 @@ namespace NMib::NWeb
 			AWSHeaders["Content-Type"] = "application/json";
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, AWSHeaders, _Service, _bTrace);
-
-		TCPromise<NEncoding::CJSON> Promise;
 
 		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)
@@ -387,10 +387,10 @@ namespace NMib::NWeb
 		 	, bool _bTrace
 		)
 	{
+		TCPromise<NContainer::TCMap<NStr::CStr, NStr::CStr>> Promise;
+
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CCurlActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
-
-		TCPromise<NContainer::TCMap<NStr::CStr, NStr::CStr>> Promise;
 
 		_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_HEAD, _URL.f_Encode(), Headers, NContainer::CByteVector{}, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)

@@ -43,7 +43,7 @@ namespace NMib::NWeb
 
 	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> const& _pSocket)
 	{
-		if (mp_bDestroyed)
+		if (f_IsDestroyed())
 			return;
 		mp_Socket = fg_Move(*_pSocket);
 		fp_ProcessState();
@@ -55,7 +55,7 @@ namespace NMib::NWeb
 
 		fp_ClearState();
 
-		return fg_Explicit();
+		co_return {};
 	}
 
 	void CFastCGIConnectionActor::f_StateAdded(NNetwork::ENetTCPState _StateAdded)

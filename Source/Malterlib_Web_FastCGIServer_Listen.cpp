@@ -35,7 +35,7 @@ namespace NMib::NWeb::NFastCGI
 	NConcurrency::TCFuture<void> CListenActor::fp_Destroy()
 	{
 		mp_Socket.f_Close();
-		return fg_Explicit();
+		co_return {};
 	}
 
 	void CListenActor::f_StateAdded(NNetwork::ENetTCPState _StateAdded)
@@ -85,7 +85,7 @@ namespace NMib::NWeb::NFastCGI
 
 				ConnectionActor(&CFastCGIConnectionActor::f_SetSocket, pSocket) > NConcurrency::fg_DiscardResult();
 
-				mp_Server(&CFastCGIServer::fp_AddConnection, ConnectionActor) > NConcurrency::fg_DiscardResult();
+				mp_Server(&CFastCGIServer::fp_AddConnection, fg_Move(ConnectionActor)) > NConcurrency::fg_DiscardResult();
 			}
 		}
 	}

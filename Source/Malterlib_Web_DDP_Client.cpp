@@ -322,11 +322,11 @@ namespace NMib::NWeb
 			, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 		)
 	{
+		NConcurrency::TCPromise<CConnectInfo> Promise;
+
 		DMibRequire(!_fOnClose || _NotificationActor);
 
 		auto &Internal = *mp_pInternal;
-
-		NConcurrency::TCPromise<CConnectInfo> Promise;
 
 		if (Internal.m_bConnectCalled)
 		{
@@ -434,22 +434,17 @@ namespace NMib::NWeb
 
 		if (!Internal.m_ConnectPromise.f_IsSet())
 			Internal.m_ConnectPromise.f_SetException(DMibErrorInstance("Destroy called before connection finished"));
-		NConcurrency::TCPromise<void> Promise;
 
 		if (Internal.m_WebSocket)
-		{
-			Internal.m_WebSocket->f_Destroy() > Promise;
-		}
-		else
-			Promise.f_SetResult();
+			co_await Internal.m_WebSocket.f_Destroy().f_Wrap();
 
-		return Promise.f_MoveFuture();
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<NEncoding::CEJSON> CDDPClient::f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params)
 	{
-		auto &Internal = *mp_pInternal;
 		NConcurrency::TCPromise<NEncoding::CEJSON> Promise;
+		auto &Internal = *mp_pInternal;
 		Internal.fp_SendMethod
 			(
 				_MethodName
@@ -474,8 +469,8 @@ namespace NMib::NWeb
 			, NFunction::TCFunctionMovable<void ()> &&_fOnUpdated
 		)
 	{
-		auto &Internal = *mp_pInternal;
 		NConcurrency::TCPromise<NEncoding::CEJSON> Promise;
+		auto &Internal = *mp_pInternal;
 		uint64 MethodID = Internal.fp_SendMethod
 			(
 				_MethodName
@@ -535,6 +530,8 @@ namespace NMib::NWeb
 			, bool _bWaitForResponse
 		)
 	{
+		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
+
 		NStr::CStr SubscriptionID = _SubscriptionID;
 
 		if (SubscriptionID.f_IsEmpty())
@@ -558,7 +555,6 @@ namespace NMib::NWeb
 		Internal.fp_SendMessage(Message);
 
 		auto CallbackHandle = Subscription.m_Callback.f_Register(_Actor, fg_Move(_Callback), &Internal, &Subscription);
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
 		if (!_bWaitForResponse)
 		{
 			Promise.f_SetResult(fg_Move(CallbackHandle));
@@ -1057,7 +1053,7 @@ namespace NMib::NWeb
 			)
 			> fg_ThisActor(m_pThis) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_TimerReference)
 			{
-				if (!m_bConnectFinished && !m_pThis->mp_bDestroyed)
+				if (!m_bConnectFinished && !m_pThis->f_IsDestroyed())
 					m_ConnectTimeoutTimerRef = fg_Move(*_TimerReference);
 			}
 		;

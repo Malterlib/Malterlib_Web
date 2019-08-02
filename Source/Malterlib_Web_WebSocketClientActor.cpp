@@ -40,7 +40,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CWebSocketClientActor::fp_Destroy()
 	{
 		mp_PendingConnects.f_Clear();
-		return fg_Explicit();
+		co_return {};
 	}
 
 	CWebSocketClientActor::CPendingConnection::~CPendingConnection()

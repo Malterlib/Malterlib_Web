@@ -35,53 +35,47 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCPromise<CAwsS3Actor::CObjectInfoMetaData> Promise;
+		auto Headers = co_await fg_DoAWSRequestHEAD("Get meta data", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
 
-		fg_DoAWSRequestHEAD("Get meta data", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3")
-			> Promise / [=](NContainer::TCMap<NStr::CStr, NStr::CStr> &&_Headers)
-			{
-				CAwsS3Actor::CObjectInfoMetaData MetaData;
+		CAwsS3Actor::CObjectInfoMetaData MetaData;
 
-				for (auto &HeaderValue : _Headers)
-				{
-					auto &Header = _Headers.fs_GetKey(HeaderValue);
-					if (Header == "cache-control")
-						MetaData.m_CacheControl = HeaderValue;
-					else if (Header == "content-length")
-						MetaData.m_ContentLength = HeaderValue.f_ToInt(uint64(0));
-					else if (Header == "cache-control")
-						MetaData.m_CacheControl = HeaderValue;
-					else if (Header == "content-type")
-						MetaData.m_ContentType = HeaderValue;
-					else if (Header == "content-encoding")
-						MetaData.m_ContentEncoding = HeaderValue;
-					else if (Header == "content-disposition")
-						MetaData.m_ContentDisposition = HeaderValue;
-					else if (Header == "etag")
-						MetaData.m_ETag = HeaderValue;
-					else if (Header == "date")
-						MetaData.m_Date = HeaderValue;
-					else if (Header == "last-modified")
-						MetaData.m_LastModified = HeaderValue;
-					else if (Header == "x-amz-website​-redirect-location")
-						MetaData.m_RedirectLocation = HeaderValue;
-					else if (Header.f_StartsWith("x-amz-meta-"))
-						MetaData.m_MetaData[Header.f_Extract(11)] = HeaderValue;
-				}
+		for (auto &HeaderValue : Headers)
+		{
+			auto &Header = Headers.fs_GetKey(HeaderValue);
+			if (Header == "cache-control")
+				MetaData.m_CacheControl = HeaderValue;
+			else if (Header == "content-length")
+				MetaData.m_ContentLength = HeaderValue.f_ToInt(uint64(0));
+			else if (Header == "cache-control")
+				MetaData.m_CacheControl = HeaderValue;
+			else if (Header == "content-type")
+				MetaData.m_ContentType = HeaderValue;
+			else if (Header == "content-encoding")
+				MetaData.m_ContentEncoding = HeaderValue;
+			else if (Header == "content-disposition")
+				MetaData.m_ContentDisposition = HeaderValue;
+			else if (Header == "etag")
+				MetaData.m_ETag = HeaderValue;
+			else if (Header == "date")
+				MetaData.m_Date = HeaderValue;
+			else if (Header == "last-modified")
+				MetaData.m_LastModified = HeaderValue;
+			else if (Header == "x-amz-website​-redirect-location")
+				MetaData.m_RedirectLocation = HeaderValue;
+			else if (Header.f_StartsWith("x-amz-meta-"))
+				MetaData.m_MetaData[Header.f_Extract(11)] = HeaderValue;
+		}
 
-				Promise.f_SetResult(fg_Move(MetaData));
-			}
-		;
-
-		return Promise.f_MoveFuture();
+		co_return fg_Move(MetaData);
 	}
 
 	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
 	{
+		TCPromise<CAwsS3Actor::CListBucket> Promise;
+
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
 
-		TCPromise<CAwsS3Actor::CListBucket> Promise;
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
 		auto fDoRequest = [=](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
@@ -244,21 +238,14 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCPromise<void> Promise;
-
 		auto AWSHeaders = fg_GetPutHeaders(_Info);
 		AWSHeaders["Content-Length"] = "{}"_f << _Data.f_GetLen();
 		auto Digest = NCryptography::CHash_MD5::fs_DigestFromData(_Data);
 		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
 
-		fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3")
-			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
-			{
-				Promise.f_SetResult();
-			}
-		;
+		co_await fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3");
 
-		return Promise.f_MoveFuture();
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObjectMultipart
@@ -270,7 +257,7 @@ namespace NMib::NWeb
 		 	, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
 		)
 	{
-		return DMibErrorInstance("Not implemented");
+		co_return DMibErrorInstance("Not implemented");
 	}
 
 	NConcurrency::TCFuture<void> CAwsS3Actor::f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
@@ -278,15 +265,8 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		TCPromise<void> Promise;
+		co_await fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3");
 
-		fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3")
-			> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
-			{
-				Promise.f_SetResult();
-			}
-		;
-
-		return Promise.f_MoveFuture();
+		co_return {};
 	}
 }

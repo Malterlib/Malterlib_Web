@@ -48,8 +48,9 @@ public:
 		TCFuture<void> fp_Destroy() override
 		{
 			if (m_WebsocketServer)
-				return m_WebsocketServer->f_Destroy();
-			return fg_Explicit();
+				co_await m_WebsocketServer.f_Destroy();
+
+			co_return {};
 		}
 
 		NNetwork::FVirtualSocketFactory m_ServerFactory;

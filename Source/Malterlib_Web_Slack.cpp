@@ -60,6 +60,8 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
 	{
+		NConcurrency::TCPromise<void> Promise;
+
 		CEJSON SlackMessage(EJSONType_Object);
 
 		if (_Message.m_Text)
@@ -163,7 +165,6 @@ namespace NMib::NWeb
 			}
 		}
 
-		NConcurrency::TCPromise<void> Promise;
 		auto &Internal = *mp_pInternal;
 		auto SlackMessageString = SlackMessage.f_ToString();
 		Internal.m_CurlActor

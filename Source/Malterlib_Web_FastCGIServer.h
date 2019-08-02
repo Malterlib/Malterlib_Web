@@ -66,8 +66,8 @@ namespace NMib::NWeb
 		friend class NFastCGI::CListenActor;
 
 		NConcurrency::TCFuture<void> fp_Destroy();
-		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection);
-		void fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection);
+		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);
+		void fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

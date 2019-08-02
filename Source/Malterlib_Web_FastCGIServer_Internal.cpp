@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
@@ -30,7 +30,7 @@ namespace NMib::NWeb
 		)
 	{
 		if (mp_pOnRequest)
-			return DMibErrorInstance("Already started");
+			co_return DMibErrorInstance("Already started");
 		mp_pOnRequest = fg_Construct(fg_Move(_fOnRequest));
 
 		mint nThreads = _nListen;
@@ -43,7 +43,7 @@ namespace NMib::NWeb
 				for (auto &ListenSocket : ListenSockets)
 				{
 					if (ListenSocket)
-						ListenSocket->f_Destroy() > NConcurrency::fg_DiscardResult();
+						ListenSocket.f_Destroy() > NConcurrency::fg_DiscardResult();
 				}
 			}
 		;
@@ -76,30 +76,30 @@ namespace NMib::NWeb
 			catch (NException::CException const &_Exception)
 			{
 				using namespace NStr;
-				return DMibErrorInstance("Failed to listen in FastCGI server: {}"_f <<_Exception);
+				co_return DMibErrorInstance("Failed to listen in FastCGI server: {}"_f <<_Exception);
 			}
 
 			NStorage::TCSharedPointer<NNetwork::CSocket> pSocket = fg_Construct(fg_Move(ListenSocket));
 
-			ListenActor(&CListenActor::f_SetSocket, pSocket) > NConcurrency::fg_DiscardResult();
+			co_await ListenActor(&CListenActor::f_SetSocket, pSocket);
 		}
 
 		mp_ListenSockets = fg_Move(ListenSockets);
 
-		return fg_Explicit();
+		co_return {};
 	}
 
-	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection)
+	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection)
 	{
 		auto &Internal = *mp_pInternal;
-		Internal.mp_Connections[_Connection];
+		Internal.mp_Connections[fg_Move(_Connection)];
 	}
 
-	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> const &_Connection)
+	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection)
 	{
 		auto &Internal = *mp_pInternal;
 		if (Internal.mp_Connections.f_Remove(_Connection))
-			_Connection->f_Destroy() > Internal.mp_pCanDestroyTracker->f_Track();
+			_Connection.f_Destroy() > Internal.mp_pCanDestroyTracker->f_Track();
 	}
 
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
@@ -109,12 +109,12 @@ namespace NMib::NWeb
 		auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
 
 		for (auto& ListenSocket : Internal.mp_ListenSockets)
-			ListenSocket->f_Destroy() > pCanDestroy->f_Track();
+			fg_Move(ListenSocket).f_Destroy() > pCanDestroy->f_Track();
 
 		Internal.mp_ListenSockets.f_Clear();
 
 		for (auto& Connection : Internal.mp_Connections)
-			Connection->f_Destroy() > pCanDestroy->f_Track();
+			fg_Move(Connection).f_Destroy() > pCanDestroy->f_Track();
 		Internal.mp_Connections.f_Clear();
 
 		return pCanDestroy->f_Future();
