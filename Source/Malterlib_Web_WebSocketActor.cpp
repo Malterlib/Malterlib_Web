@@ -464,8 +464,8 @@ namespace NMib::NWeb
 		}
 
 		auto ProcessingActor = NConcurrency::fg_ConcurrentActor();
-		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
 
+		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
 		{
 			auto &Internal = *mp_pInternal;
 
@@ -479,8 +479,7 @@ namespace NMib::NWeb
 
 				void f_Finish()
 				{
-					m_WebSocketActor->f_DestroyNoResult(DMibPFile, DMibPLine);
-					m_WebSocketActor.f_Clear();
+					fg_Move(m_WebSocketActor).f_Destroy() > NConcurrency::fg_DiscardResult();
 				}
 
 				NConcurrency::TCActor<CWebSocketActor> m_WebSocketActor;
