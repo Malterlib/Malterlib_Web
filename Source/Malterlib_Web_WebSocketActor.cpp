@@ -435,6 +435,8 @@ namespace NMib::NWeb
 			co_return fg_Move(CloseInfo);
 		}
 
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
 		auto CloseFuture = (Internal.m_pClosePromise = fg_Construct())->f_Future();
 
 		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
@@ -559,6 +561,8 @@ namespace NMib::NWeb
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
 
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
 		if (nBytes <= Internal.m_FramentationSize)
 		{
 			auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
@@ -599,6 +603,8 @@ namespace NMib::NWeb
 
 		fp_UpdateSend();
 
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
 		co_return co_await fg_Move(Future);
 	}
 
@@ -619,6 +625,8 @@ namespace NMib::NWeb
 		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, Message.f_GetArray(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
 
 		fp_UpdateSend();
+
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
@@ -679,6 +687,8 @@ namespace NMib::NWeb
 
 		fp_UpdateSend();
 
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
 		co_return co_await fg_Move(Future);
 	}
 
@@ -694,6 +704,8 @@ namespace NMib::NWeb
 
 		fp_UpdateSend();
 
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
 		co_return co_await fg_Move(Future);
 	}
 
@@ -708,6 +720,8 @@ namespace NMib::NWeb
 		auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
 
 		fp_UpdateSend();
+
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
