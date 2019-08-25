@@ -37,7 +37,11 @@ Import "../../External/nginx/nginx.MTarget"
 
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
 {
-	Property.MalterlibUseCurl true
+	Property
+	{
+		MalterlibUseCurl true
+		MalterlibConcurrency_DistributedActors true
+	}
 
 	%Group Web
 	{
