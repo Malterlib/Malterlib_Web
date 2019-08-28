@@ -108,6 +108,8 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
 	{
+		NConcurrency::TCPromise<void> Promise;
+
 		auto &Internal = *mp_pInternal;
 
 		auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
@@ -121,6 +123,6 @@ namespace NMib::NWeb
 			fg_Move(Connection).f_Destroy() > pCanDestroy->f_Track();
 		Internal.mp_Connections.f_Clear();
 
-		return pCanDestroy->f_Future();
+		return Promise <<= pCanDestroy->f_Future();
 	}
 }
