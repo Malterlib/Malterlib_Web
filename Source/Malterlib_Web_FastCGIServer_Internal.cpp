@@ -95,11 +95,15 @@ namespace NMib::NWeb
 		Internal.mp_Connections[fg_Move(_Connection)];
 	}
 
-	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection)
+	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> &&_Connection)
 	{
+		auto Connection = _Connection.f_Lock();
 		auto &Internal = *mp_pInternal;
 		if (Internal.mp_Connections.f_Remove(_Connection))
-			_Connection.f_Destroy() > Internal.mp_pCanDestroyTracker->f_Track();
+		{
+			if (Connection)
+				fg_Move(Connection).f_Destroy() > Internal.mp_pCanDestroyTracker->f_Track();
+		}
 	}
 
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()

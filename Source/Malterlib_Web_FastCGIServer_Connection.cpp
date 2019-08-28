@@ -37,7 +37,7 @@ namespace NMib::NWeb
 		if (!mp_bConnectionRemoved)
 		{
 			mp_bConnectionRemoved = true;
-			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActor(this)) > NConcurrency::fg_DiscardResult();
+			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, NConcurrency::fg_ThisActorWeak(this)) > NConcurrency::fg_DiscardResult();
 		}
 	}
 
@@ -89,7 +89,7 @@ namespace NMib::NWeb
 		if (!mp_bConnectionRemoved)
 		{
 			mp_bConnectionRemoved = true;
-			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActor(this)) > NConcurrency::fg_DiscardResult();
+			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActorWeak(this)) > NConcurrency::fg_DiscardResult();
 		}
 	}
 

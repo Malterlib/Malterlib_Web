@@ -30,7 +30,7 @@ namespace NMib::NWeb
 			, NNetwork::CNetAddress const &_BindAddress
 		)
 	{
-		return mp_pInternal->f_Start(fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen, _BindAddress);
+		return NConcurrency::fg_CallSafe(*mp_pInternal, &CInternal::f_Start, fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen, _BindAddress);
 	}
 
 	///

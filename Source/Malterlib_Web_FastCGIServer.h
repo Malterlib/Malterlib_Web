@@ -67,7 +67,7 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);
-		void fp_RemoveConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);
+		void fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> &&_Connection);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
