@@ -115,6 +115,10 @@ Property
 		!!CompileDialect "C"
 		PrefixHeader "@('Test/PCH.h'->MakeAbsolute())"
 	}
+	%Dependency "Exe_nginx=Com_nginx_Test_Malterlib_Web*NgnixTargetBaseName=nginx_Test_Malterlib_Web*NgnixTargetGroup=TestHelpers/Test_Malterlib_Web*HTTP_SSL=true*HTTP_V2=true*NGX_USER=nginx_Test_Malterlib_Web*NGX_GROUP=nginx_Test_Malterlib_Web*HTTP_GZIP_STATIC=true*MalterlibPostCopyProject=@(MalterlibPostCopyProject)*MalterlibPostCopyDestination=MalterlibWeb/bin/"
+	{
+		Dependency.Link false
+	}
 }
 
 Property
