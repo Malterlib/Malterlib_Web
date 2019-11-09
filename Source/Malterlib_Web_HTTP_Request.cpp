@@ -185,8 +185,10 @@ namespace NMib::NWeb::NHTTP
 		auto fl_HandleParseResult =
 			[&](EParse _Result, EParseState _NextParseState, bool& _bContinueParsing)
 			{
-				switch( _Result )
+				switch (_Result)
 				{
+					case EParse_NotPresent:
+					case EParse_Unknown:
 					case EParse_Incomplete:
 						break;
 					case EParse_OK:
@@ -492,6 +494,11 @@ namespace NMib::NWeb::NHTTP
 			{
 				// RFC 2616 Section 9.3 CONNECT
 				break;
+			}
+		case EMethod_Unknown:
+			{
+				_oNextParseState = EParseState_Invalid;
+				return false;
 			}
 		}
 

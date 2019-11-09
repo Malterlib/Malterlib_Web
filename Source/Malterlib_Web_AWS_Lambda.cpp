@@ -289,6 +289,7 @@ namespace NMib::NWeb
 			{
 			case CFunctionConfiguration::ETracingMode_Active: return "Active";
 			case CFunctionConfiguration::ETracingMode_PassThrough: return "PassThrough";
+			case CFunctionConfiguration::ETracingMode_Unknown: return "";
 			}
 			return "";
 		}
