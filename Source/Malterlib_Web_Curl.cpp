@@ -74,7 +74,7 @@ namespace NMib::NWeb
 			}
 		};
 		
-		NStorage::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
+		constinit NStorage::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
 	}
 	
 	NConcurrency::TCFuture<CCurlActor::CResult> CCurlActor::f_Request
