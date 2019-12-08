@@ -10,7 +10,7 @@ Import "../../External/curl/Curl.MTarget"
 	
 	Repository
 	{
-		Type External
+		Type "External"
 		Remotes "upstream=https://github.com/curl/curl.git;@(Repository.Remotes)"
 	}
 }
@@ -19,7 +19,7 @@ Import "../../External/curl/Curl.MTarget"
 {
 	Repository
 	{
-		Type External
+		Type "External"
 		Remotes "upstream=https://github.com/nginx/nginx.git;@(Repository.Remotes)"
 	}
 }
@@ -28,7 +28,7 @@ Import "../../External/curl/Curl.MTarget"
 {
 	Repository
 	{
-		Type External
+		Type "External"
 	}
 }
 
@@ -43,9 +43,9 @@ Import "../../External/nginx/nginx.MTarget"
 		MalterlibConcurrency_DistributedActors true
 	}
 
-	%Group Web
+	%Group "Web"
 	{
-		%Group Include
+		%Group "Include"
 		{
 			Compile.Type "C++"
 			{
@@ -54,26 +54,26 @@ Import "../../External/nginx/nginx.MTarget"
 			%File "Include/Mib/Web/^*"
 		}
 		%File "Source/*"
-		%Group Documentation
+		%Group "Documentation"
 		{
 			%File "Documentation/*"
 		}
 	}
-	%Dependency Lib_Malterlib_Network
+	%Dependency "Lib_Malterlib_Network"
 	{
 		Dependency.Indirect true
 	}
-	%Dependency Lib_Malterlib_Concurrency
+	%Dependency "Lib_Malterlib_Concurrency"
 	{
 		Dependency.Indirect true
 	}	
-	%Dependency Lib_Curl
+	%Dependency "Lib_Curl"
 	{
 		!DocumentationEnabled true
 
 		Dependency.Indirect true
 	}
-	%Dependency Lib_zlib
+	%Dependency "Lib_zlib"
 	{
 		!DocumentationEnabled true
 		

@@ -1,7 +1,7 @@
 // Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-%Target Lib_Malterlib_Web
+%Target "Lib_Malterlib_Web"
 {
 	Target
 	{
@@ -11,22 +11,22 @@
 	}
 	Compile
 	{
-		!!CompileDialect C
+		!!CompileDialect "C"
 		PrefixHeader "@(Builtin.BasePath)/@(Builtin.Function->RelativeBase('Source/PCH.h'))"
 	}
-	%Group Include
+	%Group "Include"
 	{
 		%File "Include/Mib/Web/*"
-		%Group HTTPRequestHandler
+		%Group "HTTPRequestHandler"
 		{
 			%File "Include/Mib/Web/HTTPRequestHandler/*"
 		}
-		%Group HTTP
+		%Group "HTTP"
 		{
 			%File "Include/Mib/Web/HTTP/*"
 		}
 	}
-	%Group Source
+	%Group "Source"
 	{
 		%File "Source/PCH.h"
 		%Group "Fast CGI server"
@@ -49,9 +49,9 @@
 		{
 			%File "Source/Malterlib_Web_HTTPRequestHandler_*"
 		}
-		%Group HTTP
+		%Group "HTTP"
 		{
-			%File Source/Malterlib_Web_HTTP_*
+			%File "Source/Malterlib_Web_HTTP_*"
 		}
 	}
 }

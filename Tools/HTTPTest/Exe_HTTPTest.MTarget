@@ -1,7 +1,7 @@
 // Copyright © 2015 Hansoft AB 
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-%Target Exe_HTTPTest
+%Target "Exe_HTTPTest"
 {
 	Property
 	{
@@ -18,10 +18,10 @@
 		Type "ConsoleExecutable"
 		BaseName "HTTPTest"
 	}
-	%Group Source
+	%Group "Source"
 	{
-		%File Source/HTTPTest_Main.cpp
+		%File "Source/HTTPTest_Main.cpp"
 	}
-	%Dependency Lib_Malterlib_Web
-	%Dependency Lib_Malterlib
+	%Dependency "Lib_Malterlib_Web"
+	%Dependency "Lib_Malterlib"
 }
