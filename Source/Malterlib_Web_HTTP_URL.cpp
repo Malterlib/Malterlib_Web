@@ -645,6 +645,15 @@ namespace NMib::NWeb::NHTTP
 
 	void CURL::f_AddQueryEntry(CQueryEntry const &_QueryEntry)
 	{
+		for (auto &Entry : mp_Query)
+		{
+			if (Entry.m_Key == _QueryEntry.m_Key)
+			{
+				Entry.m_Value = _QueryEntry.m_Value;
+				return;
+			}
+		}
+
 		mp_Query.f_Insert(_QueryEntry);
 		mp_Flags |= EURLFlag_Query;
 	}
