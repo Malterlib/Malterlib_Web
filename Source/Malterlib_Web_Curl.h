@@ -30,7 +30,7 @@ namespace NMib::NWeb
 			
 			uint32 m_StatusCode;
 			NStr::CStr m_StatusMessage;
-			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
+			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
 			
 			NEncoding::CEJSON f_ToJSON() const;
