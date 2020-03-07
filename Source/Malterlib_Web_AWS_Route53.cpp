@@ -94,7 +94,7 @@ namespace NMib::NWeb
 		NHTTP::CURL AWSUrl = CStr{"{}/hostedzone/{}/rrset"_f << gc_Route53ApiUrl << _HostedZoneID};
 		AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << 1});
 		if (_Params.m_MaxItems)
-			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100)});
+			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100u)});
 		if (_Params.m_Name)
 			AWSUrl.f_AddQueryEntry({"name", *_Params.m_Name});
 		if (_Params.m_Type)
@@ -263,7 +263,7 @@ namespace NMib::NWeb
 		NHTTP::CURL AWSUrl = CStr("{}/hostedzonesbyname"_f << gc_Route53ApiUrl);
 
 		if (_Params.m_MaxItems)
-			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100)});
+			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100u)});
 
 		if (_Params.m_DNSName)
 			AWSUrl.f_AddQueryEntry({"dnsname", *_Params.m_DNSName});
