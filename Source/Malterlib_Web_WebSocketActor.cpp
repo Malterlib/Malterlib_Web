@@ -109,7 +109,7 @@ namespace NMib::NWeb
 					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
-			mint m_Position = 0;
+			uint64 m_Position = 0;
 			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 		};
 
@@ -227,7 +227,8 @@ namespace NMib::NWeb
 		NStorage::TCSharedPointer<NContainer::CSecureByteVector> m_pTimeoutPingMessage;
 		fp64 m_Timeout = 0.0;
 		mint m_TimeoutTimerSubscriptionSequence = 0;
-		mint m_nSentBytes = 0;
+		uint64 m_nSentBytes = 0;
+		uint64 m_nReceivedBytes = 0;
 
 		mint m_MaxMessageSize = 0;
 		mint m_FramentationSize = 0;
@@ -434,6 +435,25 @@ namespace NMib::NWeb
 		Internal.f_SetupTimeout();
 
 		co_return {};
+	}
+
+	auto CWebSocketActor::f_DebugGetStats() -> NConcurrency::TCFuture<CDebugStats>
+	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying socket");
+
+		auto &Internal = *mp_pInternal;
+
+		CDebugStats DebugStats;
+		DebugStats.m_nSentBytes = Internal.m_nSentBytes;
+		DebugStats.m_nReceivedBytes = Internal.m_nReceivedBytes;
+		DebugStats.m_SecondsSinceLastSend = Internal.m_TimeoutSentData.f_GetTime();
+		DebugStats.m_SecondsSinceLastReceive = Internal.m_TimeoutReceivedData.f_GetTime();
+		DebugStats.m_State = Internal.m_State;
+		DebugStats.m_IncomingDataBufferBytes = Internal.m_IncomingData.f_GetLen();
+		DebugStats.m_OutgoingDataBufferBytes = Internal.m_OutgoingData.f_GetLen();
+
+		co_return fg_Move(DebugStats);
 	}
 
 	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
@@ -1089,13 +1109,13 @@ namespace NMib::NWeb
 			if (CombinedResults.m_bReceivedNetwork)
 				Internal.f_OnReceivedData();
 
-			mint PrevSent = Internal.m_nSentBytes;
+			uint64 PrevSent = Internal.m_nSentBytes;
 			Internal.m_nSentBytes += SentBytes;
 
 			while (!Internal.m_OutgoingDataPromises.empty())
 			{
 				auto &Promise = Internal.m_OutgoingDataPromises.front();
-				mint Diff = Promise.m_Position - PrevSent;
+				uint64 Diff = Promise.m_Position - PrevSent;
 				if (Diff <= SentBytes)
 				{
 					Promise.m_pPromise->f_SetResult();
@@ -1987,6 +2007,7 @@ namespace NMib::NWeb
 						break;
 					DMibLog(DebugVerbose2, " ++++ {} {} Received data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
 					Internal.m_IncomingData.f_InsertBack(Data, Result.m_nBytes);
+					Internal.m_nReceivedBytes += Result.m_nBytes;
 					fp_ProcessIncoming();
 					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 						return;
