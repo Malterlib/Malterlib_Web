@@ -907,7 +907,7 @@ namespace NMib::NWeb
 						Internal.m_State = EState_Disconnected;
 						Internal.f_StopTimeout();
 						auto *pHighestPrioMessages = Internal.m_PendingMessages.f_FindLargest();
-						if (!pHighestPrioMessages || Internal.m_PendingMessages.fs_GetKey(*pHighestPrioMessages) < EOpcode_ConnectionClose)
+						if ((!pHighestPrioMessages || Internal.m_PendingMessages.fs_GetKey(*pHighestPrioMessages) < EOpcode_ConnectionClose) && Internal.m_OutgoingData.f_IsEmpty())
 							fp_Shutdown();
 					}
 					else if (WasState == EState_Disconnecting)
@@ -1971,6 +1971,17 @@ namespace NMib::NWeb
 					fp_Disconnect(Internal.m_CloseInfo.m_Status == EWebSocketStatus_None ? EWebSocketStatus_AbnormalClosure : EWebSocketStatus_NormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), false, EWebSocketCloseOrigin_Remote);
 				else
 					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+			}
+			else if (Internal.m_State == EState_Disconnecting)
+			{
+				fp_Disconnect
+					(
+						EWebSocketStatus_AbnormalClosure
+						, NStr::fg_Format("No close frame received while disconnecting. Socket closed: {}", Internal.m_pSocket->f_GetCloseReason())
+						, false
+						, EWebSocketCloseOrigin_Remote
+					)
+				;
 			}
 		}
 
