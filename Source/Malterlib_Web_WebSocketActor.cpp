@@ -443,10 +443,14 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 		if (Internal.m_pClosePromise)
+		{
+			DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::f_Close 1", fg_ThisActor(this), !Internal.m_bClient);
 			co_return DMibErrorInstance("Socket close already initiated");
+		}
 
 		if (!Internal.m_pSocket || Internal.m_State == EState_Disconnected)
 		{
+			DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::f_Close 2", fg_ThisActor(this), !Internal.m_bClient );
 			CWebSocketActor::CCloseInfo CloseInfo;
 			CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
 			CloseInfo.m_Reason = "Already fully closed";
@@ -457,9 +461,15 @@ namespace NMib::NWeb
 
 		auto CloseFuture = (Internal.m_pClosePromise = fg_Construct())->f_Future();
 
-		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
+		DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::f_Close 3", fg_ThisActor(this), !Internal.m_bClient);
 
-		co_return co_await fg_Move(CloseFuture);
+ 		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
+
+		auto Value = co_await fg_Move(CloseFuture);
+
+		DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::f_Close 4", fg_ThisActor(this), !Internal.m_bClient);
+
+		co_return fg_Move(Value);
 	}
 
 	void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
@@ -497,9 +507,10 @@ namespace NMib::NWeb
 
 		{
 			auto &Internal = *mp_pInternal;
-
 			if (!Internal.m_pSocket || Internal.m_State == EState_Disconnected)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} EWebSocketStatus_AlreadyClosed", fg_ThisActor(this), !Internal.m_bClient);
+
 				CWebSocketActor::CCloseInfo CloseInfo;
 				CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
 				CloseInfo.m_Reason = "Already fully closed";
@@ -511,6 +522,8 @@ namespace NMib::NWeb
 		}
 
 		auto ProcessingActor = NConcurrency::fg_AnyConcurrentActor();
+
+		DMibLog(DebugVerbose2, " ++++ {} {} f_CloseWithLinger", fg_ThisActor(this), !mp_pInternal->m_bClient);
 
 		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
 		{
@@ -598,7 +611,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		DMibLog(DebugVerbose2, " ++++ {} f_SendBinary", !Internal.m_bClient);
+		DMibLog(DebugVerbose2, " ++++ {} {} f_SendBinary", fg_ThisActor(this), !Internal.m_bClient);
 
 		auto &Massage = *_pMessage;
 		mint nBytes = Massage.f_GetLen();
@@ -615,14 +628,14 @@ namespace NMib::NWeb
 		{
 			auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
 			auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
-			DMibLog(DebugVerbose2, " ++++ {} Queue non-fragmented", !Internal.m_bClient);
+			DMibLog(DebugVerbose2, " ++++ {} {} Queue non-fragmented", fg_ThisActor(this), !Internal.m_bClient);
 			fp_UpdateSend();
 			co_return co_await fg_Move(Future);
 		}
 
 		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_BinaryFrame, Massage.f_GetArray(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
 
-		DMibLog(DebugVerbose2, " ++++ {} Queue fragmented", !Internal.m_bClient);
+		DMibLog(DebugVerbose2, " ++++ {} {} Queue fragmented", fg_ThisActor(this), !Internal.m_bClient);
 		fp_UpdateSend();
 
 		co_return co_await fg_Move(Future);
@@ -858,6 +871,7 @@ namespace NMib::NWeb
 				Internal.m_pSocket.f_Clear();
 				Internal.f_ShutdownDone(_Reason);
 			}
+			DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 1 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 			return; // Already disconnected
 		}
 
@@ -867,9 +881,11 @@ namespace NMib::NWeb
 			if (!_bFatal && Internal.m_State == EState_Connected)
 			{
 				// Send packet to other side
+				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 2 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 
 				if (_Status != EWebSocketStatus_NoStatusReceived)
 				{
+					DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 3 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 					Stream << uint16(_Status);
 					NStr::CStr Reason = _Reason;
@@ -879,22 +895,28 @@ namespace NMib::NWeb
 					Internal.f_SendMessage(EOpcode_ConnectionClose, Data.f_GetArray(), Data.f_GetLen(), true);
 				}
 				else
+				{
+					DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 4 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					Internal.f_SendMessage(EOpcode_ConnectionClose, nullptr, 0, true);
+				}
 
 				Internal.m_State = EState_Disconnecting;
 				fp_UpdateSend();
 			}
 			if (_Origin == EWebSocketCloseOrigin_Remote)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 5 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				Internal.m_CloseInfo.m_Status = _Status;
 				Internal.m_CloseInfo.m_Reason = _Reason;
 				if (Internal.m_pClosePromise)
 				{
+					DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 6 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
 					Internal.m_pClosePromise.f_Clear();
 				}
 				if (!Internal.m_bOnCloseCalled)
 				{
+					DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 7 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					Internal.m_bOnCloseCalled = true;
 					if (!Internal.m_OnClose.f_IsEmpty() || Internal.m_OnClose.f_IsDeferring())
 						Internal.m_OnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
@@ -902,18 +924,25 @@ namespace NMib::NWeb
 
 				if (!_bFatal)
 				{
+					DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 8 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					if (WasState == EState_Connected)
 					{
+						DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 9 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 						Internal.m_State = EState_Disconnected;
 						Internal.f_StopTimeout();
 						auto *pHighestPrioMessages = Internal.m_PendingMessages.f_FindLargest();
 						if ((!pHighestPrioMessages || Internal.m_PendingMessages.fs_GetKey(*pHighestPrioMessages) < EOpcode_ConnectionClose) && Internal.m_OutgoingData.f_IsEmpty())
+						{
+							DMibLog(DebugVerbose2, " ++++ {} {} fp_Shutdown 1 {}", fg_ThisActor(this), !Internal.m_bClient);
 							fp_Shutdown();
+						}
 					}
 					else if (WasState == EState_Disconnecting)
 					{
+						DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 10 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 						Internal.m_State = EState_Disconnected;
 						Internal.f_StopTimeout();
+						DMibLog(DebugVerbose2, " ++++ {} {} fp_Shutdown 2 {}", fg_ThisActor(this), !Internal.m_bClient);
 						fp_Shutdown();
 					}
 					return;
@@ -921,6 +950,7 @@ namespace NMib::NWeb
 			}
 			else if (!_bFatal)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 11 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				return;
 			}
 		}
@@ -928,6 +958,7 @@ namespace NMib::NWeb
 		{
 			if (Internal.m_bClient)
 			{
+ 				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 12 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
 				if (Internal.m_pSocket)
 					ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
@@ -938,6 +969,7 @@ namespace NMib::NWeb
 			}
 			else
 			{
+ 				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 13 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CConnectionInfo>();
 				if (Internal.m_pSocket)
 					ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
@@ -950,15 +982,18 @@ namespace NMib::NWeb
 
 		if (_bFatal)
 		{
+			DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 14 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 			Internal.m_CloseInfo.m_Status = _Status;
 			Internal.m_CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
 			if (Internal.m_pClosePromise)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 15 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
 				Internal.m_pClosePromise.f_Clear();
 			}
 			if (!Internal.m_bOnCloseCalled)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 16 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				Internal.m_bOnCloseCalled = true;
 				Internal.m_OnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
 			}
@@ -967,6 +1002,7 @@ namespace NMib::NWeb
 			Internal.f_ShutdownDone(_Reason);
 		}
 
+		DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Disconnect 17 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 		Internal.m_State = EState_Disconnected;
 		Internal.f_StopTimeout();
 	}
@@ -1021,7 +1057,7 @@ namespace NMib::NWeb
 						{
 							bDidSend = true;
 							NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Send(_pPtr, _nBytes);
-							DMibLog(DebugVerbose2, " ++++ {} Sending {} resulted in {} sent", !Internal.m_bClient, _nBytes, Result.m_nBytes);
+							DMibLog(DebugVerbose2, " ++++ {} {} Sending {} resulted in {} sent", fg_ThisActor(this), !Internal.m_bClient, _nBytes, Result.m_nBytes);
 
 							CombinedResults += Result;
 
@@ -1091,7 +1127,10 @@ namespace NMib::NWeb
 		}
 
 		if (Internal.m_State == EState_Disconnected && Internal.m_OutgoingData.f_IsEmpty())
+		{
+			DMibLog(DebugVerbose2, " ++++ {} {} fp_Shutdown 3 {}", fg_ThisActor(this), !Internal.m_bClient);
 			fp_Shutdown();
+		}
 	}
 
 /*
@@ -1167,7 +1206,7 @@ namespace NMib::NWeb
 	bool CWebSocketActor::fp_ProcessIncomingMessage()
 	{
 		auto &Internal = *mp_pInternal;
-		DMibLog(DebugVerbose2, " ++++ {} fp_ProcessIncomingMessage", !Internal.m_bClient);
+		DMibLog(DebugVerbose2, " ++++ {} {} fp_ProcessIncomingMessage", fg_ThisActor(this), !Internal.m_bClient);
 
 		auto &Message = Internal.m_NextMessage;
 		CHeader &Header = Message.m_Header;
@@ -1463,6 +1502,7 @@ namespace NMib::NWeb
 				}
 
 				// TODO: Send reponse frame
+				DMibLog(DebugVerbose2, " ++++ {} {} Handle EOpcode_ConnectionClose {}", fg_ThisActor(m_pThis), !m_bClient, Reason);
 				m_pThis->fp_Disconnect(Status, Reason, false, EWebSocketCloseOrigin_Remote);
 			}
 			break;
@@ -1502,20 +1542,21 @@ namespace NMib::NWeb
 
 	void CWebSocketActor::CInternal::f_HandleDataMessage(CMessage &_Message)
 	{
-		DMibLog(DebugVerbose2, " ++++ {} f_HandleDataMessage", !m_bClient);
+		DMibLog(DebugVerbose2, " ++++ {} {} f_HandleDataMessage", fg_ThisActor(m_pThis), !m_bClient);
 		switch (_Message.m_Header.m_Opcode)
 		{
 		case EOpcode_TextFrame:
 			{
 				NStr::CStr Data;
 				Data.f_AddStr(_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
+				DMibLog(DebugVerbose2, " ++++ {} {} call m_OnReceiveTextMessage", fg_ThisActor(m_pThis), !m_bClient);
  				if (!m_OnReceiveTextMessage.f_IsEmpty() || m_OnReceiveTextMessage.f_IsDeferring())
 					m_OnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		case EOpcode_BinaryFrame:
 			{
-				DMibLog(DebugVerbose2, " ++++ {} call m_OnReceiveBinaryMessage", !m_bClient);
+				DMibLog(DebugVerbose2, " ++++ {} {} call m_OnReceiveBinaryMessage", fg_ThisActor(m_pThis), !m_bClient);
  				if (!m_OnReceiveBinaryMessage.f_IsEmpty() || m_OnReceiveBinaryMessage.f_IsDeferring())
 					m_OnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 			}
@@ -1917,6 +1958,8 @@ namespace NMib::NWeb
 
 		if (_StateAdded & NNetwork::ENetTCPState_Closed)
 		{
+			DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_Closed", fg_ThisActor(this), !Internal.m_bClient);
+
 			if (Internal.m_State != EState_Disconnected)
 				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
 			else
@@ -1929,6 +1972,8 @@ namespace NMib::NWeb
 
 		if ((_StateAdded & NNetwork::ENetTCPState_Read) && !Internal.m_bDebugNoProcessing)
 		{
+			DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_Read", fg_ThisActor(this), !Internal.m_bClient);
+
 			NNetwork::CSocketOperationResult CombinedResults;
 			uint8 Data[4096];
 			try
@@ -1940,7 +1985,7 @@ namespace NMib::NWeb
 					CombinedResults += Result;
 					if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
 						break;
-					DMibLog(DebugVerbose2, " ++++ {} Received data {}", !Internal.m_bClient, Result.m_nBytes);
+					DMibLog(DebugVerbose2, " ++++ {} {} Received data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
 					Internal.m_IncomingData.f_InsertBack(Data, Result.m_nBytes);
 					fp_ProcessIncoming();
 					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
@@ -1968,12 +2013,19 @@ namespace NMib::NWeb
 			if (Internal.m_State <= EState_Connected)
 			{
 				if (Internal.m_State == EState_Connected)
+				{
+					DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_RemoteClosed 1", fg_ThisActor(this), !Internal.m_bClient);
 					fp_Disconnect(Internal.m_CloseInfo.m_Status == EWebSocketStatus_None ? EWebSocketStatus_AbnormalClosure : EWebSocketStatus_NormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), false, EWebSocketCloseOrigin_Remote);
+				}
 				else
+				{
+					DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_RemoteClosed 2", fg_ThisActor(this), !Internal.m_bClient);
 					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+				}
 			}
 			else if (Internal.m_State == EState_Disconnecting)
 			{
+				DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_RemoteClosed 3 {}", fg_ThisActor(this), !Internal.m_bClient, Internal.m_State);
 				fp_Disconnect
 					(
 						EWebSocketStatus_AbnormalClosure
@@ -1983,10 +2035,15 @@ namespace NMib::NWeb
 					)
 				;
 			}
+			else
+				DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_RemoteClosed 4 {}", fg_ThisActor(this), !Internal.m_bClient, Internal.m_State);
 		}
 
-		if ((_StateAdded & NNetwork::ENetTCPState_Write) && !Internal.m_bDebugNoProcessing)
+		if (_StateAdded & NNetwork::ENetTCPState_Write)
+		{
+			DMibLog(DebugVerbose2, " ++++ {} {} ENetTCPState_Write", fg_ThisActor(this), !Internal.m_bClient);
 			fp_UpdateSend();
+		}
 	}
 
 	void CWebSocketActor::fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> && _pSocket)
