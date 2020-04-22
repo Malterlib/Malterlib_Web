@@ -151,6 +151,9 @@ namespace NMib::NWeb
 
 		~CInternal()
 		{
+			DMibFastCheck(!m_bDestroyed || m_OutgoingDataPromises.empty());
+			DMibFastCheck(!m_bDestroyed || m_PendingMessages.f_IsEmpty());
+
 			if (m_pClosePromise)
 				m_pClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
 		}
@@ -239,6 +242,9 @@ namespace NMib::NWeb
 		bool m_bOnFinishDone = false;
 		bool m_bWantStopDefer = false;
 		bool m_bShutdownCalled = false;
+#if DMibEnableSafeCheck > 0
+		bool m_bDestroyed = false;
+#endif
 	};
 
 	CWebSocketActor::CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
@@ -303,6 +309,8 @@ namespace NMib::NWeb
 			, uint32 _Priority
 		)
 	{
+		DMibFastCheck(!m_pThis->f_IsDestroyed());
+
 		auto &NewMessage = m_PendingMessages[_Priority].f_Insert();
 		NewMessage.m_pData = _pData;
 		NewMessage.m_Opcode = _Opcode;
@@ -415,16 +423,24 @@ namespace NMib::NWeb
 			m_pLastPendingMessagesList = pList;
 	}
 
-	void CWebSocketActor::f_DebugStopProcessing(fp64 _Timeout)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugStopProcessing(fp64 _Timeout)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying socket");
+
 		auto &Internal = *mp_pInternal;
 		Internal.m_bDebugNoProcessing = true;
 		Internal.m_Timeout = _Timeout;
 		Internal.f_SetupTimeout();
+
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 		if (Internal.m_pClosePromise)
 			co_return DMibErrorInstance("Socket close already initiated");
@@ -453,8 +469,32 @@ namespace NMib::NWeb
 		m_OnShutdown.f_Clear();
 	}
 
+	NConcurrency::TCFuture<void> CWebSocketActor::fp_Destroy()
+	{
+		auto &Internal = *mp_pInternal;
+
+#if DMibEnableSafeCheck > 0
+		Internal.m_bDestroyed = true;
+#endif
+
+		DMibLog(DebugVerbose2, " ++++ {} {} CWebSocketActor::fp_Destroy", fg_ThisActor(this), !Internal.m_bClient);
+		Internal.m_PendingMessages.f_Clear();
+		Internal.m_OutgoingDataPromises.clear();
+		Internal.m_pLastPendingMessagesList = nullptr;
+		if (Internal.m_pClosePromise)
+		{
+			Internal.m_pClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
+			Internal.m_pClosePromise.f_Clear();
+		}
+
+		return NConcurrency::TCPromise<void>() <<= g_Void;
+	}
+
 	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		{
 			auto &Internal = *mp_pInternal;
 
@@ -463,11 +503,14 @@ namespace NMib::NWeb
 				CWebSocketActor::CCloseInfo CloseInfo;
 				CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
 				CloseInfo.m_Reason = "Already fully closed";
+
+				fg_ThisActor(this).f_Destroy() > NConcurrency::fg_DiscardResult();
+
 				co_return fg_Move(CloseInfo);
 			}
 		}
 
-		auto ProcessingActor = NConcurrency::fg_ConcurrentActor();
+		auto ProcessingActor = NConcurrency::fg_AnyConcurrentActor();
 
 		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
 		{
@@ -551,6 +594,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 		DMibLog(DebugVerbose2, " ++++ {} f_SendBinary", !Internal.m_bClient);
 
@@ -589,6 +635,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendText(NStr::CStr const& _Data, uint32 _Priority)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 
 		NStr::CStr Data = _Data;
@@ -612,6 +661,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 
 		auto &Message = *_pMessage;
@@ -635,6 +687,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
@@ -696,6 +751,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 		mint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_MaxMessageSize)
@@ -713,6 +771,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 		mint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_MaxMessageSize)
@@ -1851,7 +1912,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid() || f_IsDestroyed())
 			return;
 
 		if (_StateAdded & NNetwork::ENetTCPState_Closed)
@@ -2020,11 +2081,16 @@ namespace NMib::NWeb
 		return Return;
 	}
 
-	void CWebSocketActor::f_SetTimeout(fp64 _Seconds)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SetTimeout(fp64 _Seconds)
 	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
 		auto &Internal = *mp_pInternal;
 		Internal.m_Timeout = _Seconds;
 		Internal.f_SetupTimeout();
+
+		co_return {};
 	}
 
 	void CWebSocketActor::CInternal::f_StopTimeout()

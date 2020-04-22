@@ -166,7 +166,7 @@ namespace NMib::NWeb
 		CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout);
 		~CWebSocketActor();
 
-		void f_SetTimeout(fp64 _Seconds);
+		NConcurrency::TCFuture<void> f_SetTimeout(fp64 _Seconds);
 
 		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendText(NStr::CStr const &_Data, uint32 _Priority);
@@ -178,7 +178,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
 
-		void f_DebugStopProcessing(fp64 _Timeout);
+		NConcurrency::TCFuture<void> f_DebugStopProcessing(fp64 _Timeout);
 
 	private:
 		friend class NWebSocket::CListenActor;
@@ -195,6 +195,8 @@ namespace NMib::NWeb
 			, EFinishConnectionResult_Success
 		};
 	private:
+
+		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		NConcurrency::CActorSubscription fp_SetCallbacks
 			(
