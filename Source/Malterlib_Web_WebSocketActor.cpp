@@ -415,10 +415,12 @@ namespace NMib::NWeb
 			m_pLastPendingMessagesList = pList;
 	}
 
-	void CWebSocketActor::f_DebugStopProcessing()
+	void CWebSocketActor::f_DebugStopProcessing(fp64 _Timeout)
 	{
 		auto &Internal = *mp_pInternal;
 		Internal.m_bDebugNoProcessing = true;
+		Internal.m_Timeout = _Timeout;
+		Internal.f_SetupTimeout();
 	}
 
 	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
@@ -935,13 +937,13 @@ namespace NMib::NWeb
 		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 			return;
 
-		if (Internal.m_bDebugNoProcessing)
-			return;
-
 		if (Internal.m_State == EState_Connected)
 			Internal.f_WriteQueuedMessages();
 		else if (Internal.m_State == EState_Disconnecting)
 			Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
+
+		if (Internal.m_bDebugNoProcessing)
+			return;
 
 		bool bDidSend = false;
 		while (!Internal.m_OutgoingData.f_IsEmpty() && Internal.m_pSocket->f_IsValid())

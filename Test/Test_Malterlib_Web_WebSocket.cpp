@@ -456,7 +456,7 @@ public:
 				}
 				{
 					DMibTestPath("Timeout");
-					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing).f_CallSync(20.0);
+					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing, 1.0).f_CallSync(20.0);
 					NSys::fg_Thread_Sleep(2.0);
 					
 					DMibLock(pState->m_Lock);
