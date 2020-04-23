@@ -571,11 +571,11 @@ namespace NMib::NWeb
 
 			auto Cleanup = NConcurrency::g_OnScopeExitActor(ProcessingActor) > [pState, Promise]
 				{
-					if (!pState->m_bHandled.f_Exchange(true))
-					{
-						Promise.f_SetException(DMibErrorInstance("Websocket destroyed"));
-						pState->f_Finish();
-					}
+					if (pState->m_bHandled.f_Exchange(true))
+						return;
+
+					Promise.f_SetException(DMibErrorInstance("Websocket destroyed"));
+					pState->f_Finish();
 				}
 			;
 
@@ -583,15 +583,15 @@ namespace NMib::NWeb
 				(
 					[Cleanup, pState, Promise, this](NStr::CStr const &_Error)
 					{
+						if (pState->m_bHandled.f_Exchange(true))
+							return;
+
 						auto &Internal = *mp_pInternal;
-						if (!pState->m_bHandled.f_Exchange(true))
-						{
-							if (!_Error.f_IsEmpty())
-								Promise.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
-							else
-								Promise.f_SetResult(fg_Move(Internal.m_CloseInfo));
-							pState->f_Finish();
-						}
+						if (!_Error.f_IsEmpty())
+							Promise.f_SetException(DMibErrorInstance(fg_Format("Unclean websocket shutdown: {}", _Error)));
+						else
+							Promise.f_SetResult(fg_Move(Internal.m_CloseInfo));
+						pState->f_Finish();
 					}
 				)
 			;
@@ -600,22 +600,22 @@ namespace NMib::NWeb
 				{
 					if (!_Result)
 					{
-						if (!pState->m_bHandled.f_Exchange(true))
-						{
-							Promise.f_SetException(fg_Move(_Result));
-							pState->f_Finish();
-						}
+						if (pState->m_bHandled.f_Exchange(true))
+							return;
+
+						Promise.f_SetException(fg_Move(_Result));
+						pState->f_Finish();
 					}
 				}
 			;
 
 			NConcurrency::fg_Timeout(_MaxLingerTime, false)(ProcessingActor) > [Promise, pState]
 				{
-					if (!pState->m_bHandled.f_Exchange(true))
-					{
-						Promise.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
-						pState->f_Finish();
-					}
+					if (pState->m_bHandled.f_Exchange(true))
+						return;
+
+					Promise.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
+					pState->f_Finish();
 				}
 			;
 		}
