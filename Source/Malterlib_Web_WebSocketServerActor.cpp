@@ -39,6 +39,11 @@ namespace NMib::NWeb
 		mp_pInternal->m_Timeout = _Timeout;
 	}
 
+	void CWebSocketServerActor::f_Debug_SetBroken(bool _bBroken)
+	{
+		mp_pInternal->m_bBroken = _bBroken;
+	}
+
 	void CWebSocketServerActor::CInternal::f_Clear()
 	{
 		m_ListenSockets.f_Clear();
@@ -166,7 +171,7 @@ namespace NMib::NWeb
 
 	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection)
 	{
-		if (f_IsDestroyed())
+		if (f_IsDestroyed() || mp_pInternal->m_bBroken)
 			return;
 
 		auto pSubscription = &mp_pInternal->m_Subscriptions.f_Insert();

@@ -451,6 +451,7 @@ namespace NMib::NWeb
 		void f_SetDefaultFragmentationSize(mint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
+		void f_Debug_SetBroken(bool _bBroken);
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
