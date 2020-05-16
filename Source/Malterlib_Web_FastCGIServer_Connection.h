@@ -28,6 +28,8 @@ namespace NMib::NWeb
 		void f_SendStdOutput(NContainer::CByteVector const& _Data);
 		void f_SendStdError(NContainer::CByteVector const& _Data);
 
+		void f_Accept();
+
 		void f_FinishRequest();
 
 		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
@@ -39,7 +41,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> fp_Destroy();
 
 		void fp_Disconnect(ch8 const* _pReason);
-		void fp_ProcessState();
+		void fp_ProcessState(NNetwork::ENetTCPState _ForceState = NNetwork::ENetTCPState_None);
 		void fp_UpdateSend();
 
 		void fp_ClearState();
@@ -95,6 +97,7 @@ namespace NMib::NWeb
 		NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> mp_fOnAbort;
 
 		bool mp_bConnectionRemoved = false;
+		bool mp_bAcceptInput = true;
 	};
 }
 

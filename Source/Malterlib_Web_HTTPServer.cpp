@@ -194,6 +194,8 @@ namespace NMib::NWeb
 							}
 						)
 					;
+
+					mp_pRequest->f_Accept();
 					return;
 				}
 

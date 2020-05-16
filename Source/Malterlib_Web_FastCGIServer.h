@@ -27,6 +27,7 @@ namespace NMib::NWeb
 		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
 		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback);
 		void f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback);
+		void f_Accept(); // Call after setting the callbacks to continue processing incoming data
 
 		NContainer::TCMap<NStr::CStr, NStr::CStr> const &f_GetParams();
 
@@ -37,11 +38,13 @@ namespace NMib::NWeb
 		void f_SendStdError(uint8 const* _pOutput, mint _Len);
 
 		void f_FinishRequest();
+		bool f_IsFinished() const;
 
 	private:
 		NConcurrency::TCActor<CFastCGIConnectionActor> mp_ConnectionActor;
 		NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> mp_pParams;
 		bool mp_bFinished = false;
+		bool mp_bAccepted = false;
 	};
 
 	class CFastCGIServer : public NConcurrency::CActor

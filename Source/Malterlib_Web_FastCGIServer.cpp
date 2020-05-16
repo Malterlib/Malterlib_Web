@@ -53,6 +53,11 @@ namespace NMib::NWeb
 			f_FinishRequest();
 	}
 
+	bool CFastCGIRequest::f_IsFinished() const
+	{
+		return mp_bFinished;
+	}
+
 	void CFastCGIRequest::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
@@ -117,5 +122,12 @@ namespace NMib::NWeb
 		DMibRequire(!mp_bFinished);
 		mp_bFinished = true;
 		mp_ConnectionActor(&CFastCGIConnectionActor::f_FinishRequest) > NConcurrency::fg_DiscardResult();
+	}
+
+	void CFastCGIRequest::f_Accept()
+	{
+		DMibRequire(!mp_bAccepted);
+		mp_bAccepted = true;
+		mp_ConnectionActor(&CFastCGIConnectionActor::f_Accept) > NConcurrency::fg_DiscardResult();
 	}
 }

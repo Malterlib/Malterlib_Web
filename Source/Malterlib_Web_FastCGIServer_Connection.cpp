@@ -174,6 +174,14 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
 	{
 		mp_fOnAbort = fg_Move(_fCallback);
+		if (mp_bConnectionRemoved && mp_fOnAbort)
+			mp_fOnAbort() > NConcurrency::fg_DiscardResult();
+	}
+
+	void CFastCGIConnectionActor::f_Accept()
+	{
+		mp_bAcceptInput = true;
+		fp_ProcessState(NNetwork::ENetTCPState_Read);
 	}
 
 	void CFastCGIConnectionActor::f_FinishRequest()
@@ -240,6 +248,7 @@ namespace NMib::NWeb
 
 	void CFastCGIConnectionActor::fp_OnParams()
 	{
+		mp_bAcceptInput = false;
 		NStorage::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), mp_pParams);
 		(*mp_pOnRequest)(pRequest) > NConcurrency::fg_DiscardResult();
 	}
@@ -362,7 +371,7 @@ namespace NMib::NWeb
 							auto StreamLen = Stream.f_GetLength();
 							if ((StreamLen - Stream.f_GetPosition()) < KeyLen)
 							{
-								fp_Disconnect("Invalid params recond");
+								fp_Disconnect("Invalid params record");
 								return false;
 							}
 							Stream.f_ConsumeBytes(Key.f_GetStr(KeyLen + 1), KeyLen);
@@ -371,7 +380,7 @@ namespace NMib::NWeb
 
 							if ((StreamLen - Stream.f_GetPosition()) < ValueLen)
 							{
-								fp_Disconnect("Invalid params recond");
+								fp_Disconnect("Invalid params record");
 								return false;
 							}
 							Stream.f_ConsumeBytes(Value.f_GetStr(ValueLen + 1), ValueLen);
@@ -469,18 +478,19 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CFastCGIConnectionActor::fp_ProcessState()
+	void CFastCGIConnectionActor::fp_ProcessState(NNetwork::ENetTCPState _ForceState)
 	{
 		if (!mp_Socket.f_IsValid() )
 			return;
 
-		auto StateAdded = mp_Socket.f_GetState();
+		auto StateAdded = mp_Socket.f_GetState() | _ForceState;
 		if (StateAdded & (NNetwork::ENetTCPState_RemoteClosed | NNetwork::ENetTCPState_Closed))
 		{
 			fp_Disconnect("Connection closed");
 			return;
 		}
-		if (StateAdded & NNetwork::ENetTCPState_Read && !mp_RecordInfo.m_bInvalid)
+
+		if ((StateAdded & NNetwork::ENetTCPState_Read) && !mp_RecordInfo.m_bInvalid && mp_bAcceptInput)
 		{
 			uint8 Data[4096];
 			try
@@ -504,7 +514,8 @@ namespace NMib::NWeb
 				fp_Disconnect(_Exception.f_GetErrorStr());
 				return;
 			}
-			while (true)
+
+			while (mp_bAcceptInput)
 			{
 				if (mp_NeededData == 0)
 				{
