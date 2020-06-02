@@ -568,6 +568,35 @@ namespace NMib::NWeb
 		{
 			CFunctionConfiguration ExistingConfig = CInternal::fsp_FunctionConfigFromJSON(ExistingFunction);
 
+			bool bChangedConfig = false;
+			if (_Config.m_DeadLetterConfig.m_TargetArn && _Config.m_DeadLetterConfig.m_TargetArn != ExistingConfig.m_DeadLetterConfig.m_TargetArn)
+				bChangedConfig = true;
+			if (_Config.m_TracingConfig.m_Mode && _Config.m_TracingConfig.m_Mode != ExistingConfig.m_TracingConfig.m_Mode)
+				bChangedConfig = true;
+			if (_Config.m_VpcConfig.m_SecurityGroupIds && _Config.m_VpcConfig.m_SecurityGroupIds != ExistingConfig.m_VpcConfig.m_SecurityGroupIds)
+				bChangedConfig = true;
+			if (_Config.m_VpcConfig.m_SubnetIDs && _Config.m_VpcConfig.m_SubnetIDs != ExistingConfig.m_VpcConfig.m_SubnetIDs)
+				bChangedConfig = true;
+			if (_Config.m_Handler && _Config.m_Handler != ExistingConfig.m_Handler)
+				bChangedConfig = true;
+			if (_Config.m_Role && _Config.m_Role != ExistingConfig.m_Role)
+				bChangedConfig = true;
+			if (_Config.m_Runtime && _Config.m_Runtime != ExistingConfig.m_Runtime)
+				bChangedConfig = true;
+			if (_Config.m_EnvironmentVariables && _Config.m_EnvironmentVariables != ExistingConfig.m_EnvironmentVariables)
+				bChangedConfig = true;
+			if (_Config.m_Description && _Config.m_Description != ExistingConfig.m_Description)
+				bChangedConfig = true;
+			if (_Config.m_KMSKeyArn && _Config.m_KMSKeyArn != ExistingConfig.m_KMSKeyArn)
+				bChangedConfig = true;
+			if (_Config.m_MemorySizeMB && _Config.m_MemorySizeMB != ExistingConfig.m_MemorySizeMB)
+				bChangedConfig = true;
+			if (_Config.m_TimeoutSeconds && _Config.m_TimeoutSeconds != ExistingConfig.m_TimeoutSeconds)
+				bChangedConfig = true;
+
+			if (bChangedConfig)
+				co_await Internal.f_UpdateFunctionConfiguration(_FunctionName, _Config);
+
 			auto &ExistingConfigJSON = ExistingFunction["Configuration"];
 
 			NContainer::CByteVector HashData;
@@ -615,35 +644,6 @@ namespace NMib::NWeb
 					co_return DMibErrorInstance("Unexpected return from get function versions: {}"_f << _Exception);
 				}
 			}
-
-			bool bChangedConfig = false;
-			if (_Config.m_DeadLetterConfig.m_TargetArn && _Config.m_DeadLetterConfig.m_TargetArn != ExistingConfig.m_DeadLetterConfig.m_TargetArn)
-				bChangedConfig = true;
-			if (_Config.m_TracingConfig.m_Mode && _Config.m_TracingConfig.m_Mode != ExistingConfig.m_TracingConfig.m_Mode)
-				bChangedConfig = true;
-			if (_Config.m_VpcConfig.m_SecurityGroupIds && _Config.m_VpcConfig.m_SecurityGroupIds != ExistingConfig.m_VpcConfig.m_SecurityGroupIds)
-				bChangedConfig = true;
-			if (_Config.m_VpcConfig.m_SubnetIDs && _Config.m_VpcConfig.m_SubnetIDs != ExistingConfig.m_VpcConfig.m_SubnetIDs)
-				bChangedConfig = true;
-			if (_Config.m_Handler && _Config.m_Handler != ExistingConfig.m_Handler)
-				bChangedConfig = true;
-			if (_Config.m_Role && _Config.m_Role != ExistingConfig.m_Role)
-				bChangedConfig = true;
-			if (_Config.m_Runtime && _Config.m_Runtime != ExistingConfig.m_Runtime)
-				bChangedConfig = true;
-			if (_Config.m_EnvironmentVariables && _Config.m_EnvironmentVariables != ExistingConfig.m_EnvironmentVariables)
-				bChangedConfig = true;
-			if (_Config.m_Description && _Config.m_Description != ExistingConfig.m_Description)
-				bChangedConfig = true;
-			if (_Config.m_KMSKeyArn && _Config.m_KMSKeyArn != ExistingConfig.m_KMSKeyArn)
-				bChangedConfig = true;
-			if (_Config.m_MemorySizeMB && _Config.m_MemorySizeMB != ExistingConfig.m_MemorySizeMB)
-				bChangedConfig = true;
-			if (_Config.m_TimeoutSeconds && _Config.m_TimeoutSeconds != ExistingConfig.m_TimeoutSeconds)
-				bChangedConfig = true;
-
-			if (bChangedConfig)
-				co_await Internal.f_UpdateFunctionConfiguration(_FunctionName, _Config);
 
 			co_return fg_Move(FunctionInfo);
 		}
