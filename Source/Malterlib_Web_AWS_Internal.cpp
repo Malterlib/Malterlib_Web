@@ -22,6 +22,7 @@ namespace NMib::NWeb
 			case CCurlActor::EMethod_POST: return "POST";
 			case CCurlActor::EMethod_PUT: return "PUT";
 			case CCurlActor::EMethod_DELETE: return "DELETE";
+			case CCurlActor::EMethod_PATCH: return "PATCH";
 		}
 
 		return "";

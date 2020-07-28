@@ -148,8 +148,11 @@ namespace NMib::NWeb
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
 				}
-				else if (_Method == EMethod_PUT)
+				else if (_Method == EMethod_PUT || _Method == EMethod_PATCH)
 				{
+					if (_Method == EMethod_PATCH)
+						fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
+
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &DataIterator));
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, _Data.f_GetLen()));
