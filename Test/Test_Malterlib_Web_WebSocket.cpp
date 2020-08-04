@@ -25,6 +25,7 @@ using namespace NMib::NThread;
 using namespace NMib::NContainer;
 using namespace NMib::NStr;
 using namespace NMib::NCryptography;
+using namespace NMib::NFunction;
 
 namespace
 {
@@ -38,7 +39,7 @@ public:
 
 	void fp_Test
 		(
-			NFunction::TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
+			TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 		 	, bool _bTestTimeout = false
@@ -327,10 +328,30 @@ public:
 		DMibAssertTrue(pState->m_ClientSocket);
 		return true;
 	}
-	
+
+	bool fp_WaitForCondition(TCFunction<bool ()> const &_fPredicate)
+	{
+		bool bTimedOut = false;
+
+		NTime::CClock Clock;
+		Clock.f_Start();
+
+		while (!_fPredicate())
+		{
+			NSys::fg_Thread_Sleep(0.01f);
+			if (Clock.f_GetTime() > 30.0)
+			{
+				bTimedOut = true;
+				break;
+			}
+		}
+
+		return bTimedOut;
+	}
+
 	void fp_TestImp
 		(
-			NFunction::TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
+			TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, CStr const &_Address
@@ -457,8 +478,18 @@ public:
 				{
 					DMibTestPath("Timeout");
 					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing, 1.0).f_CallSync(20.0);
-					NSys::fg_Thread_Sleep(2.0);
-					
+
+					bool bTimedOut = fp_WaitForCondition
+						(
+							[&]
+							{
+								DMibLock(pState->m_Lock);
+								return pState->m_ServerConnectionCloseStatus == EWebSocketStatus_Timeout || pState->m_ClientConnectionCloseStatus == EWebSocketStatus_Timeout;
+							}
+						)
+					;
+
+					DMibExpectFalse(bTimedOut);
 					DMibLock(pState->m_Lock);
 					DMibTest
 						(
