@@ -17,6 +17,7 @@ namespace NMib::NWeb
 		NStr::CStr m_Method;
 		NStr::CStr m_ClientIP;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Variables;
+		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
 
 		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
 

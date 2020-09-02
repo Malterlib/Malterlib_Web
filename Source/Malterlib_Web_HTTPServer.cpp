@@ -151,11 +151,22 @@ namespace NMib::NWeb
 				if (pMethod)
 					mp_pHTTPRequest->m_Method = *pMethod;
 
+				auto* pQuery = _Params.f_FindEqual("QUERY_STRING");
+				if (pQuery && !pQuery->f_IsEmpty())
+					fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
+
+				for (auto &Param : _Params)
+				{
+					auto &Key = _Params.fs_GetKey(Param);
+
+					if (!Key.f_StartsWith("HTTP_"))
+						continue;
+
+					mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase()] = Param;
+				}
+
 				if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
 				{
-					auto* pQuery = _Params.f_FindEqual("QUERY_STRING");
-					if (pQuery && !pQuery->f_IsEmpty())
-						fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
 
 				}
 				else if (fg_StrCmpNoCase(*pMethod, "POST") == 0)
