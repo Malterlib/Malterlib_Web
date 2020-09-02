@@ -13,9 +13,15 @@ namespace NMib::NWeb
 	|___________________________________________________________________________________________________|
 	\***************************************************************************************************/
 
-	CHTTPRequestHandler_ExeFs::CHTTPRequestHandler_ExeFs(NStr::CStr const& _ServerPath, NStr::CStr const& _ExeFsPath)
+	CHTTPRequestHandler_ExeFs::CHTTPRequestHandler_ExeFs
+		(
+			NStr::CStr const& _ServerPath
+			, NStr::CStr const& _ExeFsPath
+			, NFunction::TCFunction<bool (CHTTPConnection &_Connection, CHTTPRequest const& _Req)> const &_fCheckAccess
+		)
 		: mp_Path(_ServerPath)
 		, mp_ExeFsPath(_ExeFsPath)
+		, mp_fCheckAccess(_fCheckAccess)
 	{
 		if (NMib::NFile::fg_OpenExeFS(mp_ExeFs))
 		{
@@ -43,6 +49,12 @@ namespace NMib::NWeb
 	// This could be called for any thread - assume nothing.
 	bool CHTTPRequestHandler_ExeFs::f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
 	{
+		if (mp_fCheckAccess)
+		{
+			if (!mp_fCheckAccess(_Connection, _Req))
+				return true;
+		}
+
 		try
 		{
 			if (!mp_pFSInterface)
