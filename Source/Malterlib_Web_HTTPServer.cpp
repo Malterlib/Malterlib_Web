@@ -140,7 +140,7 @@ namespace NMib::NWeb
 				}
 			}
 
-			void f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params)
+			void f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
 			{
 				mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
 				auto* pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
@@ -376,11 +376,14 @@ namespace NMib::NWeb
 
 			mp_Options = _Options;
 
-			mp_pNGINXLauncher = fg_Construct(mp_Options.m_NGINXPath, mp_Options.m_WebRoot);
-			mp_pNGINXLauncher->f_SetFastCGIListen(mp_Options.m_FastCGIListenStartPort, mp_Options.m_nMaxThreads);
-			mp_pNGINXLauncher->f_SetListen(mp_Options.m_ListeningPort);
-			mp_pNGINXLauncher->f_SetStaticRoot(mp_Options.m_StaticRoot);
-			mp_pNGINXLauncher->f_Launch();
+			if (mp_Options.m_bUseNgnix)
+			{
+				mp_pNGINXLauncher = fg_Construct(mp_Options.m_NGINXPath, mp_Options.m_WebRoot);
+				mp_pNGINXLauncher->f_SetFastCGIListen(mp_Options.m_FastCGIListenStartPort, mp_Options.m_nMaxThreads);
+				mp_pNGINXLauncher->f_SetListen(mp_Options.m_ListeningPort);
+				mp_pNGINXLauncher->f_SetStaticRoot(mp_Options.m_StaticRoot);
+				mp_pNGINXLauncher->f_Launch();
+			}
 
 			mp_pFastCGIServer = fg_Construct();
 			mp_pFastCGIServer
@@ -416,7 +419,7 @@ namespace NMib::NWeb
 					}
 					, mp_Options.m_FastCGIListenStartPort
 					, mp_Options.m_nMaxThreads
-					, NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
+					, mp_Options.m_FastCGIListenAddress
 				)
 				> NConcurrency::fg_DiscardResult()
 			;

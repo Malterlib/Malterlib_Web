@@ -115,12 +115,17 @@ namespace NMib::NWeb
 
 	struct CHTTPServerOptions
 	{
-		uint32 m_nMaxThreads = 1;
-		uint16 m_ListeningPort = 8080;
-		uint16 m_FastCGIListenStartPort = 9000;
 		NStr::CStr m_StaticRoot;
 		NStr::CStr m_NGINXPath;
 		NStr::CStr m_WebRoot;
+
+		NNetwork::CNetAddress m_FastCGIListenAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0);
+
+		uint32 m_nMaxThreads = 1;
+		uint16 m_ListeningPort = 8080;
+		uint16 m_FastCGIListenStartPort = 9000;
+
+		bool m_bUseNgnix = true;
 
 		CHTTPServerOptions();
 		/*
