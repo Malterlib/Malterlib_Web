@@ -209,6 +209,7 @@ namespace NMib::NWeb
 					mp_pRequest->f_Accept();
 					return;
 				}
+				mp_pRequest->f_Accept();
 
 				_pThis->f_HandleRequest();
 			}
