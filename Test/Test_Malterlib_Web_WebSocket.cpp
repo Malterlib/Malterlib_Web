@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Core>
@@ -31,6 +31,7 @@ namespace
 {
 	CPublicKeySetting gc_TestTestKeySetting = CPublicKeySettings_EC_secp256r1{};
 	char const *g_pCloseMessage = "Malterlib Web closed connection";
+	fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 }
 
 class CWebsocket_Tests : public NMib::NTest::CTest
@@ -62,7 +63,7 @@ public:
 			NConcurrency::TCActor<CWebSocketActor> m_Actor;
 			NConcurrency::CActorSubscription m_CallbacksReference;
 		};
-		
+
 		CMutual m_Lock;
 		CEventAutoReset m_Event;
 
@@ -70,7 +71,7 @@ public:
 		NConcurrency::CActorSubscription m_ListenCallbackReference;
 
 		NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
-		
+
 		NStr::CStr m_AcceptError;
 		bool m_bAcceptError = false;
 		NStr::CStr m_ListenError;
@@ -79,10 +80,10 @@ public:
 
 		NConcurrency::TCActor<CWebSocketActor> m_ClientSocket;
 		NConcurrency::CActorSubscription m_ClientActorCallbacksReference;
-		
+
 		NStr::CStr m_ClientConnectionError;
 		bool m_bClientConnectionResult = false;
-		
+
 		EWebSocketCloseOrigin m_ClientConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
 		EWebSocketCloseOrigin m_ServerConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
 		EWebSocketStatus m_ClientConnectionCloseStatus = EWebSocketStatus_None;
@@ -93,7 +94,7 @@ public:
 		NContainer::TCVector<NStr::CStr> m_Messages;
 
 		bool m_bCleared = false;
-		
+
 		void f_Clear()
 		{
 			DMibLock(m_Lock);
@@ -113,7 +114,7 @@ public:
 				m_ServerActor.f_Clear();
 			}
 		}
-		
+
 		void f_StartListen(CNetAddress _ListenAddress, NNetwork::FVirtualSocketFactory const &_ServerFactory)
 		{
 			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
@@ -129,7 +130,7 @@ public:
 						DMibLock(pState->m_Lock);
 
 						CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
-						
+
 						ConnectionInfo.m_fOnReceiveTextMessage
 							= [pState](NStr::CStr const &_Message)
 							{
@@ -140,7 +141,7 @@ public:
 										> NConcurrency::fg_DiscardResult()
 									;
 								}
-								
+
 								if (_Message == "Disconnect")
 								{
 									DMibLock(pState->m_Lock);
@@ -149,7 +150,7 @@ public:
 								}
 							}
 						;
-						
+
 						ConnectionInfo.m_fOnClose
 							= [pState, pServerConnection](EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
 							{
@@ -163,11 +164,11 @@ public:
 								pState->m_Event.f_Signal();
 							}
 						;
-						
+
 						NStr::CStr Protocol;
 						if (!ConnectionInfo.m_Protocols.f_IsEmpty())
 							Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
-						
+
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
@@ -179,7 +180,7 @@ public:
 								}
 							)
 						;
-						
+
 						pState->m_Event.f_Signal();
 					}
 					, [pState](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
@@ -200,13 +201,13 @@ public:
 						pState->m_ListenError = _Result.f_GetExceptionStr();
 					pState->m_Event.f_Signal();
 				}
-			;			
+			;
 			bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
 			DMibAssert(pState->m_ListenError, ==, "");
 			DMibAssertFalse(bTimedOutListenStart);
 			DMibAssertTrue(pState->m_ListenCallbackReference);
 		}
-		
+
 		void f_Connect(CStr const &_Address, NNetwork::FVirtualSocketFactory const &_ClientFactory)
 		{
 			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
@@ -267,14 +268,14 @@ public:
 			;
 		}
 	};
-	
+
 	bool fp_TestConnect(NStorage::TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
 	{
 		auto pState = _pState;
 		DMibTestPath("Connect");
 
 		bool bTimedOut = false;
-		
+
 		while (!bTimedOut)
 		{
 			{
@@ -283,36 +284,38 @@ public:
 					break; // Server accept failed
 				if (pState->m_bClientConnectionResult)
 				{
-					if 
+					if
 						(
-							!pState->m_ClientSocket 
-							&& 
+							!pState->m_ClientSocket
+							&&
 							(
-								pState->m_bAcceptError 
-								|| !pState->m_ServerConnections.f_IsEmpty() 
+								pState->m_bAcceptError
+								|| !pState->m_ServerConnections.f_IsEmpty()
 								|| (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty())
 							)
 						)
 					{
 						break; // Client connection failed
 					}
-					
+
 					if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
 						break; // Successfully done
 				}
 			}
 			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
 		}
-		
-		
+
+
 		DMibTest(!DMibExpr(bTimedOut));
+
+		DMibLock(pState->m_Lock);
 
 		if (!_ConnectError.f_IsEmpty())
 		{
 			DMibExpect(pState->m_ClientConnectionError, ==, _ConnectError);
 			return false;
 		}
-		
+
 		if (!_AcceptError.f_IsEmpty())
 		{
 			DMibTest(DMibExpr(pState->m_bAcceptError));
@@ -321,9 +324,9 @@ public:
 		}
 		DMibTest(!DMibExpr(pState->m_bAcceptError));
 		DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
-		
+
 		DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
-		
+
 		DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
 		DMibAssertTrue(pState->m_ClientSocket);
 		return true;
@@ -362,7 +365,7 @@ public:
 		{
 			auto Factories = _fGetFactories();
 			auto ServerFactory = fg_Get<0>(Factories);
-			auto ClientFactory = fg_Get<1>(Factories); 
+			auto ClientFactory = fg_Get<1>(Factories);
 
 			CNetAddress ListenAddress;
 			if (_Address == "localhost")
@@ -376,33 +379,33 @@ public:
 				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
 				NStorage::TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup 
+				auto Cleanup
 					= g_OnScopeExit > [&]
 					{
 						pState->f_Clear();
 					}
 				;
-				
+
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
 				pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
 				pState->f_Connect(_Address, ClientFactory);
-		
+
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
 				{
 					DMibTestPath("Messages");
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(20.0);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(g_Timeout / 3);
 					NContainer::CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
 					NStorage::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(20.0);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(g_Timeout / 3);
 
 					NStorage::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(20.0);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(g_Timeout / 3);
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -427,7 +430,7 @@ public:
 					DMibTestPath("Disconnect");
 
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();
-					
+
 					bool bTimedOut = false;
 					while (!bTimedOut)
 					{
@@ -442,7 +445,7 @@ public:
 					DMibTest(!DMibExpr(bTimedOut));
 					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, g_pCloseMessage);
 					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, g_pCloseMessage);
-					
+
 				}
 			}
 
@@ -450,21 +453,21 @@ public:
 			{
 				DMibTestPath("Timeout");
 				NStorage::TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup 
+				auto Cleanup
 					= g_OnScopeExit > [&]
 					{
 						pState->f_Clear();
 					}
 				;
-				
+
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(20.0);
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
 				pState->f_StartListen(ListenAddress, ServerFactory);
-				
+
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(20.0);
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory);
-				
+
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
 				{
@@ -477,7 +480,7 @@ public:
 				}
 				{
 					DMibTestPath("Timeout");
-					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing, 1.0).f_CallSync(20.0);
+					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing, 1.0).f_CallSync(g_Timeout / 3);
 
 					bool bTimedOut = fp_WaitForCondition
 						(
@@ -501,7 +504,7 @@ public:
 			}
 		};
 	}
-	
+
 	void f_DoTests()
 	{
 		DMibTestCategory("TCP")
@@ -530,7 +533,7 @@ public:
 						Options.m_CommonName = "Malterlib test Self Signed";
 						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						Options.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
@@ -539,7 +542,7 @@ public:
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -560,7 +563,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
@@ -569,18 +572,18 @@ public:
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						
+
 						CByteVector CertificateRequestData;
 
 						CCertificateOptions ClientOptions;
 						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
 						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
 
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -600,7 +603,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
@@ -612,11 +615,11 @@ public:
 						CCertificateOptions ClientOptions;
 						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CByteVector CertificateRequestData;
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
 						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
-						
+
 						CSSLSettings ClientSettings2;
 						ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
@@ -624,13 +627,13 @@ public:
 						CCertificateOptions ClientOptions2;
 						ClientOptions2.m_CommonName = "Test Client";
 						ClientOptions2.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CByteVector CertificateRequestData2;
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
 						CCertificate::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
-						
+
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
@@ -650,9 +653,9 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						
+
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
@@ -660,16 +663,16 @@ public:
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						
+
 						CCertificateOptions ClientOptions;
 						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
@@ -689,9 +692,9 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						
+
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
@@ -701,7 +704,7 @@ public:
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
@@ -721,7 +724,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
@@ -733,7 +736,7 @@ public:
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -753,7 +756,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
@@ -763,16 +766,16 @@ public:
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						
+
 						CCertificateOptions ClientOptions;
 						ClientOptions.m_CommonName = "Test Client";
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
@@ -792,9 +795,9 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						
+
 						CSSLSettings ServerSettings2;
 						CCertificateOptions ServerOptions2;
 						ServerOptions2.m_CommonName = "Malterlib test Self Signed";
@@ -806,9 +809,9 @@ public:
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
-						
+
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -823,20 +826,20 @@ public:
 					[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
 					{
 						CSSLSettings ServerSettings;
-						
+
 						CCertificateOptions ServerOptions;
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						
+
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -858,7 +861,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
 
 						CByteVector ChildCertData;
@@ -869,21 +872,21 @@ public:
 						RequestOptions.m_CommonName = "Malterlib test request";
 						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-						
+
 						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-						
+
 						ServerSettings.m_PublicCertificateData = ChildCertData;
-						ServerSettings.m_PrivateKeyData = ChildKeyData; 
+						ServerSettings.m_PrivateKeyData = ChildKeyData;
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_CACertificateData = RootCertData;
-						
+
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""
@@ -905,7 +908,7 @@ public:
 						ServerOptions.m_CommonName = "Malterlib test Self Signed";
 						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
 
 						CByteVector ChildCertData;
@@ -916,22 +919,22 @@ public:
 						RequestOptions.m_CommonName = "Malterlib test request";
 						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
 						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
-						
+
 						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-						
+
 						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-						
+
 						ServerSettings.m_PublicCertificateData = ChildCertData;
-						ServerSettings.m_PrivateKeyData = ChildKeyData; 
+						ServerSettings.m_PrivateKeyData = ChildKeyData;
 
 						NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 						CSSLSettings ClientSettings;
 						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 						ClientSettings.m_CACertificateData = RootCertData;
-						
+
 						NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-						
+
 						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 					}
 					, ""

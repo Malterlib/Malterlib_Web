@@ -407,7 +407,7 @@ namespace NMib::NWeb
 
 			NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
 			NConcurrency::CActorSubscription m_OnFinishConnectionSubscription;
-			NStorage::TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
+			NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 		};
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
