@@ -809,14 +809,14 @@ namespace NMib::NWeb::NHTTP
 				"	Path:	{}\n"
 				"	Query:	{}\n"
 				"	Frag:	{}\n"
-				, f_HasScheme() ? mp_Scheme : "<None>"
-				, f_HasUsername() ? mp_Username : "<None>"
-				, f_HasPassword() ? mp_Password : "<None>"
-				, f_HasHost() ? mp_Host : "<None>"
-				, f_HasPort() ? NStr::fg_Format("{}", mp_Port) : "<None>"
-				, f_HasPath() ? Path : "<None>"
+				, f_HasScheme() ? mp_Scheme.f_GetStr() : "<None>"
+				, f_HasUsername() ? mp_Username.f_GetStr() : "<None>"
+				, f_HasPassword() ? mp_Password.f_GetStr() : "<None>"
+				, f_HasHost() ? mp_Host.f_GetStr() : "<None>"
+				, f_HasPort() ? NStr::fg_Format("{}", mp_Port) : NStr::CStr("<None>")
+				, f_HasPath() ? Path.f_GetStr() : "<None>"
 				, f_HasQuery() ? mp_Query : fg_Default()
-				, f_HasFragment() ? mp_Fragment : "<None>"
+				, f_HasFragment() ? mp_Fragment.f_GetStr() : "<None>"
 			)
 		;
 		NSys::fg_DebugOutput(Text.f_GetStr());
