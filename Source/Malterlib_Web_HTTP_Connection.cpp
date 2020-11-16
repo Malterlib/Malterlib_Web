@@ -46,7 +46,7 @@ namespace NMib::NWeb::NHTTP
 
 		bool f_IsConnected() const;
 
-		void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
+		void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
 
 		void f_Process();
 
@@ -101,7 +101,7 @@ namespace NMib::NWeb::NHTTP
 			return true;
 	}
 
-	void CConnection::CDetails::f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo)
+	void CConnection::CDetails::f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo)
 	{
 		mp_pSocket->f_SetReportTo(_pReportTo);
 	}
@@ -210,7 +210,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_pD->f_IsConnected();
 	}
 
-	void CConnection::f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo)
+	void CConnection::f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo)
 	{
 		mp_pD->f_SetReportTo(_pReportTo);
 	}

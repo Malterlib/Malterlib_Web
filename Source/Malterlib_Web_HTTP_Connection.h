@@ -29,7 +29,7 @@ namespace NMib::NWeb::NHTTP
 
 			bool f_IsConnected() const;
 
-			void f_SetReportTo(NMib::NThread::CSemaphoreReportableAggregate *_pReportTo);
+			void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
 
 			void f_Process();
 	};

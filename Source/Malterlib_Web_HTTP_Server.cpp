@@ -14,8 +14,6 @@ namespace NMib::NWeb::NHTTP
 		NThread::CMutual mp_NewConnectionsLock;
 		DMibListLinkD_List(CConnection, mp_Link) mp_NewConnectionsList;
 
-		NThread::CEventAutoResetReportable mp_Event;
-
 		NStorage::TCUniquePointer<NThread::CThreadObject> mp_pThread;
 
 		aint fp_Work(NThread::CThreadObject* _pThread);
@@ -119,10 +117,6 @@ namespace NMib::NWeb::NHTTP
 	{
 		NNetwork::CSocket ListenSocket;
 
-		NThread::CEventAutoResetReportable PendingConnections;
-
-		_pThread->m_EventWantQuit.f_ReportTo(&PendingConnections);
-
 		try
 		{
 			NNetwork::CNetAddressTCPv4 TCPListenAddr;
@@ -131,7 +125,7 @@ namespace NMib::NWeb::NHTTP
 			NNetwork::CNetAddress ListenAddr;
 			ListenAddr.f_Set(TCPListenAddr);
 
-			ListenSocket.f_Listen(ListenAddr, &PendingConnections, NMib::NNetwork::ENetFlag_None);
+			ListenSocket.f_Listen(ListenAddr, &_pThread->m_EventWantQuit, NMib::NNetwork::ENetFlag_None);
 		}
 		catch (NException::CException const &/*_Exception*/)
 		{
@@ -162,7 +156,7 @@ namespace NMib::NWeb::NHTTP
 					}
 				}
 
-			PendingConnections.f_Wait();
+			_pThread->m_EventWantQuit.f_Wait();
 		}
 
 		pIncomingSocket = nullptr;
@@ -214,10 +208,10 @@ namespace NMib::NWeb::NHTTP
 	void CConnectionWorker::f_AddConnection( NStorage::TCUniquePointer<CConnection> _pConn )
 	{
 		DMibLock(mp_NewConnectionsLock);
-//			_pConn->f_SetReportTo(&mp_Event);
 		mp_NewConnectionsList.f_Insert(_pConn.f_Detach());
 
-		mp_Event.f_Signal();
+		if (mp_pThread)
+			mp_pThread->m_EventWantQuit.f_Signal();
 	}
 
 	void CConnectionWorker::f_Start()
@@ -233,15 +227,13 @@ namespace NMib::NWeb::NHTTP
 
 	aint CConnectionWorker::fp_Work(NThread::CThreadObject* _pThread)
 	{
-		_pThread->m_EventWantQuit.f_ReportTo(&mp_Event);
-
 		while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 		{
 			{ // Take new connections
 				DMibLock(mp_NewConnectionsLock);
 				while( !mp_NewConnectionsList.f_IsEmpty() )
 				{
-					mp_NewConnectionsList.f_GetIterator()->f_SetReportTo(&mp_Event);
+					mp_NewConnectionsList.f_GetIterator()->f_SetReportTo(&_pThread->m_EventWantQuit);
 					mp_ConnectionsList.f_Insert( mp_NewConnectionsList.f_GetIterator() );
 				}
 			}
@@ -271,7 +263,7 @@ namespace NMib::NWeb::NHTTP
 
 			DMibTraceRaw("ConnectionWorker: Waiting\n");
 //				NMib::NSys::fg_Thread_SmallestSleep();
-			mp_Event.f_Wait();
+			_pThread->m_EventWantQuit.f_Wait();
 			DMibTraceRaw("ConnectionWorker: Woke\n");
 		}
 
