@@ -97,7 +97,7 @@ namespace NMib::NWeb
 		)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/config"_f << _DistributionID};
+		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2020-05-31/distribution/{}/config"_f << _DistributionID};
 
 		auto Result = co_await fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront");
 
