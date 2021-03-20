@@ -39,13 +39,20 @@ namespace NMib::NWeb
 			CAccountInfo m_AccountInfo;
 		};
 
-		struct CCertificateChain
+		struct CChain
 		{
-			NStr::CStrSecure m_PrivateKey;
  			NStr::CStr m_FullChain;
 			NStr::CStr m_EndEntity;
 			NStr::CStr m_Issuer;
-			NStr::CStr m_Other;
+			NStr::CStr m_Root;
+			NContainer::TCVector<NStr::CStr> m_Other;
+		};
+
+		struct CCertificateChains
+		{
+			NStr::CStrSecure m_PrivateKey;
+			CChain m_DefaultChain;
+			NContainer::TCVector<CChain> m_AlternateChains;
 		};
 
 		enum EChallengeType
@@ -73,7 +80,7 @@ namespace NMib::NWeb
 		CAcmeClientActor(CDependencies &&_Dependencies);
 		~CAcmeClientActor();
 
-		NConcurrency::TCFuture<CCertificateChain> f_RequestCertificate(CCertificateRequest &&_RequestCertificate);
+		NConcurrency::TCFuture<CCertificateChains> f_RequestCertificate(CCertificateRequest &&_RequestCertificate);
 
 	private:
 		struct CInternal;

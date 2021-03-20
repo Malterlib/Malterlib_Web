@@ -201,7 +201,94 @@ namespace NMib::NWeb
 
 	CAcmeClientActor::~CAcmeClientActor() = default;
 
-	auto CAcmeClientActor::f_RequestCertificate(CCertificateRequest &&_RequestCertificate) -> TCFuture<CCertificateChain>
+	namespace
+	{
+		TCVector<CStr> fg_ParseLinks(NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> const &_Headers, CStr const &_Relation)
+		{
+			auto pLink = _Headers.f_FindEqual("link");
+			if (!pLink)
+				return {};
+
+			TCVector<CStr> Return;
+
+			auto *pParse = pLink->f_GetStr();
+			while (*pParse)
+			{
+				fg_ParseWhiteSpace(pParse);
+				if (*pParse != '<')
+					break;
+				++pParse;
+
+				auto pParseStart = pParse;
+				while (*pParse && *pParse != '>')
+					++pParse;
+
+				if (*pParse != '>')
+					break;
+
+				CStr URL(pParseStart, pParse - pParseStart);
+
+				++pParse;
+
+				while (*pParse && *pParse != ',')
+				{
+					fg_ParseWhiteSpace(pParse);
+
+					if (*pParse != ';')
+						return {}; // Error
+
+					++pParse;
+
+					fg_ParseWhiteSpace(pParse);
+
+					pParseStart = pParse;
+
+					while (*pParse && *pParse != '=')
+						++pParse;
+
+					if (*pParse != '=')
+						return {};
+
+					CStr ParamName(pParseStart, pParse - pParseStart);
+
+					++pParse;
+
+					CStr ParamValue;
+					if (*pParse == '"')
+					{
+						++pParse;
+
+						pParseStart = pParse;
+
+						while (*pParse && *pParse != '"')
+							++pParse;
+
+						if (*pParse != '"')
+							return {};
+
+						ParamValue = CStr(pParseStart, pParse - pParseStart);
+						++pParse;
+					}
+					else
+					{
+						pParseStart = pParse;
+
+						while (*pParse && !fg_CharIsWhiteSpace(*pParse) && *pParse != ',' && *pParse != ';')
+							++pParse;
+
+						ParamValue = CStr(pParseStart, pParse - pParseStart);
+					}
+
+					if (ParamName == "rel" && ParamValue == _Relation)
+						Return.f_Insert(URL);
+				}
+			}
+
+			return Return;
+		}
+	}
+
+	auto CAcmeClientActor::f_RequestCertificate(CCertificateRequest &&_RequestCertificate) -> TCFuture<CCertificateChains>
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -646,7 +733,7 @@ namespace NMib::NWeb
 			}
 		}
 
-		CCertificateChain ReturnChain;
+		CCertificateChains ReturnChains;
 
 		CCertificateOptions Options;
 		Options.m_CommonName = _RequestCertificate.m_DnsNames[0];
@@ -659,7 +746,7 @@ namespace NMib::NWeb
 
 		CSecureByteVector PrivateKey;
 		CCertificate::fs_GenerateClientCertificateRequest(Options, CertificateSigningRequest, PrivateKey);
-		ReturnChain.m_PrivateKey = CStrSecure((ch8 const *)PrivateKey.f_GetArray(), PrivateKey.f_GetLen());
+		ReturnChains.m_PrivateKey = CStrSecure((ch8 const *)PrivateKey.f_GetArray(), PrivateKey.f_GetLen());
 
 		CStr Status;
 		CStr CertificateUrl;
@@ -695,43 +782,76 @@ namespace NMib::NWeb
 
 		{
 			auto Result = co_await fPostAsGet(CertificateUrl);
-
 			if (Result.m_StatusCode != 200)
-				co_return fGetError(Result, "Error getting challenge result");
+				co_return fGetError(Result, "Error getting certificate");
 
 			fUpdateNonce(Result);
 
-			ReturnChain.m_FullChain = Result.m_Body;
+			auto &DefaultChain = ReturnChains.m_DefaultChain;
 
-			TCVector<CStr> Certificates;
-
-			CStr *pCurrentCertificate = nullptr;
-
-			for (auto &Line : ReturnChain.m_FullChain.f_SplitLine())
-			{
-				if (Line.f_IsEmpty())
+			auto fParseChain = [&](CStr const &_FullChain) -> CChain
 				{
-					pCurrentCertificate = nullptr;
-					continue;
+					CChain Chain;
+
+					Chain.m_FullChain = _FullChain;
+
+					TCVector<CStr> Certificates;
+
+					CStr *pCurrentCertificate = nullptr;
+
+					for (auto &Line : _FullChain.f_SplitLine())
+					{
+						if (Line.f_IsEmpty())
+						{
+							pCurrentCertificate = nullptr;
+							continue;
+						}
+						if (!pCurrentCertificate)
+							pCurrentCertificate = &Certificates.f_Insert();
+
+						*pCurrentCertificate += Line;
+						*pCurrentCertificate += "\n";
+
+						if (Line == "-----END CERTIFICATE-----")
+							pCurrentCertificate = nullptr;
+					}
+
+					if (Certificates.f_GetLen() >= 1)
+					{
+						Chain.m_EndEntity = Certificates[0];
+						Chain.m_Root = Certificates.f_GetLast();
+					}
+
+					if (Certificates.f_GetLen() >= 2)
+						Chain.m_Issuer = Certificates[1];
+
+					if (Certificates.f_GetLen() >= 3)
+					{
+						mint nChains = Certificates.f_GetLen();
+						for (mint i = 2; i < nChains; ++i)
+							Chain.m_Other.f_Insert(Certificates[i]);
+					}
+
+					return Chain;
 				}
-				if (!pCurrentCertificate)
-					pCurrentCertificate = &Certificates.f_Insert();
+			;
 
-				*pCurrentCertificate += Line;
-				*pCurrentCertificate += "\n";
+			DefaultChain = fParseChain(Result.m_Body);
 
-				if (Line == "-----END CERTIFICATE-----")
-					pCurrentCertificate = nullptr;
+			TCVector<CStr> AlternateLinks = fg_ParseLinks(Result.m_Headers, "alternate");
+
+			for (auto &Link : AlternateLinks)
+			{
+				auto Result = co_await fPostAsGet(Link);
+				if (Result.m_StatusCode != 200)
+					co_return fGetError(Result, "Error alternate chain certificate");
+
+				fUpdateNonce(Result);
+
+				ReturnChains.m_AlternateChains.f_Insert(fParseChain(Result.m_Body));
 			}
-
-			if (Certificates.f_GetLen() >= 1)
-				ReturnChain.m_EndEntity = Certificates[0];
-			if (Certificates.f_GetLen() >= 2)
-				ReturnChain.m_Issuer = Certificates[1];
-			if (Certificates.f_GetLen() >= 3)
-				ReturnChain.m_Other = Certificates[2];
 		}
 
-		co_return fg_Move(ReturnChain);
+		co_return fg_Move(ReturnChains);
 	}
 }
