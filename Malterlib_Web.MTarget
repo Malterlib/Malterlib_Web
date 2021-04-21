@@ -12,7 +12,7 @@
 	Compile
 	{
 		!!CompileDialect "C"
-		PrefixHeader "@(Builtin.BasePath)/@(Builtin.Function->RelativeBase('Source/PCH.h'))"
+		PrefixHeader "Source/PCH.h"->MakeAbsolute()
 	}
 	%Group "Include"
 	{

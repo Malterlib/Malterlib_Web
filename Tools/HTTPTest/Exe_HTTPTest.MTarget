@@ -11,7 +11,6 @@
 		MalterlibUsesTranslation false
 		MalterlibDoExeFS false
 		ProductName "HTTP Server"
-		MalterlibLinkWithOpenSSL true
 	}
 	Target
 	{

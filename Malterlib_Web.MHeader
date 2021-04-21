@@ -11,7 +11,7 @@ Import "../../External/curl/Curl.MTarget"
 	Repository
 	{
 		Type "External"
-		Remotes "upstream=https://github.com/curl/curl.git;@(Repository.Remotes)"
+		Remotes =+ {Name: "upstream", URL: "https://github.com/curl/curl.git"}
 	}
 }
 
@@ -20,7 +20,7 @@ Import "../../External/curl/Curl.MTarget"
 	Repository
 	{
 		Type "External"
-		Remotes "upstream=https://github.com/nginx/nginx.git;@(Repository.Remotes)"
+		Remotes =+ {Name: "upstream", URL: "https://github.com/nginx/nginx.git"}
 	}
 }
 
@@ -63,6 +63,10 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		Dependency.Indirect true
 	}
+	%Dependency "Lib_Malterlib_Cryptography"
+	{
+		Dependency.Indirect true
+	}
 	%Dependency "Lib_Malterlib_Concurrency"
 	{
 		Dependency.Indirect true
@@ -84,21 +88,14 @@ Import "../../External/nginx/nginx.MTarget"
 
 Property
 {
-	MalterlibLibrary_Web true
-	{
-		&
-		{
-			MalterlibLibrary_Web ""
-			MalterlibLibrary_All true
-		}
-	}
-	MalterlibSubLibraries "Web;@(MalterlibSubLibraries)"
+	MalterlibLibrary_Web define bool = MalterlibLibrary_All
+	MalterlibSubLibraries =+ "Web"
 	{
 		!!MalterlibLibrary_Web true
 	}
-	MalterlibLibrarySeparate_Lib_Malterlib_Web true
-//	MalterlibSubLibrarySeparate_Lib_Malterlib_Web true
-	MalterlibIncludeRoots "@('Include'->MakeAbsolute());@(MalterlibIncludeRoots)"
+	MalterlibLibrarySeparate_Lib_Malterlib_Web define bool = true
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Web define bool = true
+	MalterlibIncludeRoots =+ "Include"->MakeAbsolute()
 	{
 		!!MalterlibLibrary_Web true
 	}
@@ -106,14 +103,10 @@ Property
 
 %Group "{Test}/{Malterlib_Web}"
 {
-	Property
-	{
-		MalterlibLinkWithOpenSSL true
-	}
 	Compile
 	{
 		!!CompileDialect "C"
-		PrefixHeader "@('Test/PCH.h'->MakeAbsolute())"
+		PrefixHeader "Test/PCH.h"->MakeAbsolute()
 	}
 }
 
@@ -121,11 +114,18 @@ Property
 {
 	!!MalterlibEnableInternalTests true
 	
-	MalterlibTests "Malterlib_Web;@(MalterlibTests)"
-	MalterlibTestFiles_Malterlib_Web "@('Test/*'->MakeAbsolute())"
-	MalterlibTestDependencies_Malterlib_Web "Lib_Malterlib_Web"
-	MalterlibTestExtraGroups_Malterlib_Web "{Test}/{Malterlib_Web}"
+	MalterlibTests =+ "Malterlib_Web"
+	MalterlibTestFiles_Malterlib_Web define [type(CEntity)] = ["Test/*"->MakeAbsolute()]
+	MalterlibTestDependencies_Malterlib_Web define [type(CEntity)] = ["Lib_Malterlib_Web"]
+	MalterlibTestExtraGroups_Malterlib_Web define [string] = ["{Test}/{Malterlib_Web}"]
 }
 
-//Property.MalterlibTests "Malterlib_Web|MalterlibTestDependencies=Lib_Malterlib_Web|MalterlibTestFiles=@('../Test/*'->MakeAbsolute())|MalterlibTestExtraGroups={Test}/{Malterlib_Web};@(MalterlibTests)"
-
+/*Property.MalterlibTests =+ {
+	Name: "Malterlib_Web"
+	, Properties: {
+		MalterlibTestDependencies: "Lib_Malterlib_Web"
+		MalterlibTestFiles: "../Test/*"->MakeAbsolute()
+		MalterlibTestExtraGroups: "{Test}/{Malterlib_Web}"
+	}
+}
+*/
