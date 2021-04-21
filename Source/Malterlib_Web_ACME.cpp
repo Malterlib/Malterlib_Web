@@ -51,7 +51,7 @@ namespace NMib::NWeb
 
 		CStr fg_JwkThumbPrint(CJSON const &_JSON)
 		{
-			CStr String = _JSON.f_ToString(nullptr, false);
+			CStr String = _JSON.f_ToString(nullptr);
 			auto Digest = CHash_SHA256::fs_DigestFromData(String.f_GetStr(), String.f_GetLen());
 			return fg_Base64URLEncode(CByteVector(Digest.f_GetData(), Digest.mc_Size));
 		}
@@ -166,10 +166,10 @@ namespace NMib::NWeb
 			if (_Payload.f_IsValid())
 			{
 				_Payload.f_SortObjectsLexicographically();
-				PayloadString = fg_Base64URLEncode(_Payload.f_ToString(nullptr, false));
+				PayloadString = fg_Base64URLEncode(_Payload.f_ToString(nullptr));
 			}
 
-			CStr ProtectedString = fg_Base64URLEncode(Protected.f_ToString(nullptr, false));
+			CStr ProtectedString = fg_Base64URLEncode(Protected.f_ToString(nullptr));
 
 			JwsMessage["protected"] = ProtectedString;
 			JwsMessage["payload"] = PayloadString;
@@ -184,7 +184,7 @@ namespace NMib::NWeb
 			JwsMessage["signature"] = Signature;
 			JwsMessage.f_SortObjectsLexicographically();
 
-			CStr OutputString = JwsMessage.f_ToString(nullptr, false);
+			CStr OutputString = JwsMessage.f_ToString(nullptr);
 			return CByteVector((uint8 const *)OutputString.f_GetStr(), OutputString.f_GetLen());
 		}
 	}
