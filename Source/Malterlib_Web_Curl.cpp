@@ -33,12 +33,16 @@ namespace NMib::NWeb
 		: m_Body(CStr((ch8 const *)_State.m_Body.f_GetArray(), _State.m_Body.f_GetLen()))
 	{
 		CStr HeaderStr((ch8 const *)_State.m_Headers.f_GetArray(), _State.m_Headers.f_GetLen());
-		
+
+		m_StatusCode = 300;
+		m_StatusMessage = "Failed to parse status message";
 		CStr Status = fg_GetStrLineSep(HeaderStr);
+		CStr HttpVersion;
 		aint nParsed;
 		(void)
 			(
-				NMib::NStr::CStrPtr::CParse("HTTP/1.1 {} {}")
+				NMib::NStr::CStrPtr::CParse("HTTP/{} {} {}")
+				>> HttpVersion
 				>> m_StatusCode
 				>> m_StatusMessage
 			)
