@@ -105,7 +105,8 @@ Property
 {
 	Compile
 	{
-		!!CompileDialect "C"
+		!!Compile.Type "C++"
+
 		PrefixHeader "Test/PCH.h"->MakeAbsolute()
 	}
 }
