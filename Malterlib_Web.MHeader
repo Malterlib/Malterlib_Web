@@ -105,7 +105,15 @@ Property
 {
 	Compile
 	{
-		!!Compile.Type "C++"
+		|
+		{
+			Compile.Type "C++"
+			&
+			{
+				CompileDialect "C"
+				!GeneratorFamily "VisualStudio"
+			}
+		}
 
 		PrefixHeader "Test/PCH.h"->MakeAbsolute()
 	}
