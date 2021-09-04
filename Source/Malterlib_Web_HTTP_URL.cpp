@@ -304,6 +304,20 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
+	[[maybe_unused]] static bool fg_IsValidScheme(NStr::CStr const &_Scheme)
+	{
+		auto *pParse = _Scheme.f_GetStr();
+		while (*pParse)
+		{
+			if (NStr::fg_CharIsAnsiAlphabetical(*pParse) || NStr::fg_CharIsNumber(*pParse) || *pParse == '+' || *pParse == '-' || *pParse == '.')
+				++pParse;
+			else
+				return false;
+		}
+
+		return true;
+	}
+
 	NStr::CStr CURL::f_Encode() const
 	{
 		NStr::CStr Output;
@@ -312,7 +326,10 @@ namespace NMib::NWeb::NHTTP
 
 		if (mp_Flags & EURLFlag_Scheme)
 		{
-			fs_PercentEncode(Output, mp_Scheme);
+			//ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+			DMibCheck(fg_IsValidScheme(mp_Scheme));
+
+			Output += mp_Scheme;
 			Output += "://";
 		}
 
