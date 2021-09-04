@@ -39,8 +39,7 @@ namespace NMib::NWeb::NHTTP
 			NStr::CStr m_Value;
 
 			void f_Format(NStr::CStrAggregate &o_Str) const;
-			bool operator < (CQueryEntry const &_Right) const;
-			bool operator == (CQueryEntry const &_Right) const;
+			auto operator <=> (CQueryEntry const &_Right) const = default;
 
 			template <typename tf_CStream>
 			void f_Stream(tf_CStream &_Stream);
@@ -80,8 +79,7 @@ namespace NMib::NWeb::NHTTP
 		CURL &operator =(CURL const &_ToCopy);
 		CURL &operator =(CURL &&_ToMove);
 
-		bool operator == (CURL const &_Right) const;
-		bool operator < (CURL const &_Right) const;
+		auto operator <=> (CURL const &_Right) const = default;
 
 		EURLFlag f_GetFlags() const;
 

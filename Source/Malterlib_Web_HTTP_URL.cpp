@@ -78,69 +78,6 @@ namespace NMib::NWeb::NHTTP
 		return *this;
 	}
 
-	bool CURL::operator == (CURL const &_Right) const
-	{
-		return
-			NStorage::fg_TupleReferences
-			(
-				mp_Flags
-				, mp_Scheme
-				, mp_Host
-				, mp_Port
-				, mp_Username
-				, mp_Password
-				, mp_Paths
-				, mp_Query
-				, mp_Fragment
-			)
-			==
-			NStorage::fg_TupleReferences
-			(
-				_Right.mp_Flags
-				, _Right.mp_Scheme
-				, _Right.mp_Host
-				, _Right.mp_Port
-				, _Right.mp_Username
-				, _Right.mp_Password
-				, _Right.mp_Paths
-				, _Right.mp_Query
-				, _Right.mp_Fragment
-			)
-		;
-	}
-
-	bool CURL::operator < (CURL const &_Right) const
-	{
-		return
-			NStorage::fg_TupleReferences
-			(
-				mp_Flags
-				, mp_Scheme
-				, mp_Host
-				, mp_Port
-				, mp_Username
-				, mp_Password
-				, mp_Paths
-				, mp_Query
-				, mp_Fragment
-			)
-			<
-			NStorage::fg_TupleReferences
-			(
-				_Right.mp_Flags
-				, _Right.mp_Scheme
-				, _Right.mp_Host
-				, _Right.mp_Port
-				, _Right.mp_Username
-				, _Right.mp_Password
-				, _Right.mp_Paths
-				, _Right.mp_Query
-				, _Right.mp_Fragment
-			)
-		;
-	}
-
-
 	EURLFlag CURL::f_GetFlags() const
 	{
 		return mp_Flags;
@@ -776,16 +713,6 @@ namespace NMib::NWeb::NHTTP
 	void CURL::CQueryEntry::f_Format(NStr::CStrAggregate &o_Str) const
 	{
 		o_Str += NStr::CStr::CFormat("{}={}") << m_Key << m_Value;
-	}
-
-	bool CURL::CQueryEntry::operator < (CQueryEntry const &_Right) const
-	{
-		return NStorage::fg_TupleReferences(m_Key, m_Value) < NStorage::fg_TupleReferences(_Right.m_Key, _Right.m_Value);
-	}
-
-	bool CURL::CQueryEntry::operator == (CQueryEntry const &_Right) const
-	{
-		return NStorage::fg_TupleReferences(m_Key, m_Value) == NStorage::fg_TupleReferences(_Right.m_Key, _Right.m_Value);
 	}
 
 	void CURL::f_DebugOut() const
