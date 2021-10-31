@@ -4,6 +4,7 @@
 #include "Malterlib_Web_HTTPRequestHandler_ExeFS.h"
 #include <Mib/File/MalterlibFS>
 #include <Mib/File/VirtualFSs/MalterlibFS>
+#include <Mib/Cryptography/Hashes/SHA>
 
 namespace NMib::NWeb
 {
@@ -47,7 +48,7 @@ namespace NMib::NWeb
 	}
 
 	// This could be called for any thread - assume nothing.
-	bool CHTTPRequestHandler_ExeFs::f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
+	bool CHTTPRequestHandler_ExeFs::f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req)
 	{
 		if (mp_fCheckAccess)
 		{
@@ -67,23 +68,37 @@ namespace NMib::NWeb
 				return false;
 
 			Filename = mp_ExeFsPath + Filename.f_Extract(mp_Path.f_GetLen());
-			NTime::CTime ExeTime = m_ExeTime;
 
 			if (Filename.f_Right(1) == "/")
 				return false;
 
-			auto f_WriteHeader = [&Filename, &_Connection, ExeTime](CMibFilePos _nBytes)
-			{
+			NCryptography::CHash_SHA256 Hash;
+			Hash.f_AddData(&m_ExeTime, sizeof(m_ExeTime));
+			Hash.f_AddData(Filename.f_GetStr(), Filename.f_GetLen());
 
-				CHTTPResponseHeader ResponseHeader;
-				ResponseHeader.f_SetMimeTypeFromFilename(Filename);
-				ResponseHeader.m_LastModified = ExeTime;
-				ResponseHeader.m_Expires = NTime::CTime::fs_NowUTC() + NTime::CTimeSpanConvert::fs_CreateDaySpan(1);
-				ResponseHeader.m_ContentLength = _nBytes;
-				ResponseHeader.m_AllowMethods = "GET, HEAD";
-				_Connection.f_Write(ResponseHeader);
-			};
+			NStr::CStr HashTag = Hash.f_GetDigest().f_GetString();
 
+			auto fWriteHeader = [&](CMibFilePos _nBytes) -> bool
+				{
+					CHTTPResponseHeader ResponseHeader;
+					ResponseHeader.f_SetMimeTypeFromFilename(Filename);
+					ResponseHeader.m_LastModified = m_ExeTime;
+					ResponseHeader.m_ContentLength = _nBytes;
+					ResponseHeader.m_AllowMethods = "GET, HEAD";
+					ResponseHeader.m_CacheControl = "no-cache";
+					ResponseHeader.m_ETag = HashTag;
+
+					if (auto *pIfNoneMatch = _Req.m_Headers.f_FindEqual("if_none_match"); pIfNoneMatch)
+					{
+						if (*pIfNoneMatch == HashTag)
+							ResponseHeader.m_Status = 304;
+					}
+
+					_Connection.f_Write(ResponseHeader);
+
+					return ResponseHeader.m_Status == 304;
+				}
+			;
 
 			{
 				DMibLock(mp_Lock);
@@ -94,7 +109,7 @@ namespace NMib::NWeb
 				if (_Req.m_Method == "HEAD")
 				{
 					CMibFilePos nBytes = mp_pFSInterface->f_GetFileSize(Filename);
-					f_WriteHeader(nBytes);
+					fWriteHeader(nBytes);
 					return true;
 				}
 
@@ -105,7 +120,8 @@ namespace NMib::NWeb
 
 				CMibFilePos nBytes = pStream->f_GetLength();
 
-				f_WriteHeader(nBytes);
+				if (fWriteHeader(nBytes))
+					return true;
 
 				NContainer::CByteVector lBuf;
 				lBuf.f_SetLen(1024 * 1024);

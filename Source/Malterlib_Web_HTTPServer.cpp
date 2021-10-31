@@ -507,58 +507,11 @@ namespace NMib::NWeb
 
 	// CHTTPResponseHeader Public Methods
 
-
-	CHTTPResponseHeader::CHTTPResponseHeader()
-		: m_MimeType("text/html; charset=UTF-8")
-		, m_ContentLength(0)
-		, m_AllowMethods("GET")
-		, m_Status(200)
-	{
-	}
-	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy)
-		: m_MimeType(_ToCopy.m_MimeType)
-		, m_RedirectTo(_ToCopy.m_RedirectTo)
-		, m_ContentLength(_ToCopy.m_ContentLength)
-		, m_Expires(_ToCopy.m_Expires)
-		, m_LastModified(_ToCopy.m_LastModified)
-		, m_AllowMethods(_ToCopy.m_AllowMethods)
-		, m_Status(_ToCopy.m_Status)
-	{
-	}
-	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader && _ToMove)
-		: m_MimeType(fg_Move(_ToMove.m_MimeType))
-		, m_RedirectTo(fg_Move(_ToMove.m_RedirectTo))
-		, m_ContentLength(fg_Move(_ToMove.m_ContentLength))
-		, m_Expires(fg_Move(_ToMove.m_Expires))
-		, m_LastModified(fg_Move(_ToMove.m_LastModified))
-		, m_AllowMethods(fg_Move(_ToMove.m_AllowMethods))
-		, m_Status(_ToMove.m_Status)
-	{
-	}
-
-	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader const& _ToCopy)
-	{
-		m_MimeType = _ToCopy.m_MimeType;
-		m_RedirectTo = _ToCopy.m_RedirectTo;
-		m_ContentLength = _ToCopy.m_ContentLength;
-		m_Expires = _ToCopy.m_Expires;
-		m_LastModified = _ToCopy.m_LastModified;
-		m_AllowMethods = _ToCopy.m_AllowMethods;
-		m_Status = _ToCopy.m_Status;
-		return *this;
-	}
-
-	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader && _ToMove)
-	{
-		m_MimeType = fg_Move(_ToMove.m_MimeType);
-		m_RedirectTo = fg_Move(_ToMove.m_RedirectTo);
-		m_ContentLength = fg_Move(_ToMove.m_ContentLength);
-		m_Expires = fg_Move(_ToMove.m_Expires);
-		m_LastModified = fg_Move(_ToMove.m_LastModified);
-		m_AllowMethods = fg_Move(_ToMove.m_AllowMethods);
-		m_Status = _ToMove.m_Status;
-		return *this;
-	}
+	CHTTPResponseHeader::CHTTPResponseHeader() = default;
+	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy) = default;
+	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader && _ToMove) = default;
+	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader const& _ToCopy) = default;
+	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader && _ToMove) = default;
 
 	NStr::CStr CHTTPResponseHeader::f_Generate() const
 	{
@@ -570,6 +523,9 @@ namespace NMib::NWeb
 			{
 			case 200:
 				Response = "HTTP/1.1 200 OK";
+				break;
+			case 304:
+				Response = "HTTP/1.1 304 Not Modified";
 				break;
 			case 400:
 				Response = "HTTP/1.1 400 Bad Request";
@@ -601,6 +557,12 @@ namespace NMib::NWeb
 		NTime::CTime NowTime = NTime::CTime::fs_NowUTC();
 		Response += NStr::CStr::CFormat("\r\nDate: {}") << NTime::fg_GetAscTimeStr(NowTime);
 
+		if (m_CacheControl)
+			Response += NStr::CStr::CFormat("\r\nCache-Control: {}") << m_CacheControl;
+
+		if (m_ETag)
+			Response += NStr::CStr::CFormat("\r\nETag: {}") << m_ETag;
+
 		if (m_Expires.f_IsValid())
 		{
 			if (m_Expires > NowTime)
@@ -608,10 +570,8 @@ namespace NMib::NWeb
 			else
 				Response += NStr::CStr::CFormat("\r\nExpires: {}") << NTime::fg_GetAscTimeStr(NowTime);
 		}
-		else
-		{
+		else if (!m_CacheControl)
 			Response += "\r\nExpires: 0";
-		}
 
 		if (m_LastModified.f_IsValid())
 		{

@@ -26,13 +26,15 @@ namespace NMib::NWeb
 
 	struct CHTTPResponseHeader
 	{
-		NStr::CStr m_MimeType;
+		NStr::CStr m_MimeType = "text/html; charset=UTF-8";
 		NStr::CStr m_RedirectTo;
-		int m_ContentLength;
-		uint32 m_Status;
+		int m_ContentLength = 0;
+		uint32 m_Status = 200;
 		NTime::CTime m_Expires;
 		NTime::CTime m_LastModified;
-		NStr::CStr m_AllowMethods;		// List of one or more of GET, POST, HEAD, PUT separated by a comma and a space: e.g. "GET, HEAD"
+		NStr::CStr m_AllowMethods = "GET";		// List of one or more of GET, POST, HEAD, PUT separated by a comma and a space: e.g. "GET, HEAD"
+		NStr::CStr m_CacheControl;
+		NStr::CStr m_ETag;
 
 		CHTTPResponseHeader();
 		CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy);
