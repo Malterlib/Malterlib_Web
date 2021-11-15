@@ -388,7 +388,7 @@ namespace NMib::NWeb
 
 			mp_Options = _Options;
 
-			if (mp_Options.m_bUseNgnix)
+			if (mp_Options.m_bUseNginx)
 			{
 				mp_pNGINXLauncher = fg_Construct(mp_Options.m_NGINXPath, mp_Options.m_WebRoot);
 				mp_pNGINXLauncher->f_SetFastCGIListen(mp_Options.m_FastCGIListenStartPort, mp_Options.m_nMaxThreads);

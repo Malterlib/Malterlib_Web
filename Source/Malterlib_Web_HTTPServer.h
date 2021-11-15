@@ -128,7 +128,7 @@ namespace NMib::NWeb
 		uint16 m_ListeningPort = 8080;
 		uint16 m_FastCGIListenStartPort = 9000;
 
-		bool m_bUseNgnix = true;
+		bool m_bUseNginx = true;
 
 		CHTTPServerOptions();
 		/*
