@@ -19,6 +19,7 @@ namespace NMib::NWeb::NHTTP
 		, EURLFlag_Query = DMibBit(7)
 		, EURLFlag_Fragment = DMibBit(8)
 		, EURLFlag_HostBrackets = DMibBit(9)
+		, EURLFlag_HostRaw = DMibBit(10)
 	};
 
 	enum EEncodeFlag
@@ -97,7 +98,7 @@ namespace NMib::NWeb::NHTTP
 
 		void f_Clear();
 
-		bool f_Decode(NStr::CStr const &_URL);
+		bool f_Decode(NStr::CStr const &_URL, EURLFlag _Flags = EURLFlag_None);
 		NStr::CStr f_Encode(EEncodeFlag _Flags = EEncodeFlag_None) const;
 
 		// Test if the URL has a field:
@@ -131,7 +132,7 @@ namespace NMib::NWeb::NHTTP
 		// Set an URL field:
 
 		void f_SetScheme(NStr::CStr const &_Scheme);
-		void f_SetHost(NStr::CStr const &_Host);
+		void f_SetHost(NStr::CStr const &_Host, bool _bRaw = false);
 		void f_SetPort(uint16);
 		void f_SetUsername(NStr::CStr const &_Username);
 		void f_SetPassword(NStr::CStr const &_Password);

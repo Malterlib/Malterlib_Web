@@ -107,13 +107,13 @@ namespace NMib::NWeb::NHTTP
 		mp_Fragment.f_Clear();
 	}
 
-	bool CURL::f_Decode(NStr::CStr const &_URL)
+	bool CURL::f_Decode(NStr::CStr const &_URL, EURLFlag _Flags)
 	{
 		f_Clear();
 		// The point of all of this is to touch the memory manager as little as possible.
 		// When we have a substring class this can be reduced even more (i.e. only when we decode something)
 
-		mp_Flags = EURLFlag_None;
+		mp_Flags = _Flags;
 
 		NStr::CStr URL = _URL;
 		mint URLLength = URL.f_GetLen();
@@ -201,34 +201,37 @@ namespace NMib::NWeb::NHTTP
 			}
 
 			// Extract Host & port:
-			mint iHostStartTrimmed = iHostStart;
-			mint iHostEndTrimmed = iPathStartSlash;
-			aint iPortColonMark = fParseHost(iHostStart, ':', iPathStartSlash - iHostStart);
-			if (iPortColonMark >= 0)
-			{ // Has port
-				iHostStartTrimmed = iHostStart;
-				iHostEndTrimmed = iPortColonMark;
-
-				if (!fg_ParseU16Base10(mp_Port, URL, iPortColonMark + 1, iPathStartSlash))
-					return false; // Invalid port
-
-				mp_Flags |= EURLFlag_Host | EURLFlag_Port;
-			}
+			if (mp_Flags & EURLFlag_HostRaw)
+				mp_Host = URL.f_Extract(iHostStart, iPathStartSlash - iHostStart);
 			else
-				mp_Flags |= EURLFlag_Host;
-
-			if (URL[iHostStartTrimmed] == '[')
 			{
-				mp_Flags |= EURLFlag_HostBrackets;
-				++iHostStartTrimmed;
-				if (URL[iHostEndTrimmed-1] == ']')
-					--iHostEndTrimmed;
+				mint iHostStartTrimmed = iHostStart;
+				mint iHostEndTrimmed = iPathStartSlash;
+				aint iPortColonMark = fParseHost(iHostStart, ':', iPathStartSlash - iHostStart);
+				if (iPortColonMark >= 0)
+				{ // Has port
+					iHostStartTrimmed = iHostStart;
+					iHostEndTrimmed = iPortColonMark;
+
+					if (!fg_ParseU16Base10(mp_Port, URL, iPortColonMark + 1, iPathStartSlash))
+						return false; // Invalid port
+
+					mp_Flags |= EURLFlag_Host | EURLFlag_Port;
+				}
+				else
+					mp_Flags |= EURLFlag_Host;
+
+				if (URL[iHostStartTrimmed] == '[')
+				{
+					mp_Flags |= EURLFlag_HostBrackets;
+					++iHostStartTrimmed;
+					if (URL[iHostEndTrimmed-1] == ']')
+						--iHostEndTrimmed;
+				}
+				if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
+					return false;
 			}
-			if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
-				return false;
-
 		}
-
 
 		// Extract path
 
@@ -351,6 +354,8 @@ namespace NMib::NWeb::NHTTP
 				fs_PercentEncode(Output, mp_Host, "[]%", _Flags);
 				Output += "]";
 			}
+			else if (mp_Flags & EURLFlag_HostRaw)
+				Output += mp_Host;
 			else
 				fs_PercentEncode(Output, mp_Host, nullptr, _Flags);
 			if (mp_Flags & EURLFlag_Port)
@@ -549,10 +554,14 @@ namespace NMib::NWeb::NHTTP
 		mp_Flags |= EURLFlag_Scheme;
 	}
 
-	void CURL::f_SetHost(NStr::CStr const &_Host)
+	void CURL::f_SetHost(NStr::CStr const &_Host, bool _bRaw)
 	{
 		mp_Host = _Host;
 		mp_Flags |= EURLFlag_Host;
+		if (_bRaw)
+			mp_Flags |= EURLFlag_HostRaw;
+		else
+			mp_Flags &= ~EURLFlag_HostRaw;
 	}
 
 	void CURL::f_SetPort(uint16 _Port)
@@ -564,7 +573,10 @@ namespace NMib::NWeb::NHTTP
 	void CURL::f_SetUsername(NStr::CStr const &_Username)
 	{
 		mp_Username = _Username;
-		mp_Flags |= EURLFlag_Username;
+		if (mp_Username.f_IsEmpty())
+			mp_Flags &= ~EURLFlag_Username;
+		else
+			mp_Flags |= EURLFlag_Username;
 	}
 
 	void CURL::f_SetPassword(NStr::CStr const &_Password)
