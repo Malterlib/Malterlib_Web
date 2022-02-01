@@ -279,7 +279,8 @@ namespace NMib::NWeb
 
 		TCFuture<CJSON> f_GetFunction(CStr const &_FunctionName)
 		{
-			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}"_f << m_Credentials.m_Region << _FunctionName};
+			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
+			AWSUrl.f_AppendPath({_FunctionName});
 			return fg_DoAWSRequestJSON("Get function", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
@@ -451,6 +452,8 @@ namespace NMib::NWeb
 			if (FunctionInfo.m_Arn.f_IsEmpty())
 				co_return DMibErrorInstance("No FunctionArn entry found for created function");
 
+			co_await f_WaitForFunctionActive(FunctionInfo.m_Arn);
+
 			co_return fg_Move(FunctionInfo);
 		}
 
@@ -495,6 +498,8 @@ namespace NMib::NWeb
 			if (FunctionInfo.m_Arn.f_IsEmpty())
 				co_return DMibErrorInstance("No FunctionArn entry found for updated function");
 
+			co_await f_WaitForFunctionActive(FunctionInfo.m_Arn);
+
 			co_return fg_Move(FunctionInfo);
 		}
 
@@ -518,7 +523,49 @@ namespace NMib::NWeb
 			if (FunctionInfo.m_Arn.f_IsEmpty())
 				co_return DMibErrorInstance("No FunctionArn entry found for updated function");
 
+			co_await f_WaitForFunctionActive(FunctionInfo.m_Arn);
+
 			co_return fg_Move(FunctionInfo);
+		}
+
+		TCFuture<void> f_WaitForFunctionActive(CStr _FunctionName)
+		{
+			NTime::CClock Clock(true);
+			while (true)
+			{
+				CJSON FunctionInfo = co_await f_GetFunction(_FunctionName);
+
+				auto *pConfig = FunctionInfo.f_GetMember("Configuration", EJSONType_Object);
+				if (!pConfig)
+					co_return DMibErrorInstance("No function configuration when waiting for function to become active");
+
+				auto *pState = pConfig->f_GetMember("State", EJSONType_String);
+				if (!pState)
+					co_return DMibErrorInstance("No function state when waiting for function to become active");
+
+				auto &State = pState->f_String();
+
+				if (State == "Active")
+					break;
+
+				if (State == "Failed")
+				{
+					CStr Error;
+					if (auto pReason = pConfig->f_GetMember("StateReason", EJSONType_String))
+						Error = "Function update failed: {}"_f << pReason->f_String();
+					else
+						Error = "Function update failed for unknown reason";
+
+					co_return DMibErrorInstance(Error);
+				}
+
+				if (Clock.f_GetTime() > 60.0)
+					co_return DMibErrorInstance("Timed out waiting for function to become active. State: {}"_f << State);
+
+				co_await fg_Timeout(1.0);
+			}
+
+			co_return {};
 		}
 	};
 
