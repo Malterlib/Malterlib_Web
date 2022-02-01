@@ -62,7 +62,13 @@ namespace NMib::NWeb
 			AWSHeaders["Content-Type"] = "application/xml";
 
 		CStr CanonicalRequest = "{}\n"_f << fg_MethodToStr(_Method); // HTTPRequestMethod
-		CanonicalRequest += "{}\n"_f << _URL.f_GetFullPathPercentEncoded(true); // CanonicalURI
+
+		{
+			auto EncodeFlags = NHTTP::EEncodeFlag_UpperCasePercentEncode;
+			if (_Service != "s3")
+				EncodeFlags |= NHTTP::EEncodeFlag_DoublePercentEncode;
+			CanonicalRequest += "{}\n"_f << _URL.f_GetFullPathPercentEncoded(EncodeFlags); // CanonicalURI
+		}
 
 		// CanonicalQueryString
 		{
@@ -76,8 +82,8 @@ namespace NMib::NWeb
 				CStr ParamName;
 				CStr ParamValue;
 
-				NHTTP::CURL::fs_PercentEncode(ParamName, QueryParam.m_Key, nullptr, true);
-				NHTTP::CURL::fs_PercentEncode(ParamValue, QueryParam.m_Value, nullptr, true);
+				NHTTP::CURL::fs_PercentEncode(ParamName, QueryParam.m_Key, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+				NHTTP::CURL::fs_PercentEncode(ParamValue, QueryParam.m_Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
 
 				fg_AddStrSep(CannonicalQuery, "{}={}"_f << ParamName << ParamValue, "&");
 			}
@@ -241,7 +247,7 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
+		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != _ExpectedStatus)
@@ -352,7 +358,7 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(), Headers, Contents, TCMap<CStr, CStr>{})
+		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != _ExpectedStatus)
@@ -393,7 +399,7 @@ namespace NMib::NWeb
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CCurlActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_HEAD, _URL.f_Encode(), Headers, NContainer::CByteVector{}, TCMap<CStr, CStr>{})
+		_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_HEAD, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, NContainer::CByteVector{}, TCMap<CStr, CStr>{})
 			> Promise / [=](CCurlActor::CResult &&_Result)
 			{
 				if (_Result.m_StatusCode != _ExpectedStatus)

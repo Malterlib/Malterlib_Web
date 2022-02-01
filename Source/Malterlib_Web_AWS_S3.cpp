@@ -220,8 +220,8 @@ namespace NMib::NWeb
 					CStr ParamName;
 					CStr ParamValue;
 
-					NHTTP::CURL::fs_PercentEncode(ParamName, _Info.m_Tags.fs_GetKey(Value), nullptr, true);
-					NHTTP::CURL::fs_PercentEncode(ParamValue, Value, nullptr, true);
+					NHTTP::CURL::fs_PercentEncode(ParamName, _Info.m_Tags.fs_GetKey(Value), nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+					NHTTP::CURL::fs_PercentEncode(ParamValue, Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
 
 					fg_AddStrSep(QueryParams, "{}={}"_f << ParamName << ParamValue, "&");
 				}
