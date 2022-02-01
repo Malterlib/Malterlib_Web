@@ -318,7 +318,7 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	NStr::CStr CURL::f_Encode() const
+	NStr::CStr CURL::f_Encode(EEncodeFlag _Flags) const
 	{
 		NStr::CStr Output;
 
@@ -335,11 +335,11 @@ namespace NMib::NWeb::NHTTP
 
 		if (mp_Flags & EURLFlag_Username)
 		{
-			fs_PercentEncode(Output, mp_Username);
+			fs_PercentEncode(Output, mp_Username, nullptr, _Flags);
 			if (mp_Flags & EURLFlag_Password)
 			{
 				Output += ":";
-				fs_PercentEncode(Output, mp_Password);
+				fs_PercentEncode(Output, mp_Password, nullptr, _Flags);
 			}
 			Output += "@";
 		}
@@ -348,11 +348,11 @@ namespace NMib::NWeb::NHTTP
 			if (mp_Flags & EURLFlag_HostBrackets)
 			{
 				Output += "[";
-				fs_PercentEncode(Output, mp_Host, "[]%");
+				fs_PercentEncode(Output, mp_Host, "[]%", _Flags);
 				Output += "]";
 			}
 			else
-				fs_PercentEncode(Output, mp_Host);
+				fs_PercentEncode(Output, mp_Host, nullptr, _Flags);
 			if (mp_Flags & EURLFlag_Port)
 				Output += NStr::CStr::CFormat(":{}") << mp_Port;
 		}
@@ -362,7 +362,7 @@ namespace NMib::NWeb::NHTTP
 			for (auto &Path : mp_Paths)
 			{
 				Output += "/";
-				fs_PercentEncode(Output, Path);
+				fs_PercentEncode(Output, Path, nullptr, _Flags);
 			}
 		}
 		else
@@ -380,15 +380,15 @@ namespace NMib::NWeb::NHTTP
 				}
 				else
 					bFirst = false;
-				fs_PercentEncode(Output, Entry.m_Key);
+				fs_PercentEncode(Output, Entry.m_Key, nullptr, _Flags);
 				Output += "=";
-				fs_PercentEncode(Output, Entry.m_Value);
+				fs_PercentEncode(Output, Entry.m_Value, nullptr, _Flags);
 			}
 		}
 		if (mp_Flags & EURLFlag_Fragment)
 		{
 			Output += "#";
-			fs_PercentEncode(Output, mp_Fragment);
+			fs_PercentEncode(Output, mp_Fragment, nullptr, _Flags);
 		}
 
 		return Output;
@@ -510,13 +510,13 @@ namespace NMib::NWeb::NHTTP
 		return mp_Paths;
 	}
 
-	NStr::CStr CURL::f_GetFullPathPercentEncoded(bool _bUpperCase) const
+	NStr::CStr CURL::f_GetFullPathPercentEncoded(EEncodeFlag _Flags) const
 	{
 		NStr::CStr FullPath;
 		for (auto &Path : mp_Paths)
 		{
 			NStr::CStr Encoded;
-			fs_PercentEncode(Encoded, Path, nullptr, _bUpperCase);
+			fs_PercentEncode(Encoded, Path, nullptr, _Flags);
 			fg_AddStrSep(FullPath, Encoded, "/");
 		}
 		return "/" + FullPath;
@@ -841,7 +841,7 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved, bool _bUpperCase)
+	void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
 	{
 		NStr::CStr Str = _Str;
 
@@ -856,10 +856,17 @@ namespace NMib::NWeb::NHTTP
 		{
 			uch8 Character = (uch8)*pParse;
 			if (Character <= 32 || Character >= 128 || NStr::fg_StrFindChar(pReserved, Character) >= 0)
-				o_Result += NStr::CStr::CFormat(_bUpperCase ? "%{nfh,sf0,sj2,nc}" : "%{nfh,sf0,sj2}") << Character;
+				o_Result += NStr::CStr::CFormat((_Flags & EEncodeFlag_UpperCasePercentEncode) ? "%{nfh,sf0,sj2,nc}" : "%{nfh,sf0,sj2}") << Character;
 			else
 				o_Result.f_AddChar(*pParse);
 			++pParse;
+		}
+
+		if (_Flags & EEncodeFlag_DoublePercentEncode)
+		{
+			NStr::CStr Temp;
+			fs_PercentEncode(Temp, o_Result, _pReserved, _Flags & ~EEncodeFlag_DoublePercentEncode);
+			o_Result = fg_Move(Temp);
 		}
 	}
 }

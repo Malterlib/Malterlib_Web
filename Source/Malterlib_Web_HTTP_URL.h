@@ -21,6 +21,13 @@ namespace NMib::NWeb::NHTTP
 		, EURLFlag_HostBrackets = DMibBit(9)
 	};
 
+	enum EEncodeFlag
+	{
+		EEncodeFlag_None = 0
+		, EEncodeFlag_UpperCasePercentEncode = DMibBit(0)
+		, EEncodeFlag_DoublePercentEncode = DMibBit(1)
+	};
+
 	/*
 	URL Utility Class
 
@@ -91,7 +98,7 @@ namespace NMib::NWeb::NHTTP
 		void f_Clear();
 
 		bool f_Decode(NStr::CStr const &_URL);
-		NStr::CStr f_Encode() const;
+		NStr::CStr f_Encode(EEncodeFlag _Flags = EEncodeFlag_None) const;
 
 		// Test if the URL has a field:
 
@@ -117,7 +124,7 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr const &f_GetPassword() const;
 		NContainer::TCVector<NStr::CStr> const &f_GetPath() const;
 		NStr::CStr f_GetFullPath() const;
-		NStr::CStr f_GetFullPathPercentEncoded(bool _bUpperCase = false) const;
+		NStr::CStr f_GetFullPathPercentEncoded(EEncodeFlag _Flags = EEncodeFlag_None) const;
 		NContainer::TCVector<CQueryEntry> const &f_GetQuery() const;
 		NStr::CStr const &f_GetFragment() const;
 
@@ -154,7 +161,7 @@ namespace NMib::NWeb::NHTTP
 		// _End can range from 0 -> Len or be -1 which == Len
 		static bool fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
-		static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, bool _bUpperCase = false);
+		static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, EEncodeFlag _Flags = EEncodeFlag_None);
 
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream, uint32 _Version = EVersion) const;
