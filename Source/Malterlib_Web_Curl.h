@@ -11,6 +11,15 @@ namespace NMib::NWeb
 {
 	struct CCurlActor : public NConcurrency::CActor
 	{
+		struct CCertificateConfig
+		{
+			NContainer::CByteVector m_ClientCertificate;
+			NContainer::CSecureByteVector m_ClientKey;
+			NContainer::CByteVector m_CertificateAuthorities;
+		};
+
+		CCurlActor(CCertificateConfig const &_CertificateConfig = {});
+
 		using CActorHolder = NConcurrency::CSeparateThreadActorHolder;
 
 		enum EMethod
@@ -46,6 +55,9 @@ namespace NMib::NWeb
 			 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 			)
 		;
+
+	private:
+		CCertificateConfig mp_CertificateConfig;
 	};
 }
 
