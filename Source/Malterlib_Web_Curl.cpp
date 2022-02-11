@@ -145,6 +145,35 @@ namespace NMib::NWeb
 				if (!_Headers.f_FindEqual("Expect"))
 					pHeaders = curl_slist_append(pHeaders, "Expect:");
 
+				if (!mp_CertificateConfig.m_ClientCertificate.f_IsEmpty())
+				{
+					struct curl_blob CertBlob;
+					CertBlob.data = mp_CertificateConfig.m_ClientCertificate.f_GetArray();
+					CertBlob.len = mp_CertificateConfig.m_ClientCertificate.f_GetLen();
+					CertBlob.flags = CURL_BLOB_COPY;
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+				}
+
+				if (!mp_CertificateConfig.m_ClientKey.f_IsEmpty())
+				{
+					struct curl_blob CertKeyBlob;
+					CertKeyBlob.data = mp_CertificateConfig.m_ClientKey.f_GetArray();
+					CertKeyBlob.len = mp_CertificateConfig.m_ClientKey.f_GetLen();
+					CertKeyBlob.flags = CURL_BLOB_COPY;
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+				}
+
+				if (!mp_CertificateConfig.m_CertificateAuthorities.f_IsEmpty())
+				{
+					struct curl_blob CertAuthBlob;
+					CertAuthBlob.data = mp_CertificateConfig.m_CertificateAuthorities.f_GetArray();
+					CertAuthBlob.len = mp_CertificateConfig.m_CertificateAuthorities.f_GetLen();
+					CertAuthBlob.flags = CURL_BLOB_COPY;
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
+				}
+
 				if (_Method == EMethod_POST)
 				{
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
@@ -225,4 +254,10 @@ namespace NMib::NWeb
 			}
 		;
 	}
+
+	CCurlActor::CCurlActor(CCertificateConfig const &_CertificateConfig)
+		: mp_CertificateConfig(_CertificateConfig)
+	{
+	}
+
 }
