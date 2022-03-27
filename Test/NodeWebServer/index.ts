@@ -7,12 +7,21 @@ let fs = require("fs");
 
 const app = express();
 
+function timeout(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 app.get("/", (req, res) => {
     res.send("Root Reply");
 })
 
-const listenPath = process.cwd() + "/http.sock";
-const listenPathTLS = process.cwd() + "/https.sock";
+app.get("/slow-request", async (req, res) => {
+	await timeout(2000);
+    res.send("Slow Reply");
+})
+
+const listenPath = process.env.MalterlibWebTestWebHttpSocket || (process.cwd() + "/http.sock");
+const listenPathTLS = process.env.MalterlibWebTestWebHttpsSocket || (process.cwd() + "/https.sock");
 
 app.on("error", (error) => {
     console.log(`ERROR: ${error}`);

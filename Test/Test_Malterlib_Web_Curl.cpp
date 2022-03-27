@@ -12,6 +12,7 @@
 #include <Mib/Cryptography/PublicCrypto>
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Cryptography/UUID>
+#include <Mib/Time/Time>
 
 using namespace NMib::NWeb;
 using namespace NMib::NNetwork;
@@ -25,6 +26,7 @@ using namespace NMib::NFunction;
 using namespace NMib::NProcess;
 using namespace NMib::NFile;
 using namespace NMib::NConcurrency;
+using namespace NMib::NTime;
 
 namespace
 {
@@ -318,13 +320,80 @@ public:
 				}
 			}
 			{
+				NHTTP::CURL HttpUrl = HttpUrlTemplate;
+				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+				DMibTestPath("Multiple Requests");
+				TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+
+				CStr ExpectedResultsText;
+
+				TCActorResultVector<CCurlActor::CResult> AsyncResults;
+				for (mint i = 0; i < 100; ++i)
+				{
+					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults.f_AddResult();
+					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
+				}
+
+				CStr ExceptionText;
+				CStr ResultsText;
+
+				auto Results = co_await AsyncResults.f_GetResults();
+				for (auto &Result : Results)
+				{
+					if (Result)
+						fg_AddStrSep(ResultsText, Result->m_Body, "\n");
+					else
+						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
+				}
+
+				DMibExpect(ExceptionText, ==, "");
+				DMibExpect(ResultsText, ==, ExpectedResultsText);
+			}
+			{
 				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
 				DMibTestPath("Untrusted Certificate");
 				TCActor<CCurlActor> CurlActor(fg_Construct(), "Curl");
 				{
 					DMibTestPath("HTTPS");
 					auto CurlResult = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
-					DMibExpectException(CurlResult.f_Access(), DMibErrorInstance("libcurl failed (60): SSL certificate problem: unable to get local issuer certificate"));
+					DMibExpectException
+						(
+							CurlResult.f_Access()
+							, DMibErrorInstance("libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate problem: unable to get local issuer certificate")
+						)
+					;
+				}
+			}
+			{
+				DMibTestPath("Abort Request");
+				NHTTP::CURL HttpUrl = HttpUrlTemplate;
+				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+				HttpUrl.f_SetPath({"slow-request"});
+				HttpsUrl.f_SetPath({"slow-request"});
+
+				{
+					DMibTestPath("HTTP");
+					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+					auto RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Future();
+					CClock Clock{true};
+					co_await CurlActor.f_Destroy();
+					DMibExpect(Clock.f_GetTime(), <, 1.0);
+
+					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
+					DMibExpectTrue(!RequestResult);
+					DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
+				}
+				{
+					DMibTestPath("HTTPS");
+					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+					auto RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Future();
+					CClock Clock{true};
+					co_await CurlActor.f_Destroy();
+					DMibExpect(Clock.f_GetTime(), <, 1.0);
+
+					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
+					DMibExpectTrue(!RequestResult);
+					DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
 				}
 			}
 
