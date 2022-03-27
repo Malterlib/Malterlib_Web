@@ -117,6 +117,13 @@ Property
 
 		PrefixHeader "Test/PCH.h"->MakeAbsolute()
 	}
+	Property
+	{
+		ExcludeFiles =+ ["*/node_modules"]
+
+		MalterlibDoExeFS true
+		MalterlibExeFSExtraFiles =+ {Pattern: "Test/NodeWebServer"->MakeAbsolute() / "*", Recursive: false, Destination: "NodeWebServer"}
+	}
 }
 
 Property
@@ -124,7 +131,7 @@ Property
 	!!MalterlibEnableInternalTests true
 	
 	MalterlibTests =+ "Malterlib_Web"
-	MalterlibTestFiles_Malterlib_Web define [type(CEntity)] = ["Test/*"->MakeAbsolute()]
+	MalterlibTestFiles_Malterlib_Web define [type(CEntity)] = ["Test/^*"->MakeAbsolute()]
 	MalterlibTestDependencies_Malterlib_Web define [type(CEntity)] = ["Lib_Malterlib_Web"]
 	MalterlibTestExtraGroups_Malterlib_Web define [string] = ["{Test}/{Malterlib_Web}"]
 }
