@@ -3,6 +3,7 @@
 
 #include "Malterlib_Web_Curl.h"
 #include <Mib/Cryptography/Certificate>
+#include <Mib/Web/HTTP/URL>
 
 #include <curl/curl.h>
 
@@ -114,7 +115,7 @@ namespace NMib::NWeb
 					[&](CURLcode _Result) -> void
 					{
 						if (_Result != CURLE_OK)
-							DMibError(fg_Format("libcurl operation on {} failed: {}", _URL, CurlErrorBuffer));
+							DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _URL, _Result, CurlErrorBuffer.f_GetStr()));
 					}
 				;
 
@@ -128,13 +129,15 @@ namespace NMib::NWeb
 					}
 				;
 
+				//fCheckResult(curl_easy_setopt(pCurl, CURLOPT_VERBOSE, 1L));
 				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
 
 				CStr CookieStr;
 				for (auto &Cookie : _Cookies)
 					CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
 
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, CookieStr.f_GetStr()));
+				if (CookieStr)
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, CookieStr.f_GetStr()));
 
 				if (!_Headers.f_FindEqual("Accept"))
 					pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
@@ -214,7 +217,18 @@ namespace NMib::NWeb
 				else if (_Method == EMethod_HEAD)
 					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
 
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
+				NHTTP::CURL Url(_URL);
+				CStr UrlHost = Url.f_GetHost();
+				if (UrlHost.f_StartsWith("UNIX:"))
+				{
+					auto UnixPath = UrlHost.f_RemovePrefix("UNIX:");
+					Url.f_SetHost("localhost");
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
+					auto NewURL = Url.f_Encode();
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
+				}
+				else
+					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
 
 				for (auto &Header : _Headers)
 				{
