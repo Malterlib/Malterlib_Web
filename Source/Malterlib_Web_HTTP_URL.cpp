@@ -558,6 +558,7 @@ namespace NMib::NWeb::NHTTP
 	{
 		mp_Host = _Host;
 		mp_Flags |= EURLFlag_Host;
+		mp_Flags &= ~EURLFlag_HostBrackets;
 		if (_bRaw)
 			mp_Flags |= EURLFlag_HostRaw;
 		else
