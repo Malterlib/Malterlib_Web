@@ -121,6 +121,7 @@ Property
 	{
 		ExcludeFiles =+ ["*/node_modules"]
 
+		MalterlibUseCurl true
 		MalterlibDoExeFS true
 		MalterlibExeFSExtraFiles =+ {Pattern: "Test/NodeWebServer"->MakeAbsolute() / "*", Recursive: false, Destination: "NodeWebServer"}
 	}
