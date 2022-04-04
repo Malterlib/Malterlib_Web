@@ -310,7 +310,8 @@ namespace NMib::NWeb
 		{
 			if (ResultCode != CURLE_OK)
 			{
-				auto pExtraError = curl_easy_strerror(ResultCode) ?: "";
+				auto pEasyError = curl_easy_strerror(ResultCode);
+				auto pExtraError = pEasyError ? pEasyError : "";
 				CStr FullError = pExtraError;
 				CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 				if (CurlError)
@@ -364,7 +365,8 @@ namespace NMib::NWeb
 				{
 					if (_Result != CURLE_OK)
 					{
-						auto pExtraError = curl_easy_strerror(_Result) ?: "";
+						auto pEasyError = curl_easy_strerror(_Result);
+						auto pExtraError = pEasyError ? pEasyError  : "";
 						CStr FullError = pExtraError;
 						CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 						if (CurlError)
