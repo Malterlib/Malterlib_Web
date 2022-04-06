@@ -379,7 +379,7 @@ namespace NMib::NWeb
 			curl_easy_setopt(pCurl, CURLOPT_ERRORBUFFER, Request.m_CurlErrorBuffer.f_GetStr());
 
 			curl_slist *pHeaders = NULL;
-			auto CleanupHeaders = g_OnScopeExit > [&]
+			auto CleanupHeaders = g_OnScopeExit / [&]
 				{
 					curl_slist_free_all(pHeaders);
 				}

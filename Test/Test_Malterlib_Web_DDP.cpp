@@ -297,7 +297,7 @@ public:
  			auto ClientFactory = fg_Get<1>(Factories);
 			TCActor<CServer> Server = fg_ConstructActor<CServer>(ServerFactory);
 
-			auto Cleanup = g_OnScopeExit > [&]
+			auto Cleanup = g_OnScopeExit / [&]
 				{
 					Server->f_BlockDestroy();
 				}

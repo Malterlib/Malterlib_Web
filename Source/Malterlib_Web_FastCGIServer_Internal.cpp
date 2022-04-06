@@ -38,7 +38,7 @@ namespace NMib::NWeb
 
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> ListenSockets;
 		ListenSockets.f_SetLen(nThreads);
-		auto Cleanup = g_OnScopeExit > [&]
+		auto Cleanup = g_OnScopeExit / [&]
 			{
 				for (auto &ListenSocket : ListenSockets)
 				{

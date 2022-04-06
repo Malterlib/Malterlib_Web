@@ -242,7 +242,7 @@ namespace NMib::NWeb
 						zipFile pZipFile = zipOpen2_64("OutFile.zip", false, nullptr, &Functions);
 						if (!pZipFile)
 							DMibError("Failed to create zip file");
-						auto Cleanup = g_OnScopeExit > [&]()
+						auto Cleanup = g_OnScopeExit / [&]()
 							{
 								zipClose(pZipFile, "AWS code blob");
 							}

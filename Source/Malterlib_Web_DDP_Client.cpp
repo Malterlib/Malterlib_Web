@@ -725,7 +725,7 @@ namespace NMib::NWeb
 			if (!pMethodUpdated)
 				continue;
 
-			auto Cleanup = g_OnScopeExit > [&]()
+			auto Cleanup = g_OnScopeExit / [&]()
 				{
 					m_PendingMethodUpdated.f_Remove(MethodID);
 				}
@@ -829,7 +829,7 @@ namespace NMib::NWeb
 				if (!pPending)
 					return;
 
-				auto Cleanup = g_OnScopeExit > [&]()
+				auto Cleanup = g_OnScopeExit / [&]()
 					{
 						m_PendingMethodCalls.f_Remove(pPending);
 					}

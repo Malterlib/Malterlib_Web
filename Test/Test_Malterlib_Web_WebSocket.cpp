@@ -380,7 +380,7 @@ public:
 			{
 				NStorage::TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
-					= g_OnScopeExit > [&]
+					= g_OnScopeExit / [&]
 					{
 						pState->f_Clear();
 					}
@@ -454,7 +454,7 @@ public:
 				DMibTestPath("Timeout");
 				NStorage::TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
-					= g_OnScopeExit > [&]
+					= g_OnScopeExit / [&]
 					{
 						pState->f_Clear();
 					}
