@@ -909,7 +909,9 @@ namespace NMib::NWeb
 					NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 					Stream << uint16(_Status);
 					NStr::CStr Reason = _Reason;
-					Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
+					mint ReasonLen = Reason.f_GetLen();
+					if (ReasonLen != 0)
+						Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
 
 					auto Data = Stream.f_MoveVector();
 					Internal.f_SendMessage(EOpcode_ConnectionClose, Data.f_GetArray(), Data.f_GetLen(), true);
@@ -1516,7 +1518,8 @@ namespace NMib::NWeb
 
 					mint Len = Stream.f_GetLength() - 2;
 					ch8 *pData = Reason.f_GetStr(Len);
-					Stream.f_ConsumeBytes(pData, Len);
+					if (Len != 0)
+						Stream.f_ConsumeBytes(pData, Len);
 					pData[Len] = 0;
 					Reason.f_SetStrLen(-1);
 				}
