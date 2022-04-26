@@ -2,7 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
-#include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Concurrency/ActorSubscription>
 #include <Mib/Container/PagedByteVector>
 
 #include <Mib/Web/HTTP/Request>
@@ -112,29 +112,101 @@ namespace NMib::NWeb
 			uint64 m_Position = 0;
 			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 		};
-
-		struct CPendingCallbackRegister
-		{
-			NConcurrency::TCActor<NConcurrency::CActor> m_Actor;
-			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _pMessage)> m_fReceiveBinaryMessage;
-			NFunction::TCFunctionMovable<void (NStr::CStr const& _Message)> m_fReceiveTextMessage;
-			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fReceivePing;
-			NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fReceivePong;
-			NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
-		};
 	}
+
+	template <typename t_CCallback>
+	struct TCDeferredCallback
+	{
+		using CReturn = typename NTraits::TCFunctionTraits<t_CCallback>::CReturn;
+		using CFunction = NFunction::TCFunctionMovable<t_CCallback>;
+		using CStripedReturn = typename NConcurrency::NPrivate::TCIsFuture<CReturn>::CType;
+		using CMoveList = typename NConcurrency::NPrivate::TCDecayedTupleHelper<typename NTraits::TCFunctionTraits<t_CCallback>::CParams>::CMoveList;
+		using CTupleType = typename NConcurrency::NPrivate::TCDecayedTupleHelper<typename NTraits::TCFunctionTraits<t_CCallback>::CParams>::CType;
+
+		template <typename ...tfp_CParams>
+		NConcurrency::TCFuture<CStripedReturn> operator() (tfp_CParams && ...p_Params)
+		{
+			if (!mp_fCallback.f_IsEmpty())
+				return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...).f_Future();
+			else if (!mp_bDoDefer)
+				return NConcurrency::TCPromise<CStripedReturn>() <<= DMibErrorInstance("Invalid call to non-defered").f_ExceptionPointer();
+
+			NConcurrency::TCPromise<CStripedReturn> Promise;
+			mp_DeferredCalls.f_Insert
+				(
+					[Promise, Params = CTupleType(fg_Forward<tfp_CParams>(p_Params)...)](NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+					{
+						return NStorage::fg_TupleApplyAs<CMoveList>
+							(
+								[&](auto &&..._Params)
+								{
+									_fCallback(fg_Move(_Params)...) > Promise;
+								}
+								, fg_Move(Params)
+							)
+						;
+					}
+				)
+			;
+
+			return Promise.f_MoveFuture();
+		}
+
+		void f_SetCallback(NConcurrency::TCActorFunctorWeak<t_CCallback> &&_fCallback)
+		{
+			mp_fCallback = fg_Move(_fCallback);
+
+			for (auto &fDeferredCall : mp_DeferredCalls)
+				fDeferredCall(mp_fCallback);
+
+			f_StopDeferring();
+		}
+
+		void f_StopDeferring()
+		{
+			mp_DeferredCalls.f_Clear();
+			mp_bDoDefer = false;
+		}
+
+		bool f_ShouldCall() const
+		{
+			return !mp_fCallback.f_IsEmpty() || mp_bDoDefer;
+		}
+
+		bool f_IsEmpty() const
+		{
+			return mp_fCallback.f_IsEmpty();
+		}
+
+		TCDeferredCallback(bool _bDoDefer)
+			: mp_bDoDefer(_bDoDefer)
+		{
+		}
+
+		NConcurrency::TCFuture<void> f_Destroy() &&
+		{
+			f_StopDeferring();
+			return fg_Move(mp_fCallback).f_Destroy();
+		}
+
+	public:
+		NContainer::TCVector<NFunction::TCFunctionMovable<void (NConcurrency::TCActorFunctorWeak<t_CCallback> const &_Callback)>> mp_DeferredCalls;
+		bool mp_bDoDefer = false;
+		NConcurrency::TCActorFunctorWeak<t_CCallback> mp_fCallback;
+	};
+
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
 		CInternal(CWebSocketActor *_pThis, bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
 			: m_pThis(_pThis)
-			, m_OnReceiveBinaryMessage(_pThis, true)
-			, m_OnReceiveTextMessage(_pThis, true)
-			, m_OnReceivePing(_pThis, true)
-			, m_OnReceivePong(_pThis, true)
-			, m_OnClose(_pThis, true)
-			, m_OnFinishConnection(_pThis, !_bClient)
-			, m_OnFinishClientConnection(_pThis, _bClient)
+			, m_fOnReceiveBinaryMessage(true)
+			, m_fOnReceiveTextMessage(true)
+			, m_fOnReceivePing(true)
+			, m_fOnReceivePong(true)
+			, m_fOnClose(true)
+			, m_fOnFinishConnection(!_bClient)
+			, m_fOnFinishClientConnection(_bClient)
 			, m_IncomingData(EIncomingPageSize)
 			, m_OutgoingData(EOutgoingPageSize)
 			, m_bClient(_bClient)
@@ -183,7 +255,7 @@ namespace NMib::NWeb
 		void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
 		static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
 
-		void f_RegisterPendingCallbacks();
+		NConcurrency::CActorSubscription f_SetCallbacks(CCallbacks &&_Callbacks);
 
 		CWebSocketActor *m_pThis = nullptr;
 		NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
@@ -210,16 +282,16 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_pClosePromise;
 		NContainer::TCLinkedList<NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
-		NStorage::TCUniquePointer<CPendingCallbackRegister> m_pPendingCallbackRegister;
-		NStorage::TCSharedPointer<NConcurrency::CCombinedCallbackReference> m_pPendingCombinedCallbackReferences;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _pMessage)> m_fOnReceiveBinaryMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr const& _Message)> m_fOnReceiveTextMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fOnReceivePing;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fOnReceivePong;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_fOnFinishConnection;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_fOnFinishClientConnection;
 
-		NConcurrency::TCActorSubscriptionManager<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _pMessage)> m_OnReceiveBinaryMessage;
-		NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const& _Message)> m_OnReceiveTextMessage;
-		NConcurrency::TCActorSubscriptionManager<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_OnReceivePing;
-		NConcurrency::TCActorSubscriptionManager<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_OnReceivePong;
-		NConcurrency::TCActorSubscriptionManager<void (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
-		NConcurrency::TCActorSubscriptionManager<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_OnFinishConnection;
-		NConcurrency::TCActorSubscriptionManager<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_OnFinishClientConnection;
+		void f_FinishClientConnection(EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo);
+		void f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo);
 
 		NConcurrency::CActorSubscription m_TimeoutTimerSubscription;
 		NTime::CClock m_TimeoutReceivedData;
@@ -233,18 +305,21 @@ namespace NMib::NWeb
 		mint m_MaxMessageSize = 0;
 		mint m_FramentationSize = 0;
 
-		bool m_bPendingPing = false;
-		bool m_bSentPing = false;
+		mint m_bPendingPing:1 = false;
+		mint m_bSentPing:1 = false;
 
-		bool m_bPendingMessage = false;
-		bool m_bClient = false;
-		bool m_bDebugNoProcessing = false;
-		bool m_bOnCloseCalled = false;
-		bool m_bOnFinishDone = false;
-		bool m_bWantStopDefer = false;
-		bool m_bShutdownCalled = false;
+		mint m_bPendingMessage:1 = false;
+		mint m_bClient:1 = false;
+		mint m_bDebugNoProcessing:1 = false;
+		mint m_bOnCloseCalled:1 = false;
+		mint m_bOnFinishDone:1 = false;
+		mint m_bWantStopDefer:1 = false;
+		mint m_bShutdownCalled:1 = false;
+
+		mint m_bFinishCalled:1 = false;
+
 #if DMibEnableSafeCheck > 0
-		bool m_bDestroyed = false;
+		mint m_bDestroyed = false;
 #endif
 	};
 
@@ -257,50 +332,6 @@ namespace NMib::NWeb
 
 	CWebSocketActor::~CWebSocketActor()
 	{
-	}
-
-	NConcurrency::CActorSubscription CWebSocketActor::fp_SetCallbacks
-		(
-			NConcurrency::TCActor<NConcurrency::CActor> && _Actor
-			, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _pMessage)> && _fReceiveBinaryMessage
-			, NFunction::TCFunctionMovable<void (NStr::CStr const& _Message)> && _fReceiveTextMessage
-			, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> && _fReceivePing
-			, NFunction::TCFunctionMovable<void (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> && _fReceivePong
-			, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> && _fOnClose
-		)
-	{
-		auto &Internal = *mp_pInternal;
-		auto &Pending = *(Internal.m_pPendingCallbackRegister = fg_Construct());
-
-		Pending.m_Actor = fg_Move(_Actor);
-		Pending.m_fReceiveBinaryMessage = fg_Move(_fReceiveBinaryMessage);
-		Pending.m_fReceiveTextMessage = fg_Move(_fReceiveTextMessage);
-		Pending.m_fReceivePing = fg_Move(_fReceivePing);
-		Pending.m_fReceivePong = fg_Move(_fReceivePong);
-		Pending.m_fOnClose = fg_Move(_fOnClose);
-
-		Internal.m_pPendingCombinedCallbackReferences = fg_Construct();
-
-		class CDeferredCalbackReference : public NConcurrency::CActorSubscriptionReference
-		{
-		public:
-			NConcurrency::TCFuture<void> f_Destroy() override
-			{
-				NConcurrency::TCPromise<void> Promise;
-				if (!m_pCombinedReferences)
-					return Promise <<= g_Void;
-				auto pCombinedReferences = fg_Move(m_pCombinedReferences);
-				pCombinedReferences->f_Destroy() > Promise;
-				return Promise.f_MoveFuture();
-			}
-
-			NStorage::TCSharedPointer<NConcurrency::CCombinedCallbackReference> m_pCombinedReferences;
-		};
-
-		NStorage::TCUniquePointer<CDeferredCalbackReference> pReturn = fg_Construct();
-		pReturn->m_pCombinedReferences = Internal.m_pPendingCombinedCallbackReferences;
-
-		return fg_Move(pReturn);
 	}
 
 	COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage
@@ -1532,7 +1563,7 @@ namespace NMib::NWeb
 		case EOpcode_Ping:
 			{
 				// RFC 6455 - 5.5.2.
-				if (m_OnReceivePing.f_IsEmpty() || (m_pTimeoutPingMessage && _Message.m_Data == *m_pTimeoutPingMessage))
+				if (m_fOnReceivePing.f_IsEmpty() || (m_pTimeoutPingMessage && _Message.m_Data == *m_pTimeoutPingMessage))
 				{
 					// We reply automatically as quickly as possible
 					f_SendMessage(EOpcode_Pong, _Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen(), true);
@@ -1541,7 +1572,7 @@ namespace NMib::NWeb
 				else
 				{
 					// Otherwise we let the application reply
-					m_OnReceivePing(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+					m_fOnReceivePing(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 				}
 			}
 			break;
@@ -1550,8 +1581,8 @@ namespace NMib::NWeb
 				// RFC 6455 - 5.5.3.
 				if (m_pTimeoutPingMessage && _Message.m_Data == *m_pTimeoutPingMessage)
 					f_OnTimeoutPongReceived();
-				else if (!m_OnReceivePong.f_IsEmpty())
-					m_OnReceivePong(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+				else if (!m_fOnReceivePong.f_IsEmpty())
+					m_fOnReceivePong(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		default:
@@ -1573,15 +1604,15 @@ namespace NMib::NWeb
 				NStr::CStr Data;
 				Data.f_AddStr(_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
 				DMibLog(DebugVerbose2, " ++++ {} {} call m_OnReceiveTextMessage", fg_ThisActor(m_pThis), !m_bClient);
- 				if (!m_OnReceiveTextMessage.f_IsEmpty() || m_OnReceiveTextMessage.f_IsDeferring())
-					m_OnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
+ 				if (m_fOnReceiveTextMessage.f_ShouldCall())
+					m_fOnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		case EOpcode_BinaryFrame:
 			{
 				DMibLog(DebugVerbose2, " ++++ {} {} call m_OnReceiveBinaryMessage", fg_ThisActor(m_pThis), !m_bClient);
- 				if (!m_OnReceiveBinaryMessage.f_IsEmpty() || m_OnReceiveBinaryMessage.f_IsDeferring())
-					m_OnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+				if (m_fOnReceiveBinaryMessage.f_ShouldCall())
+					m_fOnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
 			}
 			break;
 		default:
@@ -1698,7 +1729,8 @@ namespace NMib::NWeb
 									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 								Internal.m_State = EState_Connected;
-								Internal.m_OnFinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
+
+								Internal.f_FinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 								bMoreWork = true;
 
 							}
@@ -1800,7 +1832,7 @@ namespace NMib::NWeb
 									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
 
-								Internal.m_OnFinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo)) > NConcurrency::fg_DiscardResult();
+								Internal.f_FinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 								bMoreWork = true;
 							}
 							break;
@@ -1824,6 +1856,62 @@ namespace NMib::NWeb
 		}
 	}
 
+	void CWebSocketActor::CInternal::f_FinishClientConnection(EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)
+	{
+		if (m_bFinishCalled)
+			return;
+
+		m_bFinishCalled = true;
+
+		auto Cleanup = g_OnScopeExit / [this, WeakActor = fg_ThisActor(m_pThis).f_Weak()]
+			{
+				auto Actor = WeakActor.f_Lock();
+				if (Actor)
+				{
+					NConcurrency::g_Dispatch(Actor) / [this]
+						{
+							fg_Move(m_fOnFinishClientConnection).f_Destroy() > NConcurrency::fg_DiscardResult();
+						}
+						> NConcurrency::fg_DiscardResult()
+					;
+				}
+			}
+		;
+
+		m_fOnFinishClientConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::NPrivate::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+			{
+			}
+		;
+	}
+
+	void CWebSocketActor::CInternal::f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)
+	{
+		if (m_bFinishCalled)
+			return;
+
+		m_bFinishCalled = true;
+
+		auto Cleanup = g_OnScopeExit / [this, WeakActor = fg_ThisActor(m_pThis).f_Weak()]
+			{
+				auto Actor = WeakActor.f_Lock();
+				if (Actor)
+				{
+					NConcurrency::g_Dispatch(Actor) / [this]
+						{
+							fg_Move(m_fOnFinishConnection).f_Destroy() > NConcurrency::fg_DiscardResult();
+						}
+						> NConcurrency::fg_DiscardResult()
+					;
+				}
+			}
+		;
+
+		m_fOnFinishConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::NPrivate::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+			{
+			}
+		;
+	}
+
 	void CWebSocketActor::fp_TryStopDeferring()
 	{
 		auto &Internal = *mp_pInternal;
@@ -1838,27 +1926,23 @@ namespace NMib::NWeb
 	void CWebSocketActor::fp_StopDeferring()
 	{
 		auto &Internal = *mp_pInternal;
-		if (Internal.m_OnReceiveBinaryMessage.f_IsEmpty())
-			Internal.m_OnReceiveBinaryMessage.f_StopDeferring();
-		if (Internal.m_OnReceiveTextMessage.f_IsEmpty())
-			Internal.m_OnReceiveTextMessage.f_StopDeferring();
-		if (Internal.m_OnReceivePing.f_IsEmpty())
-			Internal.m_OnReceivePing.f_StopDeferring();
-		if (Internal.m_OnReceivePong.f_IsEmpty())
-			Internal.m_OnReceivePong.f_StopDeferring();
-		if (Internal.m_OnClose.f_IsEmpty())
-			Internal.m_OnClose.f_StopDeferring();
-		if (Internal.m_OnFinishConnection.f_IsEmpty())
-			Internal.m_OnFinishConnection.f_StopDeferring();
-		if (Internal.m_OnFinishClientConnection.f_IsEmpty())
-			Internal.m_OnFinishClientConnection.f_StopDeferring();
+		Internal.m_fOnReceiveBinaryMessage.f_StopDeferring();
+		Internal.m_fOnReceiveTextMessage.f_StopDeferring();
+		Internal.m_fOnReceivePing.f_StopDeferring();
+		Internal.m_fOnReceivePong.f_StopDeferring();
+		Internal.m_fOnClose.f_StopDeferring();
+		Internal.m_fOnFinishConnection.f_StopDeferring();
+		Internal.m_fOnFinishClientConnection.f_StopDeferring();
 	}
 
-	void CWebSocketActor::fp_AcceptClientConnection()
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptClientConnection(CCallbacks &&_Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
-		Internal.f_RegisterPendingCallbacks();
+
+		auto Subscription = Internal.f_SetCallbacks(fg_Move(_Callbacks));
 		fp_TryStopDeferring();
+
+		return Subscription;
 	}
 
 	void CWebSocketActor::fp_RejectClientConnection(NStr::CStr const &_Error)
@@ -1868,32 +1952,35 @@ namespace NMib::NWeb
 		fp_Disconnect(EWebSocketStatus_Rejected, NStr::fg_Format("Rejected connection: {}", _Error), false, EWebSocketCloseOrigin_Local);
 	}
 
-	void CWebSocketActor::CInternal::f_RegisterPendingCallbacks()
+	NConcurrency::CActorSubscription CWebSocketActor::CInternal::f_SetCallbacks(CCallbacks &&_Callbacks)
 	{
-		DMibRequire(m_pPendingCombinedCallbackReferences);
-		DMibRequire(m_pPendingCallbackRegister);
+		m_fOnReceiveBinaryMessage.f_SetCallback(fg_Move(_Callbacks.m_fOnReceiveBinaryMessage));
+		m_fOnReceiveTextMessage.f_SetCallback(fg_Move(_Callbacks.m_fOnReceiveTextMessage));
+		m_fOnReceivePing.f_SetCallback(fg_Move(_Callbacks.m_fOnReceivePing));
+		m_fOnReceivePong.f_SetCallback(fg_Move(_Callbacks.m_fOnReceivePong));
+		m_fOnClose.f_SetCallback(fg_Move(_Callbacks.m_fOnClose));
 
-		auto &Callbacks = *m_pPendingCallbackRegister;
-		auto &References = *m_pPendingCombinedCallbackReferences;
-		if (Callbacks.m_fReceiveBinaryMessage)
-			References.m_References.f_Insert(m_OnReceiveBinaryMessage.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceiveBinaryMessage)));
-		if (Callbacks.m_fReceiveTextMessage)
-			References.m_References.f_Insert(m_OnReceiveTextMessage.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceiveTextMessage)));
-		if (Callbacks.m_fReceivePing)
-			References.m_References.f_Insert(m_OnReceivePing.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceivePing)));
-		if (Callbacks.m_fReceivePong)
-			References.m_References.f_Insert(m_OnReceivePong.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fReceivePong)));
-		if (Callbacks.m_fOnClose)
-			References.m_References.f_Insert(m_OnClose.f_Register(Callbacks.m_Actor, fg_Move(Callbacks.m_fOnClose)));
+		return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			{
+				NConcurrency::TCActorResultVector<void> DestroyResults;
 
-		m_pPendingCombinedCallbackReferences.f_Clear();
-		m_pPendingCallbackRegister.f_Clear();
+				fg_Move(m_fOnReceiveBinaryMessage).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(m_fOnReceiveTextMessage).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(m_fOnReceivePing).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(m_fOnReceivePong).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(m_fOnClose).f_Destroy() > DestroyResults.f_AddResult();
+
+				co_await DestroyResults.f_GetResults();
+
+				co_return {};
+			}
+		;
 	}
 
-	void CWebSocketActor::fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader)
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader, CCallbacks &&_Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
-		Internal.f_RegisterPendingCallbacks();
+		auto Subscription = Internal.f_SetCallbacks(fg_Move(_Callbacks));
 		fp_TryStopDeferring();
 
 		NHTTP::CResponseHeader Response = fg_Move(_ResponseHeader);
@@ -1932,6 +2019,8 @@ namespace NMib::NWeb
 		Internal.m_State = EState_Connected;
 
 		fp_UpdateSend();
+
+		return Subscription;
 	}
 
 	void CWebSocketActor::fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader, NStr::CStr const &_Content)
@@ -2100,23 +2189,30 @@ namespace NMib::NWeb
 
 	NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishServerConnection
 		(
-			NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-			, NFunction::TCFunctionMovable<void (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 		)
 	{
 		auto &Internal = *mp_pInternal;
-		auto Return = Internal.m_OnFinishConnection.f_Register(fg_Move(_Actor), fg_Move(_fOnFinishConnection));
+		Internal.m_fOnFinishConnection.f_SetCallback(fg_Move(_fOnFinishConnection));
+		Internal.m_bOnFinishDone = true;
 
 		if (Internal.m_bWantStopDefer)
 			fp_StopDeferring();
 
-		return Return;
+		return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			{
+				auto &Internal = *mp_pInternal;
+
+				co_await fg_Move(Internal.m_fOnFinishConnection).f_Destroy();
+
+				co_return {};
+			}
+		;
 	}
 
 	NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishClientConnection
 		(
-			NConcurrency::TCActor<NConcurrency::CActor> &&_Actor
-			, NFunction::TCFunctionMovable<void (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
 			, NHTTP::CRequest &&_RequestHeader
 			, NStr::CStr const &_ConnectToAddress
 			, NStr::CStr const &_URI
@@ -2125,7 +2221,9 @@ namespace NMib::NWeb
 		)
 	{
 		auto &Internal = *mp_pInternal;
-		auto Return = Internal.m_OnFinishClientConnection.f_Register(fg_Move(_Actor), fg_Move(_fOnFinishConnection));
+
+		Internal.m_fOnFinishClientConnection.f_SetCallback(fg_Move(_fOnFinishConnection));
+		Internal.m_bOnFinishDone = true;
 
 		if (Internal.m_bWantStopDefer)
 			fp_StopDeferring();
@@ -2170,7 +2268,15 @@ namespace NMib::NWeb
 		;
 		fp_UpdateSend();
 
-		return Return;
+		return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			{
+				auto &Internal = *mp_pInternal;
+
+				co_await fg_Move(Internal.m_fOnFinishClientConnection).f_Destroy();
+
+				co_return {};
+			}
+		;
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SetTimeout(fp64 _Seconds)
@@ -2189,11 +2295,28 @@ namespace NMib::NWeb
 	{
 		m_TimeoutTimerSubscription.f_Clear();
 		m_pTimeoutPingMessage.f_Clear();
+
+		if (!m_fOnFinishConnection.f_IsEmpty())
+		{
+			CConnectionInfo ConnectionInfo;
+			ConnectionInfo.m_ErrorStatus = EWebSocketStatus_InternalError;
+			ConnectionInfo.m_Error = "Never got a finish connection result";
+			f_FinishConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
+		}
+		if (!m_fOnFinishClientConnection.f_IsEmpty())
+		{
+			CClientConnectionInfo ConnectionInfo;
+			ConnectionInfo.m_ErrorStatus = EWebSocketStatus_InternalError;
+			ConnectionInfo.m_Error = "Never got a finish client connection result";
+			f_FinishClientConnection(EFinishConnectionResult_Error, fg_Move(ConnectionInfo));
+		}
 	}
 
 	void CWebSocketActor::CInternal::f_SetupTimeout()
 	{
-		f_StopTimeout();
+		m_TimeoutTimerSubscription.f_Clear();
+		m_pTimeoutPingMessage.f_Clear();
+
 		if (m_Timeout == 0.0)
 			return; // Timeout disabled
 

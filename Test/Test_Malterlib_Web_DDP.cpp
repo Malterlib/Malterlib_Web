@@ -111,8 +111,8 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 				 	, NContainer::TCVector<CNetAddress>{ToListenTo}
 					, ENetFlag_None
-					, fg_ConcurrentActor()
-					, [this](CWebSocketNewServerConnection &&_ConnectionInfo)
+					, NMib::NConcurrency::g_ActorFunctorWeak(fg_ConcurrentActor()) / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
+					-> NMib::NConcurrency::TCFuture<void>
 					{
 						auto &NewConnection = m_Connections.f_Insert();
 						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
@@ -121,12 +121,17 @@ public:
 						NewConnection.m_Connection
 							(
 								&CDDPServerConnection::f_Register
-								, fg_ThisActor(this)
-								, [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo) // On connection
+								, NMib::NConcurrency::g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo)
+								-> NMib::NConcurrency::TCFuture<void>
+								// On connection
 								{
 									_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
+
+									co_return {};
 								}
-								, [this, pConnection](CDDPServerConnection::CMethodInfo const &_MethodInfo) // On method call
+								, NMib::NConcurrency::g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo const &_MethodInfo)
+								-> NMib::NConcurrency::TCFuture<void>
+								// On method call
 								{
 									if (_MethodInfo.m_Name == "login")
 									{
@@ -138,7 +143,7 @@ public:
 											if (Algo != "sha-256")
 											{
 												_MethodInfo.f_Error(fp_MethodError("unknown-authentication-algorithm", fg_Format("Unknown algorithm: {}", Algo)));
-												return;
+												co_return {};
 											}
 
 											CStr PasswordDigest = LoginParams["password"]["digest"].f_AsString();
@@ -149,7 +154,7 @@ public:
 											if (PasswordDigest != RightDigest)
 											{
 												_MethodInfo.f_Error(fp_MethodError("invalid-password", "Invalid password"));
-												return;
+												co_return {};
 											}
 											CEJSON Result;
 
@@ -212,8 +217,12 @@ public:
 									}
 									else
 										_MethodInfo.f_Error(fp_MethodError("method-not-found", "Method not found"));
+
+									co_return {};
 								}
-								, [this, pConnection](CDDPServerConnection::CSubscribeInfo const &_SubscribeInfo) // On subscribe
+								, NMib::NConcurrency::g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo const &_SubscribeInfo)
+								-> NMib::NConcurrency::TCFuture<void>
+								// On subscribe
 								{
 									//DMibTrace("Subscription: {}\n", _SubscribeInfo.m_Name);
 									if (_SubscribeInfo.m_Name == "testSub")
@@ -239,18 +248,30 @@ public:
 									{
 										_SubscribeInfo.f_Error(CEJSON());
 									}
+
+									co_return {};
 								}
-								, [this](NStr::CStr const &_SubscriptionID) // On unsubscribe
+								, NMib::NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr const &_SubscriptionID)
+								-> NMib::NConcurrency::TCFuture<void>
+								// On unsubscribe
 								{
 									++m_nUnsubscribe;
 									m_Event.f_Signal();
+
+									co_return {};
 								}
-								, [this](NStr::CStr const &_Error) // On error
+								, NMib::NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr const &_Error)
+								-> NMib::NConcurrency::TCFuture<void>
+								// On error
 								{
 									f_ReportError(_Error);
+
+									co_return {};
 								}
-								, [](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								, NMib::NConcurrency::g_ActorFunctorWeak / [](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								-> NMib::NConcurrency::TCFuture<void>
 								{
+									co_return {};
 								}
 							)
 							> [pConnection](TCAsyncResult<CActorSubscription> &&_Callback)
@@ -260,10 +281,14 @@ public:
 							}
 						;
 
+						co_return {};
 					}
-					, [this](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
+					, NMib::NConcurrency::g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
+					-> NMib::NConcurrency::TCFuture<void>
 					{
 						f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
+
+						co_return {};
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
@@ -312,7 +337,7 @@ public:
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 
-		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr, nullptr).f_CallSync();
+		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync();
 
 		DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
 
@@ -326,19 +351,20 @@ public:
 			TCAtomic<mint> m_nRemoved{false};
 		};
 
+		auto ConcurrentActor = fg_ConcurrentActor();
+
 		TCSharedPointer<CState> pState = fg_Construct();
 
 		{
-			auto &ConcurrentActor = fg_ConcurrentActor();
 			CActorSubscription Observation = Client
 				(
 					&CDDPClient::f_Observe
-					, ConcurrentActor
 					, "testCollection"
 					, CDDPClient::EObserveNotification_Added
 					| CDDPClient::EObserveNotification_Changed
 					| CDDPClient::EObserveNotification_Removed
-					, [pState](CDDPClient::EObserveNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor) / [pState](CDDPClient::EObserveNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					-> NMib::NConcurrency::TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
 							++pState->m_nAdded;
@@ -348,6 +374,8 @@ public:
 							++pState->m_nRemoved;
 
 						pState->m_Event.f_Signal();
+
+						co_return {};
 					}
 				).f_CallSync()
 			;
@@ -355,13 +383,13 @@ public:
 			CActorSubscription Subscription = Client
 				(
 					&CDDPClient::f_Subscribe
-					, ConcurrentActor
 					, "testSub"
 					, ""
 					, CEJSON(fg_CreateVector<CEJSON>())
 					, CDDPClient::ESubscriptionNotification_Ready
 					| CDDPClient::ESubscriptionNotification_Error
-					, [pState](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					-> NMib::NConcurrency::TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
 							++pState->m_nReady;
@@ -369,6 +397,8 @@ public:
 							++pState->m_nError;
 
 						pState->m_Event.f_Signal();
+
+						co_return {};
 					}
 					, true
 				).f_CallSync(g_Timeout / 6)
@@ -446,14 +476,15 @@ public:
 						CActorSubscription Subscription = Client
 							(
 								&CDDPClient::f_Subscribe
-								, ConcurrentActor
 								, "testFalseSub"
 								, ""
 								, CEJSON(fg_CreateVector<CEJSON>())
 								, CDDPClient::ESubscriptionNotification_None
-								, [](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+								, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor)
+								/ [](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+								-> NMib::NConcurrency::TCFuture<void>
 								{
-
+									co_return {};
 								}
 								, true
 							).f_CallSync(g_Timeout / 6)

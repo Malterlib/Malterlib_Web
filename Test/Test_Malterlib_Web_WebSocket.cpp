@@ -6,6 +6,7 @@
 #include <Mib/Web/WebSocket>
 #include <Mib/Network/Sockets/SSL>
 #include <Mib/Cryptography/Certificate>
+#include <Mib/Concurrency/ActorFunctorWeak>
 
 /*
 URI invalid -> MUST fail
@@ -123,16 +124,14 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(_ListenAddress)
 					, NMib::NNetwork::ENetFlag_None
-					, NMib::NConcurrency::fg_ConcurrentActor()
-					, [pState](CWebSocketNewServerConnection &&_ConnectionInfo)
+					, NMib::NConcurrency::g_ActorFunctorWeak(NMib::NConcurrency::fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection &&_ConnectionInfo) -> NMib::NConcurrency::TCFuture<void>
 					{
 						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
 						DMibLock(pState->m_Lock);
 
 						CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
 
-						ConnectionInfo.m_fOnReceiveTextMessage
-							= [pState](NStr::CStr const &_Message)
+						ConnectionInfo.m_fOnReceiveTextMessage = NMib::NConcurrency::g_ActorFunctorWeak / [pState](NStr::CStr const &_Message) -> NMib::NConcurrency::TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								for (auto &Connection : pState->m_ServerConnections)
@@ -148,20 +147,26 @@ public:
 									for (auto &Connection : pState->m_ServerConnections)
 										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, g_pCloseMessage) > NConcurrency::fg_DiscardResult();
 								}
+
+								co_return {};
 							}
 						;
 
 						ConnectionInfo.m_fOnClose
-							= [pState, pServerConnection](EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+							= NMib::NConcurrency::g_ActorFunctorWeak / [pState, pServerConnection](EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
+							-> NMib::NConcurrency::TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								if (pState->m_bCleared)
-									return;
+									co_return {};
+
 								pState->m_ServerConnectionCloseMessage = _Message;
 								pState->m_ServerConnectionCloseStatus = _Status;
 								pState->m_ServerConnectionCloseOrigin = _Origin;
 								pState->m_ServerConnections.f_Remove(*pServerConnection);
 								pState->m_Event.f_Signal();
+
+								co_return {};
 							}
 						;
 
@@ -182,13 +187,17 @@ public:
 						;
 
 						pState->m_Event.f_Signal();
+
+						co_return {};
 					}
-					, [pState](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
+					, NMib::NConcurrency::g_ActorFunctorWeak(NMib::NConcurrency::fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo &&_ConnectionInfo) -> NMib::NConcurrency::TCFuture<void>
 					{
 						DMibLock(pState->m_Lock);
 						pState->m_bAcceptError = true;
 						pState->m_AcceptError = _ConnectionInfo.m_Error;
 						pState->m_Event.f_Signal();
+
+						co_return {};
 					}
 					, fg_TempCopy(_ServerFactory)
 				)
@@ -231,20 +240,25 @@ public:
 					{
 						auto &Result = *_Result;
 
-						Result.m_fOnClose = [pState](EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
+						Result.m_fOnClose = NMib::NConcurrency::g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
+							-> NMib::NConcurrency::TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_ClientConnectionCloseMessage = _Message;
 								pState->m_ClientConnectionCloseStatus = _Status;
 								pState->m_ClientConnectionCloseOrigin = _Origin;
 								pState->m_Event.f_Signal();
+
+								co_return {};
 							}
 						;
-						Result.m_fOnReceiveTextMessage = [pState](NStr::CStr const &_Message)
+						Result.m_fOnReceiveTextMessage = NMib::NConcurrency::g_ActorFunctorWeak / [pState](NStr::CStr const &_Message) -> NMib::NConcurrency::TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_Messages.f_Insert(_Message);
 								pState->m_Event.f_Signal();
+
+								co_return {};
 							}
 						;
 

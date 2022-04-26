@@ -156,15 +156,14 @@ namespace NMib::NWeb
 		CDDPServerConnection(CWebSocketNewServerConnection &&_ServerConnection, EConnectionType _ConnectionType);
 		~CDDPServerConnection();
 
-		NConcurrency::CActorSubscription f_Register
+		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Register
 			(
-				NConcurrency::TCActor<CActor> const &_Actor
-				, NFunction::TCFunctionMovable<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
-				, NFunction::TCFunctionMovable<void (CMethodInfo const &_MethodInfo)> &&_fOnMethod
-				, NFunction::TCFunctionMovable<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
-				, NFunction::TCFunctionMovable<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
-				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)> &&_fOnError
-				, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CMethodInfo const &_MethodInfo)> &&_fOnMethod
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_ID)> &&_fOnUnSubscribe
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_Error)> &&_fOnError
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
 

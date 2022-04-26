@@ -101,8 +101,7 @@ namespace NMib::NWeb
 				, NStr::CStrSecure const &_Token
 				, NStr::CStr const &_SessionID
 				, fp32 _Timeout
-				, NConcurrency::TCActor<NConcurrency::CActor> &&_NotificationActor
-				, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
 		NConcurrency::TCFuture<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
@@ -110,27 +109,24 @@ namespace NMib::NWeb
 			(
 				NStr::CStr const &_MethodName
 				, NContainer::TCVector<NEncoding::CEJSON> const &_Params
-				, NConcurrency::TCActor<NConcurrency::CActor> const &_OnUpdatedActor
-				, NFunction::TCFunctionMovable<void ()> &&_fOnUpdated
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fOnUpdated
 			)
 		;
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Subscribe
 			(
-				NConcurrency::TCActor<CActor> const &_Actor
-				, NStr::CStr const &_SubscriptionName
+				NStr::CStr const &_SubscriptionName
 				, NStr::CStr const &_SubscriptionID
 				, NEncoding::CEJSON const &_Params
 				, ESubscriptionNotification _NotifyOn
-				, NFunction::TCFunctionMovable<void (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
 				, bool _bWaitForResponse
 			)
 		;
 		NConcurrency::CActorSubscription f_Observe
 			(
-				NConcurrency::TCActor<CActor> const &_Actor
-				, NStr::CStr const &_CollectionName // Leave empty to observe all collections
+				NStr::CStr const &_CollectionName // Leave empty to observe all collections
 				, EObserveNotification _NotifyOn
-				, NFunction::TCFunctionMovable<void (EObserveNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
 			)
 		;
 

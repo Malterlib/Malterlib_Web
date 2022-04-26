@@ -2,7 +2,6 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
-#include <Mib/Concurrency/ActorCallbackManager>
 
 #include "Malterlib_Web_WebSocket.h"
 #include "Malterlib_Web_WebSocketServerActor_Internal_Listen.h"
@@ -13,8 +12,6 @@ namespace NMib::NWeb
 	{
 		CInternal(CWebSocketServerActor *_pThis)
 			: m_pThis(_pThis)
-			, m_OnNewConnection(_pThis, false)
-			, m_OnFailedConnection(_pThis, false)
 		{
 		}
 
@@ -23,8 +20,8 @@ namespace NMib::NWeb
 
 		CWebSocketServerActor *m_pThis;
 		NContainer::TCVector<NConcurrency::TCActor<NWebSocket::CListenActor>> m_ListenSockets;
-		NConcurrency::TCActorSubscriptionManager<void (CWebSocketNewServerConnection &&_NewConnection)> m_OnNewConnection;
-		NConcurrency::TCActorSubscriptionManager<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> m_OnFailedConnection;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection &&_NewConnection)> m_fOnNewConnection;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> m_fOnFailedConnection;
 		NContainer::TCLinkedList<NConcurrency::CActorSubscription> m_Subscriptions;
 		fp64 m_Timeout = 60.0;
 		mint m_MaxMessageSize = 24*1024*1024;

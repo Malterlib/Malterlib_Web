@@ -1,8 +1,7 @@
 
 #include "Malterlib_Web_DDP_Server.h"
 #include "Malterlib_Web_DDP_Client.h"
-
-#include <Mib/Concurrency/ActorCallbackManager>
+#include <Mib/Concurrency/ActorSubscription>
 
 namespace NMib::NWeb
 {
@@ -14,13 +13,12 @@ namespace NMib::NWeb
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
 		NConcurrency::CActorSubscription m_WebSocketCallbacks;
 
-		NConcurrency::TCActorSubscriptionManager<void (CConnectionInfo const &_MethodInfo)> m_OnConnection;
-		NConcurrency::TCActorSubscriptionManager<void (CMethodInfo const &_MethodInfo)> m_OnMethod;
-		NConcurrency::TCActorSubscriptionManager<void (CSubscribeInfo const &_SubscribeInfo)> m_OnSubscribe;
-		NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const &_ID)> m_OnUnSubscribe;
-		NConcurrency::TCActorSubscriptionManager<void (NStr::CStr const &_Error)> m_OnError;
-		NConcurrency::TCActorSubscriptionManager<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_OnClose;
-
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CConnectionInfo const &_MethodInfo)> m_fOnConnection;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CMethodInfo const &_MethodInfo)> m_fOnMethod;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CSubscribeInfo const &_SubscribeInfo)> m_fOnSubscribe;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_ID)> m_fOnUnSubscribe;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_Error)> m_fOnError;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 
 		NConcurrency::CActorSubscription m_SockJSHeartbeatCallback;
 
@@ -30,13 +28,6 @@ namespace NMib::NWeb
 			: mp_pServerConnection(_pDDPServerConnection)
 			, m_pNewWebsocketConnection(fg_Construct(fg_Move(_NewWebsocketConnection)))
 			, m_WebSocket()
-			, m_WebSocketCallbacks()
-			, m_OnConnection(mp_pServerConnection, false)
-			, m_OnMethod(mp_pServerConnection, false)
-			, m_OnSubscribe(mp_pServerConnection, false)
-			, m_OnUnSubscribe(mp_pServerConnection, false)
-			, m_OnError(mp_pServerConnection, false)
-			, m_OnClose(mp_pServerConnection, false)
 			, m_ConnectionType(_ConnectionType)
 		{
 		}
@@ -92,7 +83,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			if (m_OnConnection.f_IsEmpty())
+			if (m_fOnConnection.f_IsEmpty())
 				mp_pServerConnection->fp_AcceptConnection(NStr::CStr());
 			else
 			{
@@ -100,7 +91,7 @@ namespace NMib::NWeb
 				auto pSessionID = JSON.f_GetMember("session");
 				if (fg_ValidateType(pSessionID, NEncoding::EJSONType_String))
 					ConnectionInfo.m_Session = pSessionID->f_String();
-				m_OnConnection(ConnectionInfo) > NConcurrency::fg_DiscardResult();
+				m_fOnConnection(ConnectionInfo) > NConcurrency::fg_DiscardResult();
 			}
 		}
 		else if (MessageType == "method")
@@ -131,7 +122,8 @@ namespace NMib::NWeb
 			if (pRandomSeed)
 				MethodInfo.m_RandomSeed = *pRandomSeed;
 
-			m_OnMethod(MethodInfo) > NConcurrency::fg_DiscardResult();
+			if (m_fOnMethod)
+				m_fOnMethod(MethodInfo) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "sub")
 		{
@@ -157,7 +149,8 @@ namespace NMib::NWeb
 			if (fg_ValidateType(pParams, NEncoding::EJSONType_Array))
 				SubscribeInfo.m_Parameters = pParams->f_Array();
 
-			m_OnSubscribe(SubscribeInfo) > NConcurrency::fg_DiscardResult();
+			if (m_fOnSubscribe)
+				m_fOnSubscribe(SubscribeInfo) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "unsub")
 		{
@@ -168,7 +161,8 @@ namespace NMib::NWeb
 				return;
 			}
 
-			m_OnUnSubscribe(pSubscriptionID->f_String()) > NConcurrency::fg_DiscardResult();
+			if (m_fOnUnSubscribe)
+				m_fOnUnSubscribe(pSubscriptionID->f_String()) > NConcurrency::fg_DiscardResult();
 		}
 		else if (MessageType == "ping")
 		{
@@ -214,7 +208,8 @@ namespace NMib::NWeb
 
 	void CDDPServerConnection::CInternal::fp_OnError(NStr::CStr const &_Message)
 	{
-		m_OnError(_Message) > NConcurrency::fg_DiscardResult();
+		if (m_fOnError)
+			m_fOnError(_Message) > NConcurrency::fg_DiscardResult();
 	}
 
 	struct CDDPServerConnection::CConnectionInfo::CInternal
@@ -355,65 +350,62 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::CActorSubscription CDDPServerConnection::f_Register
+	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CDDPServerConnection::f_Register
 		(
-			NConcurrency::TCActor<CActor> const &_Actor
-			, NFunction::TCFunctionMovable<void (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
-			, NFunction::TCFunctionMovable<void (CMethodInfo const &_MethodInfo)> &&_fOnMethod
-			, NFunction::TCFunctionMovable<void (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
-			, NFunction::TCFunctionMovable<void (NStr::CStr const &_ID)> &&_fOnUnSubscribe
-			, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)> &&_fOnError
-			, NFunction::TCFunctionMovable<void (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CMethodInfo const &_MethodInfo)> &&_fOnMethod
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_ID)> &&_fOnUnSubscribe
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_Error)> &&_fOnError
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 		)
 	{
 		auto &Internal = *mp_pInternal;
 
-		NStorage::TCUniquePointer<NConcurrency::CCombinedCallbackReference> pCombinedReference = fg_Construct();
+		Internal.m_fOnConnection = fg_Move(_fOnConnection);
+		Internal.m_fOnMethod = fg_Move(_fOnMethod);
+		Internal.m_fOnSubscribe = fg_Move(_fOnSubscribe);
+		Internal.m_fOnUnSubscribe = fg_Move(_fOnUnSubscribe);
+		Internal.m_fOnError = fg_Move(_fOnError);
 
-		if (_fOnConnection)
-			pCombinedReference->m_References.f_Insert(Internal.m_OnConnection.f_Register(_Actor, fg_Move(_fOnConnection)));
+		auto Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			{
+				auto &Internal = *mp_pInternal;
 
-		if (_fOnMethod)
-			pCombinedReference->m_References.f_Insert(Internal.m_OnMethod.f_Register(_Actor, fg_Move(_fOnMethod)));
+				NConcurrency::TCActorResultVector<void> DestroyResults;
+				fg_Move(Internal.m_fOnConnection).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(Internal.m_fOnMethod).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(Internal.m_fOnSubscribe).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(Internal.m_fOnUnSubscribe).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(Internal.m_fOnError).f_Destroy() > DestroyResults.f_AddResult();
 
-		if (_fOnSubscribe)
-			pCombinedReference->m_References.f_Insert(Internal.m_OnSubscribe.f_Register(_Actor, fg_Move(_fOnSubscribe)));
+				co_await DestroyResults.f_GetResults();
 
-		if (_fOnUnSubscribe)
-			pCombinedReference->m_References.f_Insert(Internal.m_OnUnSubscribe.f_Register(_Actor, fg_Move(_fOnUnSubscribe)));
-
-		if (_fOnError)
-			pCombinedReference->m_References.f_Insert(Internal.m_OnError.f_Register(_Actor, fg_Move(_fOnError)));
+				co_return {};
+			}
+		;
 
 		if (_fOnClose)
 		{
-			pCombinedReference->m_References.f_Insert(Internal.m_OnClose.f_Register(_Actor, fg_Move(_fOnClose)));
-			Internal.m_pNewWebsocketConnection->m_fOnClose =
-				[this, ThisWeak = fg_ThisActor(this).f_Weak()](EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
+			Internal.m_fOnClose = fg_Move(_fOnClose);
+			Internal.m_pNewWebsocketConnection->m_fOnClose = NConcurrency::g_ActorFunctorWeak
+				/ [this](EWebSocketStatus _Reason, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin) -> NConcurrency::TCFuture<void>
 				{
-					auto ThisActor = ThisWeak.f_Lock();
-					if (ThisActor)
-					{
-						ThisActor
-							(
-								&CActor::f_Dispatch
-								, [this, _Reason, _Message, _Origin]
-								{
-									auto &Internal = *mp_pInternal;
-									Internal.m_OnClose(_Reason, _Message, _Origin) > NConcurrency::fg_DiscardResult();
-								}
-							)
-							> NConcurrency::fg_DiscardResult()
-						;
-					}
+					auto &Internal = *mp_pInternal;
+					if (Internal.m_fOnClose)
+						co_await Internal.m_fOnClose(_Reason, _Message, _Origin).f_Timeout(60.0, "Timed out waiting for close");
+
+					co_return {};
 				}
 			;
 		}
 
 		auto pInternal = &Internal;
-		Internal.m_pNewWebsocketConnection->m_fOnReceiveTextMessage = [pInternal](NStr::CStr const &_Message)
+		Internal.m_pNewWebsocketConnection->m_fOnReceiveTextMessage = NConcurrency::g_ActorFunctorWeak / [pInternal](NStr::CStr const &_Message) -> NConcurrency::TCFuture<void>
 			{
 				pInternal->fp_ReceiveMessage(_Message);
+
+				co_return {};
 			}
 		;
 
@@ -452,7 +444,7 @@ namespace NMib::NWeb
 		}
 		Internal.m_pNewWebsocketConnection.f_Clear();
 
-		return fg_Move(pCombinedReference);
+		co_return fg_Move(Subscription);
 	}
 
 	void CDDPServerConnection::f_SendChanges(NContainer::TCVector<CChange> &&_Changes)

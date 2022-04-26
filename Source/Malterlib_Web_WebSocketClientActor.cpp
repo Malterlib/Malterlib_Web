@@ -165,20 +165,17 @@ namespace NMib::NWeb
 							;
 
 							// Capture here
-							auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, &This, CleanupPending = fg_Move(CleanupPending)]() mutable
+							auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable
 								{
 									ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pNewSocket)) > NConcurrency::fg_DiscardResult();
 
 									ConnectionActor
 										(
 											&CWebSocketActor::fp_OnFinishClientConnection
-											, This
-											, [Promise, ConnectionActor, CleanupPending = fg_Move(CleanupPending)]
-											(
-												CWebSocketActor::EFinishConnectionResult _Result
-												, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo
-											)
-											mutable
+											, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_AnyConcurrentActor())
+											/ [Promise, ConnectionActor, CleanupPending = fg_Move(CleanupPending), AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
+											(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo) mutable
+											-> NConcurrency::TCFuture<void>
 											{
 												if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
 													Promise.f_SetException(DMibErrorInstance(_ConnectionInfo.m_Error));
@@ -197,6 +194,8 @@ namespace NMib::NWeb
 													Promise.f_SetResult(fg_Move(NewConnection));
 												}
 												CleanupPending.f_Clear();
+
+												co_return {};
 											}
 											, fg_Move(*pRequest)
 											, _ConnectToAddress

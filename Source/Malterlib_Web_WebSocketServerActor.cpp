@@ -2,6 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/ActorSubscription>
 
 #include "Malterlib_Web_WebSocket.h"
 #include "Malterlib_Web_WebSocketServerActor_Internal.h"
@@ -47,17 +48,16 @@ namespace NMib::NWeb
 	void CWebSocketServerActor::CInternal::f_Clear()
 	{
 		m_ListenSockets.f_Clear();
-		m_OnNewConnection.f_Clear();
-		m_OnFailedConnection.f_Clear();
+		m_fOnNewConnection.f_Clear();
+		m_fOnFailedConnection.f_Clear();
 	}
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListenAddress
 		(
 			NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo
 			, NMib::NNetwork::ENetFlag _ListenFlags
-			, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
-			, NFunction::TCFunctionMovable<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
-			, NFunction::TCFunctionMovable<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
 			, NNetwork::FVirtualSocketFactory &&_SocketFactory
 		)
 	{
@@ -70,18 +70,30 @@ namespace NMib::NWeb
 			if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
 				DMibError("Socket server is already listening");
 
+			mp_pInternal->f_Clear();
+			mp_pInternal->m_fOnNewConnection = fg_Move(_fNewConnection);
+			mp_pInternal->m_fOnFailedConnection = fg_Move(_fFailedConnection);
+
+			auto Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+				{
+					auto &Internal = *mp_pInternal;
+
+					NConcurrency::TCActorResultVector<void> DestroyResults;
+					fg_Move(Internal.m_fOnNewConnection).f_Destroy() > DestroyResults.f_AddResult();
+					fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > DestroyResults.f_AddResult();
+
+					co_await DestroyResults.f_GetResults();
+
+					co_return {};
+				}
+			;
+			
 			NConcurrency::TCActorResultVector<void> SetSocketResults;
-			NConcurrency::CActorSubscription Reference;
 			{
-				mp_pInternal->f_Clear();
-				auto NewReference = mp_pInternal->m_OnNewConnection.f_Register(_Actor, fg_Move(_fNewConnection));
-				auto FailedReference = mp_pInternal->m_OnFailedConnection.f_Register(_Actor, fg_Move(_fFailedConnection));
-				Reference = fg_CombinedCallbackReference(fg_Move(NewReference), fg_Move(FailedReference));
 
 				mint nListenTo = _AddressesToListenTo.f_GetLen();
 
 				mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
-
 
 				for (mint i = 0; i < nListenTo; ++i)
 				{
@@ -114,7 +126,7 @@ namespace NMib::NWeb
 
 			co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap;
 
-			co_return fg_Move(Reference);
+			co_return fg_Move(Subscription);
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -131,9 +143,8 @@ namespace NMib::NWeb
 			uint16 _StartListen
 			, uint16 _nListen
 			, NMib::NNetwork::ENetFlag _ListenFlags
-			, NConcurrency::TCActor<NConcurrency::CActor> const &_Actor
-			, NFunction::TCFunctionMovable<void (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
-			, NFunction::TCFunctionMovable<void (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
 			, NNetwork::FVirtualSocketFactory &&_SocketFactory
 		)
 	{
@@ -146,7 +157,7 @@ namespace NMib::NWeb
 			Address.f_Set(AnyAddress);
 			AddressesToListenTo.f_Insert(fg_Move(Address));
 		}
-		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, _Actor, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
+		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()
@@ -164,6 +175,9 @@ namespace NMib::NWeb
 
 		Internal.m_Subscriptions.f_Clear();
 
+		fg_Move(Internal.m_fOnNewConnection).f_Destroy() > Results.f_AddResult();
+		fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > Results.f_AddResult();
+
 		co_await Results.f_GetResults() | NConcurrency::g_Unwrap;
 
 		co_return {};
@@ -179,18 +193,18 @@ namespace NMib::NWeb
 		_Connection
 			(
 				&CWebSocketActor::fp_OnFinishServerConnection
-				, fg_ThisActor(this)
-				, [this, _Connection, pSubscription, pHandled]
-				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo)
+				, NConcurrency::g_ActorFunctorWeak / [this, _Connection, pHandled, pSubscription, AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
+				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo) mutable -> NConcurrency::TCFuture<void>
 				{
 					if (*pHandled || f_IsDestroyed())
-						return;
+						co_return {};
 
 					switch (_Result)
 					{
 					case CWebSocketActor::EFinishConnectionResult_Error:
 						{
-							mp_pInternal->m_OnFailedConnection(fg_Move(_ConnectionInfo)) > NConcurrency::fg_DiscardResult();
+							if (mp_pInternal->m_fOnFailedConnection)
+								mp_pInternal->m_fOnFailedConnection(fg_Move(_ConnectionInfo)) > NConcurrency::fg_DiscardResult();
 							pSubscription->f_Clear();
 						}
 						break;
@@ -198,7 +212,8 @@ namespace NMib::NWeb
 						{
 							auto Protocols = _ConnectionInfo.m_Protocols;
 							CWebSocketNewServerConnection Connection(fg_Move(_ConnectionInfo), fg_Move(Protocols), _Connection);
-							mp_pInternal->m_OnNewConnection(fg_Move(Connection)) > NConcurrency::fg_DiscardResult();
+							if (mp_pInternal->m_fOnNewConnection)
+								mp_pInternal->m_fOnNewConnection(fg_Move(Connection)) > NConcurrency::fg_DiscardResult();
 							pSubscription->f_Clear();
 						}
 						break;
@@ -209,6 +224,8 @@ namespace NMib::NWeb
 
 					*pHandled = true;
 					mp_pInternal->m_Subscriptions.f_Remove(*pSubscription);
+
+					co_return {};
 				}
 			)
 			> [this, pSubscription, pHandled](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
