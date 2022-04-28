@@ -57,13 +57,15 @@ public:
 		}
 	}
 
-	struct CState : public NStorage::TCSharedPointerIntrusiveBase<>
+	struct CState
 	{
 		struct CServerConnection
 		{
 			NConcurrency::TCActor<CWebSocketActor> m_Actor;
 			NConcurrency::CActorSubscription m_CallbacksReference;
 		};
+
+		NStorage::CIntrusiveRefCount m_RefCount;
 
 		CMutual m_Lock;
 		CEventAutoReset m_Event;

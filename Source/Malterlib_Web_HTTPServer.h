@@ -47,7 +47,7 @@ namespace NMib::NWeb
 		void f_SetMimeTypeFromFilename(NStr::CStr const& _Filename);
 	};
 
-	class CHTTPConnection : public NStorage::TCSharedPointerIntrusiveBase<>
+	class CHTTPConnection
 	{
 	public:
 		virtual ~CHTTPConnection() {}
@@ -57,6 +57,8 @@ namespace NMib::NWeb
 		virtual void f_Write(const uint8* _pData, mint _nBytes) = 0;
 
 		virtual void f_Write(CHTTPResponseHeader const& _Header) = 0;
+
+		NStorage::CIntrusiveRefCount m_RefCount;
 	};
 
 	class CHTTPCachedConnection : public CHTTPConnection
