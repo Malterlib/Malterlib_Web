@@ -61,8 +61,14 @@ public:
 	{
 		struct CServerConnection
 		{
+			~CServerConnection()
+			{
+				m_pDeleted->f_Store(true);
+			}
+
 			NConcurrency::TCActor<CWebSocketActor> m_Actor;
 			NConcurrency::CActorSubscription m_CallbacksReference;
+			NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 		};
 
 		NStorage::CIntrusiveRefCount m_RefCount;
@@ -155,7 +161,8 @@ public:
 						;
 
 						ConnectionInfo.m_fOnClose
-							= NMib::NConcurrency::g_ActorFunctorWeak / [pState, pServerConnection](EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
+							= NMib::NConcurrency::g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+							(EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
 							-> NMib::NConcurrency::TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
@@ -165,7 +172,8 @@ public:
 								pState->m_ServerConnectionCloseMessage = _Message;
 								pState->m_ServerConnectionCloseStatus = _Status;
 								pState->m_ServerConnectionCloseOrigin = _Origin;
-								pState->m_ServerConnections.f_Remove(*pServerConnection);
+								if (!*pDeleted)
+									pState->m_ServerConnections.f_Remove(*pServerConnection);
 								pState->m_Event.f_Signal();
 
 								co_return {};
@@ -179,10 +187,11 @@ public:
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, NMib::NConcurrency::fg_ConcurrentActor() / [pState, pServerConnection](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
+								, NMib::NConcurrency::fg_ConcurrentActor() / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+								(NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
-									if (_Callback)
+									if (_Callback && !*pDeleted)
 										pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
 								}
 							)
