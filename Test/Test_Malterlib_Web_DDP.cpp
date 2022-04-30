@@ -80,8 +80,14 @@ public:
 
 		struct CConnection
 		{
+			~CConnection()
+			{
+				*m_pDeleted = true;
+			}
+
 			TCActor<CDDPServerConnection> m_Connection;
 			CActorSubscription m_Callback;
+			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 		};
 
 		TCLinkedList<CConnection> m_Connections;
@@ -117,8 +123,10 @@ public:
 						auto &NewConnection = m_Connections.f_Insert();
 						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
 
+						auto pDeleted = NewConnection.m_pDeleted;
+
 						auto pConnection = &NewConnection;
-						NewConnection.m_Connection
+						auto Subscription = co_await NewConnection.m_Connection
 							(
 								&CDDPServerConnection::f_Register
 								, NMib::NConcurrency::g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo)
@@ -274,12 +282,12 @@ public:
 									co_return {};
 								}
 							)
-							> [pConnection](TCAsyncResult<CActorSubscription> &&_Callback)
-							{
-								if (_Callback)
-									pConnection->m_Callback = fg_Move(*_Callback);
-							}
 						;
+
+						if (*pDeleted)
+							co_return DMibErrorInstance("Connection deleted");
+
+						pConnection->m_Callback = fg_Move(Subscription);
 
 						co_return {};
 					}
@@ -327,7 +335,7 @@ public:
 			}
 		;
 
-		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync());
+		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(g_Timeout));
 
 		CStr ConnectToURLString;
 		if (ServerFactory)
@@ -337,7 +345,7 @@ public:
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 
-		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync();
+		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(g_Timeout);
 
 		DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
 
@@ -377,7 +385,7 @@ public:
 
 						co_return {};
 					}
-				).f_CallSync()
+				).f_CallSync(g_Timeout / 6)
 			;
 
 			CActorSubscription Subscription = Client
@@ -440,7 +448,7 @@ public:
 								}
 							}
 						)
-						.f_CallSync()
+						.f_CallSync(g_Timeout / 6)
 					;
 					return Documents;
 				}
@@ -494,10 +502,10 @@ public:
 				DMibExpectException(fSubscribe(), DMibErrorInstance("sub-not-found: Subscription not found"));
 			}
 
-			DMibExpectException((Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJSON>()).f_CallSync()), DMibErrorInstance("method-not-found: Method not found"));
+			DMibExpectException((Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJSON>()).f_CallSync(g_Timeout)), DMibErrorInstance("method-not-found: Method not found"));
 
 			DMibExpect(pState->m_nChanged, ==, 0);
-			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJSON>()).f_CallSync();
+			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJSON>()).f_CallSync(g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nChanged.f_Load())
 			{
@@ -511,7 +519,7 @@ public:
 			DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
 
 			DMibExpect(pState->m_nRemoved, ==, 0);
-			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJSON>()).f_CallSync();
+			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJSON>()).f_CallSync(g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nRemoved.f_Load())
 			{

@@ -541,12 +541,14 @@ namespace NMib::NWeb
 
 		Subscription.m_fOnReady = [Promise, CleanupSubscription = fg_Move(CleanupSubscription)]() mutable
 			{
-				Promise.f_SetResult(fg_Move(CleanupSubscription));
+				if (!Promise.f_IsSet())
+					Promise.f_SetResult(fg_Move(CleanupSubscription));
 			}
 		;
 		Subscription.m_fOnError = [Promise](NStr::CStr const &_Error)
 			{
-				Promise.f_SetException(DMibErrorInstance(_Error));
+				if (!Promise.f_IsSet())
+					Promise.f_SetException(DMibErrorInstance(_Error));
 			}
 		;
 
