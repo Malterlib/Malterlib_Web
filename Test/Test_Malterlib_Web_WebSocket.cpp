@@ -78,6 +78,7 @@ public:
 
 		NConcurrency::TCActor<CWebSocketServerActor> m_ServerActor;
 		NConcurrency::CActorSubscription m_ListenCallbackReference;
+		uint16 m_ListenPort = 0;
 
 		NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
 
@@ -124,7 +125,7 @@ public:
 			}
 		}
 
-		void f_StartListen(CNetAddress _ListenAddress, NNetwork::FVirtualSocketFactory const &_ServerFactory)
+		uint16 f_StartListen(CNetAddress _ListenAddress, NNetwork::FVirtualSocketFactory const &_ServerFactory)
 		{
 			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ServerActor
@@ -212,11 +213,14 @@ public:
 					}
 					, fg_TempCopy(_ServerFactory)
 				)
-				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
-						pState->m_ListenCallbackReference = fg_Move(*_Result);
+					{
+						pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+						pState->m_ListenPort = _Result->m_ListenPorts[0];
+					}
 					else
 						pState->m_ListenError = _Result.f_GetExceptionStr();
 					pState->m_Event.f_Signal();
@@ -226,9 +230,11 @@ public:
 			DMibAssert(pState->m_ListenError, ==, "");
 			DMibAssertFalse(bTimedOutListenStart);
 			DMibAssertTrue(pState->m_ListenCallbackReference);
+
+			return pState->m_ListenPort;
 		}
 
-		void f_Connect(CStr const &_Address, NNetwork::FVirtualSocketFactory const &_ClientFactory)
+		void f_Connect(CStr const &_Address, NNetwork::FVirtualSocketFactory const &_ClientFactory, uint16 _Port)
 		{
 			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ClientActor
@@ -237,7 +243,7 @@ public:
 					, _Address
 					, ""
 					, NNetwork::ENetAddressType_None
-					, 10500
+					, _Port
 					, "/Test"
 					, fg_Format("http://{}", _Address)
 					, NContainer::fg_CreateVector<NStr::CStr>("Test")
@@ -397,7 +403,7 @@ public:
 			{
 				CNetAddressTCPv4 Address;
 				Address.f_SetLocalhost();
-				Address.m_Port = 10500;
+				Address.m_Port = 0;
 				ListenAddress = Address;
 			}
 			else
@@ -412,10 +418,10 @@ public:
 				;
 
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
-				pState->f_StartListen(ListenAddress, ServerFactory);
+				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
-				pState->f_Connect(_Address, ClientFactory);
+				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
@@ -487,11 +493,11 @@ public:
 
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
-				pState->f_StartListen(ListenAddress, ServerFactory);
+				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
-				pState->f_Connect(_Address, ClientFactory);
+				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;

@@ -61,6 +61,7 @@ public:
 
 		CMutual m_Lock;
 		CActorSubscription m_ListenCallbackReference;
+		uint16 m_ListenPort = 0;
 
 		CEventAutoReset m_Event;
 		CStr m_Error;
@@ -109,7 +110,7 @@ public:
 			m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
 
 			CNetAddressTCPv4 ToListenTo;
-			ToListenTo.m_Port = 10501;
+			ToListenTo.m_Port = 0;
 			ToListenTo.f_SetLocalhost();
 
 			m_WebsocketServer
@@ -300,12 +301,13 @@ public:
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
-				> fg_ConcurrentActor() / [this, Promise](NConcurrency::TCAsyncResult<CActorSubscription> &&_Result)
+				> fg_ConcurrentActor() / [this, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
 				{
 					DMibLock(m_Lock);
 					if (_Result)
 					{
-						m_ListenCallbackReference = fg_Move(*_Result);
+						m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+						m_ListenPort = _Result->m_ListenPorts[0];
 						m_Event.f_Signal();
 						Promise.f_SetResult(this);
 					}
@@ -339,9 +341,9 @@ public:
 
 		CStr ConnectToURLString;
 		if (ServerFactory)
-			ConnectToURLString = "wss://localhost:10501/Test";
+			ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.m_ListenPort;
 		else
-			ConnectToURLString = "ws://localhost:10501/Test";
+			ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.m_ListenPort;
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 

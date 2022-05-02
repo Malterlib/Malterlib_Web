@@ -52,7 +52,7 @@ namespace NMib::NWeb
 		m_fOnFailedConnection.f_Clear();
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListenAddress
+	auto CWebSocketServerActor::f_StartListenAddress
 		(
 			NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo
 			, NMib::NNetwork::ENetFlag _ListenFlags
@@ -60,6 +60,7 @@ namespace NMib::NWeb
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
 			, NNetwork::FVirtualSocketFactory &&_SocketFactory
 		)
+		-> NConcurrency::TCFuture<CListenResult>
 	{
 		NNetwork::FVirtualSocketFactory SocketFactory = fg_Move(_SocketFactory);
 		if (!SocketFactory)
@@ -74,7 +75,9 @@ namespace NMib::NWeb
 			mp_pInternal->m_fOnNewConnection = fg_Move(_fNewConnection);
 			mp_pInternal->m_fOnFailedConnection = fg_Move(_fFailedConnection);
 
-			auto Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			CListenResult ListenResults;
+
+			ListenResults.m_Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
 				{
 					auto &Internal = *mp_pInternal;
 
@@ -120,13 +123,15 @@ namespace NMib::NWeb
 						)
 					;
 
+					ListenResults.m_ListenPorts.f_Insert(pListenSocket->f_GetListenPort());
+
 					ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults.f_AddResult();
 				}
 			}
 
 			co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap;
 
-			co_return fg_Move(Subscription);
+			co_return fg_Move(ListenResults);
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -138,7 +143,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CWebSocketServerActor::f_StartListen
+	auto CWebSocketServerActor::f_StartListen
 		(
 			uint16 _StartListen
 			, uint16 _nListen
@@ -147,6 +152,7 @@ namespace NMib::NWeb
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
 			, NNetwork::FVirtualSocketFactory &&_SocketFactory
 		)
+		-> NConcurrency::TCFuture<CListenResult>
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> AddressesToListenTo;
 		for (mint i = 0; i < _nListen; ++i)

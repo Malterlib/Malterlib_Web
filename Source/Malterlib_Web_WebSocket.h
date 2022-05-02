@@ -401,7 +401,13 @@ namespace NMib::NWeb
 		CWebSocketServerActor();
 		~CWebSocketServerActor();
 
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_StartListen
+		struct CListenResult
+		{
+			NConcurrency::CActorSubscription m_Subscription;
+			NContainer::TCVector<uint16> m_ListenPorts;
+		};
+
+		NConcurrency::TCFuture<CListenResult> f_StartListen
 			(
 				uint16 _StartListen		// The port to listen to
 				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
@@ -412,7 +418,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_StartListenAddress
+		NConcurrency::TCFuture<CListenResult> f_StartListenAddress
 			(
 				NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo // The addresses to listen to
 				, NMib::NNetwork::ENetFlag _ListenFlags
