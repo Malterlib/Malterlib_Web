@@ -24,15 +24,29 @@ Import "../../External/curl/Curl.MTarget"
 	}
 }
 
-%Repository "pcre"
+%Repository "pcre2"
 {
 	Repository
 	{
 		Type "External"
+		Remotes =+ {Name: "upstream", URL: "https://github.com/PCRE2Project/pcre2.git"}
 	}
 }
 
-Import "../../External/pcre/Lib_pcre.MTarget"
+%Import "../../External/pcre2/CMakeLists.txt"
+{
+	Import.CMake_Variables =+ ["PCRE2_BUILD_PCRE2GREP=OFF", "PCRE2_BUILD_TESTS=OFF"]
+	Import.CMake_Variables =+ ["PCRE2_STATIC_RUNTIME=ON"]
+	{
+		!!PlatformFamily "Windows"
+	}
+}
+
+Property
+{
+	Pcre2IncludePath define string = GetProperty("Import", "CMake_CacheDirectory", "Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
+}
+
 Import "../../External/nginx/nginx.MTarget"
 
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
