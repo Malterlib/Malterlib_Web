@@ -287,6 +287,21 @@ public:
 
 	void f_DoTests()
 	{
+		DMibTestSuite("Test") -> TCFuture<void>
+		{
+			TCActor<CCurlActor> CurlActor(fg_Construct(), "Curl");
+
+			NHTTP::CURL Url{"https://favrolocal.com:3030/"};
+
+			TCMap<CStr, CStr> Headers;
+			TCMap<CStr, CStr> Cookies;
+			CByteVector Data;
+
+			auto Result = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, Url.f_Encode(), Headers, Data, Cookies);
+			DMibExpect(Result.m_Body, ==, "");
+
+			co_return {};
+		};
 #ifdef DPlatformFamily_Windows
 		return; // Node.js doesn't support unix domain sockets yet
 #endif
