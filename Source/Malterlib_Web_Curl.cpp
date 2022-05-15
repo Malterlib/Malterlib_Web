@@ -64,7 +64,7 @@ namespace NMib::NWeb
 			}
 		};
 
-		constinit NStorage::TCAggregate<CCurlInit> g_CurlInit = {DAggregateInit};
+		constinit NStorage::TCAggregate<CCurlInit, 129> g_CurlInit = {DAggregateInit};
 	}
 
 	struct CCurlActor::CActorHolder::CInternal
