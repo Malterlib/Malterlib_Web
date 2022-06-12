@@ -111,7 +111,7 @@ public:
 		CFileSystemInterface_Disk DestinationFS;
 
 		SourceVirtualFS.f_CopyFiles("NodeWebServer/*", DestinationFS, _DestinationDirectory);
-#ifdef DPlatformFamily_OSX
+#ifdef DPlatformFamily_macOS
 		auto CurrentPath = fg_GetSys()->f_GetEnvironmentVariable("PATH", "").f_Split(":");
 		for (auto ExpectedPath : {"/opt/local/bin", "/opt/homebrew/bin"})
 		{
