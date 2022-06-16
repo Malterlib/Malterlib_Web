@@ -511,7 +511,7 @@ public:
 				}
 				{
 					DMibTestPath("Timeout");
-					pState->m_ClientSocket(&CWebSocketActor::f_DebugStopProcessing, 1.0).f_CallSync(g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, 1.0, ESocketDebugFlag_StopProcessing).f_CallSync(g_Timeout / 3);
 
 					bool bTimedOut = fp_WaitForCondition
 						(

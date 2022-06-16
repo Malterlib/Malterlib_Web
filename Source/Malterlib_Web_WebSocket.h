@@ -11,6 +11,7 @@
 #include <Mib/Network/Socket>
 #include <Mib/Memory/Allocators/Secure>
 #include <Mib/Network/ResolveActor>
+#include <Mib/Network/DebugFlags>
 
 namespace NMib::NWeb
 {
@@ -174,7 +175,6 @@ namespace NMib::NWeb
 		};
 
 	public:
-
 		CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout);
 		~CWebSocketActor();
 
@@ -190,7 +190,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime);
 
-		NConcurrency::TCFuture<void> f_DebugStopProcessing(fp64 _Timeout);
+		NConcurrency::TCFuture<void> f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _Flags);
 		NConcurrency::TCFuture<CDebugStats> f_DebugGetStats();
 
 	private:

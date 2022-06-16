@@ -311,6 +311,7 @@ namespace NMib::NWeb
 		mint m_bPendingMessage:1 = false;
 		mint m_bClient:1 = false;
 		mint m_bDebugNoProcessing:1 = false;
+		mint m_bDebugFailSends:1 = false;
 		mint m_bOnCloseCalled:1 = false;
 		mint m_bOnFinishDone:1 = false;
 		mint m_bWantStopDefer:1 = false;
@@ -455,15 +456,20 @@ namespace NMib::NWeb
 			m_pLastPendingMessagesList = pList;
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugStopProcessing(fp64 _Timeout)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _DebugFlags)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying socket");
 
 		auto &Internal = *mp_pInternal;
-		Internal.m_bDebugNoProcessing = true;
-		Internal.m_Timeout = _Timeout;
-		Internal.f_SetupTimeout();
+
+		Internal.m_bDebugNoProcessing = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessing) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDebugFailSends = (_DebugFlags & NNetwork::ESocketDebugFlag_FailSends) != NNetwork::ESocketDebugFlag_None;
+		if (_Timeout != fp64::fs_Inf())
+		{
+			Internal.m_Timeout = _Timeout;
+			Internal.f_SetupTimeout();
+		}
 
 		co_return {};
 	}
@@ -662,6 +668,10 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
+
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
+
 		DMibLog(DebugVerbose3, " ++++ {} {} f_SendBinary", fg_ThisActor(this), !Internal.m_bClient);
 
 		auto &Massage = *_pMessage;
@@ -704,6 +714,9 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
+
 		NStr::CStr Data = _Data;
 
 		mint nBytes = Data.f_GetLen();
@@ -730,6 +743,9 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
+
 		auto &Message = *_pMessage;
 
 		mint nBytes = Message.f_GetLen();
@@ -755,6 +771,9 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
+
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
