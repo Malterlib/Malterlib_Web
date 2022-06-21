@@ -187,7 +187,7 @@ namespace NMib::NWeb::NHTTP
 				, iEnd
 				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
 				{
-					RequestText.f_AddStr(_pPtr, _nBytes);
+					RequestText.f_AddStr((ch8 const *)_pPtr, _nBytes);
 					return true;
 				}
 			)
