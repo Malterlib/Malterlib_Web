@@ -121,7 +121,7 @@ public:
 		fg_GetSys()->f_SetEnvironmentVariable("PATH", CStr::fs_Join(CurrentPath, ":"));
 #endif
 
-		co_await CProcessLaunchActor::fs_LaunchSimple({"npm", {"ci"}, _DestinationDirectory});
+		co_await CProcessLaunchActor::fs_LaunchSimple({"npm", {"ci"}, _DestinationDirectory, CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode});
 
 		CStr CertificateFile = _DestinationDirectory + "/web.pem";
 		CStr CertificateKeyFile = _DestinationDirectory + "/web.key";
