@@ -295,6 +295,8 @@ public:
 			fg_GetSys()->f_AddStdErrLogger();
 			DMibTestPath("Path1");
 			CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebCurlGeneral";
+			fg_TestAddCleanupPath(TestDirectory);
+
 			auto WebServerResults = co_await f_SetupWebServer(TestDirectory);
 
 			NHTTP::CURL HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
