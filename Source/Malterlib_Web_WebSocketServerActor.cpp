@@ -13,8 +13,8 @@
 namespace NMib::NWeb
 {
 	using namespace NWebSocket;
-	CWebSocketServerActor::CWebSocketServerActor()
-		: mp_pInternal(fg_Construct(this))
+	CWebSocketServerActor::CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings)
+		: mp_pInternal(fg_Construct(this, _DefaultSettings))
 	{
 	}
 
@@ -25,19 +25,19 @@ namespace NMib::NWeb
 	void CWebSocketServerActor::f_SetDefaultMaxMessageSize(mint _MaxMessageSize)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
-		mp_pInternal->m_MaxMessageSize = _MaxMessageSize;
+		mp_pInternal->m_DefaultSettings.m_MaxMessageSize = _MaxMessageSize;
 	}
 
 	void CWebSocketServerActor::f_SetDefaultFragmentationSize(mint _FragmentationSize)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
-		mp_pInternal->m_FragmentationSize = _FragmentationSize;
+		mp_pInternal->m_DefaultSettings.m_FragmentationSize = _FragmentationSize;
 	}
 
 	void CWebSocketServerActor::f_SetDefaultTimeout(fp64 _Timeout)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
-		mp_pInternal->m_Timeout = _Timeout;
+		mp_pInternal->m_DefaultSettings.m_Timeout = _Timeout;
 	}
 
 	void CWebSocketServerActor::f_Debug_SetBroken(bool _bBroken)
@@ -103,7 +103,7 @@ namespace NMib::NWeb
 					NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
 
 					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
-					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_MaxMessageSize, mp_pInternal->m_FragmentationSize, mp_pInternal->m_Timeout);
+					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_DefaultSettings);
 
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 

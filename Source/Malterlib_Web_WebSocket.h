@@ -79,6 +79,17 @@ namespace NMib::NWeb
 	struct CWebSocketNewServerConnection;
 	struct CWebSocketNewClientConnection;
 
+	struct CWebsocketSettings
+	{
+		static constexpr mint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
+		static constexpr mint mc_DefaultFragmentationSize = 32 * 1024;
+		static constexpr pfp64 mc_DefaultTimeout = 60.0;
+
+		mint m_MaxMessageSize = mc_DefaultMaxMessageSize;
+		mint m_FragmentationSize = mc_DefaultFragmentationSize;
+		fp64 m_Timeout = mc_DefaultTimeout;
+	};
+
 	class CWebSocketActor : public NConcurrency::CActor
 	{
 	public:
@@ -175,7 +186,7 @@ namespace NMib::NWeb
 		};
 
 	public:
-		CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout);
+		CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings);
 		~CWebSocketActor();
 
 		NConcurrency::TCFuture<void> f_SetTimeout(fp64 _Seconds);
@@ -353,8 +364,7 @@ namespace NMib::NWeb
 	class CWebSocketClientActor : public NConcurrency::CActor
 	{
 	public:
-
-		CWebSocketClientActor();
+		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
 		~CWebSocketClientActor();
 
 		void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
@@ -388,9 +398,7 @@ namespace NMib::NWeb
 		};
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
-		mint mp_MaxMessageSize;
-		mint mp_FragmentationSize;
-		fp64 mp_Timeout;
+		CWebsocketSettings mp_DefaultSettings;
 	};
 
 	class CWebSocketServerActor : public NConcurrency::CActor
@@ -398,7 +406,7 @@ namespace NMib::NWeb
 		friend class NWebSocket::CListenActor;
 	public:
 
-		CWebSocketServerActor();
+		CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings = {});
 		~CWebSocketServerActor();
 
 		struct CListenResult

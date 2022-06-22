@@ -198,7 +198,7 @@ namespace NMib::NWeb
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(CWebSocketActor *_pThis, bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
+		CInternal(CWebSocketActor *_pThis, bool _bClient, CWebsocketSettings const &_Settings)
 			: m_pThis(_pThis)
 			, m_fOnReceiveBinaryMessage(true)
 			, m_fOnReceiveTextMessage(true)
@@ -210,10 +210,8 @@ namespace NMib::NWeb
 			, m_IncomingData(EIncomingPageSize)
 			, m_OutgoingData(EOutgoingPageSize)
 			, m_bClient(_bClient)
-			, m_MaxMessageSize(_MaxMessageSize)
-			, m_FramentationSize(_FragmentationSize)
+			, m_Settings(_Settings)
 			, m_pLastPendingMessagesList(nullptr)
-			, m_Timeout(_Timeout)
 		{
 			if (_bClient)
 				m_ConnectionInfo.f_Set<2>();
@@ -297,13 +295,10 @@ namespace NMib::NWeb
 		NTime::CClock m_TimeoutReceivedData;
 		NTime::CClock m_TimeoutSentData;
 		NStorage::TCSharedPointer<NContainer::CSecureByteVector> m_pTimeoutPingMessage;
-		fp64 m_Timeout = 0.0;
+		CWebsocketSettings m_Settings;
 		mint m_TimeoutTimerSubscriptionSequence = 0;
 		uint64 m_nSentBytes = 0;
 		uint64 m_nReceivedBytes = 0;
-
-		mint m_MaxMessageSize = 0;
-		mint m_FramentationSize = 0;
 
 		mint m_bPendingPing:1 = false;
 		mint m_bSentPing:1 = false;
@@ -324,8 +319,8 @@ namespace NMib::NWeb
 #endif
 	};
 
-	CWebSocketActor::CWebSocketActor(bool _bClient, mint _MaxMessageSize, mint _FragmentationSize, fp64 _Timeout)
-		: mp_pInternal(fg_Construct(this, _bClient, _MaxMessageSize, _FragmentationSize, _Timeout))
+	CWebSocketActor::CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings)
+		: mp_pInternal(fg_Construct(this, _bClient, _Settings))
 	{
 		auto &Internal = *mp_pInternal;
 		Internal.f_SetupTimeout();
@@ -361,7 +356,7 @@ namespace NMib::NWeb
 		EOpcode Opcode = _Opcode;
 		while (true)
 		{
-			mint ThisTime = fg_Min(nBytes, m_FramentationSize);
+			mint ThisTime = fg_Min(nBytes, m_Settings.m_FragmentationSize);
 			NContainer::CSecureByteVector VectorData;
 			VectorData.f_Insert(pBytes, ThisTime);
 			nBytes -= ThisTime;
@@ -467,7 +462,7 @@ namespace NMib::NWeb
 		Internal.m_bDebugFailSends = (_DebugFlags & NNetwork::ESocketDebugFlag_FailSends) != NNetwork::ESocketDebugFlag_None;
 		if (_Timeout != fp64::fs_Inf())
 		{
-			Internal.m_Timeout = _Timeout;
+			Internal.m_Settings.m_Timeout = _Timeout;
 			Internal.f_SetupTimeout();
 		}
 
@@ -677,7 +672,7 @@ namespace NMib::NWeb
 		auto &Massage = *_pMessage;
 		mint nBytes = Massage.f_GetLen();
 
-		if (nBytes > Internal.m_MaxMessageSize)
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
@@ -685,7 +680,7 @@ namespace NMib::NWeb
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
-		if (nBytes <= Internal.m_FramentationSize)
+		if (nBytes <= Internal.m_Settings.m_FragmentationSize)
 		{
 			auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
 			auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
@@ -724,7 +719,7 @@ namespace NMib::NWeb
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
 
-		if (nBytes > Internal.m_MaxMessageSize)
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, (uint8 const *)Data.f_GetStr(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
@@ -753,7 +748,7 @@ namespace NMib::NWeb
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
 
-		if (nBytes > Internal.m_MaxMessageSize)
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, Message.f_GetArray(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
@@ -796,7 +791,7 @@ namespace NMib::NWeb
 			mint iEnd = iMessage == (nMessages - 1) ? MessageLength : pMessageMarkersArray[iMessage + 1];
 			mint nBytes = nBytes = iEnd - iStart;
 
-			if (nBytes > Internal.m_MaxMessageSize)
+			if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 				co_return DMibErrorInstance("Message is bigger than max message size");
 		}
 
@@ -839,7 +834,7 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 		mint nBytes = _ApplicationData->f_GetLen();
-		if (nBytes > Internal.m_MaxMessageSize)
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Ping, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
@@ -859,7 +854,7 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 		mint nBytes = _ApplicationData->f_GetLen();
-		if (nBytes > Internal.m_MaxMessageSize)
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Pong, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
@@ -1381,7 +1376,7 @@ namespace NMib::NWeb
 			else
 				Length = Header.m_PayloadLength;
 
-			if (Length > uint64(Internal.m_MaxMessageSize))
+			if (Length > uint64(Internal.m_Settings.m_MaxMessageSize))
 			{
 				fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
 				return false;
@@ -1478,7 +1473,7 @@ namespace NMib::NWeb
 		if (Internal.m_bPendingMessage && !bControlMessage)
 		{
 			mint iStart = Internal.m_PendingMessage.m_Data.f_GetLen();
-			if (iStart + Length > uint64(Internal.m_MaxMessageSize))
+			if (iStart + Length > uint64(Internal.m_Settings.m_MaxMessageSize))
 			{
 				fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
 				return false;
@@ -2304,7 +2299,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		Internal.m_Timeout = _Seconds;
+		Internal.m_Settings.m_Timeout = _Seconds;
 		Internal.f_SetupTimeout();
 
 		co_return {};
@@ -2336,7 +2331,7 @@ namespace NMib::NWeb
 		m_TimeoutTimerSubscription.f_Clear();
 		m_pTimeoutPingMessage.f_Clear();
 
-		if (m_Timeout == 0.0)
+		if (m_Settings.m_Timeout == 0.0)
 			return; // Timeout disabled
 
 		m_TimeoutReceivedData.f_Start();
@@ -2350,7 +2345,7 @@ namespace NMib::NWeb
 		auto Sequence = ++m_TimeoutTimerSubscriptionSequence;
 		fg_RegisterTimer
 			(
-				m_Timeout/2.0
+				m_Settings.m_Timeout/2.0
 				, [this]() -> NConcurrency::TCFuture<void>
 				{
 					f_UpdateTimeout();
@@ -2415,14 +2410,14 @@ namespace NMib::NWeb
 
 			if (m_bSentPing)
 			{
-				if (m_TimeoutReceivedData.f_GetTime() > m_Timeout)
-					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) receiving data", m_Timeout), true, EWebSocketCloseOrigin_Local);
+				if (m_TimeoutReceivedData.f_GetTime() > m_Settings.m_Timeout)
+					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) receiving data", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
 			}
 
 			if (!m_OutgoingData.f_IsEmpty())
 			{
-				if (m_TimeoutSentData.f_GetTime() > m_Timeout)
-					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) sending data", m_Timeout), true, EWebSocketCloseOrigin_Local);
+				if (m_TimeoutSentData.f_GetTime() > m_Settings.m_Timeout)
+					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) sending data", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
 			}
 		}
 		else if (m_State != EState_Disconnected)
@@ -2433,8 +2428,8 @@ namespace NMib::NWeb
 			if (State)
 				m_pThis->fp_ProcessState(State);
 
-			if (m_TimeoutReceivedData.f_GetTime() > m_Timeout && m_TimeoutSentData.f_GetTime() > m_Timeout)
-				m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) in non-connected state", m_Timeout), true, EWebSocketCloseOrigin_Local);
+			if (m_TimeoutReceivedData.f_GetTime() > m_Settings.m_Timeout && m_TimeoutSentData.f_GetTime() > m_Settings.m_Timeout)
+				m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) in non-connected state", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
 		}
 	}
 }

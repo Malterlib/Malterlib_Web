@@ -13,7 +13,7 @@ namespace NMib::NWeb::NWebSocket
 	class CListenActor : public NConcurrency::CActor
 	{
 	public:
-		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, mint _MaxMesageSize, mint _FragmentationSize, fp64 _Timeout);
+		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, CWebsocketSettings const &_Settings);
 		~CListenActor();
 
 		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
@@ -25,9 +25,7 @@ namespace NMib::NWeb::NWebSocket
 
 	private:
 		NStorage::TCUniquePointer<NNetwork::ICSocket> mp_pSocket;
-		mint mp_MaxMessageSize;
-		mint mp_FragmentationSize;
-		fp64 mp_Timeout;
+		CWebsocketSettings mp_Settings;
 		NConcurrency::TCWeakActor<CWebSocketServerActor> mp_Server;
 	};
 }

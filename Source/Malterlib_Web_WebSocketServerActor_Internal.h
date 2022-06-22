@@ -10,8 +10,9 @@ namespace NMib::NWeb
 {
 	struct CWebSocketServerActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(CWebSocketServerActor *_pThis)
+		CInternal(CWebSocketServerActor *_pThis, CWebsocketSettings const &_DefaultSettings)
 			: m_pThis(_pThis)
+			, m_DefaultSettings(_DefaultSettings)
 		{
 		}
 
@@ -23,9 +24,7 @@ namespace NMib::NWeb
 		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection &&_NewConnection)> m_fOnNewConnection;
 		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> m_fOnFailedConnection;
 		NContainer::TCLinkedList<NConcurrency::CActorSubscription> m_Subscriptions;
-		fp64 m_Timeout = 60.0;
-		mint m_MaxMessageSize = 24*1024*1024;
-		mint m_FragmentationSize = 32*1024;
+		CWebsocketSettings m_DefaultSettings;
 		bool m_bBroken = false;
 	};
 }
