@@ -59,9 +59,15 @@ public:
 		FVirtualSocketFactory m_ServerFactory;
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
 
-		CMutual m_Lock;
+		mutable CMutual m_Lock;
 		CActorSubscription m_ListenCallbackReference;
 		uint16 m_ListenPort = 0;
+
+		uint16 f_GetListenPort() const
+		{
+			DMibLock(m_Lock);
+			return m_ListenPort;
+		}
 
 		CEventAutoReset m_Event;
 		CStr m_Error;
@@ -70,11 +76,17 @@ public:
 
 		TCAtomic<mint> m_nUnsubscribe;
 
+		CStr f_GetError() const
+		{
+			DMibLock(m_Lock);
+			return m_Error;
+		}
+
 		void f_ReportError(CStr const &_Error)
 		{
 			{
 				DMibLock(m_Lock);
-				m_Error = _Error;
+				fg_AddStrSep(m_Error, _Error, "\n");
 			}
 			m_Event.f_Signal();
 		}
@@ -118,7 +130,7 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 				 	, NContainer::TCVector<CNetAddress>{ToListenTo}
 					, ENetFlag_None
-					, NMib::NConcurrency::g_ActorFunctorWeak(fg_ConcurrentActor()) / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
+					, NMib::NConcurrency::g_ActorFunctorWeak / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
 					-> NMib::NConcurrency::TCFuture<void>
 					{
 						auto &NewConnection = m_Connections.f_Insert();
@@ -301,13 +313,15 @@ public:
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
-				> fg_ConcurrentActor() / [this, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
+				> [this, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
 				{
-					DMibLock(m_Lock);
 					if (_Result)
 					{
 						m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
-						m_ListenPort = _Result->m_ListenPorts[0];
+						{
+							DMibLock(m_Lock);
+							m_ListenPort = _Result->m_ListenPorts[0];
+						}
 						m_Event.f_Signal();
 						Promise.f_SetResult(this);
 					}
@@ -337,13 +351,15 @@ public:
 			}
 		;
 
+		TCActor<CActor> ProcessingActor = fg_Construct();
+
 		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(g_Timeout));
 
 		CStr ConnectToURLString;
 		if (ServerFactory)
-			ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.m_ListenPort;
+			ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
 		else
-			ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.m_ListenPort;
+			ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 
@@ -354,14 +370,12 @@ public:
 		struct CState
 		{
 			CEventAutoReset m_Event;
-			TCAtomic<mint> m_nReady{false};
-			TCAtomic<mint> m_nError{false};
-			TCAtomic<mint> m_nAdded{false};
-			TCAtomic<mint> m_nChanged{false};
-			TCAtomic<mint> m_nRemoved{false};
+			TCAtomic<mint> m_nReady{0};
+			TCAtomic<mint> m_nError{0};
+			TCAtomic<mint> m_nAdded{0};
+			TCAtomic<mint> m_nChanged{0};
+			TCAtomic<mint> m_nRemoved{0};
 		};
-
-		auto ConcurrentActor = fg_ConcurrentActor();
 
 		TCSharedPointer<CState> pState = fg_Construct();
 
@@ -373,7 +387,7 @@ public:
 					, CDDPClient::EObserveNotification_Added
 					| CDDPClient::EObserveNotification_Changed
 					| CDDPClient::EObserveNotification_Removed
-					, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor) / [pState](CDDPClient::EObserveNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, const NEncoding::CEJSON &_NotificationData)
 					-> NMib::NConcurrency::TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
@@ -398,7 +412,7 @@ public:
 					, CEJSON(fg_CreateVector<CEJSON>())
 					, CDDPClient::ESubscriptionNotification_Ready
 					| CDDPClient::ESubscriptionNotification_Error
-					, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
+					, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
 					-> NMib::NConcurrency::TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
@@ -490,7 +504,7 @@ public:
 								, ""
 								, CEJSON(fg_CreateVector<CEJSON>())
 								, CDDPClient::ESubscriptionNotification_None
-								, NMib::NConcurrency::g_ActorFunctorWeak(ConcurrentActor)
+								, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor)
 								/ [](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSON &_NotificationData)
 								-> NMib::NConcurrency::TCFuture<void>
 								{
@@ -549,6 +563,8 @@ public:
 
 			DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 1);
 		}
+		
+		DMibExpect(ServerInternal.f_GetError(), ==, "");
 	}
 
 	void f_DoTests()
