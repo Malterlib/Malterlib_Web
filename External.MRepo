@@ -1,3 +1,11 @@
-../../External/curl 18e67b30cad01caa42cc442f6e7a56742052c318
-../../External/nginx 404e65c3dae325a77c6e9102caeb6847d417e477
-../../External/pcre2 52c08847921a324c804cabf2814549f50bce1265
+{
+	"../../External/curl": {
+		"Hash": "fc25be344a76783af89677961c3cb622f6d33ca1"
+	},
+	"../../External/nginx": {
+		"Hash": "4b2b744ea3ab0e39aff53e470594c4c43f8b46f0"
+	},
+	"../../External/pcre2": {
+		"Hash": "52c08847921a324c804cabf2814549f50bce1265"
+	}
+}
