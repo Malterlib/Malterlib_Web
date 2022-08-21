@@ -573,7 +573,7 @@ namespace NMib::NWeb
 			}
 		}
 
-		auto ProcessingActor = NConcurrency::fg_AnyConcurrentActor();
+		auto ProcessingActor = NConcurrency::fg_ThisConcurrentActor();
 
 		DMibLog(DebugVerbose3, " ++++ {} {} f_CloseWithLinger", fg_ThisActor(this), !mp_pInternal->m_bClient);
 
@@ -601,7 +601,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CState> pState = fg_Construct();
 			pState->m_WebSocketActor = fg_ThisActor(this);
 
-			auto Cleanup = NConcurrency::g_OnScopeExitActor(ProcessingActor) > [pState, Promise]
+			auto Cleanup = NConcurrency::g_OnScopeExitActor(ProcessingActor) / [pState, Promise]
 				{
 					if (pState->m_bHandled.f_Exchange(true))
 						return;

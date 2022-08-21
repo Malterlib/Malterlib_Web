@@ -90,7 +90,7 @@ namespace NMib::NWeb
 			Pending.m_pSocket = _SocketFactory(_ConnectToAddress);
 		}
 
-		auto CleanupPending = NConcurrency::g_OnScopeExitActor > [this, pPendingDeleted = pPending->m_pDeleted, pPending]
+		auto CleanupPending = NConcurrency::g_OnScopeExitActor / [this, pPendingDeleted = pPending->m_pDeleted, pPending]
 			{
 				if (pPendingDeleted->f_Load())
 					return;
@@ -173,7 +173,7 @@ namespace NMib::NWeb
 									ConnectionActor
 										(
 											&CWebSocketActor::fp_OnFinishClientConnection
-											, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_AnyConcurrentActor())
+											, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ThisConcurrentActor())
 											/ [Promise, ConnectionActor, CleanupPending = fg_Move(CleanupPending), AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
 											(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo) mutable
 											-> NConcurrency::TCFuture<void>
