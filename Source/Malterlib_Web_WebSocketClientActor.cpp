@@ -77,6 +77,11 @@ namespace NMib::NWeb
 
 		ConnectToAdress.f_SetPort(_Port);
 
+		auto Settings = mp_DefaultSettings;
+
+		if (!mp_DefaultSettings.m_bTimeoutForUnixSockets && ConnectToAdress.f_GetType() == NNetwork::ENetAddressType_Unix)
+			Settings.m_Timeout = 0.0;
+
 		CPendingConnection *pPending;
 
 		{
@@ -158,7 +163,7 @@ namespace NMib::NWeb
 
 							DMibFastCheck(pNewSocket->f_IsValid());
 
-							NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(true, mp_DefaultSettings);
+							NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(true, Settings);
 
 							// Capture here
 							auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable

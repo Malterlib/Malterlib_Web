@@ -88,6 +88,7 @@ namespace NMib::NWeb
 		mint m_MaxMessageSize = mc_DefaultMaxMessageSize;
 		mint m_FragmentationSize = mc_DefaultFragmentationSize;
 		fp64 m_Timeout = mc_DefaultTimeout;
+		bool m_bTimeoutForUnixSockets = true;
 	};
 
 	class CWebSocketActor : public NConcurrency::CActor

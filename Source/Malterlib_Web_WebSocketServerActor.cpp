@@ -103,7 +103,13 @@ namespace NMib::NWeb
 					NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
 
 					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
-					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), mp_pInternal->m_DefaultSettings);
+
+					auto Settings = mp_pInternal->m_DefaultSettings;
+
+					if (!mp_pInternal->m_DefaultSettings.m_bTimeoutForUnixSockets && Address.f_GetType() == NNetwork::ENetAddressType_Unix)
+						Settings.m_Timeout = 0.0;
+
+					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), fg_Move(Settings));
 
 					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 
