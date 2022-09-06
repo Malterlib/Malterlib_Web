@@ -468,7 +468,12 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			co_await fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJSON Results = co_await fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+
+			CFunctionInfo FunctionInfo;
+			FunctionInfo.m_Arn = Results.f_GetMemberValue("FunctionArn", "").f_String();
+
+			co_await f_WaitForFunctionActive(FunctionInfo.m_Arn);
 
 			co_return {};
 		}
@@ -545,18 +550,28 @@ namespace NMib::NWeb
 
 				auto &State = pState->f_String();
 
-				if (State == "Active")
-					break;
+				auto fGetFailedErrorString = [&](CStr const &_ReasonName) -> CStr
+					{
+						if (auto pReason = pConfig->f_GetMember(_ReasonName, EJSONType_String))
+							return "Function update failed ({}): {}"_f << _ReasonName << pReason->f_String();
+						else
+							return "Function update failed for unknown reason";
+					}
+				;
 
 				if (State == "Failed")
+					co_return DMibErrorInstance(fGetFailedErrorString("StateReason"));
+				else if (State == "Active")
 				{
-					CStr Error;
-					if (auto pReason = pConfig->f_GetMember("StateReason", EJSONType_String))
-						Error = "Function update failed: {}"_f << pReason->f_String();
-					else
-						Error = "Function update failed for unknown reason";
+					auto *pLastUpdateStatus = pConfig->f_GetMember("LastUpdateStatus", EJSONType_String);
+					if (!pLastUpdateStatus)
+						co_return {};
 
-					co_return DMibErrorInstance(Error);
+					auto &LastUpdateStatus = pLastUpdateStatus->f_String();
+					if (LastUpdateStatus == "Failed")
+						co_return DMibErrorInstance(fGetFailedErrorString("LastUpdateStatusReason"));
+					else if (LastUpdateStatus == "Successful")
+						co_return {};
 				}
 
 				if (Clock.f_GetTime() > 60.0)
