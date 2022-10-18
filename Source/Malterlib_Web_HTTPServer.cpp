@@ -539,6 +539,9 @@ namespace NMib::NWeb
 			case 500:
 				Response = "HTTP/1.1 500 Internal Server Error";
 				break;
+			case 503:
+				Response = "HTTP/1.1 503 Service Unavailable";
+				break;
 			default:
 				Response = NStr::CStr::CFormat("HTTP/1.1 {} Unknown") << Status;
 				DMibNeverGetHere;
