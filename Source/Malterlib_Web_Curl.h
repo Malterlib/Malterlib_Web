@@ -31,8 +31,8 @@ namespace NMib::NWeb
 		protected:
 			void fp_StartQueueProcessing() override;
 			void fp_DestroyThreaded() override;
-			void fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor) override;
-			void fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor) override;
+			void fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
+			void fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
 			void fp_Wakeup();
 		};
 

@@ -230,18 +230,18 @@ namespace NMib::NWeb
 		curl_multi_wakeup(Internal.m_pMulti.f_Get());
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor)
+	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
 	{
-		if (fp_AddToQueue(fg_Move(_Functor)))
+		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor)
+	void CCurlActor::CActorHolder::fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		// Reference this so it doesn't go out of scope if queue is processed before thread has been notified
 		NConcurrency::TCActorHolderSharedPointer<CActorHolder> pThis = fg_Explicit(this);
 
-		if (fp_AddToQueue(fg_Move(_Functor)))
+		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
 	}
 
