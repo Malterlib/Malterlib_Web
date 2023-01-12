@@ -64,7 +64,7 @@ unset(PCRE2_POSIX_NAME)
 
 # Set version
 if (PCRE2_INCLUDE_DIR)
-  set(PCRE2_VERSION "10.40.0")
+  set(PCRE2_VERSION "10.42.0")
 endif ()
 
 # Which components have been found.
