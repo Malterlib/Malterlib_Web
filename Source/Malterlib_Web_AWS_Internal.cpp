@@ -149,7 +149,7 @@ namespace NMib::NWeb
 		{
 			auto fHMAC = [](NCryptography::CHashDigest_SHA256 const &_Key, CStr const &_Data) -> NCryptography::CHashDigest_SHA256
 				{
-					NContainer::CSecureByteVector Key{_Key.f_GetData(), _Key.fs_GetSize()};
+					NContainer::CSecureByteVector Key{_Key.f_GetData(), _Key.mc_Size};
 					return NCryptography::fg_MessageAuthenication_HMAC_SHA256(NContainer::CSecureByteVector((uint8 const *)_Data.f_GetStr(), _Data.f_GetLen()), Key);
 				}
 			;

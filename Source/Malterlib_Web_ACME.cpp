@@ -686,7 +686,7 @@ namespace NMib::NWeb
 					if (ChallengeType == EChallengeType_Dns01)
 					{
 						auto Digest = CHash_SHA256::fs_DigestFromData(Token.f_GetStr(), Token.f_GetLen());
-						Token = fg_Base64URLEncode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
+						Token = fg_Base64URLEncode(CByteVector(Digest.f_GetData(), Digest.mc_Size));
 					}
 
 					if (co_await _RequestCertificate.m_fChallenge(CChallenge{ChallengeType, Token, Identifier}))

@@ -1713,7 +1713,7 @@ namespace NMib::NWeb
 									NCryptography::CHash_SHA1::CMessageDigest Digest = Hash;
 
 									NContainer::CSecureByteVector DigestData;
-									DigestData.f_Insert(Digest.f_GetData(), Digest.fs_GetSize());
+									DigestData.f_Insert(Digest.f_GetData(), Digest.mc_Size);
 
 									NStr::CStr CorrectKey = NEncoding::fg_Base64Encode(DigestData);
 
@@ -2024,7 +2024,7 @@ namespace NMib::NWeb
 		NCryptography::CHash_SHA1::CMessageDigest Digest = Hash;
 
 		NContainer::CSecureByteVector DigestData;
-		DigestData.f_Insert(Digest.f_GetData(), Digest.fs_GetSize());
+		DigestData.f_Insert(Digest.f_GetData(), Digest.mc_Size);
 
 		EntityFields.f_SetUnknownField("Sec-WebSocket-Accept", NEncoding::fg_Base64Encode(DigestData));
 

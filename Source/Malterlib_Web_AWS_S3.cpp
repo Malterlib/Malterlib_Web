@@ -241,7 +241,7 @@ namespace NMib::NWeb
 		auto AWSHeaders = fg_GetPutHeaders(_Info);
 		AWSHeaders["Content-Length"] = "{}"_f << _Data.f_GetLen();
 		auto Digest = NCryptography::CHash_MD5::fs_DigestFromData(_Data);
-		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.fs_GetSize()));
+		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.mc_Size));
 
 		co_await fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3");
 
