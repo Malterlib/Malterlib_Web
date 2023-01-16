@@ -1,4 +1,4 @@
-Property.CMakeOutputPath_PCRE2 define string = `@('.'->MakeAbsolute())`->MakeAbsolute()
+Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 %Target "Lib_PCRE2_pcre2-8-static"
 {
 	Compile

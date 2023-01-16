@@ -1,4 +1,4 @@
-GeneratorVersion: 36
+GeneratorVersion: 38
 Import.CMake_FullRebuildVersion: 4-4
 Import.CMake_CacheExcludePatterns: [
 	*/CMakeFiles/*,
@@ -16,179 +16,179 @@ Import.CMake_CacheExcludePatterns: [
 
 Import.CMake_CacheReplaceContents: [
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:/Go/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\Go\\bin\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\\\Go\\\\bin\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:/Program Files/Go/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\Program Files\\Go\\bin\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\\\Program Files\\\\Go\\\\bin\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:/Python39/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\Python39\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\\\Python39\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:/strawberry/perl/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\strawberry\\perl\\bin\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "C:\\\\strawberry\\\\perl\\\\bin\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:/Program Files/Git/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:\\Program Files\\Git\\bin\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:\\\\Program Files\\\\Git\\\\bin\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:/Program Files/Git/usr/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:\\Program Files\\Git\\usr\\bin\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "c:\\\\Program Files\\\\Git\\\\usr\\\\bin\\\\",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": ,
-		"Replace": "MToolCMake",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": "MToolCMake"
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": ,
-		"Replace": "MToolCMake",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": "MToolCMake"
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "/opt/local/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "/usr/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "/opt/homebrew/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
 		"Find": "/usr/local/go/bin/",
-		"Replace": "",
-		"ApplyToPaths": false,
-		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"Replace": ""
 	},
 	{
-		"Find": "/usr/local/bin/",
-		"Replace": "",
 		"ApplyToPaths": false,
 		"ExcludeFilePatterns": [],
-		"FilePatterns": []
+		"FilePatterns": [],
+		"Find": "/usr/local/bin/",
+		"Replace": ""
 	}
 ]
 
