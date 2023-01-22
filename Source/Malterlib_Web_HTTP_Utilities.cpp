@@ -59,8 +59,8 @@ namespace NMib::NWeb::NHTTP
 			)
 		{
 //			*(Result.f_GetStr() + Result.f_GetLen()) = 0;
-			_oLine = fg_Move(Result);
 			_iPos = Result.f_GetLen() + sizeof(CRLFCRLF);
+			_oLine = fg_Move(Result);
 			return true;
 		}
 		else

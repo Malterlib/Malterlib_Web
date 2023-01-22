@@ -869,7 +869,6 @@ namespace NMib::NWeb
 				NewBlock.m_Type = EBlock_HTML;
 				NewBlock.m_Text = Template.f_Extract(0, iTagPos);
 				Template = Template.f_Extract(iTagPos + TagStart.f_GetLen());
-				iTagPos = 0;
 			}
 
 			iEndTagPos = Template.f_Find(TagEnd);

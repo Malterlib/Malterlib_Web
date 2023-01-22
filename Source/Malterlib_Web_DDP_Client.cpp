@@ -202,7 +202,7 @@ namespace NMib::NWeb
 	{
 		auto iDoc = mp_pCollection->m_Documents.f_GetIterator();
 		mint nDocuments = mp_pCollection->m_Documents.f_GetLen();
-		if (nDocuments == 1)
+		if (nDocuments <= 1)
 			return iDoc;
 
 		mint iIndex = NMisc::fg_Random().f_GetValue(nDocuments);

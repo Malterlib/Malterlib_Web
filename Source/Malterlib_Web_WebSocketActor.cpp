@@ -789,7 +789,7 @@ namespace NMib::NWeb
 		{
 			mint iStart = pMessageMarkersArray[iMessage];
 			mint iEnd = iMessage == (nMessages - 1) ? MessageLength : pMessageMarkersArray[iMessage + 1];
-			mint nBytes = nBytes = iEnd - iStart;
+			mint nBytes = iEnd - iStart;
 
 			if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 				co_return DMibErrorInstance("Message is bigger than max message size");
@@ -802,9 +802,8 @@ namespace NMib::NWeb
 			bool bIsLastMessage = iMessage == (nMessages - 1);
 
 			mint iStart = pMessageMarkersArray[iMessage];
-			mint iEnd = bIsLastMessage ? MessageLength : pMessageMarkersArray[iMessage + 1];
-			mint nBytes = nBytes = iEnd - iStart;
 
+			mint nBytes;
 			if (bIsLastMessage)
 				nBytes = MessageLength - iStart;
 			else

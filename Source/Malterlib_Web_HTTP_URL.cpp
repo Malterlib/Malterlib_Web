@@ -221,11 +221,11 @@ namespace NMib::NWeb::NHTTP
 				else
 					mp_Flags |= EURLFlag_Host;
 
-				if (URL[iHostStartTrimmed] == '[')
+				if (fg_Const(URL)[iHostStartTrimmed] == '[')
 				{
 					mp_Flags |= EURLFlag_HostBrackets;
 					++iHostStartTrimmed;
-					if (URL[iHostEndTrimmed-1] == ']')
+					if (fg_Const(URL)[iHostEndTrimmed-1] == ']')
 						--iHostEndTrimmed;
 				}
 				if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
@@ -703,16 +703,27 @@ namespace NMib::NWeb::NHTTP
 	// _End can range from 0 -> Len or be -1 which == Len
 	bool fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
-		if (_End == -1)
-			_End = _Str.f_GetLen();
+		mint StrLen = _Str.f_GetLen();
 
-		if (_Start < 0 || _End < 0 || _Start >= _End)
+		if (_End < 0)
+			_End = StrLen;
+
+		if (_Start < 0 || _End < 0)
 			return false;
 
-		char const* pStart = _Str.f_GetStr() + _Start;
-		char const* pEnd = _Str.f_GetStr() + _End;
+		if (mint(_Start) > StrLen)
+			_Start = StrLen;
 
-		char const* pPtr = pEnd - 1;
+		if (mint(_End) > StrLen)
+			_End = StrLen;
+
+		if (_Start >= _End)
+			return false;
+
+		char const *pStart = _Str.f_GetStr() + _Start;
+		char const *pEnd = _Str.f_GetStr() + _End;
+
+		char const *pPtr = pEnd - 1;
 
 		uint16 Result = 0;
 		uint16 Multiplier = 1;
@@ -787,10 +798,21 @@ namespace NMib::NWeb::NHTTP
 	// _End can range from 0 -> Len or be -1 which == Len
 	bool CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
-		if (_End == -1)
-			_End = _Str.f_GetLen();
+		mint StrLen = _Str.f_GetLen();
 
-		if (_Start < 0 || _End < 0 || _Start >= _End)
+		if (_End < 0)
+			_End = StrLen;
+
+		if (_Start < 0 || _End < 0)
+			return false;
+
+		if (mint(_Start) > StrLen)
+			_Start = StrLen;
+
+		if (mint(_End) > StrLen)
+			_End = StrLen;
+
+		if (_Start >= _End)
 			return false;
 
 		char const* pStart = _Str.f_GetStr() + _Start;
