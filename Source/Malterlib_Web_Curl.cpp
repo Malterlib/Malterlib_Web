@@ -529,9 +529,9 @@ namespace NMib::NWeb
 
 			co_return co_await Request.m_FinishedPromise.f_Future();
 		}
-		catch (NException::CException const &_Exception)
+		catch (NException::CException const &)
 		{
-			co_return _Exception.f_ExceptionPointer();
+			co_return NException::fg_CurrentException();
 		}
 	}
 }

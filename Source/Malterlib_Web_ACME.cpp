@@ -488,9 +488,9 @@ namespace NMib::NWeb
 		{
 			DirectoryJson = GetResult.f_ToJSON();
 		}
-		catch (CException const &_Exception)
+		catch (CException const &)
 		{
-			co_return _Exception.f_ExceptionPointer();
+			co_return NException::fg_CurrentException();
 		}
 
 		CStr NewAccountUrl;

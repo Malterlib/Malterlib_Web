@@ -606,18 +606,17 @@ namespace NMib::NWeb
 		if (!ExistingFunctionWrapped)
 		{
 			bool bShouldCreate = false;
-			try
-			{
-				ExistingFunctionWrapped.f_Access();
-			}
-			catch (CExceptionAws const &_Exception)
-			{
-				if (_Exception.f_GetSpecific().m_StatusCode == 404)
-					bShouldCreate = true;
-			}
-			catch (NException::CException const &)
-			{
-			}
+
+			NException::fg_VisitException<CExceptionAws>
+				(
+					ExistingFunctionWrapped.f_GetException()
+					, [&](CExceptionAws const &_Exception)
+					{
+						if (_Exception.f_GetSpecific().m_StatusCode == 404)
+							bShouldCreate = true;
+					}
+				)
+			;
 
 			if (bShouldCreate)
 				co_return co_await Internal.f_CreateFunction(_FunctionName, fg_Move(CodeBlob), _Config);

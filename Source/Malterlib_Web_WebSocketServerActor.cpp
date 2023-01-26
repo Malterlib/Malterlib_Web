@@ -139,10 +139,10 @@ namespace NMib::NWeb
 
 			co_return fg_Move(ListenResults);
 		}
-		catch (NException::CException const &_Exception)
+		catch (NException::CException const &)
 		{
 			mp_pInternal->f_Clear();
-			co_return _Exception.f_ExceptionPointer();
+			co_return NException::fg_CurrentException();
 		}
 
 		DMibNeverGetHere;

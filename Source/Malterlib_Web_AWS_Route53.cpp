@@ -149,9 +149,9 @@ namespace NMib::NWeb
 				{
 					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
 				}
-				catch (NException::CException const &_Exception)
+				catch (NException::CException const &)
 				{
-					co_return _Exception.f_ExceptionPointer();
+					co_return NException::fg_CurrentException();
 				}
 
 				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "TTL"))
@@ -531,20 +531,20 @@ namespace NMib::NWeb
 
 			if (!Results)
 			{
-				try
-				{
-					Results.f_Access();
-				}
-				catch (NWeb::CExceptionAws const &_Exception)
-				{
-					if (_Exception.f_GetSpecific().m_StatusCode == 404 && _Exception.f_GetSpecific().m_ErrorCode == "NoSuchChange")
-						co_return {}; // Change does not exist so should be done
+				bool bNoSuchChange = false;
+				NException::fg_VisitException<CExceptionAws>
+					(
+						Results.f_GetException()
+						, [&](CExceptionAws const &_Exception)
+						{
+							if (_Exception.f_GetSpecific().m_StatusCode == 404 && _Exception.f_GetSpecific().m_ErrorCode == "NoSuchChange")
+								bNoSuchChange = true;
+						}
+					)
+				;
 
-					co_return _Exception.f_ExceptionPointer();
-				}
-				catch (...)
-				{
-				}
+				if (bNoSuchChange)
+					co_return {}; // Change does not exist so should be done
 
 				co_return Results.f_GetException();
 			}
