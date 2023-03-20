@@ -22,17 +22,35 @@ namespace NMib::NWeb
 			, EPredefinedColor_Danger
 		};
 
+		struct CPredefinedColor
+		{
+			constexpr CPredefinedColor(EPredefinedColor _Color);
+			CPredefinedColor(CPredefinedColor const &) = default;
+			CPredefinedColor& operator = (CPredefinedColor const &) = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			EPredefinedColor m_Color;
+		};
+
 		struct CRgbColor
 		{
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+			
 			uint8 m_Red = 0;
 			uint8 m_Green = 0;
 			uint8 m_Blue = 0;
 		};
 
-		using CColor = NStorage::TCVariant<EPredefinedColor, CRgbColor>;
+		using CColor = NStorage::TCVariant<CPredefinedColor, CRgbColor>;
 
 		struct CField
 		{
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
 			NStr::CStr m_Title;
 			NStr::CStr m_Value;
 			NStorage::TCOptional<bool> m_bShort;
@@ -40,6 +58,9 @@ namespace NMib::NWeb
 
 		struct CAttachment
 		{
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
 			NStr::CStr m_Fallback;
 
 			NStorage::TCOptional<NStr::CStr> m_PreText;
@@ -70,8 +91,14 @@ namespace NMib::NWeb
 
 		struct CMessage
 		{
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			static NStr::CStr fs_EscapeString(NStr::CStr const &_String); // Escapes string so formatting is not applied
+
 			NStorage::TCOptional<NStr::CStr> m_Text;
 			NStorage::TCOptional<NStr::CStr> m_Channel;
+			NStorage::TCOptional<NStr::CStr> m_ThreadTimestamp;
 			NStorage::TCOptional<NStr::CStr> m_UserName;
 			NStorage::TCOptional<NStr::CStr> m_IconEmoji;
 			NStorage::TCOptional<NHTTP::CURL> m_IconURL;
@@ -83,13 +110,11 @@ namespace NMib::NWeb
 			NStorage::TCOptional<bool> m_bUnfurlMedia;
 			NStorage::TCOptional<bool> m_bFullParse;
 
-			NStorage::TCOptional<NTime::CTime> m_ThreadTimestamp;
-
 			NContainer::TCVector<CAttachment> m_Attachments;
-
-			static NStr::CStr fs_EscapeString(NStr::CStr const &_String); // Escapes string so formatting is not applied
 		};
 
+		NConcurrency::TCFuture<NStr::CStr> f_PostMessage(NStr::CStr const &_Token, CMessage const &_Message);
+		NConcurrency::TCFuture<NStr::CStr> f_UpdateMessage(NStr::CStr const &_Token, NStr::CStr const &_Timestamp, CMessage const &_Message);
 		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message);
 
 		CSlackActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor);
@@ -105,3 +130,5 @@ namespace NMib::NWeb
 #ifndef DMibPNoShortCuts
 	using namespace NMib::NWeb;
 #endif
+
+#include "Malterlib_Web_Slack.hpp"

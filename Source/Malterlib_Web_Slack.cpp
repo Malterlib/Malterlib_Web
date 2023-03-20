@@ -45,6 +45,7 @@ namespace NMib::NWeb
 			case '<':
 			case '>':
 			case '*':
+			case '~':
 				OutString.f_AddChar(0x0C);
 				OutString.f_AddChar(*pParse);
 				OutString.f_AddChar(0x0C);
@@ -58,116 +59,206 @@ namespace NMib::NWeb
 		return OutString;
 	}
 
-	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
+	namespace
 	{
-		NConcurrency::TCPromise<void> Promise;
-
-		CEJSON SlackMessage(EJSONType_Object);
-
-		if (_Message.m_Text)
-			SlackMessage["text"] = *_Message.m_Text;
-		if (_Message.m_Channel)
-			SlackMessage["channel"] = *_Message.m_Channel;
-		if (_Message.m_UserName)
-			SlackMessage["username"] = *_Message.m_UserName;
-		if (_Message.m_IconEmoji)
-			SlackMessage["icon_emoji"] = *_Message.m_IconEmoji;
-		if (_Message.m_IconURL)
-			SlackMessage["icon_url"] = *_Message.m_IconURL->f_Encode();
-
-		if (_Message.m_bMarkdown)
-			SlackMessage["mrkdwn"] = *_Message.m_bMarkdown;
-		if (_Message.m_bLinkNames)
-			SlackMessage["link_names"] = *_Message.m_bLinkNames;
-		if (_Message.m_bReplyBroadcast)
-			SlackMessage["reply_broadcast"] = *_Message.m_bReplyBroadcast;
-		if (_Message.m_bUnfurlLinks)
-			SlackMessage["unfurl_links"] = *_Message.m_bUnfurlLinks;
-		if (_Message.m_bUnfurlMedia)
-			SlackMessage["unfurl_media"] = *_Message.m_bUnfurlMedia;
-		if (_Message.m_bFullParse)
-			SlackMessage["unfurl_media"] = *_Message.m_bFullParse ? "full" : "none";
-
-		if (_Message.m_ThreadTimestamp)
-			SlackMessage["thread_ts"] = NTime::CTimeConvert(*_Message.m_ThreadTimestamp).f_UnixSecondsFraction();
-
-		for (auto &Attachment : _Message.m_Attachments)
+		CEJSON fg_MessageToJson(CSlackActor::CMessage const &_Message)
 		{
-			auto &OutputAttachment = SlackMessage["attachments"].f_Array().f_Insert() =
-				{
-					"fallback"_= Attachment.m_Fallback
-					, "title"_= Attachment.m_Title
-					, "text"_= Attachment.m_Text
-				}
-			;
+			CEJSON SlackMessage(EJSONType_Object);
 
-			if (Attachment.m_bPretextMarkdown && *Attachment.m_bPretextMarkdown)
-				OutputAttachment["mrkdwn_in"].f_Array().f_Insert("pretext");
-			if (Attachment.m_bTextMarkdown && *Attachment.m_bTextMarkdown)
-				OutputAttachment["mrkdwn_in"].f_Array().f_Insert("text");
-			if (Attachment.m_bFieldsMarkdown && *Attachment.m_bFieldsMarkdown)
-				OutputAttachment["mrkdwn_in"].f_Array().f_Insert("fields");
+			if (_Message.m_Text)
+				SlackMessage["text"] = *_Message.m_Text;
+			if (_Message.m_Channel)
+				SlackMessage["channel"] = *_Message.m_Channel;
+			if (_Message.m_UserName)
+				SlackMessage["username"] = *_Message.m_UserName;
+			if (_Message.m_IconEmoji)
+				SlackMessage["icon_emoji"] = *_Message.m_IconEmoji;
+			if (_Message.m_IconURL)
+				SlackMessage["icon_url"] = *_Message.m_IconURL->f_Encode();
 
-			if (Attachment.m_PreText)
-				OutputAttachment["pretext"] = *Attachment.m_PreText;
-			if (Attachment.m_TitleLink)
-				OutputAttachment["title_link"] = *Attachment.m_TitleLink;
+			if (_Message.m_bMarkdown)
+				SlackMessage["mrkdwn"] = *_Message.m_bMarkdown;
+			if (_Message.m_bLinkNames)
+				SlackMessage["link_names"] = *_Message.m_bLinkNames;
+			if (_Message.m_bReplyBroadcast)
+				SlackMessage["reply_broadcast"] = *_Message.m_bReplyBroadcast;
+			if (_Message.m_bUnfurlLinks)
+				SlackMessage["unfurl_links"] = *_Message.m_bUnfurlLinks;
+			if (_Message.m_bUnfurlMedia)
+				SlackMessage["unfurl_media"] = *_Message.m_bUnfurlMedia;
+			if (_Message.m_bFullParse)
+				SlackMessage["unfurl_media"] = *_Message.m_bFullParse ? "full" : "none";
 
-			if (Attachment.m_Color)
+			if (_Message.m_ThreadTimestamp)
+				SlackMessage["thread_ts"] = *_Message.m_ThreadTimestamp;
+
+			for (auto &Attachment : _Message.m_Attachments)
 			{
-				if (Attachment.m_Color->f_GetTypeID() == 0)
-				{
-					auto ColorEnum = Attachment.m_Color->f_Get<0>();
-					switch (ColorEnum)
+				auto &OutputAttachment = SlackMessage["attachments"].f_Array().f_Insert() =
 					{
-					case EPredefinedColor_Good: OutputAttachment["color"] = "good"; break;
-					case EPredefinedColor_Warning: OutputAttachment["color"] = "warning"; break;
-					case EPredefinedColor_Danger: OutputAttachment["color"] = "danger"; break;
-					}
-				}
-				else
-				{
-					auto &Color = Attachment.m_Color->f_Get<1>();
-					OutputAttachment["color"] = "#{nfh,sj2,sf0}{nfh,sj2,sf0}{nfh,sj2,sf0}"_f << Color.m_Red << Color.m_Green << Color.m_Blue;
-				}
-			}
-
-			if (Attachment.m_AuthorName)
-				OutputAttachment["author_name"] = *Attachment.m_AuthorName;
-			if (Attachment.m_AuthorLink)
-				OutputAttachment["author_link"] = Attachment.m_AuthorLink->f_Encode();
-			if (Attachment.m_AuthorIcon)
-				OutputAttachment["author_icon"] = Attachment.m_AuthorIcon->f_Encode();
-
-			if (Attachment.m_ImageURL)
-				OutputAttachment["image_url"] = Attachment.m_ImageURL->f_Encode();
-			if (Attachment.m_ThumbURL)
-				OutputAttachment["thumb_url"] = Attachment.m_ThumbURL->f_Encode();
-
-			if (Attachment.m_Footer)
-				OutputAttachment["footer"] = *Attachment.m_Footer;
-			if (Attachment.m_FooterIconURL)
-				OutputAttachment["thumb_url"] = Attachment.m_FooterIconURL->f_Encode();
-			if (Attachment.m_FooterTimestamp)
-				OutputAttachment["ts"] = NTime::CTimeConvert(*Attachment.m_FooterTimestamp).f_UnixSeconds();
-
-			for (auto &Field : Attachment.m_Fields)
-			{
-				auto &OutputField = OutputAttachment["fields"].f_Array().f_Insert() =
-					{
-						"title"_= Field.m_Title
-						, "value"_= Field.m_Value
+						"fallback"_= Attachment.m_Fallback
+						, "title"_= Attachment.m_Title
+						, "text"_= Attachment.m_Text
 					}
 				;
 
-				if (Field.m_bShort)
-					OutputField["short"] = *Field.m_bShort;
+				if (Attachment.m_bPretextMarkdown && *Attachment.m_bPretextMarkdown)
+					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("pretext");
+				if (Attachment.m_bTextMarkdown && *Attachment.m_bTextMarkdown)
+					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("text");
+				if (Attachment.m_bFieldsMarkdown && *Attachment.m_bFieldsMarkdown)
+					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("fields");
+
+				if (Attachment.m_PreText)
+					OutputAttachment["pretext"] = *Attachment.m_PreText;
+				if (Attachment.m_TitleLink)
+					OutputAttachment["title_link"] = *Attachment.m_TitleLink;
+
+				if (Attachment.m_Color)
+				{
+					if (Attachment.m_Color->f_GetTypeID() == 0)
+					{
+						auto ColorEnum = Attachment.m_Color->f_Get<0>();
+						switch (ColorEnum.m_Color)
+						{
+						case CSlackActor::EPredefinedColor_Good: OutputAttachment["color"] = "good"; break;
+						case CSlackActor::EPredefinedColor_Warning: OutputAttachment["color"] = "warning"; break;
+						case CSlackActor::EPredefinedColor_Danger: OutputAttachment["color"] = "danger"; break;
+						}
+					}
+					else
+					{
+						auto &Color = Attachment.m_Color->f_Get<1>();
+						OutputAttachment["color"] = "#{nfh,sj2,sf0}{nfh,sj2,sf0}{nfh,sj2,sf0}"_f << Color.m_Red << Color.m_Green << Color.m_Blue;
+					}
+				}
+
+				if (Attachment.m_AuthorName)
+					OutputAttachment["author_name"] = *Attachment.m_AuthorName;
+				if (Attachment.m_AuthorLink)
+					OutputAttachment["author_link"] = Attachment.m_AuthorLink->f_Encode();
+				if (Attachment.m_AuthorIcon)
+					OutputAttachment["author_icon"] = Attachment.m_AuthorIcon->f_Encode();
+
+				if (Attachment.m_ImageURL)
+					OutputAttachment["image_url"] = Attachment.m_ImageURL->f_Encode();
+				if (Attachment.m_ThumbURL)
+					OutputAttachment["thumb_url"] = Attachment.m_ThumbURL->f_Encode();
+
+				if (Attachment.m_Footer)
+					OutputAttachment["footer"] = *Attachment.m_Footer;
+				if (Attachment.m_FooterIconURL)
+					OutputAttachment["thumb_url"] = Attachment.m_FooterIconURL->f_Encode();
+				if (Attachment.m_FooterTimestamp)
+					OutputAttachment["ts"] = NTime::CTimeConvert(*Attachment.m_FooterTimestamp).f_UnixSeconds();
+
+				for (auto &Field : Attachment.m_Fields)
+				{
+					auto &OutputField = OutputAttachment["fields"].f_Array().f_Insert() =
+						{
+							"title"_= Field.m_Title
+							, "value"_= Field.m_Value
+						}
+					;
+
+					if (Field.m_bShort)
+						OutputField["short"] = *Field.m_bShort;
+				}
 			}
+
+			return SlackMessage;
+		}
+	}
+
+	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_PostMessage(CStr const &_Token, CMessage const &_Message)
+	{
+		auto &Internal = *mp_pInternal;
+
+		CEJSON SlackMessage = fg_MessageToJson(_Message);
+		auto SlackMessageString = SlackMessage.f_ToString();
+
+		TCMap<CStr, CStr> Headers;
+		Headers["Authorization"] = "Bearer {}"_f << _Token;
+		Headers["Content-Type"] = "application/json";
+
+		auto Result = co_await Internal.m_CurlActor
+			(
+				&CCurlActor::f_Request
+				,CCurlActor::EMethod_POST
+				, "https://slack.com/api/chat.postMessage"
+				, fg_Move(Headers)
+				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
+				, TCMap<CStr, CStr>{}
+			)
+		;
+
+		if (Result.m_StatusCode != 200)
+			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);
+
+		{
+			auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
+
+			auto JsonResult = fg_Const(Result.f_ToJSON());
+
+			if (!JsonResult["ok"].f_Boolean())
+				co_return DMibErrorInstance("Slack request failed with error: {}"_f << JsonResult["error"].f_String());
+
+			co_return JsonResult["ts"].f_String();
 		}
 
+		co_return {};
+	}
+
+	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_UpdateMessage(CStr const &_Token, CStr const &_Timestamp, CMessage const &_Message)
+	{
 		auto &Internal = *mp_pInternal;
+
+		CEJSON SlackMessage = fg_MessageToJson(_Message);
+		SlackMessage["ts"] = _Timestamp;
+		SlackMessage["as_user"] = true;
+
 		auto SlackMessageString = SlackMessage.f_ToString();
-		Internal.m_CurlActor
+
+		TCMap<CStr, CStr> Headers;
+		Headers["Authorization"] = "Bearer {}"_f << _Token;
+		Headers["Content-Type"] = "application/json";
+
+		auto Result = co_await Internal.m_CurlActor
+			(
+				&CCurlActor::f_Request
+				,CCurlActor::EMethod_POST
+				, "https://slack.com/api/chat.update"
+				, fg_Move(Headers)
+				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
+				, TCMap<CStr, CStr>{}
+			)
+		;
+
+		if (Result.m_StatusCode != 200)
+			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);
+
+		{
+			auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
+
+			auto JsonResult = fg_Const(Result.f_ToJSON());
+
+			if (!JsonResult["ok"].f_Boolean())
+				co_return DMibErrorInstance("Slack request failed with error: {}"_f << JsonResult["error"].f_String());
+
+			co_return JsonResult["ts"].f_String();
+		}
+
+		co_return {};
+	}
+
+	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
+	{
+		auto &Internal = *mp_pInternal;
+
+		CEJSON SlackMessage = fg_MessageToJson(_Message);
+
+		auto SlackMessageString = SlackMessage.f_ToString();
+		auto Result = co_await Internal.m_CurlActor
 			(
 				&CCurlActor::f_Request
 				,CCurlActor::EMethod_POST
@@ -176,17 +267,11 @@ namespace NMib::NWeb
 				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
 				, TCMap<CStr, CStr>{}
 			)
-			> Promise / [Promise](CCurlActor::CResult &&_Result)
-			{
-				if (_Result.m_StatusCode != 200)
-				{
-					Promise.f_SetException(DMibErrorInstance("Slack request failed with status {}: {}"_f << _Result.m_StatusCode << _Result.m_Body));
-					return;
-				}
-				Promise.f_SetResult();
-			}
 		;
 
-		return Promise.f_MoveFuture();
+		if (Result.m_StatusCode != 200)
+			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);
+
+		co_return {};
 	}
 }
