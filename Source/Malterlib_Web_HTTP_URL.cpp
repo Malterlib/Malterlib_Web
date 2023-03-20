@@ -746,16 +746,6 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	void CURL::f_Format(NStr::CStrAggregate &o_Str) const
-	{
-		o_Str += f_Encode();
-	}
-
-	void CURL::CQueryEntry::f_Format(NStr::CStrAggregate &o_Str) const
-	{
-		o_Str += NStr::CStr::CFormat("{}={}") << m_Key << m_Value;
-	}
-
 	void CURL::f_DebugOut() const
 	{
 		NStr::CStr Path;

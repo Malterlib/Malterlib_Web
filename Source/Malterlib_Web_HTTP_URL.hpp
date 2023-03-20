@@ -106,4 +106,16 @@ namespace NMib::NWeb::NHTTP
 		else
 			mp_Fragment.f_Clear();
 	}
+
+	template <typename tf_CStr>
+	void CURL::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += f_Encode();
+	}
+
+	template <typename tf_CStr>
+	void CURL::CQueryEntry::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += typename tf_CStr::CFormat("{}={}") << m_Key << m_Value;
+	}
 }

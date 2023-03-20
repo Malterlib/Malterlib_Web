@@ -46,7 +46,8 @@ namespace NMib::NWeb::NHTTP
 			NStr::CStr m_Key;
 			NStr::CStr m_Value;
 
-			void f_Format(NStr::CStrAggregate &o_Str) const;
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
 			auto operator <=> (CQueryEntry const &_Right) const = default;
 
 			template <typename tf_CStream>
@@ -169,7 +170,8 @@ namespace NMib::NWeb::NHTTP
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
 
-		void f_Format(NStr::CStrAggregate &o_Str) const;
+		template <typename tf_CStr>
+		void f_Format(tf_CStr &o_Str) const;
 	};
 }
 
