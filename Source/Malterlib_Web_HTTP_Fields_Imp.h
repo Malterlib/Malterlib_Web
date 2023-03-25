@@ -158,9 +158,9 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// Returns:
-	//	EParse_OK 			- The field was known and parsed OK
-	//	EParse_Invalid 		- The field was known but the data was invalud
-	//	EParse_Unknown	 	- The field was not known
+	//	EParse_OK			- The field was known and parsed OK
+	//	EParse_Invalid		- The field was known but the data was invalud
+	//	EParse_Unknown		- The field was not known
 	template<typename t_CSub, typename t_CEnum>
 	EParse TCFieldsBase<t_CSub, t_CEnum>::f_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value)
 	{

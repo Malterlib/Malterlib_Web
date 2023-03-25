@@ -70,8 +70,8 @@ namespace NMib::NWeb
 
 		auto [ConnectToAdress, BindToAddress] = co_await
 			(
-			 	mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _ConnectToAddress, _PreferAddress)
-			 	+ mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _BindToAddress, _PreferAddress)
+				mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _ConnectToAddress, _PreferAddress)
+				+ mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _BindToAddress, _PreferAddress)
 			)
 		;
 
@@ -107,15 +107,15 @@ namespace NMib::NWeb
 				(
 					ConnectToAdress
 					,
-				 	[
-					 	=
-					 	, pPendingDeleted = pPending->m_pDeleted
-					 	, pReplied = NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>>(fg_Construct(false))
-					 	, WeakThis = fg_ThisActor(this).f_Weak()
-					 	, CleanupPending = fg_Move(CleanupPending)
-					 	, pRequest = NStorage::TCSharedPointer<NHTTP::CRequest>(fg_Construct(fg_Move(_Request)))
+					[
+						=
+						, pPendingDeleted = pPending->m_pDeleted
+						, pReplied = NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>>(fg_Construct(false))
+						, WeakThis = fg_ThisActor(this).f_Weak()
+						, CleanupPending = fg_Move(CleanupPending)
+						, pRequest = NStorage::TCSharedPointer<NHTTP::CRequest>(fg_Construct(fg_Move(_Request)))
 					]
-				 	(::NMib::NNetwork::ENetTCPState _StateAdded) mutable
+					(::NMib::NNetwork::ENetTCPState _StateAdded) mutable
 					{
 						if (_StateAdded & (NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed))
 						{

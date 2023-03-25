@@ -254,7 +254,7 @@ namespace NMib::NWeb
 			, NStr::CStr const &_Key
 			, CPutObjectInfo const &_Info
 			, uint64 _TotalSize
-		 	, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
+			, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
 		)
 	{
 		co_return DMibErrorInstance("Not implemented");

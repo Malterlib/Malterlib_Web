@@ -132,7 +132,7 @@ namespace NMib::NWeb
 				}
 			}
 
-     		if (Attachment.m_AuthorName)
+			if (Attachment.m_AuthorName)
 				OutputAttachment["author_name"] = *Attachment.m_AuthorName;
 			if (Attachment.m_AuthorLink)
 				OutputAttachment["author_link"] = Attachment.m_AuthorLink->f_Encode();
@@ -144,11 +144,11 @@ namespace NMib::NWeb
 			if (Attachment.m_ThumbURL)
 				OutputAttachment["thumb_url"] = Attachment.m_ThumbURL->f_Encode();
 
-     		if (Attachment.m_Footer)
+			if (Attachment.m_Footer)
 				OutputAttachment["footer"] = *Attachment.m_Footer;
 			if (Attachment.m_FooterIconURL)
 				OutputAttachment["thumb_url"] = Attachment.m_FooterIconURL->f_Encode();
-     		if (Attachment.m_FooterTimestamp)
+			if (Attachment.m_FooterTimestamp)
 				OutputAttachment["ts"] = NTime::CTimeConvert(*Attachment.m_FooterTimestamp).f_UnixSeconds();
 
 			for (auto &Field : Attachment.m_Fields)
@@ -169,12 +169,12 @@ namespace NMib::NWeb
 		auto SlackMessageString = SlackMessage.f_ToString();
 		Internal.m_CurlActor
 			(
-			 	&CCurlActor::f_Request
-			 	,CCurlActor::EMethod_POST
-			 	, _IncomingWebhook.f_Encode()
-			 	, TCMap<CStr, CStr>{}
-			 	, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
-			 	, TCMap<CStr, CStr>{}
+				&CCurlActor::f_Request
+				,CCurlActor::EMethod_POST
+				, _IncomingWebhook.f_Encode()
+				, TCMap<CStr, CStr>{}
+				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
+				, TCMap<CStr, CStr>{}
 			)
 			> Promise / [Promise](CCurlActor::CResult &&_Result)
 			{

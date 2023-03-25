@@ -481,7 +481,7 @@ namespace NMib::NWeb
 
 		auto GetResult = co_await fGet(Directory);
 		if (GetResult.m_StatusCode != 200)
- 			co_return DMibErrorInstance("Unexpected status getting ACME directory: {} {}"_f << GetResult.m_StatusCode << GetResult.m_StatusMessage);
+			co_return DMibErrorInstance("Unexpected status getting ACME directory: {} {}"_f << GetResult.m_StatusCode << GetResult.m_StatusMessage);
 
 		CEJSON DirectoryJson;
 		try
@@ -494,7 +494,7 @@ namespace NMib::NWeb
 		}
 
 		CStr NewAccountUrl;
- 		CStr NewNonceUrl;
+		CStr NewNonceUrl;
 		CStr NewOrderUrl;
 
 		if (auto pValue = DirectoryJson.f_GetMember("newAccount", EJSONType_String))

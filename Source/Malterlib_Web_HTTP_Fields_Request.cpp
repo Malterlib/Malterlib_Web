@@ -19,9 +19,9 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// Returns:
-	//	EParse_OK 			- The field was known and parsed OK
-	//	EParse_Invalid 		- The field was known but the data was invalud
-	//	EParse_NotPresent 	- The field was not known
+	//	EParse_OK			- The field was known and parsed OK
+	//	EParse_Invalid		- The field was known but the data was invalud
+	//	EParse_NotPresent	- The field was not known
 	EParse CRequestFields::f_ParseKnownField(ERequestField _Field, NStr::CStr const& _Value)
 	{
 		switch(_Field)

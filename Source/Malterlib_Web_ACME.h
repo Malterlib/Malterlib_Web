@@ -41,7 +41,7 @@ namespace NMib::NWeb
 
 		struct CChain
 		{
- 			NStr::CStr m_FullChain;
+			NStr::CStr m_FullChain;
 			NStr::CStr m_EndEntity;
 			NStr::CStr m_Issuer;
 			NStr::CStr m_Root;

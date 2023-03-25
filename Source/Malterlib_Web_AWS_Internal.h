@@ -34,56 +34,56 @@ namespace NMib::NWeb
 
 	TCMap<CStr, CStr> fg_SignAWSRequest
 		(
-		 	NHTTP::CURL const &_URL
-		 	, CByteVector const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace = false
+			NHTTP::CURL const &_URL
+			, CByteVector const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace = false
 		)
 	;
 
 	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace = false
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace = false
 		)
 	;
 
 	TCFuture<NEncoding::CJSON> fg_DoAWSRequestJSON
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace = false
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace = false
 		)
 	;
 
 	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace = false
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace = false
 		)
 	;
 }

@@ -333,7 +333,7 @@ namespace NMib::NWeb
 			, NStr::CStr const &_URL
 			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
 			, NContainer::CByteVector const &_Data
-		 	, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 		)
 	{
 		if (f_IsDestroyed())

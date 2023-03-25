@@ -30,13 +30,13 @@ namespace NMib::NWeb
 
 	TCMap<CStr, CStr> fg_SignAWSRequest
 		(
-		 	NHTTP::CURL const &_URL
-		 	, CByteVector const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
-		  	, bool _bTrace
+			NHTTP::CURL const &_URL
+			, CByteVector const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
+			, bool _bTrace
 		)
 	{
 		NTime::CTime CurrentTime = NTime::CTime::fs_NowUTC();
@@ -221,16 +221,16 @@ namespace NMib::NWeb
 
 	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace
 		)
 	{
 		TCPromise<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Promise;
@@ -286,10 +286,10 @@ namespace NMib::NWeb
 				CAwsErrorData ErrorData{"ResultParse", _Result.m_StatusCode};
 				return _Promise.f_SetException
 					(
-					 	DMibErrorInstanceAws
-					 	(
+						DMibErrorInstanceAws
+						(
 							"{} request failed with status {}. Failed to parse JSON: {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Exception << _Result.m_Body
-						 	, ErrorData
+							, ErrorData
 						)
 					)
 				;
@@ -324,16 +324,16 @@ namespace NMib::NWeb
 
 	TCFuture<NEncoding::CJSON> fg_DoAWSRequestJSON
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
-		 	, CCurlActor::EMethod _Method
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
+			, CCurlActor::EMethod _Method
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace
 		)
 	{
 		TCPromise<NEncoding::CJSON> Promise;
@@ -384,14 +384,14 @@ namespace NMib::NWeb
 
 	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
-		 	CStr const &_Description
-		 	, TCActor<CCurlActor> const &_CurlActor
-		 	, uint32 _ExpectedStatus
-		 	, NHTTP::CURL const &_URL
-		 	, CAwsCredentials const &_Credentials
-		 	, TCMap<CStr, CStr> const &_AWSHeaders
-		 	, CStr const &_Service
-		 	, bool _bTrace
+			CStr const &_Description
+			, TCActor<CCurlActor> const &_CurlActor
+			, uint32 _ExpectedStatus
+			, NHTTP::CURL const &_URL
+			, CAwsCredentials const &_Credentials
+			, TCMap<CStr, CStr> const &_AWSHeaders
+			, CStr const &_Service
+			, bool _bTrace
 		)
 	{
 		TCPromise<NContainer::TCMap<NStr::CStr, NStr::CStr>> Promise;

@@ -11,7 +11,7 @@ namespace NMib::NWeb::NHTTP
 	enum ERequestStatus
 	{
 		ERequestStatus_Empty			// The request has been created but not parsed.
-		, ERequestStatus_InProgress 	// The request has parsing in progress,
+		, ERequestStatus_InProgress		// The request has parsing in progress,
 		, ERequestStatus_Invalid
 		, ERequestStatus_Complete
 	};

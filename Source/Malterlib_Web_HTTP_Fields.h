@@ -7,7 +7,7 @@ up a HTTP message header.
 
 	CGeneralFields	- Can be present in any message
 	CRequestFields	- Can be present in any request message (GET, POST, HEAD)
-	CEntityFields 	- Can be present in any message containing or describing content
+	CEntityFields	- Can be present in any message containing or describing content
 	CResponseFields - Can be present in any response message
 
 
@@ -152,9 +152,9 @@ namespace NMib::NWeb::NHTTP
 		inline bool f_HasField(CEnum _Field) const;
 
 		// Returns:
-		//	EParse_OK 			- The field was known and parsed OK
-		//	EParse_Invalid 		- The field was known but the data was invalud
-		//	EParse_Unknown	 	- The field was not known
+		//	EParse_OK			- The field was known and parsed OK
+		//	EParse_Invalid		- The field was known but the data was invalud
+		//	EParse_Unknown		- The field was not known
 		inline EParse f_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value);
 
 		inline void f_ClearField(CEnum _Field);

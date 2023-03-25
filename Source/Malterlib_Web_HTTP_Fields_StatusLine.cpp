@@ -66,7 +66,7 @@ namespace NMib::NWeb::NHTTP
 			// NOTE: Not actually an error, should class the message.
 			// We should convert the status to it's class status:
 			// mp_Status = ( ( (uint32)mp_Status ) / 100 ) * 100;
-			// 	TODO: Would check the new Status is valid here.
+			//	TODO: Would check the new Status is valid here.
 			_oErrors = NStr::fg_Format("Unknown status: \"{}\"", lReqParts[1]);
 			return EParse_Invalid;
 		}
@@ -101,11 +101,14 @@ namespace NMib::NWeb::NHTTP
 
 	void CStatusLine::f_Write(COutputMethod const &_fOutput)
 	{
-		NStr::CStr Line = NStr::fg_Format(	 	"{} {} {}\r\n"
-								, 	fg_HTTP_GetVersionName(mp_Version)
-								, 	(uint32)mp_Status
-								,	mp_ReasonPhrase
-							);
+		NStr::CStr Line = NStr::fg_Format
+			(
+				"{} {} {}\r\n"
+				, fg_HTTP_GetVersionName(mp_Version)
+				, (uint32)mp_Status
+				, mp_ReasonPhrase
+			)
+		;
 
 		_fOutput((uint8 const*)Line.f_GetStr(), Line.f_GetLen());
 	}

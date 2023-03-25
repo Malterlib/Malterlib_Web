@@ -11,16 +11,16 @@ namespace NMib::NWeb::NHTTP
 	// RFC 2616 Section 9 Method Definitions
 	char const* gc_HTTPMethodNames[] =
 			{
-					""
-				,	"OPTIONS"
-				, 	"GET"
-				,	"HEAD"
-				,	"POST"
-				,	"PUT"
-				,	"DELETE"
-				,	"TRACE"
-				,	"CONNECT"
-				,	nullptr
+				""
+				, "OPTIONS"
+				, "GET"
+				, "HEAD"
+				, "POST"
+				, "PUT"
+				, "DELETE"
+				, "TRACE"
+				, "CONNECT"
+				, nullptr
 			};
 
 
@@ -28,76 +28,76 @@ namespace NMib::NWeb::NHTTP
 	// RFC 2616 Section 3.1 HTTP Version
 	char const* gc_HTTPVersions[] =
 			{
-					""
-				,	"HTTP/1.0"
-				,	"HTTP/1.1"
-				,	"HTTP/2.0"
-				,	nullptr
+				""
+				, "HTTP/1.0"
+				, "HTTP/1.1"
+				, "HTTP/2.0"
+				, nullptr
 			};
 
 	// RFC 2616 Section 3.6 & 14.41 Transfer Encodings
 	char const* gc_HTTPTransferEncodings[] =
 			{
-					""
-				,	"chunked"
-				,	"identity"
-				,	"gzip"
-				,	"deflate"
-				,	"compress"
-				,	nullptr
+				""
+				, "chunked"
+				, "identity"
+				, "gzip"
+				, "deflate"
+				, "compress"
+				, nullptr
 			};
 
 
 	// RFC 2616 Section 14.10 Connection
 	char const* gc_HTTPConnectionTokens[] =
 			{
-					""
-				,	"keep-alive"
-				,	"close"
-				,	"Upgrade"
-				,	nullptr
+				""
+				, "keep-alive"
+				, "close"
+				, "Upgrade"
+				, nullptr
 			};
 
 	// RFC 2616 Section 4.5 General Header Fields
 	char const* gc_HTTPGeneralFields[] =
 			{
-					""
-				,	"Cache-Control"
-				,	"Connection"
-				,	"Date"
-				,	"Pragma"
-				,	"Trailer"
-				,	"Transfer-Encoding"
-				,	"Upgrade"
-				,	"Via"
-				,	"Warning"
-				,	nullptr
+				""
+				, "Cache-Control"
+				, "Connection"
+				, "Date"
+				, "Pragma"
+				, "Trailer"
+				, "Transfer-Encoding"
+				, "Upgrade"
+				, "Via"
+				, "Warning"
+				, nullptr
 			};
 
 	// RFC 2616 Section 5.4 RequestHeaderFields
 	char const* gc_HTTPRequestFields[] =
 		{
-				""
-			,	"Accept"
-			,	"Accept-Charset"
-			,	"Accept-Encoding"
-			,	"Accept-Language"
-			,	"Authorization"
-			,	"Expect"
-			,	"From"
-			,	"Host"
-			,	"If-Match"
-			,	"If-Modified-Since"
-			,	"If-None-Match"
-			,	"If-Range"
-			,	"If-Unmodified-Since"
-			,	"Max-Forwards"
-			,	"Proxy-Authorization"
-			,	"Range"
-			,	"Referer"
-			,	"TE"
-			,	"User-Agent"
-			,	nullptr
+			""
+			, "Accept"
+			, "Accept-Charset"
+			, "Accept-Encoding"
+			, "Accept-Language"
+			, "Authorization"
+			, "Expect"
+			, "From"
+			, "Host"
+			, "If-Match"
+			, "If-Modified-Since"
+			, "If-None-Match"
+			, "If-Range"
+			, "If-Unmodified-Since"
+			, "Max-Forwards"
+			, "Proxy-Authorization"
+			, "Range"
+			, "Referer"
+			, "TE"
+			, "User-Agent"
+			, nullptr
 		};
 
 	// RFC 2616 Section 6.2 Response Header Fields
@@ -119,24 +119,24 @@ namespace NMib::NWeb::NHTTP
 	// RFC 2616 Section 7.1 Entity Header Fields
 	char const* gc_HTTPEntityFields[] =
 		{
-				""
-			,	"Content-Encoding"
-			,	"Content-Language"
-			,	"Content-Length"
-			,	"Content-Location"
-			,	"Content-MD5"
-			,	"Content-Range"
-			,	"Content-Type"
-			,	"Expires"
-			,	"Last-Modified"
-			,	"extension-header"
-			,	nullptr
+			""
+			, "Content-Encoding"
+			, "Content-Language"
+			, "Content-Length"
+			, "Content-Location"
+			, "Content-MD5"
+			, "Content-Range"
+			, "Content-Type"
+			, "Expires"
+			, "Last-Modified"
+			, "extension-header"
+			, nullptr
 		};
 
 	// RFC 2616 Section 6.1.1 Status Code and Reason Phrase
 	static std::pair<uint32, char const*> const gc_HTTPReasonPhrases[] =
 		{
-			  { 100, "Continue" }
+			{ 100, "Continue" }
 			, { 101, "Switching Protocols" }
 			, { 200, "OK" }
 			, { 201, "Created" }
@@ -159,7 +159,6 @@ namespace NMib::NWeb::NHTTP
 			, { 404, "Not Found" }
 			, { 405, "Method Not Allowed" }
 			, { 406, "Not Acceptable" }
-
 			, { 407, "Proxy Authentication Required" }
 			, { 408, "Request Time-out" }
 			, { 409, "Conflict" }

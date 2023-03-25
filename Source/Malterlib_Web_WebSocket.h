@@ -180,7 +180,7 @@ namespace NMib::NWeb
 			uint64 m_nSentBytes = 0;
 			uint64 m_nReceivedBytes = 0;
 			uint64 m_IncomingDataBufferBytes = 0;
- 			uint64 m_OutgoingDataBufferBytes = 0;
+			uint64 m_OutgoingDataBufferBytes = 0;
 			fp64 m_SecondsSinceLastSend = 0.0;
 			fp64 m_SecondsSinceLastReceive = 0.0;
 			uint8 m_State = 0;

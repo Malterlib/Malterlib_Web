@@ -10,15 +10,14 @@ namespace NMib::NWeb::NHTTP
 	{
 		enum EParseState
 		{
-				EParseState_Header
-			,	EParseState_Content
-			,	EParseState_Chunked_Plain
-			,	EParseState_Content_Chunked
-			,	EParseState_Content_Chunked_Trailers
-			,	EParseState_DecodeContent
-
-			, 	EParseState_Complete
-			, 	EParseState_Invalid
+			EParseState_Header
+			, EParseState_Content
+			, EParseState_Chunked_Plain
+			, EParseState_Content_Chunked
+			, EParseState_Content_Chunked_Trailers
+			, EParseState_DecodeContent
+			, EParseState_Complete
+			, EParseState_Invalid
 		};
 
 	private:

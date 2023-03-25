@@ -267,7 +267,7 @@ public:
 						pState->m_bHttpDone = true;
 					if (Line.f_StartsWith("https listen: "))
 						pState->m_bHttpsDone = true;
- 				}
+				}
 
 				if (pState->m_bHttpDone && pState->m_bHttpsDone && !FinishedStartupPromise.f_IsSet())
 					FinishedStartupPromise.f_SetResult();

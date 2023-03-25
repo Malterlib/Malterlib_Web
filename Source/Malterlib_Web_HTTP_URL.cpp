@@ -838,9 +838,14 @@ namespace NMib::NWeb::NHTTP
 					return false;
 				}
 
-				if (	!fg_DecodeHexChar(Ch0, pPtr[1])
-					|| 	!fg_DecodeHexChar(Ch1, pPtr[2]) )
+				if
+					(
+						!fg_DecodeHexChar(Ch0, pPtr[1])
+						|| !fg_DecodeHexChar(Ch1, pPtr[2])
+					)
+				{
 					return false; // Error: Invalid encoding chars.
+				}
 
 				char Code = ( Ch0 << 4 ) + Ch1;
 

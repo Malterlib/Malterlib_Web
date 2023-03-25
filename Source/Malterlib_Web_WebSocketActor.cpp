@@ -515,7 +515,7 @@ namespace NMib::NWeb
 
 		DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::f_Close 3", fg_ThisActor(this), !Internal.m_bClient);
 
- 		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
+		fp_Disconnect(_Status, _Reason, false, EWebSocketCloseOrigin_Local);
 
 		auto Value = co_await fg_Move(CloseFuture);
 
@@ -652,7 +652,7 @@ namespace NMib::NWeb
 			;
 		}
 
- 		co_await fg_ContinueRunningOnActor(ProcessingActor);
+		co_await fg_ContinueRunningOnActor(ProcessingActor);
 
 		co_return co_await Promise.f_MoveFuture();
 	}
@@ -1024,7 +1024,7 @@ namespace NMib::NWeb
 		{
 			if (Internal.m_bClient)
 			{
- 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 12 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
+				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 12 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CClientConnectionInfo>();
 				if (Internal.m_pSocket)
 					ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
@@ -1035,7 +1035,7 @@ namespace NMib::NWeb
 			}
 			else
 			{
- 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 13 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
+				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 13 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				auto &ConnectionInfo = Internal.m_ConnectionInfo.f_GetAsType<CConnectionInfo>();
 				if (Internal.m_pSocket)
 					ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
@@ -1617,7 +1617,7 @@ namespace NMib::NWeb
 				NStr::CStr Data;
 				Data.f_AddStr(_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
 				DMibLog(DebugVerbose3, " ++++ {} {} call m_OnReceiveTextMessage", fg_ThisActor(m_pThis), !m_bClient);
- 				if (m_fOnReceiveTextMessage.f_ShouldCall())
+				if (m_fOnReceiveTextMessage.f_ShouldCall())
 					m_fOnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
 			}
 			break;
@@ -2350,7 +2350,7 @@ namespace NMib::NWeb
 					f_UpdateTimeout();
 					co_return {};
 				}
-			 	, fg_ThisActor(m_pThis)
+				, fg_ThisActor(m_pThis)
 			)
 			> [this, Sequence](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Subscription)
 			{

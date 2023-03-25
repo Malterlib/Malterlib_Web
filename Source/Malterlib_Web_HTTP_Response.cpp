@@ -30,16 +30,16 @@ namespace NMib::NWeb::NHTTP
 	private:
 		enum EStage
 		{
-				EStage_Header
-			,	EStage_Content
-			,	EStage_Trailer
+			EStage_Header
+			, EStage_Content
+			, EStage_Trailer
 		};
 
 		enum EParseState
 		{
-				EParseState_Header
-			, 	EParseState_Complete
-			, 	EParseState_Invalid
+			EParseState_Header
+			, EParseState_Complete
+			, EParseState_Invalid
 		};
 
 		EResponseStatus mp_Status;

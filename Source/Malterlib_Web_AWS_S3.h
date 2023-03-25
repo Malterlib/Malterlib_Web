@@ -80,11 +80,11 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data);
 		NConcurrency::TCFuture<void> f_PutObjectMultipart
 			(
-			 	NStr::CStr const &_BucketName
-			 	, NStr::CStr const &_Key
-			 	, CPutObjectInfo const &_Info
-			 	, uint64 _TotalSize
-			 	, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
+				NStr::CStr const &_BucketName
+				, NStr::CStr const &_Key
+				, CPutObjectInfo const &_Info
+				, uint64 _TotalSize
+				, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
 			)
 		;
 

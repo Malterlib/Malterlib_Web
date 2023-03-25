@@ -98,7 +98,7 @@ namespace NMib::NWeb
 #endif
 			Contents += NStr::CStr::CFormat("pid {};\n") << PidFile;
 //#ifdef DPlatformFamily_Windows
-// 				Contents += NStr::CStr::CFormat("worker_threads {};\n") << mp_nListen;
+//				Contents += NStr::CStr::CFormat("worker_threads {};\n") << mp_nListen;
 //#else
 			Contents += NStr::CStr::CFormat("worker_processes {};\n") << mp_nFastCGIListen;
 //#endif

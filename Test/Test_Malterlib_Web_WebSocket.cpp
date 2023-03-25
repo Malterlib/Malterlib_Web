@@ -44,7 +44,7 @@ public:
 			TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
-		 	, bool _bTestTimeout = false
+			, bool _bTestTimeout = false
 		)
 	{
 		{
@@ -389,7 +389,7 @@ public:
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, CStr const &_Address
-		 	, bool _bTestTimeout
+			, bool _bTestTimeout
 		)
 	{
 		{
@@ -457,7 +457,7 @@ public:
 					DMibExpect(pState->m_Messages[3], ==, "BuffReply");
 				}
 
- 				{
+				{
 					DMibTestPath("Disconnect");
 
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();

@@ -593,9 +593,9 @@ namespace NMib::NWeb
 
 	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction
 		(
-		 	CStr const &_FunctionName
-		 	, TCMap<CStr, CStr> const &_Files
-		 	, CFunctionConfiguration const &_Config
+			CStr const &_FunctionName
+			, TCMap<CStr, CStr> const &_Files
+			, CFunctionConfiguration const &_Config
 		)
 	{
 		auto &Internal = *mp_pInternal;
