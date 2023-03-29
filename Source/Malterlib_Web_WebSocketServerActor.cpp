@@ -135,7 +135,7 @@ namespace NMib::NWeb
 				}
 			}
 
-			co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap;
+			co_await (co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap);
 
 			co_return fg_Move(ListenResults);
 		}
@@ -190,7 +190,7 @@ namespace NMib::NWeb
 		fg_Move(Internal.m_fOnNewConnection).f_Destroy() > Results.f_AddResult();
 		fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > Results.f_AddResult();
 
-		co_await Results.f_GetResults() | NConcurrency::g_Unwrap;
+		co_await (co_await Results.f_GetResults() | NConcurrency::g_Unwrap);
 
 		co_return {};
 	}
