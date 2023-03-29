@@ -362,7 +362,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fUpdateNonce = [pState](CCurlActor::CResult const &_Result)
+		auto fUpdateNonce = [pState](CCurlActor::CResult const &_Result) -> TCFuture<void>
 			{
 				CStr Nonce;
 
@@ -370,9 +370,11 @@ namespace NMib::NWeb
 					Nonce = *pNonce;
 
 				if (!Nonce)
-					DMibErrorCoroutineWrapper("Update nonce", DMibErrorInstance("No nonce in response").f_ExceptionPointer());
+					co_return DMibErrorInstance("No nonce in response");
 
 				pState->m_Nonce = fg_Move(Nonce);
+
+				co_return {};
 			}
 		;
 
@@ -440,7 +442,7 @@ namespace NMib::NWeb
 							if (Result.m_StatusCode != 200)
 								co_return fGetError(Result, "Error getting challenge result");
 
-							fUpdateNonce(Result);
+							co_await fUpdateNonce(Result);
 
 							CEJSON ResponseJSON;
 							try
@@ -518,7 +520,7 @@ namespace NMib::NWeb
 			if (NonceResult.m_StatusCode != 200)
 				co_return fGetError(NonceResult, "Unexpected status getting initial nonce");
 
-			fUpdateNonce(NonceResult);
+			co_await fUpdateNonce(NonceResult);
 		}
 
 		{
@@ -546,7 +548,7 @@ namespace NMib::NWeb
 			else
 				co_return DMibErrorInstance("Missing location header in account creation/get response");
 
-			fUpdateNonce(Result);
+			co_await fUpdateNonce(Result);
 
 			try
 			{
@@ -585,7 +587,7 @@ namespace NMib::NWeb
 			if (Result.m_StatusCode != 201)
 				co_return fGetError(Result, "Error creating new certificate order");
 
-			fUpdateNonce(Result);
+			co_await fUpdateNonce(Result);
 
 			try
 			{
@@ -614,7 +616,7 @@ namespace NMib::NWeb
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error getting authorization");
 
-			fUpdateNonce(Result);
+			co_await fUpdateNonce(Result);
 
 			CStr SuccessfulChallengeUrl;
 
@@ -706,7 +708,7 @@ namespace NMib::NWeb
 				if (Result.m_StatusCode != 200)
 					co_return fGetError(Result, "Error getting challenge result");
 
-				fUpdateNonce(Result);
+				co_await fUpdateNonce(Result);
 
 				CEJSON ResponseJSON;
 				try
@@ -755,7 +757,7 @@ namespace NMib::NWeb
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error finalizing order");
 
-			fUpdateNonce(Result);
+			co_await fUpdateNonce(Result);
 
 			try
 			{
@@ -785,7 +787,7 @@ namespace NMib::NWeb
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error getting certificate");
 
-			fUpdateNonce(Result);
+			co_await fUpdateNonce(Result);
 
 			auto &DefaultChain = ReturnChains.m_DefaultChain;
 
@@ -846,7 +848,7 @@ namespace NMib::NWeb
 				if (Result.m_StatusCode != 200)
 					co_return fGetError(Result, "Error alternate chain certificate");
 
-				fUpdateNonce(Result);
+				co_await fUpdateNonce(Result);
 
 				ReturnChains.m_AlternateChains.f_Insert(fParseChain(Result.m_Body));
 			}
