@@ -145,13 +145,9 @@ namespace NMib::NWeb
 				CAwsRoute53Actor::CResourceRecordSet ReturnedEntry;
 
 				ReturnedEntry.m_Name = ResultsXML.f_GetChildValue(iNode, "Name", CStr{});
-				try
 				{
+					auto CaptureScope = co_await g_CaptureExceptions;
 					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
-				}
-				catch (NException::CException const &)
-				{
-					co_return NException::fg_CurrentException();
 				}
 
 				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "TTL"))

@@ -625,8 +625,9 @@ namespace NMib::NWeb
 
 		auto &ExistingFunction = fg_Const(*ExistingFunctionWrapped);
 
-		try
 		{
+			auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function");
+
 			CFunctionConfiguration ExistingConfig = CInternal::fsp_FunctionConfigFromJSON(ExistingFunction);
 
 			bool bChangedConfig = false;
@@ -672,8 +673,9 @@ namespace NMib::NWeb
 			else
 			{
 				CJSON VersionsJSON = co_await Internal.f_GetFunctionVersions(_FunctionName);
-				try
 				{
+					auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function versions");
+
 					bool bAlreadyLatest = false;
 					for (auto &VersionJSON : VersionsJSON["Versions"].f_Array())
 					{
@@ -700,17 +702,9 @@ namespace NMib::NWeb
 							FunctionInfo = CFunctionInfo{ExistingConfigJSON.f_GetMemberValue("FunctionArn", "").f_String(), ExistingConfigJSON.f_GetMemberValue("Version", "").f_String()};
 					}
 				}
-				catch (NException::CException const &_Exception)
-				{
-					co_return DMibErrorInstance("Unexpected return from get function versions: {}"_f << _Exception);
-				}
 			}
 
 			co_return fg_Move(FunctionInfo);
-		}
-		catch (NException::CException const &_Exception)
-		{
-			co_return DMibErrorInstance("Unexpected return from get function: {}"_f << _Exception);
 		}
 	}
 }

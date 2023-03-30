@@ -339,199 +339,194 @@ namespace NMib::NWeb
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Curl actor shutting down");
 
-		try
+		auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
+
+		auto &Internal = *mp_pInternal;
+
+		auto RequestID = NCryptography::fg_RandomID(Internal.m_Requests);
+		auto &Request = Internal.m_Requests[RequestID];
+		Request.m_pActor = this;
+		Request.m_pCurl = fg_Explicit(curl_easy_init());
+		Request.m_Data = _Data;
+		Request.m_iData = fg_Const(Request.m_Data).f_GetIterator();
+		Request.m_CurlErrorBuffer.f_CreateWritableBuffer(CURL_ERROR_SIZE, true);
+
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+			}
+		;
+
+		if (!Request.m_pCurl)
+			DMibError("libcurl was not initialised");
+
+		Curl_easy *pCurl = Request.m_pCurl.f_Get();
+
+		auto fCheckResult = [&](CURLcode _Result) -> void
+			{
+				if (_Result != CURLE_OK)
+				{
+					auto pEasyError = curl_easy_strerror(_Result);
+					auto pExtraError = pEasyError ? pEasyError  : "";
+					CStr FullError = pExtraError;
+					CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
+					if (CurlError)
+						fg_AddStrSep(FullError, CurlError, ". ");
+					DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _URL, _Result, FullError));
+				}
+			}
+		;
+
+		curl_easy_setopt(pCurl, CURLOPT_ERRORBUFFER, Request.m_CurlErrorBuffer.f_GetStr());
+
+		curl_slist *pHeaders = NULL;
+		auto CleanupHeaders = g_OnScopeExit / [&]
+			{
+				curl_slist_free_all(pHeaders);
+			}
+		;
+
+		//fCheckResult(curl_easy_setopt(pCurl, CURLOPT_VERBOSE, 1L));
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
+
+		for (auto &Cookie : _Cookies)
+			Request.m_CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
+
+		if (Request.m_CookieStr)
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
+
+		if (!_Headers.f_FindEqual("Accept"))
+			pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
+
+		if (!_Headers.f_FindEqual("Content-Type"))
+			pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
+
+		if (!_Headers.f_FindEqual("Expect"))
+			pHeaders = curl_slist_append(pHeaders, "Expect:");
+
+		if (!Internal.m_CertificateConfig.m_ClientCertificate.f_IsEmpty())
 		{
-			auto &Internal = *mp_pInternal;
+			struct curl_blob CertBlob;
+			CertBlob.data = Internal.m_CertificateConfig.m_ClientCertificate.f_GetArray();
+			CertBlob.len = Internal.m_CertificateConfig.m_ClientCertificate.f_GetLen();
+			CertBlob.flags = CURL_BLOB_NOCOPY;
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+		}
 
-			auto RequestID = NCryptography::fg_RandomID(Internal.m_Requests);
-			auto &Request = Internal.m_Requests[RequestID];
-			Request.m_pActor = this;
-			Request.m_pCurl = fg_Explicit(curl_easy_init());
-			Request.m_Data = _Data;
-			Request.m_iData = fg_Const(Request.m_Data).f_GetIterator();
-			Request.m_CurlErrorBuffer.f_CreateWritableBuffer(CURL_ERROR_SIZE, true);
+		if (!Internal.m_CertificateConfig.m_ClientKey.f_IsEmpty())
+		{
+			struct curl_blob CertKeyBlob;
+			CertKeyBlob.data = Internal.m_CertificateConfig.m_ClientKey.f_GetArray();
+			CertKeyBlob.len = Internal.m_CertificateConfig.m_ClientKey.f_GetLen();
+			CertKeyBlob.flags = CURL_BLOB_NOCOPY;
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+		}
 
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-				}
-			;
+		if (!Internal.m_CertificateConfig.m_CertificateAuthorities.f_IsEmpty())
+		{
+			struct curl_blob CertAuthBlob;
+			CertAuthBlob.data = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetArray();
+			CertAuthBlob.len = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetLen();
+			CertAuthBlob.flags = CURL_BLOB_NOCOPY;
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
+		}
 
-			if (!Request.m_pCurl)
-				DMibError("libcurl was not initialised");
+		if (_Method == EMethod_POST)
+		{
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
+		}
+		else if (_Method == EMethod_PUT || _Method == EMethod_PATCH)
+		{
+			if (_Method == EMethod_PATCH)
+				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
 
-			Curl_easy *pCurl = Request.m_pCurl.f_Get();
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, _Data.f_GetLen()));
 
-			auto fCheckResult = [&](CURLcode _Result) -> void
-				{
-					if (_Result != CURLE_OK)
-					{
-						auto pEasyError = curl_easy_strerror(_Result);
-						auto pExtraError = pEasyError ? pEasyError  : "";
-						CStr FullError = pExtraError;
-						CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
-						if (CurlError)
-							fg_AddStrSep(FullError, CurlError, ". ");
-						DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _URL, _Result, FullError));
-					}
-				}
-			;
-
-			curl_easy_setopt(pCurl, CURLOPT_ERRORBUFFER, Request.m_CurlErrorBuffer.f_GetStr());
-
-			curl_slist *pHeaders = NULL;
-			auto CleanupHeaders = g_OnScopeExit / [&]
-				{
-					curl_slist_free_all(pHeaders);
-				}
-			;
-
-			//fCheckResult(curl_easy_setopt(pCurl, CURLOPT_VERBOSE, 1L));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
-
-			for (auto &Cookie : _Cookies)
-				Request.m_CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
-
-			if (Request.m_CookieStr)
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
-
-			if (!_Headers.f_FindEqual("Accept"))
-				pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
-
-			if (!_Headers.f_FindEqual("Content-Type"))
-				pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
-
-			if (!_Headers.f_FindEqual("Expect"))
-				pHeaders = curl_slist_append(pHeaders, "Expect:");
-
-			if (!Internal.m_CertificateConfig.m_ClientCertificate.f_IsEmpty())
-			{
-				struct curl_blob CertBlob;
-				CertBlob.data = Internal.m_CertificateConfig.m_ClientCertificate.f_GetArray();
-				CertBlob.len = Internal.m_CertificateConfig.m_ClientCertificate.f_GetLen();
-				CertBlob.flags = CURL_BLOB_NOCOPY;
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
-			}
-
-			if (!Internal.m_CertificateConfig.m_ClientKey.f_IsEmpty())
-			{
-				struct curl_blob CertKeyBlob;
-				CertKeyBlob.data = Internal.m_CertificateConfig.m_ClientKey.f_GetArray();
-				CertKeyBlob.len = Internal.m_CertificateConfig.m_ClientKey.f_GetLen();
-				CertKeyBlob.flags = CURL_BLOB_NOCOPY;
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
-			}
-
-			if (!Internal.m_CertificateConfig.m_CertificateAuthorities.f_IsEmpty())
-			{
-				struct curl_blob CertAuthBlob;
-				CertAuthBlob.data = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetArray();
-				CertAuthBlob.len = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetLen();
-				CertAuthBlob.flags = CURL_BLOB_NOCOPY;
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
-			}
-
-			if (_Method == EMethod_POST)
-			{
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
-			}
-			else if (_Method == EMethod_PUT || _Method == EMethod_PATCH)
-			{
-				if (_Method == EMethod_PATCH)
-					fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
-
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, _Data.f_GetLen()));
-
-				auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
-					{
-						CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
-						size_t Bytes = _Size * _nItems;
-
-						if (Bytes > 0)
-						{
-							NContainer::CByteVector::CIteratorConst &iData = pRequest->m_iData;
-							Bytes = fg_Min(iData.f_GetLen(), Bytes);
-							NMemory::fg_MemCopy(_pBuffer, &*iData, Bytes);
-							iData += Bytes;
-						}
-
-						return Bytes;
-					}
-				;
-
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
-			}
-			else if (_Method == EMethod_DELETE)
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-			else if (_Method == EMethod_HEAD)
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
-
-			NHTTP::CURL Url(_URL);
-			CStr UrlHost = Url.f_GetHost();
-			if (UrlHost.f_StartsWith("UNIX:"))
-			{
-				auto UnixPath = UrlHost.f_RemovePrefix("UNIX:");
-				Url.f_SetHost("localhost");
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
-				auto NewURL = Url.f_Encode();
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
-			}
-			else
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
-
-			for (auto &Header : _Headers)
-			{
-				CStr HeaderStr(fg_Format("{}: {}", _Headers.fs_GetKey(Header), Header));
-				pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
-			}
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
-
-			CleanupHeaders.f_Clear();
-			if (pHeaders)
-				Request.m_pHeaders = fg_Explicit(pHeaders);
-
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERDATA, &Request));
-			auto fWriteHeaderCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+			auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 				{
 					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+					size_t Bytes = _Size * _nItems;
 
-					pRequest->m_State.m_Headers.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+					if (Bytes > 0)
+					{
+						NContainer::CByteVector::CIteratorConst &iData = pRequest->m_iData;
+						Bytes = fg_Min(iData.f_GetLen(), Bytes);
+						NMemory::fg_MemCopy(_pBuffer, &*iData, Bytes);
+						iData += Bytes;
+					}
 
-					return _Size * _nItems;
+					return Bytes;
 				}
 			;
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, (curl_write_callback)fWriteHeaderCallback));
 
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, &Request));
-			auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
-				{
-					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
-
-					pRequest->m_State.m_Body.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
-
-					return _Size * _nItems;
-				}
-			;
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
-
-			auto *pActorHolder = fp_GetActorHolder();
-
-			auto &HolderInternal = *pActorHolder->m_pInternal;
-			curl_multi_add_handle(HolderInternal.m_pMulti.f_Get(), pCurl);
-			Request.m_bAddedHandle = true;
-
-			co_return co_await Request.m_FinishedPromise.f_Future();
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
 		}
-		catch (NException::CException const &)
+		else if (_Method == EMethod_DELETE)
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+		else if (_Method == EMethod_HEAD)
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
+
+		NHTTP::CURL Url(_URL);
+		CStr UrlHost = Url.f_GetHost();
+		if (UrlHost.f_StartsWith("UNIX:"))
 		{
-			co_return NException::fg_CurrentException();
+			auto UnixPath = UrlHost.f_RemovePrefix("UNIX:");
+			Url.f_SetHost("localhost");
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
+			auto NewURL = Url.f_Encode();
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
 		}
+		else
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
+
+		for (auto &Header : _Headers)
+		{
+			CStr HeaderStr(fg_Format("{}: {}", _Headers.fs_GetKey(Header), Header));
+			pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
+		}
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
+
+		CleanupHeaders.f_Clear();
+		if (pHeaders)
+			Request.m_pHeaders = fg_Explicit(pHeaders);
+
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERDATA, &Request));
+		auto fWriteHeaderCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+			{
+				CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+
+				pRequest->m_State.m_Headers.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+
+				return _Size * _nItems;
+			}
+		;
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, (curl_write_callback)fWriteHeaderCallback));
+
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, &Request));
+		auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+			{
+				CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+
+				pRequest->m_State.m_Body.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+
+				return _Size * _nItems;
+			}
+		;
+		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+
+		auto *pActorHolder = fp_GetActorHolder();
+
+		auto &HolderInternal = *pActorHolder->m_pInternal;
+		curl_multi_add_handle(HolderInternal.m_pMulti.f_Get(), pCurl);
+		Request.m_bAddedHandle = true;
+
+		co_return co_await Request.m_FinishedPromise.f_Future();
 	}
 }

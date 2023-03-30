@@ -445,13 +445,9 @@ namespace NMib::NWeb
 							co_await fUpdateNonce(Result);
 
 							CEJSON ResponseJSON;
-							try
 							{
+								auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 								ResponseJSON = Result.f_ToJSON();
-							}
-							catch (CException const &_Exception)
-							{
-								co_return DMibErrorInstance("Exception parsing authorization result: {}"_f << _Exception);
 							}
 
 							auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
@@ -486,13 +482,9 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Unexpected status getting ACME directory: {} {}"_f << GetResult.m_StatusCode << GetResult.m_StatusMessage);
 
 		CEJSON DirectoryJson;
-		try
 		{
+			auto CaptureScope = co_await g_CaptureExceptions;
 			DirectoryJson = GetResult.f_ToJSON();
-		}
-		catch (CException const &)
-		{
-			co_return NException::fg_CurrentException();
 		}
 
 		CStr NewAccountUrl;
@@ -550,8 +542,9 @@ namespace NMib::NWeb
 
 			co_await fUpdateNonce(Result);
 
-			try
 			{
+				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing create/get account result");
+
 				auto ResponseJSON = Result.f_ToJSON();
 
 				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
@@ -561,11 +554,6 @@ namespace NMib::NWeb
 				}
 				else
 					co_return DMibErrorInstance("Missing status in create/get account response");
-
-			}
-			catch (CException const &_Exception)
-			{
-				co_return DMibErrorInstance("Exception parsing create/get account result: {}"_f << _Exception);
 			}
 		}
 
@@ -589,8 +577,8 @@ namespace NMib::NWeb
 
 			co_await fUpdateNonce(Result);
 
-			try
 			{
+				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing new certificate order result");
 				auto ResponseJSON = Result.f_ToJSON();
 
 				if (auto pAuthorizations = ResponseJSON.f_GetMember("authorizations", EJSONType_Array))
@@ -602,11 +590,6 @@ namespace NMib::NWeb
 					FinalizeUrl = pAuthorizations->f_String();
 				else
 					co_return DMibErrorInstance("Missing finalize in new order response");
-
-			}
-			catch (CException const &_Exception)
-			{
-				co_return DMibErrorInstance("Exception parsing new certificate order result: {}"_f << _Exception);
 			}
 		}
 
@@ -622,13 +605,9 @@ namespace NMib::NWeb
 
 			{
 				CEJSON ResponseJSON;
-				try
 				{
+					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 					ResponseJSON = Result.f_ToJSON();
-				}
-				catch (CException const &_Exception)
-				{
-					co_return DMibErrorInstance("Exception parsing authorization result: {}"_f << _Exception);
 				}
 
 				{
@@ -711,13 +690,9 @@ namespace NMib::NWeb
 				co_await fUpdateNonce(Result);
 
 				CEJSON ResponseJSON;
-				try
 				{
+					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 					ResponseJSON = Result.f_ToJSON();
-				}
-				catch (CException const &_Exception)
-				{
-					co_return DMibErrorInstance("Exception parsing authorization result: {}"_f << _Exception);
 				}
 
 				auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
@@ -759,8 +734,8 @@ namespace NMib::NWeb
 
 			co_await fUpdateNonce(Result);
 
-			try
 			{
+				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing order finalize result");
 				auto ResponseJSON = Result.f_ToJSON();
 
 				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
@@ -772,10 +747,6 @@ namespace NMib::NWeb
 					CertificateUrl = pCertificate->f_String();
 				else
 					co_return DMibErrorInstance("Finalize order response is missing 'certificate'");
-			}
-			catch (CException const &_Exception)
-			{
-				co_return DMibErrorInstance("Exception parsing order finalize result: {}"_f << _Exception);
 			}
 		}
 

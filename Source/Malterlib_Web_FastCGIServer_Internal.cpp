@@ -57,8 +57,8 @@ namespace NMib::NWeb
 			ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(mp_pThis), mp_pOnRequest);
 
 			NNetwork::CSocket ListenSocket;
-			try
 			{
+				auto CaptureScope = co_await (NConcurrency::g_CaptureExceptions % NStr::CStr("Failed to listen in FastCGI server"));
 				ListenSocket.f_Listen
 					(
 						Address
@@ -72,11 +72,6 @@ namespace NMib::NWeb
 						, NNetwork::ENetFlag_None
 					)
 				;
-			}
-			catch (NException::CException const &_Exception)
-			{
-				using namespace NStr;
-				co_return DMibErrorInstance("Failed to listen in FastCGI server: {}"_f <<_Exception);
 			}
 
 			NStorage::TCSharedPointer<NNetwork::CSocket> pSocket = fg_Construct(fg_Move(ListenSocket));

@@ -66,87 +66,87 @@ namespace NMib::NWeb
 		if (!SocketFactory)
 			SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
-		try
-		{
-			if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
-				DMibError("Socket server is already listening");
+		if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
+			co_return DMibErrorInstance("Socket server is already listening");
 
-			mp_pInternal->f_Clear();
-			mp_pInternal->m_fOnNewConnection = fg_Move(_fNewConnection);
-			mp_pInternal->m_fOnFailedConnection = fg_Move(_fFailedConnection);
+		mp_pInternal->f_Clear();
 
-			CListenResult ListenResults;
-
-			ListenResults.m_Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
-				{
-					auto &Internal = *mp_pInternal;
-
-					NConcurrency::TCActorResultVector<void> DestroyResults;
-					fg_Move(Internal.m_fOnNewConnection).f_Destroy() > DestroyResults.f_AddResult();
-					fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > DestroyResults.f_AddResult();
-
-					co_await DestroyResults.f_GetResults();
-
-					co_return {};
-				}
-			;
-			
-			NConcurrency::TCActorResultVector<void> SetSocketResults;
+		auto Cleanup = g_OnScopeExit / [&]
 			{
-
-				mint nListenTo = _AddressesToListenTo.f_GetLen();
-
-				mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
-
-				for (mint i = 0; i < nListenTo; ++i)
-				{
-					NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
-
-					NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
-
-					auto Settings = mp_pInternal->m_DefaultSettings;
-
-					if (!mp_pInternal->m_DefaultSettings.m_bTimeoutForUnixSockets && Address.f_GetType() == NNetwork::ENetAddressType_Unix)
-						Settings.m_Timeout = 0.0;
-
-					ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), fg_Move(Settings));
-
-					NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
-
-					NStorage::TCUniquePointer<NNetwork::ICSocket> pListenSocket = SocketFactory("");
-					NException::CDisableExceptionTraceScope DisableExceptionTrace;
-					pListenSocket->f_Listen
-						(
-							Address
-							, [WeakListenActor](NNetwork::ENetTCPState _StateAdded)
-							{
-								auto ListenActor = WeakListenActor.f_Lock();
-								if (!ListenActor)
-									return;
-								ListenActor(&CListenActor::f_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
-							}
-							, _ListenFlags
-						)
-					;
-
-					ListenResults.m_ListenPorts.f_Insert(pListenSocket->f_GetListenPort());
-
-					ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults.f_AddResult();
-				}
+				mp_pInternal->f_Clear();
 			}
+		;
 
-			co_await (co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap);
+		auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
 
-			co_return fg_Move(ListenResults);
-		}
-		catch (NException::CException const &)
+		mp_pInternal->m_fOnNewConnection = fg_Move(_fNewConnection);
+		mp_pInternal->m_fOnFailedConnection = fg_Move(_fFailedConnection);
+
+		CListenResult ListenResults;
+
+		ListenResults.m_Subscription = NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
+			{
+				auto &Internal = *mp_pInternal;
+
+				NConcurrency::TCActorResultVector<void> DestroyResults;
+				fg_Move(Internal.m_fOnNewConnection).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > DestroyResults.f_AddResult();
+
+				co_await DestroyResults.f_GetResults();
+
+				co_return {};
+			}
+		;
+
+		NConcurrency::TCActorResultVector<void> SetSocketResults;
 		{
-			mp_pInternal->f_Clear();
-			co_return NException::fg_CurrentException();
+
+			mint nListenTo = _AddressesToListenTo.f_GetLen();
+
+			mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
+
+			for (mint i = 0; i < nListenTo; ++i)
+			{
+				NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
+
+				NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
+
+				auto Settings = mp_pInternal->m_DefaultSettings;
+
+				if (!mp_pInternal->m_DefaultSettings.m_bTimeoutForUnixSockets && Address.f_GetType() == NNetwork::ENetAddressType_Unix)
+					Settings.m_Timeout = 0.0;
+
+				ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), fg_Move(Settings));
+
+				NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
+
+				NStorage::TCUniquePointer<NNetwork::ICSocket> pListenSocket = SocketFactory("");
+				NException::CDisableExceptionTraceScope DisableExceptionTrace;
+				pListenSocket->f_Listen
+					(
+						Address
+						, [WeakListenActor](NNetwork::ENetTCPState _StateAdded)
+						{
+							auto ListenActor = WeakListenActor.f_Lock();
+							if (!ListenActor)
+								return;
+							ListenActor(&CListenActor::f_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+						}
+						, _ListenFlags
+					)
+				;
+
+				ListenResults.m_ListenPorts.f_Insert(pListenSocket->f_GetListenPort());
+
+				ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults.f_AddResult();
+			}
 		}
 
-		DMibNeverGetHere;
-		co_return {};
+		co_await (co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap);
+
+		Cleanup.f_Clear();
+
+		co_return fg_Move(ListenResults);
 	}
 
 	auto CWebSocketServerActor::f_StartListen
