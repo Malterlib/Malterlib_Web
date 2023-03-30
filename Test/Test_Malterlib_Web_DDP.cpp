@@ -187,7 +187,7 @@ public:
 										}
 										catch (NException::CException const &_Exception)
 										{
-											_MethodInfo.f_Error(fp_MethodError("excption-logging-in", _Exception.f_GetErrorStr()));
+											_MethodInfo.f_Error(fp_MethodError("exception-logging-in", _Exception.f_GetErrorStr()));
 										}
 									}
 									else if (_MethodInfo.m_Name == "testChanged")
