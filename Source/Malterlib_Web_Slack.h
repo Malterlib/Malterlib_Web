@@ -28,6 +28,8 @@ namespace NMib::NWeb
 			CPredefinedColor(CPredefinedColor const &) = default;
 			CPredefinedColor& operator = (CPredefinedColor const &) = default;
 
+			auto operator <=> (CPredefinedColor const &_Right) const = default;
+
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 
@@ -38,7 +40,9 @@ namespace NMib::NWeb
 		{
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
-			
+
+			auto operator <=> (CRgbColor const &_Right) const = default;
+
 			uint8 m_Red = 0;
 			uint8 m_Green = 0;
 			uint8 m_Blue = 0;
@@ -51,6 +55,8 @@ namespace NMib::NWeb
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 
+			auto operator <=> (CField const &_Right) const = default;
+
 			NStr::CStr m_Title;
 			NStr::CStr m_Value;
 			NStorage::TCOptional<bool> m_bShort;
@@ -60,6 +66,8 @@ namespace NMib::NWeb
 		{
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
+
+			auto operator <=> (CAttachment const &_Right) const = default;
 
 			NStr::CStr m_Fallback;
 
@@ -93,6 +101,8 @@ namespace NMib::NWeb
 		{
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
+
+			auto operator <=> (CMessage const &_Right) const = default;
 
 			static NStr::CStr fs_EscapeString(NStr::CStr const &_String); // Escapes string so formatting is not applied
 
