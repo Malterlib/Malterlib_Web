@@ -6,6 +6,7 @@
 #include <Mib/Cryptography/RandomID>
 #include <Mib/Concurrency/ConcurrencyDefines>
 #include <Mib/Concurrency/ActorSubscription>
+#include <Mib/Concurrency/LogError>
 
 #include "Malterlib_Web_DDP_Client.h"
 
@@ -370,13 +371,15 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
+		NConcurrency::CLogError LogError("DDPClient");
+
 		Internal.m_ConnectTimeoutTimerRef.f_Clear();
 
 		if (!Internal.m_ConnectPromise.f_IsSet())
 			Internal.m_ConnectPromise.f_SetException(DMibErrorInstance("Destroy called before connection finished"));
 
 		if (Internal.m_WebSocket)
-			co_await Internal.m_WebSocket.f_Destroy().f_Wrap();
+			co_await Internal.m_WebSocket.f_Destroy().f_Wrap() > LogError.f_Warning("Failed to destroy Websocket");
 
 		co_return {};
 	}

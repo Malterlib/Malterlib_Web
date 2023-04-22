@@ -3,6 +3,7 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/ActorSubscription>
+#include <Mib/Concurrency/LogError>
 
 #include "Malterlib_Web_WebSocket.h"
 #include "Malterlib_Web_WebSocketServerActor_Internal.h"
@@ -175,6 +176,9 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
+
+		NConcurrency::CLogError LogError("WebSocketServer");
+
 		NConcurrency::TCActorResultVector<void> Results;
 		for (auto &ListenSocket : Internal.m_ListenSockets)
 			ListenSocket.f_Destroy() > Results.f_AddResult();
@@ -190,7 +194,7 @@ namespace NMib::NWeb
 		fg_Move(Internal.m_fOnNewConnection).f_Destroy() > Results.f_AddResult();
 		fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > Results.f_AddResult();
 
-		co_await (co_await Results.f_GetResults() | NConcurrency::g_Unwrap);
+		co_await Results.f_GetUnwrappedResults().f_Wrap() > LogError.f_Warning("Failed to destroy web socket server");
 
 		co_return {};
 	}

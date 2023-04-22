@@ -3,6 +3,7 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/WeakActor>
+#include <Mib/Concurrency/LogError>
 
 #include "Malterlib_Web_FastCGIServer_Internal.h"
 #include "Malterlib_Web_FastCGIServer_Listen.h"
@@ -103,21 +104,30 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
 	{
-		NConcurrency::TCPromise<void> Promise;
+		NConcurrency::CLogError LogError("FastCGIServer");
 
 		auto &Internal = *mp_pInternal;
 
-		auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
+		{
+			auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
+			auto CanDestroyFuture = fg_Exchange(pCanDestroy, nullptr)->f_Future();
+
+			co_await fg_Move(CanDestroyFuture).f_Wrap() > LogError.f_Warning("Failed to destroy can destroy tracker");
+		}
+
+		NConcurrency::TCActorResultVector<void> DestroyResults;
 
 		for (auto& ListenSocket : Internal.mp_ListenSockets)
-			fg_Move(ListenSocket).f_Destroy() > pCanDestroy->f_Track();
+			fg_Move(ListenSocket).f_Destroy() > DestroyResults.f_AddResult();
 
 		Internal.mp_ListenSockets.f_Clear();
 
 		for (auto& Connection : Internal.mp_Connections)
-			fg_Move(Connection).f_Destroy() > pCanDestroy->f_Track();
+			fg_Move(Connection).f_Destroy() > DestroyResults.f_AddResult();
 		Internal.mp_Connections.f_Clear();
 
-		return Promise <<= pCanDestroy->f_Future();
+		co_await DestroyResults.f_GetUnwrappedResults().f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
+
+		co_return {};
 	}
 }

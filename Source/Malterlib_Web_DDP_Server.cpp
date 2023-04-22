@@ -2,6 +2,7 @@
 #include "Malterlib_Web_DDP_Server.h"
 #include "Malterlib_Web_DDP_Client.h"
 #include <Mib/Concurrency/ActorSubscription>
+#include <Mib/Concurrency/LogError>
 
 namespace NMib::NWeb
 {
@@ -340,12 +341,14 @@ namespace NMib::NWeb
 	{
 		NConcurrency::TCPromise<void> Promise;
 
+		NConcurrency::CLogError LogError("DDPServerConnection");
+
 		auto &Internal = *mp_pInternal;
 
 		Internal.m_WebSocketCallbacks.f_Clear();
 
 		if (Internal.m_WebSocket)
-			co_await Internal.m_WebSocket.f_Destroy().f_Wrap();
+			co_await Internal.m_WebSocket.f_Destroy().f_Wrap() > LogError.f_Warning("Failed to destroy Websocket");
 
 		co_return {};
 	}
