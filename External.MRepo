@@ -1,9 +1,9 @@
 {
 	"../../External/curl": {
-		"Hash": "fc25be344a76783af89677961c3cb622f6d33ca1"
+		"Hash": "308bb769901a9318163cd9873984ef18f324ac3a"
 	},
 	"../../External/nginx": {
-		"Hash": "27d44e8fc5401b8f371c75aac54ad44feb060e5f"
+		"Hash": "c0362dfad2fa3628e6887da2c6f42a12a59dea32"
 	},
 	"../../External/pcre2": {
 		"Hash": "52c08847921a324c804cabf2814549f50bce1265"
