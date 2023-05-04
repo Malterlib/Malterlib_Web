@@ -1,4 +1,4 @@
-GeneratorVersion: 38
+GeneratorVersion: 40
 Import.CMake_FullRebuildVersion: 4-4
 Import.CMake_CacheExcludePatterns: [
 	*/CMakeFiles/*,
@@ -191,9 +191,7 @@ Import.CMake_CacheReplaceContents: [
 		"Replace": ""
 	}
 ]
-
 Import.CMake_Environment: {}
-
 Import.CMake_CacheIgnoreInputs: [
 ]
 
@@ -227,7 +225,6 @@ Import.CMake_Languages: [
 		"MalterlibLanguage": "WindowsResource"
 	}
 ]
-
 Import.CMake_Config: Debug
 Import.CMake_Variables: [
 	CMAKE_OBJECT_PATH_MAX=4096,
