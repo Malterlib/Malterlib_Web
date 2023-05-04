@@ -378,7 +378,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fGetErrorFromJSON = [](CEJSON const &_JSON)
+		auto fGetErrorFromJson = [](CEJSON const &_JSON)
 			{
 				CStr ErrorMessage;
 				if (auto *pValue = _JSON.f_GetMember("type", EJSONType_String))
@@ -406,7 +406,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fGetError = [fGetErrorFromJSON](CCurlActor::CResult const &_Result, CStr const &_Context)
+		auto fGetError = [fGetErrorFromJson](CCurlActor::CResult const &_Result, CStr const &_Context)
 			{
 				CStr ErrorMessage = "{}: {} {}"_f << _Context << _Result.m_StatusCode << _Result.m_StatusMessage;
 
@@ -414,9 +414,9 @@ namespace NMib::NWeb
 				{
 					if (_Result.m_Body)
 					{
-						auto ErrorObject = _Result.f_ToJSON();
+						auto ErrorObject = _Result.f_ToJson();
 
-						CStr Error = fGetErrorFromJSON(ErrorObject);
+						CStr Error = fGetErrorFromJson(ErrorObject);
 						if (Error)
 							ErrorMessage += ". {}"_f << Error;
 					}
@@ -447,7 +447,7 @@ namespace NMib::NWeb
 							CEJSON ResponseJSON;
 							{
 								auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-								ResponseJSON = Result.f_ToJSON();
+								ResponseJSON = Result.f_ToJson();
 							}
 
 							auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
@@ -460,7 +460,7 @@ namespace NMib::NWeb
 							if (pStatus->f_String() == "invalid")
 							{
 								if (auto *pError = ResponseJSON.f_GetMember("error", EJSONType_Object))
-									co_return DMibErrorInstance("{cc} is invalid: {}"_f << _Message << fGetErrorFromJSON(*pError));
+									co_return DMibErrorInstance("{cc} is invalid: {}"_f << _Message << fGetErrorFromJson(*pError));
 
 								co_return DMibErrorInstance("{cc} is invalid"_f << _Message);
 							}
@@ -484,7 +484,7 @@ namespace NMib::NWeb
 		CEJSON DirectoryJson;
 		{
 			auto CaptureScope = co_await g_CaptureExceptions;
-			DirectoryJson = GetResult.f_ToJSON();
+			DirectoryJson = GetResult.f_ToJson();
 		}
 
 		CStr NewAccountUrl;
@@ -545,7 +545,7 @@ namespace NMib::NWeb
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing create/get account result");
 
-				auto ResponseJSON = Result.f_ToJSON();
+				auto ResponseJSON = Result.f_ToJson();
 
 				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
 				{
@@ -579,7 +579,7 @@ namespace NMib::NWeb
 
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing new certificate order result");
-				auto ResponseJSON = Result.f_ToJSON();
+				auto ResponseJSON = Result.f_ToJson();
 
 				if (auto pAuthorizations = ResponseJSON.f_GetMember("authorizations", EJSONType_Array))
 					AuthorizationUrls = pAuthorizations->f_StringArray();
@@ -607,7 +607,7 @@ namespace NMib::NWeb
 				CEJSON ResponseJSON;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-					ResponseJSON = Result.f_ToJSON();
+					ResponseJSON = Result.f_ToJson();
 				}
 
 				{
@@ -692,7 +692,7 @@ namespace NMib::NWeb
 				CEJSON ResponseJSON;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-					ResponseJSON = Result.f_ToJSON();
+					ResponseJSON = Result.f_ToJson();
 				}
 
 				auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
@@ -736,7 +736,7 @@ namespace NMib::NWeb
 
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing order finalize result");
-				auto ResponseJSON = Result.f_ToJSON();
+				auto ResponseJSON = Result.f_ToJson();
 
 				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
 					Status = pStatus->f_String();

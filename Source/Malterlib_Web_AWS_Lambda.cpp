@@ -347,7 +347,7 @@ namespace NMib::NWeb
 				o_Request["Timeout"] = *_Config.m_TimeoutSeconds;
 		}
 
-		static CFunctionConfiguration fsp_FunctionConfigFromJSON(CJSON const &_JSON)
+		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJSON const &_JSON)
 		{
 			auto &JSONConfig = _JSON["Configuration"];
 
@@ -628,7 +628,7 @@ namespace NMib::NWeb
 		{
 			auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function");
 
-			CFunctionConfiguration ExistingConfig = CInternal::fsp_FunctionConfigFromJSON(ExistingFunction);
+			CFunctionConfiguration ExistingConfig = CInternal::fsp_FunctionConfigFromJson(ExistingFunction);
 
 			bool bChangedConfig = false;
 			if (_Config.m_DeadLetterConfig.m_TargetArn && _Config.m_DeadLetterConfig.m_TargetArn != ExistingConfig.m_DeadLetterConfig.m_TargetArn)

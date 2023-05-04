@@ -198,7 +198,7 @@ namespace NMib::NWeb
 		{
 			auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
 
-			auto JsonResult = fg_Const(Result.f_ToJSON());
+			auto JsonResult = fg_Const(Result.f_ToJson());
 
 			if (!JsonResult["ok"].f_Boolean())
 				co_return DMibErrorInstance("Slack request failed with error: {}"_f << JsonResult["error"].f_String());
@@ -240,7 +240,7 @@ namespace NMib::NWeb
 		{
 			auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
 
-			auto JsonResult = fg_Const(Result.f_ToJSON());
+			auto JsonResult = fg_Const(Result.f_ToJson());
 
 			if (!JsonResult["ok"].f_Boolean())
 				co_return DMibErrorInstance("Slack request failed with error: {}"_f << JsonResult["error"].f_String());

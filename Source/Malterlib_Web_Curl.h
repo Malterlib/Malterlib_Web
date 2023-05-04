@@ -67,7 +67,7 @@ namespace NMib::NWeb
 			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
 			
-			NEncoding::CEJSON f_ToJSON() const;
+			NEncoding::CEJSON f_ToJson() const;
 		};
 		
 		NConcurrency::TCFuture<CResult> f_Request
