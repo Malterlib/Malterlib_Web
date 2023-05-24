@@ -1,0 +1,244 @@
+GeneratorVersion: 40
+Import.CMake_FullRebuildVersion: 4-4
+Import.CMake_CacheExcludePatterns: [
+	*/CMakeFiles/*,
+	*/cmake.tmp/*,
+	*/cmake_install.cmake,
+	*/CPackConfig.cmake,
+	*/CPackSourceConfig.cmake,
+	*/CTestTestfile.cmake,
+	*.ninja,
+	*/CMakeCache.txt,
+	*/MalterlibFullRebuildVersion,
+	*/.NoDartCoverage,
+	*/compile_commands.json
+]
+
+Import.CMake_CacheReplaceContents: [
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:/Go/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\Go\\bin\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\\\Go\\\\bin\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:/Program Files/Go/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\Program Files\\Go\\bin\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\\\Program Files\\\\Go\\\\bin\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:/Python39/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\Python39\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\\\Python39\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:/strawberry/perl/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\strawberry\\perl\\bin\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "C:\\\\strawberry\\\\perl\\\\bin\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:/Program Files/Git/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:\\Program Files\\Git\\bin\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:\\\\Program Files\\\\Git\\\\bin\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:/Program Files/Git/usr/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:\\Program Files\\Git\\usr\\bin\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "c:\\\\Program Files\\\\Git\\\\usr\\\\bin\\\\",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": ,
+		"Replace": "MToolCMake"
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": ,
+		"Replace": "MToolCMake"
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/opt/local/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/opt/homebrew/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/local/go/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/local/bin/",
+		"Replace": ""
+	}
+]
+Import.CMake_Environment: {}
+Import.CMake_CacheIgnoreInputs: [
+]
+
+Import.CMake_Languages: [
+	{
+		"CMakeLanguage": "C",
+		"MalterlibLanguage": "C"
+	},
+	{
+		"CMakeLanguage": "CXX",
+		"MalterlibLanguage": "C++"
+	},
+	{
+		"CMakeLanguage": "OBJCXX",
+		"MalterlibLanguage": "ObjC++"
+	},
+	{
+		"CMakeLanguage": "ASM",
+		"MalterlibLanguage": "Assembler"
+	},
+	{
+		"CMakeLanguage": "ASM_NASM",
+		"MalterlibLanguage": "AssemblerNasm"
+	},
+	{
+		"CMakeLanguage": "ASM_MASM",
+		"MalterlibLanguage": "Assembler"
+	},
+	{
+		"CMakeLanguage": "RC",
+		"MalterlibLanguage": "WindowsResource"
+	}
+]
+Import.CMake_Config: Release
+Import.CMake_Variables: [
+	CMAKE_OBJECT_PATH_MAX=4096,
+	,
+	OPENSSL_ROOT_DIR=/External/boringssl,
+	OPENSSL_LIBRARIES=/dev/null,
+	OPENSSL_CRYPTO_LIBRARY=/dev/null,
+	OPENSSL_SSL_LIBRARY=/dev/null,
+	PCRE2_BUILD_PCRE2GREP=OFF,
+	PCRE2_BUILD_TESTS=OFF,
+	PCRE2_STATIC_RUNTIME=ON
+]
+
+Import.CMake_IncludeInHash: [
+]
+
+Import.CMake_IntermediateName: External_pcre2
