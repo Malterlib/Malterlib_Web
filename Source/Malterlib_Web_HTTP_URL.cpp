@@ -115,7 +115,7 @@ namespace NMib::NWeb::NHTTP
 
 		mp_Flags = _Flags;
 
-		NStr::CStr URL = _URL;
+		NStr::CStr const &URL = _URL;
 		mint URLLength = URL.f_GetLen();
 
 		// Find all the various split points for the main components:
@@ -221,11 +221,11 @@ namespace NMib::NWeb::NHTTP
 				else
 					mp_Flags |= EURLFlag_Host;
 
-				if (fg_Const(URL)[iHostStartTrimmed] == '[')
+				if (URL[iHostStartTrimmed] == '[')
 				{
 					mp_Flags |= EURLFlag_HostBrackets;
 					++iHostStartTrimmed;
-					if (fg_Const(URL)[iHostEndTrimmed-1] == ']')
+					if (URL[iHostEndTrimmed-1] == ']')
 						--iHostEndTrimmed;
 				}
 				if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
