@@ -61,9 +61,9 @@ namespace NMib::NWeb
 
 	namespace
 	{
-		CEJSON fg_MessageToJson(CSlackActor::CMessage const &_Message)
+		CEJSONSorted fg_MessageToJson(CSlackActor::CMessage const &_Message)
 		{
-			CEJSON SlackMessage(EJSONType_Object);
+			CEJSONSorted SlackMessage(EJSONType_Object);
 
 			if (_Message.m_Text)
 				SlackMessage["text"] = *_Message.m_Text;
@@ -174,7 +174,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSON SlackMessage = fg_MessageToJson(_Message);
+		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
 		auto SlackMessageString = SlackMessage.f_ToString();
 
 		TCMap<CStr, CStr> Headers;
@@ -213,7 +213,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSON SlackMessage = fg_MessageToJson(_Message);
+		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
 		SlackMessage["ts"] = _Timestamp;
 		SlackMessage["as_user"] = true;
 
@@ -255,7 +255,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSON SlackMessage = fg_MessageToJson(_Message);
+		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
 
 		auto SlackMessageString = SlackMessage.f_ToString();
 		auto Result = co_await Internal.m_CurlActor

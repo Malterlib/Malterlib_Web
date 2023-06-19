@@ -759,7 +759,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CHTTPServerOptions::f_ParseSettings(NEncoding::CEJSON const &_Params)
+	void CHTTPServerOptions::f_ParseSettings(NEncoding::CEJSONSorted const &_Params)
 	{
 		m_ListeningPort = _Params.f_GetMemberValue("Port", m_ListeningPort).f_Integer();
 		m_FastCGIListenStartPort = _Params.f_GetMemberValue("FCGIPort", m_FastCGIListenStartPort).f_Integer();

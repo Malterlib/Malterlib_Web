@@ -55,10 +55,10 @@ namespace NMib::NWeb
 
 		struct CCollectionAccessor
 		{
-			NContainer::TCMap<NStr::CStr, NEncoding::CEJSON>::CIteratorConst f_GetDocumentIterator() const;
-			NEncoding::CEJSON const &f_GetDocument(NStr::CStr const &_Id) const;
+			NContainer::TCMap<NStr::CStr, NEncoding::CEJSONSorted>::CIteratorConst f_GetDocumentIterator() const;
+			NEncoding::CEJSONSorted const &f_GetDocument(NStr::CStr const &_Id) const;
 			NStr::CStr const &f_GetRandomDocumentID() const;
-			NContainer::TCMap<NStr::CStr, NEncoding::CEJSON>::CIteratorConst f_GetRandomDocumentIterator() const;
+			NContainer::TCMap<NStr::CStr, NEncoding::CEJSONSorted>::CIteratorConst f_GetRandomDocumentIterator() const;
 
 		private:
 			friend CDDPClient;
@@ -104,11 +104,11 @@ namespace NMib::NWeb
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
 			)
 		;
-		NConcurrency::TCFuture<NEncoding::CEJSON> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSON> const &_Params);
-		NConcurrency::TCFuture<NEncoding::CEJSON> f_MethodWithUpdated
+		NConcurrency::TCFuture<NEncoding::CEJSONSorted> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params);
+		NConcurrency::TCFuture<NEncoding::CEJSONSorted> f_MethodWithUpdated
 			(
 				NStr::CStr const &_MethodName
-				, NContainer::TCVector<NEncoding::CEJSON> const &_Params
+				, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fOnUpdated
 			)
 		;
@@ -116,9 +116,9 @@ namespace NMib::NWeb
 			(
 				NStr::CStr const &_SubscriptionName
 				, NStr::CStr const &_SubscriptionID
-				, NEncoding::CEJSON const &_Params
+				, NEncoding::CEJSONSorted const &_Params
 				, ESubscriptionNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
 				, bool _bWaitForResponse
 			)
 		;
@@ -126,7 +126,7 @@ namespace NMib::NWeb
 			(
 				NStr::CStr const &_CollectionName // Leave empty to observe all collections
 				, EObserveNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSON const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
 			)
 		;
 

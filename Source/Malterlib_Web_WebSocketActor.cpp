@@ -1783,7 +1783,7 @@ namespace NMib::NWeb
 								auto &Paths = URI.f_GetPath();
 								if (Paths.f_GetLen() == 2 && Paths[0] == "sockjs" && Paths[1] == "info")
 								{
-									NEncoding::CJSON Reply;
+									NEncoding::CJSONSorted Reply;
 									Reply["websocket"] = true;
 									Reply["origins"].f_Array().f_Insert("*:*");
 									Reply["cookie_needed"] = false;

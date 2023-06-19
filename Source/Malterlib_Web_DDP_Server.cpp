@@ -33,28 +33,28 @@ namespace NMib::NWeb
 		{
 		}
 
-		void f_SendMessage(NEncoding::CEJSON const &_Data);
+		void f_SendMessage(NEncoding::CEJSONSorted const &_Data);
 
 		void fp_ReceiveMessage(NStr::CStr const &_Message);
-		void fp_ReceiveMessage(NEncoding::CEJSON const &_Message);
+		void fp_ReceiveMessage(NEncoding::CEJSONSorted const &_Message);
 		void fp_OnError(NStr::CStr const &_Message);
 	};
 
-	void CDDPServerConnection::CInternal::f_SendMessage(NEncoding::CEJSON const &_Data)
+	void CDDPServerConnection::CInternal::f_SendMessage(NEncoding::CEJSONSorted const &_Data)
 	{
 		if (m_ConnectionType != EConnectionType_SockJSWebsocket)
 			m_WebSocket(&CWebSocketActor::f_SendText, _Data.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
 		else
 		{
-			NEncoding::CEJSON MessageArray;
+			NEncoding::CEJSONSorted MessageArray;
 			MessageArray.f_Insert(_Data.f_ToString(nullptr));
 			m_WebSocket(&CWebSocketActor::f_SendText, "a" + MessageArray.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
 		}
 	}
 
-	void CDDPServerConnection::CInternal::fp_ReceiveMessage(NEncoding::CEJSON const &_Message)
+	void CDDPServerConnection::CInternal::fp_ReceiveMessage(NEncoding::CEJSONSorted const &_Message)
 	{
-		NEncoding::CEJSON const &JSON = _Message;
+		NEncoding::CEJSONSorted const &JSON = _Message;
 
 		auto *pValue = JSON.f_GetMember("msg");
 		if (!pValue)
@@ -76,7 +76,7 @@ namespace NMib::NWeb
 
 			if (!fg_ValidateType(pVersion, NEncoding::EJSONType_String) || pVersion->f_String() != "1")
 			{
-				NEncoding::CEJSON Message;
+				NEncoding::CEJSONSorted Message;
 				Message["msg"] = "failed";
 				Message["version"] = "1";
 
@@ -167,7 +167,7 @@ namespace NMib::NWeb
 		}
 		else if (MessageType == "ping")
 		{
-			NEncoding::CEJSON Reply;
+			NEncoding::CEJSONSorted Reply;
 			Reply["msg"] = "pong";
 
 			if (auto pID = JSON.f_GetMember("id"))
@@ -185,7 +185,7 @@ namespace NMib::NWeb
 	{
 		try
 		{
-			NEncoding::CEJSON JSON = NEncoding::CEJSON::fs_FromString(_Message);
+			NEncoding::CEJSONSorted JSON = NEncoding::CEJSONSorted::fs_FromString(_Message);
 
 			if (m_ConnectionType != EConnectionType_SockJSWebsocket)
 				fp_ReceiveMessage(JSON);
@@ -194,7 +194,7 @@ namespace NMib::NWeb
 				if (JSON.f_IsArray())
 				{
 					for (auto &Message : JSON.f_Array())
-						fp_ReceiveMessage(NEncoding::CEJSON::fs_FromString(Message.f_String()));
+						fp_ReceiveMessage(NEncoding::CEJSONSorted::fs_FromString(Message.f_String()));
 				}
 				else
 					fp_ReceiveMessage(JSON);
@@ -277,13 +277,13 @@ namespace NMib::NWeb
 	{
 	}
 
-	void CDDPServerConnection::CMethodInfo::f_Result(NEncoding::CEJSON const &_Result, bool _bUpdated) const
+	void CDDPServerConnection::CMethodInfo::f_Result(NEncoding::CEJSONSorted const &_Result, bool _bUpdated) const
 	{
 		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
 			Actor(&CDDPServerConnection::fp_MethodResult, m_ID, _Result, _bUpdated) > NConcurrency::fg_DiscardResult();
 	}
 
-	void CDDPServerConnection::CMethodInfo::f_Error(NEncoding::CEJSON const &_Error) const
+	void CDDPServerConnection::CMethodInfo::f_Error(NEncoding::CEJSONSorted const &_Error) const
 	{
 		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
 			Actor(&CDDPServerConnection::fp_MethodError, m_ID, _Error) > NConcurrency::fg_DiscardResult();
@@ -314,7 +314,7 @@ namespace NMib::NWeb
 	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo const &_Other) = default;
 	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo &&_Other) = default;
 
-	void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJSON const &_Error) const
+	void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJSONSorted const &_Error) const
 	{
 		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
 		{
@@ -461,7 +461,7 @@ namespace NMib::NWeb
 				{
 					auto &Added = Change.f_Get<EChange_Added>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "added";
 					Message["collection"] = fg_Move(Added.m_Collection);
 					Message["id"] = fg_Move(Added.m_DocumentID);
@@ -475,7 +475,7 @@ namespace NMib::NWeb
 				{
 					auto &Changed = Change.f_Get<EChange_Changed>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "changed";
 					Message["collection"] = fg_Move(Changed.m_Collection);
 					Message["id"] = fg_Move(Changed.m_DocumentID);
@@ -496,7 +496,7 @@ namespace NMib::NWeb
 				{
 					auto &Removed = Change.f_Get<EChange_Removed>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "removed";
 					Message["collection"] = fg_Move(Removed.m_Collection);
 					Message["id"] = fg_Move(Removed.m_DocumentID);
@@ -508,7 +508,7 @@ namespace NMib::NWeb
 				{
 					auto &Ready = Change.f_Get<EChange_Ready>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "ready";
 					auto &SubsArray = (Message["subs"] = NEncoding::EJSONType_Array).f_Array();
 					for (auto &ReadySub : Ready.m_Subscriptions)
@@ -521,7 +521,7 @@ namespace NMib::NWeb
 				{
 					auto &Updated = Change.f_Get<EChange_Updated>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "updated";
 					auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
 					for (auto &MethodID : Updated.m_IDs)
@@ -534,7 +534,7 @@ namespace NMib::NWeb
 				{
 					auto &NoSub = Change.f_Get<EChange_NoSub>();
 
-					NEncoding::CEJSON Message;
+					NEncoding::CEJSONSorted Message;
 					Message["msg"] = "nosub";
 					Message["id"] = NoSub.m_SubscriptionID;
 
@@ -549,7 +549,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		NEncoding::CEJSON Message;
+		NEncoding::CEJSONSorted Message;
 		Message["msg"] = "connected";
 		if (!_SessionID.f_IsEmpty())
 			Message["session"] = _SessionID;
@@ -562,17 +562,17 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		NEncoding::CEJSON Message;
+		NEncoding::CEJSONSorted Message;
 		Message["msg"] = "failed";
 		Message["version"] = "1";
 		Internal.f_SendMessage(Message);
 	}
 
-	void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Result, bool _bUpdated)
+	void CDDPServerConnection::fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSONSorted const &_Result, bool _bUpdated)
 	{
 		auto &Internal = *mp_pInternal;
 		{
-			NEncoding::CEJSON Message;
+			NEncoding::CEJSONSorted Message;
 			Message["msg"] = "result";
 			Message["id"] = _MethodID;
 			if (_Result.f_IsValid())
@@ -581,7 +581,7 @@ namespace NMib::NWeb
 		}
 		if (_bUpdated)
 		{
-			NEncoding::CEJSON Message;
+			NEncoding::CEJSONSorted Message;
 			Message["msg"] = "updated";
 			auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
 			MethodsArray.f_Insert() = _MethodID;
@@ -589,18 +589,18 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSON const &_Error)
+	void CDDPServerConnection::fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSONSorted const &_Error)
 	{
 		auto &Internal = *mp_pInternal;
 		{
-			NEncoding::CEJSON Message;
+			NEncoding::CEJSONSorted Message;
 			Message["msg"] = "result";
 			Message["id"] = _MethodID;
 			Message["error"] = _Error;
 			Internal.f_SendMessage(Message);
 		}
 		{
-			NEncoding::CEJSON Message;
+			NEncoding::CEJSONSorted Message;
 			Message["msg"] = "updated";
 			auto &MethodsArray = (Message["methods"] = NEncoding::EJSONType_Array).f_Array();
 			MethodsArray.f_Insert() = _MethodID;
@@ -608,11 +608,11 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSON const &_Error)
+	void CDDPServerConnection::fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSONSorted const &_Error)
 	{
 		auto &Internal = *mp_pInternal;
 
-		NEncoding::CEJSON Message;
+		NEncoding::CEJSONSorted Message;
 
 		Message["msg"] = "nosub";
 		Message["id"] = _SubscriptionID;

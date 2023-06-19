@@ -139,9 +139,9 @@ namespace NMib::NWeb
 		}
 	}
 
-	NEncoding::CEJSON CCurlActor::CResult::f_ToJson() const
+	NEncoding::CEJSONSorted CCurlActor::CResult::f_ToJson() const
 	{
-		return NEncoding::CEJSON::fs_FromString(m_Body);
+		return NEncoding::CEJSONSorted::fs_FromString(m_Body);
 	}
 
 	CCurlActor::CActorHolder::CActorHolder

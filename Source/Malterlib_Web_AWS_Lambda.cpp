@@ -277,7 +277,7 @@ namespace NMib::NWeb
 			;
 		}
 
-		TCFuture<CJSON> f_GetFunction(CStr const &_FunctionName)
+		TCFuture<CJSONSorted> f_GetFunction(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 			AWSUrl.f_AppendPath({_FunctionName});
@@ -304,7 +304,7 @@ namespace NMib::NWeb
 			return CFunctionConfiguration::ETracingMode_Unknown;
 		}
 
-		void fp_PopulateFunctionConfigurationRequest(CJSON &o_Request, CFunctionConfiguration const &_Config)
+		void fp_PopulateFunctionConfigurationRequest(CJSONSorted &o_Request, CFunctionConfiguration const &_Config)
 		{
 			if (_Config.m_DeadLetterConfig.m_TargetArn)
 				o_Request["DeadLetterConfig"]["TargetArn"] = *_Config.m_DeadLetterConfig.m_TargetArn;
@@ -347,7 +347,7 @@ namespace NMib::NWeb
 				o_Request["Timeout"] = *_Config.m_TimeoutSeconds;
 		}
 
-		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJSON const &_JSON)
+		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJSONSorted const &_JSON)
 		{
 			auto &JSONConfig = _JSON["Configuration"];
 
@@ -426,7 +426,7 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
-			CJSON Request;
+			CJSONSorted Request;
 			Request["Code"]["ZipFile"] = _CodeBlob.m_Base64;
 			Request["FunctionName"] = _FunctionName;
 
@@ -464,11 +464,11 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/configuration"_f << m_Credentials.m_Region << _FunctionName};
-			CJSON Request;
+			CJSONSorted Request;
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			CJSON Results = co_await fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Arn = Results.f_GetMemberValue("FunctionArn", "").f_String();
@@ -486,13 +486,13 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/code"_f << m_Credentials.m_Region << _FunctionName};
-			CJSON Request;
+			CJSONSorted Request;
 			Request["ZipFile"] = _CodeBlob.m_Base64;
 
 			if (_Config.m_bPublish)
 				Request["Publish"] = *_Config.m_bPublish;
 
-			CJSON Results = co_await fg_DoAWSRequestJSON("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -508,7 +508,7 @@ namespace NMib::NWeb
 			co_return fg_Move(FunctionInfo);
 		}
 
-		TCFuture<CJSON> f_GetFunctionVersions(CStr const &_FunctionName)
+		TCFuture<CJSONSorted> f_GetFunctionVersions(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
 			return fg_DoAWSRequestJSON("Get function versions", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
@@ -517,7 +517,7 @@ namespace NMib::NWeb
 		TCFuture<CFunctionInfo> f_PublishVersion(CStr _FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
-			CJSON Results = co_await fg_DoAWSRequestJSON("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
+			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -538,7 +538,7 @@ namespace NMib::NWeb
 			NTime::CClock Clock(true);
 			while (true)
 			{
-				CJSON FunctionInfo = co_await f_GetFunction(_FunctionName);
+				CJSONSorted FunctionInfo = co_await f_GetFunction(_FunctionName);
 
 				auto *pConfig = FunctionInfo.f_GetMember("Configuration", EJSONType_Object);
 				if (!pConfig)
@@ -601,7 +601,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		CInternal::CCodeBlob CodeBlob = co_await Internal.f_CreateCodeBlob(_Files);
-		TCAsyncResult<CJSON> ExistingFunctionWrapped = co_await Internal.f_GetFunction(_FunctionName).f_Wrap();
+		TCAsyncResult<CJSONSorted> ExistingFunctionWrapped = co_await Internal.f_GetFunction(_FunctionName).f_Wrap();
 
 		if (!ExistingFunctionWrapped)
 		{
@@ -672,7 +672,7 @@ namespace NMib::NWeb
 				FunctionInfo = co_await Internal.f_UpdateFunctionCode(_FunctionName, CodeBlob, _Config);
 			else
 			{
-				CJSON VersionsJSON = co_await Internal.f_GetFunctionVersions(_FunctionName);
+				CJSONSorted VersionsJSON = co_await Internal.f_GetFunctionVersions(_FunctionName);
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function versions");
 

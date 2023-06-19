@@ -274,12 +274,12 @@ namespace NMib::NWeb
 	template <typename tf_CReturn>
 	void fg_ReportAWSErrorJSON(TCPromise<tf_CReturn> const &_Promise, CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
-		CJSON ErrorReturn;
+		CJSONSorted ErrorReturn;
 		do
 		{
 			try
 			{
-				ErrorReturn = CJSON::fs_FromString(_Result.m_Body);
+				ErrorReturn = CJSONSorted::fs_FromString(_Result.m_Body);
 			}
 			catch (NException::CException const &_Exception)
 			{
@@ -322,13 +322,13 @@ namespace NMib::NWeb
 		_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData));
 	}
 
-	TCFuture<NEncoding::CJSON> fg_DoAWSRequestJSON
+	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
 		(
 			CStr const &_Description
 			, TCActor<CCurlActor> const &_CurlActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> const &_Contents
 			, CCurlActor::EMethod _Method
 			, CAwsCredentials const &_Credentials
 			, TCMap<CStr, CStr> const &_AWSHeaders
@@ -336,15 +336,15 @@ namespace NMib::NWeb
 			, bool _bTrace
 		)
 	{
-		TCPromise<NEncoding::CJSON> Promise;
+		TCPromise<NEncoding::CJSONSorted> Promise;
 
 		CByteVector Contents;
 
 		if (_Contents.f_IsOfType<CByteVector>())
 			Contents = _Contents.f_GetAsType<CByteVector>();
-		else if (_Contents.f_IsOfType<NEncoding::CJSON>())
+		else if (_Contents.f_IsOfType<NEncoding::CJSONSorted>())
 		{
-			CStr ContentsStr = _Contents.f_GetAsType<NEncoding::CJSON>().f_ToString(nullptr);
+			CStr ContentsStr = _Contents.f_GetAsType<NEncoding::CJSONSorted>().f_ToString(nullptr);
 			Contents.f_Insert((uint8 const *)ContentsStr.f_GetStr(), ContentsStr.f_GetLen());
 		}
 
@@ -369,7 +369,7 @@ namespace NMib::NWeb
 
 				try
 				{
-					Promise.f_SetResult(NEncoding::CJSON::fs_FromString(_Result.m_Body));
+					Promise.f_SetResult(NEncoding::CJSONSorted::fs_FromString(_Result.m_Body));
 				}
 				catch (NException::CException const &_Exception)
 				{

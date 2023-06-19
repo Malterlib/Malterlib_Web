@@ -49,7 +49,7 @@ namespace NMib::NWeb
 			return fg_Base64Encode(_Source).f_TrimRight("=").f_ReplaceChar('+', '-').f_ReplaceChar('/', '_');
 		}
 
-		CStr fg_JwkThumbPrint(CJSON const &_JSON)
+		CStr fg_JwkThumbPrint(CJSONSorted const &_JSON)
 		{
 			CStr String = _JSON.f_ToString(nullptr);
 			auto Digest = CHash_SHA256::fs_DigestFromData(String.f_GetStr(), String.f_GetLen());
@@ -71,10 +71,10 @@ namespace NMib::NWeb
 			EDigestType m_DigestType = EDigestType_None;
 		};
 
-		CByteVector fg_FlattenedJwsEncode(CStr const &_Url, CJSON &&_Payload, CAcmeState &_State)
+		CByteVector fg_FlattenedJwsEncode(CStr const &_Url, CJSONSorted &&_Payload, CAcmeState &_State)
 		{
-			CJSON JwsMessage;
-			CJSON Protected;
+			CJSONSorted JwsMessage;
+			CJSONSorted Protected;
 
 			Protected["nonce"] = _State.m_Nonce;
 			if (_State.m_AccountLocation)
@@ -85,7 +85,7 @@ namespace NMib::NWeb
 				auto PublicKey = CPublicCrypto::fs_GetPublicKeyFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
 				auto KeyParams = CPublicCrypto::fs_GetPublicKeyParameters(PublicKey);
 
-				CJSON Jwk;
+				CJSONSorted Jwk;
 				CStr Algorithm;
 
 				switch (KeySettings.f_GetTypeID())
@@ -329,7 +329,7 @@ namespace NMib::NWeb
 
 		TCSharedPointer<CAcmeState> pState = fg_Construct(Internal.m_Dependencies);
 
-		auto fPost = [this, pState](CStr const &_Path, CJSON &&_Payload)
+		auto fPost = [this, pState](CStr const &_Path, CJSONSorted &&_Payload)
 			{
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
@@ -378,7 +378,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fGetErrorFromJson = [](CEJSON const &_JSON)
+		auto fGetErrorFromJson = [](CEJSONSorted const &_JSON)
 			{
 				CStr ErrorMessage;
 				if (auto *pValue = _JSON.f_GetMember("type", EJSONType_String))
@@ -444,7 +444,7 @@ namespace NMib::NWeb
 
 							co_await fUpdateNonce(Result);
 
-							CEJSON ResponseJSON;
+							CEJSONSorted ResponseJSON;
 							{
 								auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 								ResponseJSON = Result.f_ToJson();
@@ -481,7 +481,7 @@ namespace NMib::NWeb
 		if (GetResult.m_StatusCode != 200)
 			co_return DMibErrorInstance("Unexpected status getting ACME directory: {} {}"_f << GetResult.m_StatusCode << GetResult.m_StatusMessage);
 
-		CEJSON DirectoryJson;
+		CEJSONSorted DirectoryJson;
 		{
 			auto CaptureScope = co_await g_CaptureExceptions;
 			DirectoryJson = GetResult.f_ToJson();
@@ -516,7 +516,7 @@ namespace NMib::NWeb
 		}
 
 		{
-			CJSON EmailContacts = EJSONType_Array;
+			CJSONSorted EmailContacts = EJSONType_Array;
 
 			for (auto &Email: Internal.m_Dependencies.m_AccountInfo.m_Emails)
 				EmailContacts.f_Insert("mailto:{}"_f << Email);
@@ -561,9 +561,9 @@ namespace NMib::NWeb
 		CStr OrderUrl;
 		CStr FinalizeUrl;
 		{
-			CJSON Identifiers = EJSONType_Array;
+			CJSONSorted Identifiers = EJSONType_Array;
 			for (auto &DnsName : _RequestCertificate.m_DnsNames)
-				Identifiers.f_Array().f_Insert(CJSON{"type"__= "dns", "value"__= DnsName});
+				Identifiers.f_Array().f_Insert(CJSONSorted{"type"__= "dns", "value"__= DnsName});
 
 			auto Result = co_await fPost(NewOrderUrl, {"identifiers"__= fg_Move(Identifiers)});
 
@@ -604,7 +604,7 @@ namespace NMib::NWeb
 			CStr SuccessfulChallengeUrl;
 
 			{
-				CEJSON ResponseJSON;
+				CEJSONSorted ResponseJSON;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 					ResponseJSON = Result.f_ToJson();
@@ -689,7 +689,7 @@ namespace NMib::NWeb
 
 				co_await fUpdateNonce(Result);
 
-				CEJSON ResponseJSON;
+				CEJSONSorted ResponseJSON;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
 					ResponseJSON = Result.f_ToJson();

@@ -59,13 +59,13 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCFuture<NEncoding::CJSON> fg_DoAWSRequestJSON
+	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
 		(
 			CStr const &_Description
 			, TCActor<CCurlActor> const &_CurlActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSON> const &_Contents
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> const &_Contents
 			, CCurlActor::EMethod _Method
 			, CAwsCredentials const &_Credentials
 			, TCMap<CStr, CStr> const &_AWSHeaders
