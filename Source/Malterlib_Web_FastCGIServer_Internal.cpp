@@ -105,26 +105,31 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
 	{
 		NConcurrency::CLogError LogError("FastCGIServer");
-
+		
 		auto &Internal = *mp_pInternal;
-
+		
 		{
 			auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
 			auto CanDestroyFuture = fg_Exchange(pCanDestroy, nullptr)->f_Future();
-
+			
 			co_await fg_Move(CanDestroyFuture).f_Wrap() > LogError.f_Warning("Failed to destroy can destroy tracker");
 		}
-
+		
 		NConcurrency::TCActorResultVector<void> DestroyResults;
-
+		
 		for (auto& ListenSocket : Internal.mp_ListenSockets)
-			fg_Move(ListenSocket).f_Destroy() > DestroyResults.f_AddResult();
-
+		fg_Move(ListenSocket).f_Destroy() > DestroyResults.f_AddResult();
+		
 		Internal.mp_ListenSockets.f_Clear();
-
-		for (auto& Connection : Internal.mp_Connections)
-			fg_Move(Connection).f_Destroy() > DestroyResults.f_AddResult();
-		Internal.mp_Connections.f_Clear();
+		
+		Internal.mp_Connections.f_ExtractAll
+			(
+				[&](auto &&_Handle)
+				{
+					fg_Move(*_Handle).f_Destroy() > DestroyResults.f_AddResult();
+				}
+			)
+		;
 
 		co_await DestroyResults.f_GetUnwrappedResults().f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
 
