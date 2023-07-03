@@ -4,6 +4,7 @@
 #pragma once
 
 #include <Mib/Concurrency/ConcurrencyDefines>
+#include <Mib/Concurrency/ActorFunctorWeak>
 
 #include "Malterlib_Web_FastCGIServer.h"
 
@@ -15,7 +16,7 @@ namespace NMib::NWeb::NFastCGI
 		CListenActor
 			(
 				NConcurrency::TCActor<CFastCGIServer> const &_Server
-				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
+				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
 			)
 		;
 		~CListenActor();
@@ -31,6 +32,6 @@ namespace NMib::NWeb::NFastCGI
 	private:
 		NNetwork::CSocket mp_Socket;
 		NConcurrency::TCActor<CFastCGIServer> mp_Server;
-		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
+		NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
 	};
 }

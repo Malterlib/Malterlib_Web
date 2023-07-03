@@ -6,7 +6,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Concurrency/ConcurrencyDefines>
 #include <Mib/Concurrency/ConcurrencyManager>
-#include <Mib/Concurrency/ActorFunctor>
+#include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Network/Address>
 
 namespace NMib::NWeb
@@ -23,10 +23,10 @@ namespace NMib::NWeb
 		CFastCGIRequest(NConcurrency::TCActor<CFastCGIConnectionActor> const &_ConnectionActor, NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> const &_pParams);
 		~CFastCGIRequest();
 
-		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
-		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
-		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback);
-		void f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback);
+		void f_OnStdInputRaw(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnData(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnStdInput(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback);
+		void f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback);
 		void f_Accept(); // Call after setting the callbacks to continue processing incoming data
 
 		NContainer::TCMap<NStr::CStr, NStr::CStr> const &f_GetParams();
@@ -36,6 +36,12 @@ namespace NMib::NWeb
 
 		void f_SendStdOutput(uint8 const* _pOutput, mint _Len);
 		void f_SendStdError(uint8 const* _pOutput, mint _Len);
+
+		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NContainer::CIOByteVector &&_Data);
+		NConcurrency::TCFuture<void> f_SendAsyncStdError(NContainer::CIOByteVector &&_Data);
+
+		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NStr::CStr const& _Output);
+		NConcurrency::TCFuture<void> f_SendAsyncStdError(NStr::CStr const& _Output);
 
 		void f_FinishRequest();
 		bool f_IsFinished() const;
@@ -57,14 +63,14 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_StartListenAddress
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 			)
 		;
 
 		NConcurrency::TCFuture<void> f_Start
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
 				, NNetwork::CNetAddress _BindAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)

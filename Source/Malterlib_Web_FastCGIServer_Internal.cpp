@@ -24,7 +24,7 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_StartListenAddress
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 		)
 	{
@@ -83,7 +83,7 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, uint16 _FastCGIListenStartPort
 			, uint16 _nListen
 			, NNetwork::CNetAddress _BindAddress

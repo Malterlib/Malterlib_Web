@@ -7,7 +7,7 @@
 #include <Mib/Encoding/EJson>
 #include <Mib/Container/Registry>
 #include <Mib/Concurrency/ConcurrencyManager>
-#include <Mib/Concurrency/ActorFunctor>
+#include <Mib/Concurrency/ActorFunctorWeak>
 
 namespace NMib::NWeb
 {
@@ -56,6 +56,10 @@ namespace NMib::NWeb
 		virtual void f_WriteBinary(const uint8* _pData, mint _nBytes) = 0;
 		virtual void f_WriteHeader(CHTTPResponseHeader const& _Header) = 0;
 
+		virtual NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) = 0;
+		virtual NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) = 0;
+		virtual NConcurrency::TCFuture<void> f_WriteAsyncHeader(CHTTPResponseHeader _Header) = 0;
+
 		NStorage::CIntrusiveRefCount m_RefCount;
 	};
 
@@ -89,6 +93,10 @@ namespace NMib::NWeb
 		void f_WriteBinary(uint8 const* _pData, mint _nBytes) override;
 		void f_WriteHeader(CHTTPResponseHeader const& _Header) override;
 
+		NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) override;
+		NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) override;
+		NConcurrency::TCFuture<void> f_WriteAsyncHeader(CHTTPResponseHeader _Header) override;
+
 		bool f_HasHeader();
 		bool f_HasContent();
 
@@ -109,7 +117,12 @@ namespace NMib::NWeb
 		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
 	};
 
-	using FActorRequestHandler = NConcurrency::TCActorFunctor
+	struct CHTTPRequestHandlerActor : public NConcurrency::CActor
+	{
+		virtual NConcurrency::TCFuture<bool> f_HandleRequest(NStorage::TCSharedPointer<CHTTPConnection> _pConnection, NStorage::TCSharedPointer<CHTTPRequest> _pRequest) = 0;
+	};
+
+	using FActorRequestHandler = NConcurrency::TCActorFunctorWeak
 		<
 			NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> _pConnection, NStorage::TCSharedPointer<CHTTPRequest> _pRequest)
 		>
@@ -171,11 +184,14 @@ namespace NMib::NWeb
 		*/
 		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority);
 		void f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandleRequest, int _Priority);
+		void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority);
+
 		bool f_Run(CHTTPServerOptions const& _Options);
 		bool f_IsRunning();
 		bool f_Stop();
 
 		NConcurrency::TCFuture<void> f_AddHandlerActorForPathAsync(NStr::CStr _Path, FActorRequestHandler _fHandleRequest, int _Priority);
+		NConcurrency::TCFuture<void> f_AddHandlerActorForPathAsync(NStr::CStr _Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> _HandlerActor, int _Priority);
 		NConcurrency::TCFuture<bool> f_RunAsync(CHTTPServerOptions _Options);
 		NConcurrency::TCFuture<bool> f_IsRunningAsync();
 		NConcurrency::TCFuture<bool> f_StopAsync();
@@ -245,9 +261,9 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_WriteTemplateAsync
 			(
-				 NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
-				 , CHTTPResponseHeader const &_BaseHeader
-				 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
+				NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+				, CHTTPResponseHeader const &_BaseHeader
+				, NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
 			)
 		;
 
@@ -262,7 +278,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CHTTPConnection> m_pConnection;
 			NStorage::TCSharedPointer<CState> m_pState;
 			NConcurrency::TCPromise<void> m_Promise;
-			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> m_fWriteBlock;
+			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> m_fWriteBlock;
 			mint m_iBlock = 0;
 		};
 

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <Mib/Concurrency/ConcurrencyDefines>
+#include <Mib/Concurrency/ActorFunctorWeak>
 
 #include "Malterlib_Web_FastCGIServer.h"
 #include "Malterlib_Web_FastCGIServer_Protocol.h"
@@ -17,7 +18,7 @@ namespace NMib::NWeb
 		CFastCGIConnectionActor
 			(
 				NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
-				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
+				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
 			)
 		;
 		~CFastCGIConnectionActor();
@@ -25,17 +26,17 @@ namespace NMib::NWeb
 		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
-		void f_SendStdOutput(NContainer::CByteVector _Data);
-		void f_SendStdError(NContainer::CByteVector _Data);
+		NConcurrency::TCFuture<void> f_SendStdOutput(NContainer::CIOByteVector _Data);
+		NConcurrency::TCFuture<void> f_SendStdError(NContainer::CIOByteVector _Data);
 
 		void f_Accept();
 
 		void f_FinishRequest();
 
-		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback);
-		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback);
-		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> _fCallback);
-		void f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> _fCallback);
+		void f_OnStdInputRaw(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnData(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnStdInput(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback);
+		void f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback);
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy();
@@ -47,9 +48,9 @@ namespace NMib::NWeb
 		void fp_ClearState();
 
 		void fp_SendData(uint8 const* _pData, mint _Len);
-		void fp_SendData(NContainer::CByteVector const& _Data);
+		void fp_SendData(NContainer::CIOByteVector const& _Data);
 
-		void fp_SendStdOutput(NContainer::CByteVector const& _Data, NFastCGI::ERequestType _Type);
+		void fp_SendStdOutput(NContainer::CIOByteVector const& _Data, NFastCGI::ERequestType _Type);
 
 		bool fp_ProcessManagementRecord(NFastCGI::CHeader const& _Header, uint8 const* _pData, mint _DataLen);
 		bool fp_ProcessBeginRequest(NFastCGI::CHeader const& _Header, uint8 const* _pData, mint _DataLen);
@@ -79,22 +80,22 @@ namespace NMib::NWeb
 		NConcurrency::TCActor<CFastCGIServer> mp_ServerActor;
 		NNetwork::CSocket mp_Socket;
 
-		NContainer::CByteVector mp_IncomingData;
+		NContainer::CIOByteVector mp_IncomingData;
 		mint mp_IncomingPosition;
 		mint mp_NeededData;
 		NFastCGI::CHeader mp_CurrentHeader;
 		CRecordInfo mp_RecordInfo;
 		NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> mp_pParams = fg_Construct();
 
-		NContainer::CByteVector mp_OutgoingData;
+		NContainer::CIOByteVector mp_OutgoingData;
 		mint mp_OutgoingPosition;
 
-		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
+		NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
 
-		NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> mp_fOnStdInputRaw;
-		NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> mp_fOnData;
-		NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> mp_fOnStdInputStr;
-		NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> mp_fOnAbort;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> mp_fOnStdInputRaw;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> mp_fOnData;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> mp_fOnStdInputStr;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> mp_fOnAbort;
 
 		bool mp_bConnectionRemoved = false;
 		bool mp_bAcceptInput = true;

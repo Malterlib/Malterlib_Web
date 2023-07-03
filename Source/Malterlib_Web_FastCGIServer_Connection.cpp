@@ -22,7 +22,7 @@ namespace NMib::NWeb
 	CFastCGIConnectionActor::CFastCGIConnectionActor
 		(
 			NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
-			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
 		)
 		: mp_NeededData(0)
 		, mp_IncomingPosition(0)
@@ -106,12 +106,12 @@ namespace NMib::NWeb
 		fp_UpdateSend();
 	}
 
-	void CFastCGIConnectionActor::fp_SendData(NContainer::CByteVector const& _Data)
+	void CFastCGIConnectionActor::fp_SendData(NContainer::CIOByteVector const& _Data)
 	{
 		fp_SendData(_Data.f_GetArray(), _Data.f_GetLen());
 	}
 
-	void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::CByteVector const& _Data, ERequestType _Type)
+	void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::CIOByteVector const& _Data, ERequestType _Type)
 	{
 		auto *pData = _Data.f_GetArray();
 		mint ToSend = _Data.f_GetLen();
@@ -144,34 +144,38 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CFastCGIConnectionActor::f_SendStdOutput(NContainer::CByteVector _Data)
+	NConcurrency::TCFuture<void> CFastCGIConnectionActor::f_SendStdOutput(NContainer::CIOByteVector _Data)
 	{
 		mp_RecordInfo.m_bSentStdOut = true;
 		fp_SendStdOutput(_Data, ERequestType_StdOut);
+
+		co_return {};
 	}
 
-	void CFastCGIConnectionActor::f_SendStdError(NContainer::CByteVector _Data)
+	NConcurrency::TCFuture<void> CFastCGIConnectionActor::f_SendStdError(NContainer::CIOByteVector _Data)
 	{
 		mp_RecordInfo.m_bSentStdErr = true;
 		fp_SendStdOutput(_Data, ERequestType_StdErr);
+
+		co_return {};
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback)
+	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnStdInputRaw = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback)
+	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CIOByteVector _Data, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnData = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> _fCallback)
+	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnStdInputStr = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> _fCallback)
+	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback)
 	{
 		mp_fOnAbort = fg_Move(_fCallback);
 		if (mp_bConnectionRemoved && mp_fOnAbort)
@@ -231,7 +235,7 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnStdInputRaw)
-			mp_fOnStdInputRaw.f_CallDiscard(NContainer::CByteVector(_pData, _Len), _Len == 0);
+			mp_fOnStdInputRaw.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
 		else if (mp_fOnStdInputStr)
 		{
 			NStr::CStr String;
@@ -243,7 +247,7 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnData)
-			mp_fOnData.f_CallDiscard(NContainer::CByteVector(_pData, _Len), _Len == 0);
+			mp_fOnData.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
 	}
 
 	void CFastCGIConnectionActor::fp_OnParams()
@@ -458,7 +462,7 @@ namespace NMib::NWeb
 			if (ToSend < mp_OutgoingData.f_GetLen() / 2)
 			{
 				// Discard old data
-				NContainer::CByteVector OldData = fg_Move(mp_OutgoingData);
+				NContainer::CIOByteVector OldData = fg_Move(mp_OutgoingData);
 				mp_OutgoingData.f_Insert(OldData.f_GetArray() + mp_OutgoingPosition, ToSend);
 				mp_OutgoingPosition = 0;
 			}
@@ -577,7 +581,7 @@ namespace NMib::NWeb
 				if (Available < mp_IncomingData.f_GetLen() / 2)
 				{
 					// Discard old packet data
-					NContainer::CByteVector OldData = fg_Move(mp_IncomingData);
+					NContainer::CIOByteVector OldData = fg_Move(mp_IncomingData);
 					mp_IncomingData.f_Insert(OldData.f_GetArray() + mp_IncomingPosition, Available);
 					mp_IncomingPosition = 0;
 				}
