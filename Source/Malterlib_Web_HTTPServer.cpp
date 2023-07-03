@@ -72,23 +72,17 @@ namespace NMib::NWeb
 
 			}
 
-			void f_Write(NStr::CStr _Str)
+			void f_WriteStr(NStr::CStr _Str) override
 			{
 				mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
 			}
 
-			void f_Write(char const* _pStr)
-			{
-				mp_ContentStream.f_FeedBytes((void const*)_pStr, NStr::fg_StrLen(_pStr));
-			}
-
-
-			void f_Write(uint8 const* _pData, mint _nBytes)
+			void f_WriteBinary(uint8 const* _pData, mint _nBytes) override
 			{
 				mp_ContentStream.f_FeedBytes((void const*)_pData, _nBytes);
 			}
 
-			void f_Write(CHTTPResponseHeader const& _Header)
+			void f_WriteHeader(CHTTPResponseHeader const& _Header) override
 			{
 				mp_Header = _Header;
 			}
@@ -788,11 +782,11 @@ namespace NMib::NWeb
 		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
 		{
 			CHTTPResponseHeader ResponseHeader;
-			_Connection.f_Write(ResponseHeader);
+			_Connection.f_WriteHeader(ResponseHeader);
 
 			NStr::CStr Msg = "Hello from the handler!<BR/>";
 
-			_Connection.f_Write(Msg);
+			_Connection.f_WriteStr(Msg);
 
 			return true;
 		}
@@ -955,25 +949,19 @@ namespace NMib::NWeb
 		return *this;
 	}
 
-	void CHTTPCachedConnection::f_Write(NStr::CStr _Str)
+	void CHTTPCachedConnection::f_WriteStr(NStr::CStr _Str)
 	{
 		mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
 		mp_Present |= EPresent_Content;
 	}
 
-	void CHTTPCachedConnection::f_Write(char const* _pStr)
-	{
-		mp_ContentStream.f_FeedBytes((void const*)_pStr, NStr::fg_StrLen(_pStr));
-		mp_Present |= EPresent_Content;
-	}
-
-	void CHTTPCachedConnection::f_Write(uint8 const* _pData, mint _nBytes)
+	void CHTTPCachedConnection::f_WriteBinary(uint8 const* _pData, mint _nBytes)
 	{
 		mp_ContentStream.f_FeedBytes((void const*)_pData, _nBytes);
 		mp_Present |= EPresent_Content;
 	}
 
-	void CHTTPCachedConnection::f_Write(CHTTPResponseHeader const& _Header)
+	void CHTTPCachedConnection::f_WriteHeader(CHTTPResponseHeader const& _Header)
 	{
 		mp_Header = _Header;
 		mp_Present |= EPresent_Header;
@@ -1011,10 +999,10 @@ namespace NMib::NWeb
 	void CHTTPCachedConnection::f_Forward(CHTTPConnection& _Dest)
 	{
 		if (mp_Present & EPresent_Header)
-			_Dest.f_Write(mp_Header);
+			_Dest.f_WriteHeader(mp_Header);
 
 		if (mp_Present & EPresent_Content)
-			_Dest.f_Write((uint8 const*)mp_ContentStream.f_GetBuffer(), mp_ContentStream.f_GetLength());
+			_Dest.f_WriteBinary((uint8 const*)mp_ContentStream.f_GetBuffer(), mp_ContentStream.f_GetLength());
 	}
 
 	void CHTTPCachedConnection::f_Clear()
@@ -1041,7 +1029,7 @@ namespace NMib::NWeb
 			auto &Block = State.m_Blocks[WriteState.m_iBlock];
 
 			if (Block.m_Type == EBlock_HTML)
-				WriteState.m_pConnection->f_Write(Block.m_Text);
+				WriteState.m_pConnection->f_WriteStr(Block.m_Text);
 			else if (Block.m_Type == EBlock_UserData)
 			{
 				WriteState.m_fWriteBlock(Block.m_Text) > WriteState.m_Promise / [_pState]
@@ -1061,7 +1049,7 @@ namespace NMib::NWeb
 			 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> &&_fWriteBlock
 		)
 	{
-		_pConnection->f_Write(_BaseHeader);
+		_pConnection->f_WriteHeader(_BaseHeader);
 
 		NStorage::TCSharedPointer<CAsyncWriteState> pWriteState = fg_Construct();
 

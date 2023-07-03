@@ -94,7 +94,7 @@ namespace NMib::NWeb
 							ResponseHeader.m_Status = 304;
 					}
 
-					_Connection.f_Write(ResponseHeader);
+					_Connection.f_WriteHeader(ResponseHeader);
 
 					return ResponseHeader.m_Status == 304;
 				}
@@ -131,7 +131,7 @@ namespace NMib::NWeb
 				{
 					nBytesRead = fg_Min(nBytes, 1024*1024);
 					pStream->f_ConsumeBytes(lBuf.f_GetArray(), nBytesRead);
-					_Connection.f_Write(lBuf.f_GetArray(), nBytesRead);
+					_Connection.f_WriteBinary(lBuf.f_GetArray(), nBytesRead);
 					nBytes -= nBytesRead;
 				}
 			}

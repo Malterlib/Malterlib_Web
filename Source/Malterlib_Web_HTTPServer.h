@@ -52,11 +52,9 @@ namespace NMib::NWeb
 	public:
 		virtual ~CHTTPConnection() {}
 
-		virtual void f_Write(NStr::CStr _Str) = 0;
-		virtual void f_Write(char const* _pStr) = 0;
-		virtual void f_Write(const uint8* _pData, mint _nBytes) = 0;
-
-		virtual void f_Write(CHTTPResponseHeader const& _Header) = 0;
+		virtual void f_WriteStr(NStr::CStr _Str) = 0;
+		virtual void f_WriteBinary(const uint8* _pData, mint _nBytes) = 0;
+		virtual void f_WriteHeader(CHTTPResponseHeader const& _Header) = 0;
 
 		NStorage::CIntrusiveRefCount m_RefCount;
 	};
@@ -87,10 +85,9 @@ namespace NMib::NWeb
 		CHTTPCachedConnection& operator= (CHTTPCachedConnection const& _ToCopy);
 		CHTTPCachedConnection& operator= (CHTTPCachedConnection && _ToMove);
 
-		void f_Write(NStr::CStr _Str) override;
-		void f_Write(char const* _pStr) override;
-		void f_Write(uint8 const* _pData, mint _nBytes) override;
-		void f_Write(CHTTPResponseHeader const& _Header) override;
+		void f_WriteStr(NStr::CStr _Str) override;
+		void f_WriteBinary(uint8 const* _pData, mint _nBytes) override;
+		void f_WriteHeader(CHTTPResponseHeader const& _Header) override;
 
 		bool f_HasHeader();
 		bool f_HasContent();
@@ -230,12 +227,12 @@ namespace NMib::NWeb
 		template <typename t_FFunc>
 		void f_WriteTemplate(CHTTPConnection & _Conn, CHTTPResponseHeader const& _BaseHeader, t_FFunc const& _Func)
 		{
-			_Conn.f_Write(_BaseHeader);
+			_Conn.f_WriteHeader(_BaseHeader);
 
 			for (auto &Block : mp_pState->m_Blocks)
 			{
 				if (Block.m_Type == EBlock_HTML)
-					_Conn.f_Write(Block.m_Text);
+					_Conn.f_WriteStr(Block.m_Text);
 				else if (Block.m_Type == EBlock_UserData)
 					_Func(_Conn, Block.m_Text);
 			}
