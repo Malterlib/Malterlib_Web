@@ -489,6 +489,11 @@ namespace NMib::NWeb
 		return mp_Internal(&CHTTPServerInternal::f_Run, _Options).f_CallSync();
 	}
 
+	NConcurrency::TCFuture<bool> CHTTPServer::f_RunAsync(CHTTPServerOptions const& _Options)
+	{
+		return mp_Internal(&CHTTPServerInternal::f_Run, _Options).f_Future();
+	}
+
 	bool CHTTPServer::f_IsRunning()
 	{
 		return mp_Internal(&CHTTPServerInternal::f_IsRunning).f_CallSync();
@@ -497,6 +502,11 @@ namespace NMib::NWeb
 	bool CHTTPServer::f_Stop()
 	{
 		return mp_Internal(&CHTTPServerInternal::f_Stop).f_CallSync();
+	}
+
+	NConcurrency::TCFuture<bool> CHTTPServer::f_StopAsync()
+	{
+		return mp_Internal(&CHTTPServerInternal::f_Stop).f_Future();
 	}
 
 	// CHTTPResponseHeader Public Methods
