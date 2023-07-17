@@ -7,7 +7,7 @@
 #include <Mib/Encoding/EJSON>
 #include <Mib/Container/Registry>
 #include <Mib/Concurrency/ConcurrencyManager>
-#include <Mib/Concurrency/ActorFunctor>
+#include <Mib/Concurrency/ActorFunctorWeak>
 
 namespace NMib::NWeb
 {
@@ -114,7 +114,7 @@ namespace NMib::NWeb
 		virtual NConcurrency::TCFuture<bool> f_HandleRequest(NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest) = 0;
 	};
 
-	using FActorRequestHandler = NConcurrency::TCActorFunctor
+	using FActorRequestHandler = NConcurrency::TCActorFunctorWeak
 		<
 			NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest)
 		>
@@ -247,9 +247,9 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_WriteTemplateAsync
 			(
-				 NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
-				 , CHTTPResponseHeader const &_BaseHeader
-				 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
+				NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+				, CHTTPResponseHeader const &_BaseHeader
+				, NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
 			)
 		;
 
@@ -264,7 +264,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CHTTPConnection> m_pConnection;
 			NStorage::TCSharedPointer<CState> m_pState;
 			NConcurrency::TCPromise<void> m_Promise;
-			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> m_fWriteBlock;
+			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> m_fWriteBlock;
 			mint m_iBlock = 0;
 		};
 

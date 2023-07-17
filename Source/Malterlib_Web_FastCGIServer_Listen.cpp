@@ -15,7 +15,7 @@ namespace NMib::NWeb::NFastCGI
 	CListenActor::CListenActor
 		(
 			NConcurrency::TCActor<CFastCGIServer> const &_Server
-			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
 		)
 		: mp_Server(_Server)
 		, mp_pOnRequest(_pOnRequest)

@@ -24,7 +24,7 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::f_Start
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
 			, uint16 _FastCGIListenStartPort
 			, uint16 _nListen
 			, NNetwork::CNetAddress const &_BindAddress
@@ -58,25 +58,25 @@ namespace NMib::NWeb
 		return mp_bFinished;
 	}
 
-	void CFastCGIRequest::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnStdInputRaw(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
 		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnStdInputRaw, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnData(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
 		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnData, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnStdInput(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
 		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnStdInput, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
+	void CFastCGIRequest::f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
 		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnAbort, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();

@@ -134,8 +134,10 @@ namespace NMib::NWeb
 				}
 			}
 
-			void f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
+			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
 			{
+				NConcurrency::TCPromise<void> Promise;
+
 				mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
 				auto* pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
 				if (pRemoteIP)
@@ -170,7 +172,7 @@ namespace NMib::NWeb
 					if (!pContentLength)
 					{
 						fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for POST"));
-						return;
+						return Promise <<= g_Void;
 					}
 
 					int nPostBytes = ContentLengthField.f_ToInt();
@@ -178,7 +180,7 @@ namespace NMib::NWeb
 
 					mp_pRequest->f_OnStdInputRaw
 						(
-							NConcurrency::g_ActorFunctor(NConcurrency::fg_ConcurrentActor())
+							NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ConcurrentActor())
 							/ [nPostBytes, pData, _pThis](NContainer::CByteVector &&_Data, bool _bEOF) -> NConcurrency::TCFuture<void>
 							{
 								pData->f_Insert(_Data);
@@ -186,30 +188,31 @@ namespace NMib::NWeb
 								if (_bEOF)
 								{
 									if (nPostBytes != pData->f_GetLen())
-									{
 										fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
-									}
 									else
 									{
 										_pThis->fp_ParseVariables((ch8 const*)pData->f_GetArray(), pData->f_GetLen());
-										_pThis->f_HandleRequest();
+										co_await _pThis->f_HandleRequest();
 									}
 								}
-								return NConcurrency::TCPromise<void>() <<= g_Void;
+
+								co_return {};
 							}
 						)
 					;
 
 					mp_pRequest->f_Accept();
-					return;
+					return Promise <<= g_Void;
 				}
 				mp_pRequest->f_Accept();
 
-				_pThis->f_HandleRequest();
+				return Promise <<= _pThis->f_HandleRequest();
 			}
 
-			void f_HandleRequest()
+			NConcurrency::TCFuture<void> f_HandleRequest()
 			{
+				NConcurrency::TCPromise<void> Promise;
+
 				auto &Internal = mp_Internal;
 				bool bHandled = false;
 				if (Internal.mp_bActorHandlers)
@@ -282,31 +285,33 @@ namespace NMib::NWeb
 					}
 
 					pHandlers->m_fHandleNext(pHandlers, pConnection, mp_pHTTPRequest);
+
+					return Promise.f_Future();
 				}
-				else
+				
+				try
 				{
-					try
+					for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
 					{
-						for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+						for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
 						{
-							for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
-							{
-								if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
-									bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, *mp_pHTTPRequest);
-							}
+							if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
+								bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, *mp_pHTTPRequest);
 						}
 					}
-					catch (NException::CException const &_Exception)
-					{
-						fsp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
-						return;
-					}
-
-					if (bHandled)
-						f_Send();
-					else
-						fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
 				}
+				catch (NException::CException const &_Exception)
+				{
+					fsp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
+					return Promise <<= g_Void;
+				}
+
+				if (bHandled)
+					f_Send();
+				else
+					fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
+
+				return Promise <<= g_Void;
 			}
 		};
 
@@ -395,9 +400,12 @@ namespace NMib::NWeb
 			mp_pFastCGIServer
 				(
 					&CFastCGIServer::f_Start
-					, NConcurrency::g_ActorFunctor(NConcurrency::fg_DynamicConcurrentActor())
+					, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor())
 					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest) -> NConcurrency::TCFuture<void>
 					{
+#if DMibEnableDTrace > 0
+						NTime::CClock Clock{true};
+#endif
 						NConcurrency::TCPromise<void> Promise;
 						auto& Params = _pRequest->f_GetParams();
 						auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
@@ -409,19 +417,27 @@ namespace NMib::NWeb
 						}
 
 						NStr::CStr URI = *pURI;
-#if DMibEnableDTrace > 0
-						NTime::CClock Clock;
-						Clock.f_Start();
-#endif
 
 						// Check registered handlers
 						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(_pRequest, *this);
 
-						pConnection->f_HandleRequest(pConnection, Params);
+						pConnection->f_HandleRequest(pConnection, Params) >
+							[
+								Promise
+#if DMibEnableDTrace > 0
+								, Clock
+								, URI
+#endif
+							]
+							(NConcurrency::TCAsyncResult<void> &&_Result)
+							{
+								DMibDTrace("HTTPServer: URI Served ({}): {}\n", NTime::fg_SecondsDurationToHumanReadable(Clock.f_GetTime()) << URI);
+								Promise.f_SetResult();
+							}
+						;
 
-						DMibDTrace("HTTPServer: URI Served ({fe3} s): {}\n", Clock.f_GetTime() << URI);
 						//DMibTrace("Handled in {} s\n", Clock.f_GetTime());
-						return Promise <<= g_Void;
+						return Promise.f_MoveFuture();
 					}
 					, mp_Options.m_FastCGIListenStartPort
 					, mp_Options.m_nMaxThreads
@@ -1042,21 +1058,25 @@ namespace NMib::NWeb
 				WriteState.m_pConnection->f_WriteStr(Block.m_Text);
 			else if (Block.m_Type == EBlock_UserData)
 			{
-				WriteState.m_fWriteBlock(Block.m_Text) > WriteState.m_Promise / [_pState]
+				fg_CallSafe(WriteState.m_fWriteBlock, Block.m_Text) > WriteState.m_Promise / [_pState]
 					{
 						++_pState->m_iBlock;
 						fsp_AsyncWrite(_pState);
 					}
 				;
+				return;
 			}
 		}
+
+		if (WriteState.m_iBlock == nBlocks)
+			WriteState.m_Promise.f_SetResult();
 	}
 
 	NConcurrency::TCFuture<void> CHTMLTemplate::f_WriteTemplateAsync
 		(
 			 NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
 			 , CHTTPResponseHeader const &_BaseHeader
-			 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const& _BlockName)> &&_fWriteBlock
+			 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
 		)
 	{
 		_pConnection->f_WriteHeader(_BaseHeader);

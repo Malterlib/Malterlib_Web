@@ -22,7 +22,7 @@ namespace NMib::NWeb
 	CFastCGIConnectionActor::CFastCGIConnectionActor
 		(
 			NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
-			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
 		)
 		: mp_NeededData(0)
 		, mp_IncomingPosition(0)
@@ -156,22 +156,22 @@ namespace NMib::NWeb
 		fp_SendStdOutput(_Data, ERequestType_StdErr);
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnStdInputRaw = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnData = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
 	{
 		mp_fOnStdInputStr = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback)
 	{
 		mp_fOnAbort = fg_Move(_fCallback);
 		if (mp_bConnectionRemoved && mp_fOnAbort)
