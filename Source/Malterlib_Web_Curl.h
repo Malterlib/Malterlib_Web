@@ -57,7 +57,16 @@ namespace NMib::NWeb
 			, EMethod_PUT
 			, EMethod_DELETE
 		};
-		
+
+		struct CRequest
+		{
+			NStr::CStr m_URL;
+			EMethod m_Method = EMethod_GET;
+			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
+			NContainer::CByteVector m_Data;
+			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Cookies;
+		};
+
 		struct CResult
 		{
 			CResult(CState const &_State);
@@ -79,6 +88,8 @@ namespace NMib::NWeb
 				, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 			)
 		;
+
+		NConcurrency::TCFuture<CResult> f_ExecuteRequest(CRequest &&_Request);
 
 	private:
 		struct CInternal;

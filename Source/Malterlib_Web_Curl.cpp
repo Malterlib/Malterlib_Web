@@ -336,6 +336,11 @@ namespace NMib::NWeb
 			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
 		)
 	{
+		return fg_CallSafe(this, &CCurlActor::f_ExecuteRequest, CRequest{.m_URL = _URL, .m_Method = _Method, .m_Headers = _Headers, .m_Data = _Data, .m_Cookies = _Cookies});
+	}
+
+	NConcurrency::TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest &&_Request)
+	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Curl actor shutting down");
 
@@ -347,7 +352,7 @@ namespace NMib::NWeb
 		auto &Request = Internal.m_Requests[RequestID];
 		Request.m_pActor = this;
 		Request.m_pCurl = fg_Explicit(curl_easy_init());
-		Request.m_Data = _Data;
+		Request.m_Data = fg_Move(_Request.m_Data);
 		Request.m_iData = fg_Const(Request.m_Data).f_GetIterator();
 		Request.m_CurlErrorBuffer.f_CreateWritableBuffer(CURL_ERROR_SIZE, true);
 
@@ -371,7 +376,7 @@ namespace NMib::NWeb
 					CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 					if (CurlError)
 						fg_AddStrSep(FullError, CurlError, ". ");
-					DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _URL, _Result, FullError));
+					DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _Request.m_URL, _Result, FullError));
 				}
 			}
 		;
@@ -389,19 +394,19 @@ namespace NMib::NWeb
 		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
 		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
 
-		for (auto &Cookie : _Cookies)
-			Request.m_CookieStr += "{}={}; "_f << _Cookies.fs_GetKey(Cookie) << Cookie;
+		for (auto &Cookie : _Request.m_Cookies.f_Entries())
+			Request.m_CookieStr += "{}={}; "_f << Cookie.f_Key() << Cookie.f_Value();
 
 		if (Request.m_CookieStr)
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
 
-		if (!_Headers.f_FindEqual("Accept"))
+		if (!_Request.m_Headers.f_FindEqual("Accept"))
 			pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
 
-		if (!_Headers.f_FindEqual("Content-Type"))
+		if (!_Request.m_Headers.f_FindEqual("Content-Type"))
 			pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
 
-		if (!_Headers.f_FindEqual("Expect"))
+		if (!_Request.m_Headers.f_FindEqual("Expect"))
 			pHeaders = curl_slist_append(pHeaders, "Expect:");
 
 		if (!Internal.m_CertificateConfig.m_ClientCertificate.f_IsEmpty())
@@ -433,21 +438,21 @@ namespace NMib::NWeb
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
 		}
 
-		if (_Method == EMethod_POST)
+		if (_Request.m_Method == EMethod_POST)
 		{
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, _Data.f_GetArray()));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, _Data.f_GetLen()));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, Request.m_Data.f_GetArray()));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, Request.m_Data.f_GetLen()));
 		}
-		else if (_Method == EMethod_PUT || _Method == EMethod_PATCH)
+		else if (_Request.m_Method == EMethod_PUT || _Request.m_Method == EMethod_PATCH)
 		{
-			if (_Method == EMethod_PATCH)
+			if (_Request.m_Method == EMethod_PATCH)
 				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
 
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, _Data.f_GetLen()));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, Request.m_Data.f_GetLen()));
 
 			auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 				{
@@ -468,12 +473,12 @@ namespace NMib::NWeb
 
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
 		}
-		else if (_Method == EMethod_DELETE)
+		else if (_Request.m_Method == EMethod_DELETE)
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-		else if (_Method == EMethod_HEAD)
+		else if (_Request.m_Method == EMethod_HEAD)
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
 
-		NHTTP::CURL Url(_URL);
+		NHTTP::CURL Url(_Request.m_URL);
 		CStr UrlHost = Url.f_GetHost();
 		if (UrlHost.f_StartsWith("UNIX:"))
 		{
@@ -484,11 +489,11 @@ namespace NMib::NWeb
 			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
 		}
 		else
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _URL.f_GetStr()));
+			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _Request.m_URL.f_GetStr()));
 
-		for (auto &Header : _Headers)
+		for (auto &Header : _Request.m_Headers.f_Entries())
 		{
-			CStr HeaderStr(fg_Format("{}: {}", _Headers.fs_GetKey(Header), Header));
+			CStr HeaderStr(fg_Format("{}: {}", Header.f_Key(), Header.f_Value()));
 			pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
 		}
 		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
