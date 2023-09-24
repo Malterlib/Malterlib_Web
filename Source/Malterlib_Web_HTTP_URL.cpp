@@ -899,4 +899,24 @@ namespace NMib::NWeb::NHTTP
 			o_Result = fg_Move(Temp);
 		}
 	}
+
+	NStr::CStr CURL::fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags)
+	{
+		NStr::CStr Output;
+
+		bool bFirst = true;
+		for (auto &Entry : _QueryEntries)
+		{
+			if (!bFirst)
+				Output += "&";
+			else
+				bFirst = false;
+
+			fs_PercentEncode(Output, Entry.m_Key, nullptr, _Flags);
+			Output += "=";
+			fs_PercentEncode(Output, Entry.m_Value, nullptr, _Flags);
+		}
+
+		return Output;
+	}
 }
