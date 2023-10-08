@@ -78,7 +78,7 @@ namespace NMib::NWeb
 
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
-		auto fDoRequest = [=](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
+		auto fDoRequest = [=, this](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
 			{
 				auto &Internal = *mp_pInternal;
 

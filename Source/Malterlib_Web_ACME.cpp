@@ -102,9 +102,9 @@ namespace NMib::NWeb
 
 						Jwk =
 							{
-								"e"__= fg_Base64URLEncode(RsaParams.m_Exponent)
-								, "kty"__= "RSA"
-								, "n"__= fg_Base64URLEncode(RsaParams.m_Modulus)
+								"e"_j= fg_Base64URLEncode(RsaParams.m_Exponent)
+								, "kty"_j= "RSA"
+								, "n"_j= fg_Base64URLEncode(RsaParams.m_Modulus)
 							}
 						;
 					}
@@ -141,10 +141,10 @@ namespace NMib::NWeb
 
 						Jwk =
 							{
-								"crv"__= Curve
-								, "kty"__= "EC"
-								, "x"__= fg_Base64URLEncode(EcParams.m_CoordinateX)
-								, "y"__= fg_Base64URLEncode(EcParams.m_CoordinateY)
+								"crv"_j= Curve
+								, "kty"_j= "EC"
+								, "x"_j= fg_Base64URLEncode(EcParams.m_CoordinateX)
+								, "y"_j= fg_Base64URLEncode(EcParams.m_CoordinateY)
 							}
 						;
 					}
@@ -526,9 +526,9 @@ namespace NMib::NWeb
 					NewAccountUrl
 					,
 					{
-						"contact"__= fg_Move(EmailContacts)
-						, "termsOfServiceAgreed"__= true
-						, "onlyReturnExisting"__= false
+						"contact"_j= fg_Move(EmailContacts)
+						, "termsOfServiceAgreed"_j= true
+						, "onlyReturnExisting"_j= false
 					}
 				)
 			;
@@ -563,9 +563,9 @@ namespace NMib::NWeb
 		{
 			CJSONSorted Identifiers = EJSONType_Array;
 			for (auto &DnsName : _RequestCertificate.m_DnsNames)
-				Identifiers.f_Array().f_Insert(CJSONSorted{"type"__= "dns", "value"__= DnsName});
+				Identifiers.f_Array().f_Insert(CJSONSorted{"type"_j= "dns", "value"_j= DnsName});
 
-			auto Result = co_await fPost(NewOrderUrl, {"identifiers"__= fg_Move(Identifiers)});
+			auto Result = co_await fPost(NewOrderUrl, {"identifiers"_j= fg_Move(Identifiers)});
 
 			if (auto pLocation = Result.m_Headers.f_FindEqual("location"))
 				OrderUrl = *pLocation;
@@ -728,7 +728,7 @@ namespace NMib::NWeb
 		CStr Status;
 		CStr CertificateUrl;
 		{
-			auto Result = co_await fPost(FinalizeUrl, {"csr"__= fg_Base64URLEncode(CCertificate::fs_ConvertToDer_CertificateSigningRequest(CertificateSigningRequest))});
+			auto Result = co_await fPost(FinalizeUrl, {"csr"_j= fg_Base64URLEncode(CCertificate::fs_ConvertToDer_CertificateSigningRequest(CertificateSigningRequest))});
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error finalizing order");
 
