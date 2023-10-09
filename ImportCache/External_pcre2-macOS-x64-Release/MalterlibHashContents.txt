@@ -103,13 +103,13 @@ Import.CMake_Variables: [
 	CMAKE_RANLIB=llvm-ranlib,
 	CMAKE_AR=llvm-ar,
 	,
-	CMAKE_OSX_SYSROOT=/private/var/db/xcode_select_link/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk,
+	CMAKE_OSX_SYSROOT=Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk,
 	CMAKE_OSX_ARCHITECTURES=x86_64,
 	,
 	OPENSSL_ROOT_DIR=/External/boringssl,
-	OPENSSL_LIBRARIES=/private/var/db/xcode_select_link/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
-	OPENSSL_CRYPTO_LIBRARY=/private/var/db/xcode_select_link/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
-	OPENSSL_SSL_LIBRARY=/private/var/db/xcode_select_link/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
+	OPENSSL_LIBRARIES=Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
+	OPENSSL_CRYPTO_LIBRARY=Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
+	OPENSSL_SSL_LIBRARY=Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd,
 	PCRE2_BUILD_PCRE2GREP=OFF,
 	PCRE2_BUILD_TESTS=OFF
 ]
