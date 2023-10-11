@@ -25,6 +25,13 @@ namespace NMib::NWeb
 			)
 		;
 
+		NConcurrency::TCFuture<void> f_StartListenAddress
+			(
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+				, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+			)
+		;
+
 		void f_Construct();
 
 	private:

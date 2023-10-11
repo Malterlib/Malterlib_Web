@@ -22,20 +22,17 @@ namespace NMib::NWeb
 	{
 	}
 
-	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
+	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_StartListenAddress
 		(
 			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
-			, uint16 _FastCGIListenStartPort
-			, uint16 _nListen
-			, NNetwork::CNetAddress const &_BindAddress
+			, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
 		)
 	{
 		if (mp_pOnRequest)
 			co_return DMibErrorInstance("Already started");
 		mp_pOnRequest = fg_Construct(fg_Move(_fOnRequest));
 
-		mint nThreads = _nListen;
-		uint16 StartListen = _FastCGIListenStartPort;
+		mint nThreads = _Addresses.f_GetLen();
 
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> ListenSockets;
 		ListenSockets.f_SetLen(nThreads);
@@ -51,8 +48,7 @@ namespace NMib::NWeb
 
 		for (mint i = 0; i < nThreads; ++i)
 		{
-			NNetwork::CNetAddress Address = _BindAddress;
-			Address.f_SetPort(StartListen + i);
+			NNetwork::CNetAddress Address = _Addresses[i];
 
 			NConcurrency::TCActor<CListenActor> &ListenActor = ListenSockets[i];
 			ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(mp_pThis), mp_pOnRequest);
@@ -81,6 +77,31 @@ namespace NMib::NWeb
 		}
 
 		mp_ListenSockets = fg_Move(ListenSockets);
+
+		co_return {};
+	}
+
+	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
+		(
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			, uint16 _FastCGIListenStartPort
+			, uint16 _nListen
+			, NNetwork::CNetAddress const &_BindAddress
+		)
+	{
+		NContainer::TCVector<NNetwork::CNetAddress> Addresses;
+
+		mint nThreads = _nListen;
+		uint16 StartListen = _FastCGIListenStartPort;
+
+		for (mint i = 0; i < nThreads; ++i)
+		{
+			NNetwork::CNetAddress Address = _BindAddress;
+			Address.f_SetPort(StartListen + i);
+			Addresses.f_Insert(fg_Move(Address));
+		}
+
+		co_await NConcurrency::fg_CallSafe(this, &CInternal::f_StartListenAddress, fg_Move(_fOnRequest), fg_Move(Addresses));
 
 		co_return {};
 	}

@@ -33,6 +33,15 @@ namespace NMib::NWeb
 		return NConcurrency::fg_CallSafe(*mp_pInternal, &CInternal::f_Start, fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen, _BindAddress);
 	}
 
+	NConcurrency::TCFuture<void> CFastCGIServer::f_StartListenAddress
+		(
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+		)
+	{
+		return NConcurrency::fg_CallSafe(*mp_pInternal, &CInternal::f_StartListenAddress, fg_Move(_fOnRequest), fg_Move(_Addresses));
+	}
+
 	///
 	/// Request
 	/// =======

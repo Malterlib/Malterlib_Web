@@ -55,6 +55,13 @@ namespace NMib::NWeb
 		CFastCGIServer();
 		~CFastCGIServer();
 
+		NConcurrency::TCFuture<void> f_StartListenAddress
+			(
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+				, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+			)
+		;
+
 		NConcurrency::TCFuture<void> f_Start
 			(
 				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
