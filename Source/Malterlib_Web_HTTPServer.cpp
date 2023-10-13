@@ -400,7 +400,7 @@ namespace NMib::NWeb
 			mp_pFastCGIServer = fg_Construct();
 			mp_pFastCGIServer
 				(
-					&CFastCGIServer::f_Start
+					&CFastCGIServer::f_StartListenAddress
 					, NConcurrency::g_ActorFunctor(NConcurrency::fg_DynamicConcurrentActor())
 					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest) -> NConcurrency::TCFuture<void>
 					{
@@ -429,9 +429,7 @@ namespace NMib::NWeb
 						//DMibTrace("Handled in {} s\n", Clock.f_GetTime());
 						return Promise <<= g_Void;
 					}
-					, mp_Options.m_FastCGIListenStartPort
-					, mp_Options.m_nMaxThreads
-					, mp_Options.m_FastCGIListenAddress
+					, mp_Options.m_FastCGIListenAddresses
 				)
 				> NConcurrency::fg_DiscardResult()
 			;

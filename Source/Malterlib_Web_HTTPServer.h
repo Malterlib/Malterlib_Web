@@ -124,7 +124,7 @@ namespace NMib::NWeb
 		NStr::CStr m_NGINXPath;
 		NStr::CStr m_WebRoot;
 
-		NNetwork::CNetAddress m_FastCGIListenAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0);
+		NContainer::TCVector<NNetwork::CNetAddress> m_FastCGIListenAddresses = {NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)};
 
 		uint32 m_nMaxThreads = 1;
 		uint16 m_ListeningPort = 8080;
