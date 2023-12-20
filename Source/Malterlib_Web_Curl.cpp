@@ -169,10 +169,13 @@ namespace NMib::NWeb
 		if (!Internal.m_pMulti)
 			DMibError("Failed to initialize multi");
 
-		m_pThread = NThread::CThreadObject::fs_StartThread
+		mp_pThread = NThread::CThreadObject::fs_StartThread
 			(
 				[this](NThread::CThreadObject *_pThread) -> aint
 				{
+					mp_ThreadCanStartEvent.f_Wait();
+					mp_ThreadStartedEvent.f_SetSignaled();
+
 					auto &Internal = *m_pInternal;
 					auto *pMultiHandle = Internal.m_pMulti.f_Get();
 
@@ -222,6 +225,9 @@ namespace NMib::NWeb
 				, f_ConcurrencyManager().f_GetExecutionPriority(f_GetPriority())
 			)
 		;
+
+		mp_ThreadCanStartEvent.f_SetSignaled();
+		mp_ThreadStartedEvent.f_Wait();
 	}
 
 	void CCurlActor::CActorHolder::fp_Wakeup()
@@ -247,9 +253,9 @@ namespace NMib::NWeb
 
 	void CCurlActor::CActorHolder::fp_DestroyThreaded()
 	{
-		m_pThread->f_Stop(false);
+		mp_pThread->f_Stop(false);
 		fp_Wakeup();
-		m_pThread.f_Clear();
+		mp_pThread.f_Clear();
 
 		auto &Internal = *m_pInternal;
 		Internal.m_pMulti.f_Clear();
