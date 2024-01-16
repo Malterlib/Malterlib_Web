@@ -196,5 +196,6 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 	%Dependency "Lib_PCRE2_pcre2-8-static"
 	{
 		Dependency.Indirect true
+		Dependency.IndirectOrdered true
 	}
 }
