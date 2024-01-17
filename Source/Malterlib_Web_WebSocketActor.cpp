@@ -306,7 +306,10 @@ namespace NMib::NWeb
 		mint m_bPendingMessage:1 = false;
 		mint m_bClient:1 = false;
 		mint m_bDebugNoProcessing:1 = false;
+		mint m_bDebugNoProcessingReceive:1 = false;
+		mint m_bDebugNoProcessingSend:1 = false;
 		mint m_bDebugFailSends:1 = false;
+		mint m_bDelayClose:1 = false;
 		mint m_bOnCloseCalled:1 = false;
 		mint m_bOnFinishDone:1 = false;
 		mint m_bWantStopDefer:1 = false;
@@ -459,7 +462,11 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		Internal.m_bDebugNoProcessing = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessing) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDebugNoProcessingReceive = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessingReceive) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDebugNoProcessingSend = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessingSend) != NNetwork::ESocketDebugFlag_None;
 		Internal.m_bDebugFailSends = (_DebugFlags & NNetwork::ESocketDebugFlag_FailSends) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDelayClose = (_DebugFlags & NNetwork::ESocketDebugFlag_DelayClose) != NNetwork::ESocketDebugFlag_None;
+
 		if (_Timeout != fp64::fs_Inf())
 		{
 			Internal.m_Settings.m_Timeout = _Timeout;
@@ -571,6 +578,9 @@ namespace NMib::NWeb
 
 				co_return fg_Move(CloseInfo);
 			}
+
+			if (Internal.m_bDelayClose)
+				co_await NConcurrency::fg_Timeout(0.05);
 		}
 
 		auto ProcessingActor = NConcurrency::fg_ThisConcurrentActor();
@@ -1105,7 +1115,7 @@ namespace NMib::NWeb
 		else if (Internal.m_State == EState_Disconnecting)
 			Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
 
-		if (Internal.m_bDebugNoProcessing)
+		if (Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingSend)
 			return;
 
 		bool bDidSend = false;
@@ -2095,7 +2105,7 @@ namespace NMib::NWeb
 			return;
 		}
 
-		if ((_StateAdded & NNetwork::ENetTCPState_Read) && !Internal.m_bDebugNoProcessing)
+		if ((_StateAdded & NNetwork::ENetTCPState_Read) && !(Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive))
 		{
 			DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_Read", fg_ThisActor(this), !Internal.m_bClient);
 
