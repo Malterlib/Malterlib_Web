@@ -120,10 +120,17 @@ namespace NMib::NWeb
 					{
 						if (!pReplied->f_Exchange(true))
 						{
+							auto pCleanupPromise = g_OnScopeExitShared / [Promise]
+								{
+									if (!Promise.f_IsSet())
+										Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
+								}
+							;
+
 							auto This = WeakThis.f_Lock();
 							if (This)
 							{
-								NConcurrency::g_Dispatch(This) / [pPendingDeleted, pPending, Promise, CleanupPending]
+								NConcurrency::g_Dispatch(This) / [pPendingDeleted, pPending, Promise, CleanupPending, pCleanupPromise]
 									{
 										NStr::CStr Error;
 										if (!pPendingDeleted->f_Load())
@@ -133,15 +140,9 @@ namespace NMib::NWeb
 
 										Promise.f_SetException(DMibErrorInstance(Error));
 									}
-									> NConcurrency::NPrivate::fg_DirectResultActor() / [Promise](NConcurrency::TCAsyncResult<void> &&_Result)
-									{
-										if (!Promise.f_IsSet())
-											Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
-									}
+									> NConcurrency::fg_DiscardResult()
 								;
 							}
-							else
-								Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
 						}
 
 						CleanupPending.f_Clear();
@@ -149,83 +150,108 @@ namespace NMib::NWeb
 					else if (_StateAdded & NNetwork::ENetTCPState_Connected)
 					{
 						if (pReplied->f_Exchange(true))
-						{
-							CleanupPending.f_Clear();
-							return;
-						}
+							return (void)CleanupPending.f_Clear();
 
-						auto This = WeakThis.f_Lock();
-						if (!This || pPendingDeleted->f_Load())
-							return Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
-
-						NStorage::TCUniquePointer<NNetwork::ICSocket> pNewSocket = fg_Move(pPending->m_pSocket);
-
-						DMibFastCheck(pNewSocket->f_IsValid());
-
-						NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(true, Settings);
-
-						// Capture here
-						auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable
+						auto pCleanupPromise = g_OnScopeExitShared / [Promise]
 							{
-								ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pNewSocket)) > NConcurrency::fg_DiscardResult();
-
-								ConnectionActor
-									(
-										&CWebSocketActor::fp_OnFinishClientConnection
-										, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ThisConcurrentActor())
-										/ [Promise, ConnectionActor, CleanupPending = fg_Move(CleanupPending), AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
-										(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo) mutable
-										-> NConcurrency::TCFuture<void>
-										{
-											if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
-												Promise.f_SetException(DMibErrorInstance(_ConnectionInfo.m_Error));
-											else
-											{
-												CWebSocketNewClientConnection NewConnection
-													(
-														fg_Move(*_ConnectionInfo.m_pResponse)
-														, fg_Move(_ConnectionInfo.m_Protocol)
-														, fg_Move(ConnectionActor)
-														, fg_Move(_ConnectionInfo.m_pSocketInfo)
-														, _ConnectionInfo.m_PeerAddress
-													)
-												;
-
-												Promise.f_SetResult(fg_Move(NewConnection));
-											}
-											CleanupPending.f_Clear();
-
-											co_return {};
-										}
-										, fg_Move(*pRequest)
-										, _ConnectToAddress
-										, _URI
-										, _Origin
-										, _Protocols
-									)
-									> This / [pPendingDeleted, pPending](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
-									{
-										if (_Result && !pPendingDeleted->f_Load())
-											pPending->m_OnFinishConnectionSubscription = fg_Move(*_Result);
-									}
-								;
+								if (!Promise.f_IsSet())
+									Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
 							}
 						;
 
-						// Lambda will be destroyed when this is called, this is why we capture everything in fFinishConnection
-						pNewSocket->f_SetOnStateChange
-							(
-								[WeakConnectionActor = ConnectionActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)
-								{
-									auto ConnectionActor = WeakConnectionActor.f_Lock();
-									if (!ConnectionActor)
-										return;
-									ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
-								}
-							)
-						;
+						auto This = WeakThis.f_Lock();
+						if (!This || pPendingDeleted->f_Load())
+							return (void)pCleanupPromise.f_Clear();
 
-						fFinishConnection();
+						NConcurrency::g_Dispatch(This) /
+							[
+								pPendingDeleted
+								, pPending
+								, Promise
+								, pCleanupPromise
+								, CleanupPending = fg_Move(CleanupPending)
+								, Settings
+								, pRequest = fg_Move(pRequest)
+								, _ConnectToAddress
+								, _URI
+								, _Origin
+								, _Protocols
+							]() mutable
+							{
+								if (pPendingDeleted->f_Load())
+									return (void)pCleanupPromise.f_Clear();
+
+								NStorage::TCUniquePointer<NNetwork::ICSocket> pNewSocket = fg_Move(pPending->m_pSocket);
+
+								DMibFastCheck(pNewSocket->f_IsValid());
+
+								NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(true, Settings);
+
+								// Capture here
+								auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable
+									{
+										ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pNewSocket)) > NConcurrency::fg_DiscardResult();
+
+										ConnectionActor
+											(
+												&CWebSocketActor::fp_OnFinishClientConnection
+												, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ThisConcurrentActor())
+												/ [Promise, pCleanupPromise, ConnectionActor, CleanupPending = fg_Move(CleanupPending), AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
+												(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo) mutable
+												-> NConcurrency::TCFuture<void>
+												{
+													if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
+														Promise.f_SetException(DMibErrorInstance(_ConnectionInfo.m_Error));
+													else
+													{
+														CWebSocketNewClientConnection NewConnection
+															(
+																fg_Move(*_ConnectionInfo.m_pResponse)
+																, fg_Move(_ConnectionInfo.m_Protocol)
+																, fg_Move(ConnectionActor)
+																, fg_Move(_ConnectionInfo.m_pSocketInfo)
+																, _ConnectionInfo.m_PeerAddress
+															)
+														;
+
+														Promise.f_SetResult(fg_Move(NewConnection));
+													}
+													CleanupPending.f_Clear();
+
+													co_return {};
+												}
+												, fg_Move(*pRequest)
+												, _ConnectToAddress
+												, _URI
+												, _Origin
+												, _Protocols
+											)
+											> [pPendingDeleted, pPending](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+											{
+												if (_Result && !pPendingDeleted->f_Load())
+													pPending->m_OnFinishConnectionSubscription = fg_Move(*_Result);
+											}
+										;
+									}
+								;
+
+								// Lambda will be destroyed when this is called, this is why we capture everything in fFinishConnection
+								pNewSocket->f_SetOnStateChange
+									(
+										[WeakConnectionActor = ConnectionActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)
+										{
+											auto ConnectionActor = WeakConnectionActor.f_Lock();
+											if (!ConnectionActor)
+												return;
+											ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+										}
+									)
+								;
+
+								fFinishConnection();
+							}
+							> NConcurrency::fg_DiscardResult()
+						;
 					}
 				}
 				, BindToAddress
