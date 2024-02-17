@@ -7,6 +7,7 @@
 #include <Mib/Network/Sockets/SSL>
 #include <Mib/Encoding/EJSON>
 #include <Mib/Cryptography/Certificate>
+#include <Mib/Concurrency/DistributedActorTestHelpers>
 
 using namespace NMib::NWeb;
 using namespace NMib::NNetwork;
@@ -340,6 +341,8 @@ public:
 	void fp_Test(NFunction::TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
 	{
 		DMibTestPath("Connection");
+		CActorRunLoopTestHelper RunLoopHelper;
+
 		auto Factories = _fGetFactories();
 		auto ServerFactory = fg_Get<0>(Factories);
 		auto ClientFactory = fg_Get<1>(Factories);
@@ -347,13 +350,13 @@ public:
 
 		auto Cleanup = g_OnScopeExit / [&]
 			{
-				Server->f_BlockDestroy();
+				Server->f_BlockDestroy(RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
 			}
 		;
 
 		TCActor<CActor> ProcessingActor = fg_Construct();
 
-		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(g_Timeout));
+		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout));
 
 		CStr ConnectToURLString;
 		if (ServerFactory)
@@ -363,7 +366,7 @@ public:
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 
-		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(g_Timeout);
+		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
 
 		DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
 
@@ -401,7 +404,7 @@ public:
 
 						co_return {};
 					}
-				).f_CallSync(g_Timeout / 6)
+				).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 			;
 
 			CActorSubscription Subscription = Client
@@ -425,7 +428,7 @@ public:
 						co_return {};
 					}
 					, true
-				).f_CallSync(g_Timeout / 6)
+				).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 			;
 
 			CClock Timeout;
@@ -464,7 +467,7 @@ public:
 								}
 							}
 						)
-						.f_CallSync(g_Timeout / 6)
+						.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 					;
 					return Documents;
 				}
@@ -511,17 +514,22 @@ public:
 									co_return {};
 								}
 								, true
-							).f_CallSync(g_Timeout / 6)
+							).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 						;
 					}
 				;
 				DMibExpectException(fSubscribe(), DMibErrorInstance("sub-not-found: Subscription not found"));
 			}
 
-			DMibExpectException((Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJSONSorted>()).f_CallSync(g_Timeout)), DMibErrorInstance("method-not-found: Method not found"));
+			DMibExpectException
+				(
+					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout))
+					, DMibErrorInstance("method-not-found: Method not found")
+				)
+			;
 
 			DMibExpect(pState->m_nChanged, ==, 0);
-			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJSONSorted>()).f_CallSync(g_Timeout);
+			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nChanged.f_Load())
 			{
@@ -535,7 +543,7 @@ public:
 			DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
 
 			DMibExpect(pState->m_nRemoved, ==, 0);
-			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJSONSorted>()).f_CallSync(g_Timeout);
+			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nRemoved.f_Load())
 			{

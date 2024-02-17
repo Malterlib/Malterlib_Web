@@ -7,6 +7,7 @@
 #include <Mib/Network/Sockets/SSL>
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Concurrency/ActorFunctorWeak>
+#include <Mib/Concurrency/DistributedActorTestHelpers>
 
 /*
 URI invalid -> MUST fail
@@ -105,7 +106,7 @@ public:
 
 		bool m_bCleared = false;
 
-		void f_Clear()
+		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
 		{
 			DMibLock(m_Lock);
 			m_bCleared = true;
@@ -119,7 +120,7 @@ public:
 				auto ServerActor = m_ServerActor;
 				{
 					DMibUnlock(m_Lock);
-					ServerActor->f_BlockDestroy(); // Make sure to release listen socket
+					ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop()); // Make sure to release listen socket
 				}
 				m_ServerActor.f_Clear();
 			}
@@ -394,6 +395,8 @@ public:
 	{
 		{
 			DMibTestPath("Connection");
+			CActorRunLoopTestHelper RunLoopHelper;
+
 			auto Factories = _fGetFactories();
 			auto ServerFactory = fg_Get<0>(Factories);
 			auto ClientFactory = fg_Get<1>(Factories);
@@ -413,7 +416,7 @@ public:
 				auto Cleanup
 					= g_OnScopeExit / [&]
 					{
-						pState->f_Clear();
+						pState->f_Clear(RunLoopHelper.m_pRunLoop);
 					}
 				;
 
@@ -428,15 +431,15 @@ public:
 				{
 					DMibTestPath("Messages");
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 					NContainer::CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
 					NStorage::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
 					NStorage::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -487,16 +490,16 @@ public:
 				auto Cleanup
 					= g_OnScopeExit / [&]
 					{
-						pState->f_Clear();
+						pState->f_Clear(RunLoopHelper.m_pRunLoop);
 					}
 				;
 
 				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(g_Timeout / 3);
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
@@ -511,7 +514,7 @@ public:
 				}
 				{
 					DMibTestPath("Timeout");
-					pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, 1.0, ESocketDebugFlag_StopProcessing).f_CallSync(g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, 1.0, ESocketDebugFlag_StopProcessing).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
 					bool bTimedOut = fp_WaitForCondition
 						(
