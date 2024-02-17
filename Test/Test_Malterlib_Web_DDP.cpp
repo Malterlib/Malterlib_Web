@@ -9,23 +9,25 @@
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Concurrency/DistributedActorTestHelpers>
 
-using namespace NMib::NWeb;
-using namespace NMib::NNetwork;
 using namespace NMib;
-using namespace NMib::NTest;
 using namespace NMib::NAtomic;
-using namespace NMib::NThread;
-using namespace NMib::NContainer;
 using namespace NMib::NConcurrency;
-using namespace NMib::NStr;
-using namespace NMib::NEncoding;
-using namespace NMib::NTime;
+using namespace NMib::NContainer;
 using namespace NMib::NCryptography;
+using namespace NMib::NEncoding;
+using namespace NMib::NException;
+using namespace NMib::NFunction;
+using namespace NMib::NNetwork;
 using namespace NMib::NStorage;
+using namespace NMib::NStr;
+using namespace NMib::NTest;
+using namespace NMib::NTime;
+using namespace NMib::NThread;
+using namespace NMib::NWeb;
 
 static fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 
-class CDDP_Tests : public NMib::NTest::CTest
+class CDDP_Tests : public CTest
 {
 public:
 
@@ -129,10 +131,10 @@ public:
 			m_WebsocketServer
 				(
 					&CWebSocketServerActor::f_StartListenAddress
-					, NContainer::TCVector<CNetAddress>{ToListenTo}
+					, TCVector<CNetAddress>{ToListenTo}
 					, ENetFlag_None
-					, NMib::NConcurrency::g_ActorFunctorWeak / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
-					-> NMib::NConcurrency::TCFuture<void>
+					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
+					-> TCFuture<void>
 					{
 						auto &NewConnection = m_Connections.f_Insert();
 						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
@@ -143,16 +145,14 @@ public:
 						auto Subscription = co_await NewConnection.m_Connection
 							(
 								&CDDPServerConnection::f_Register
-								, NMib::NConcurrency::g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo) -> TCFuture<void>
 								// On connection
 								{
 									_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
 
 									co_return {};
 								}
-								, NMib::NConcurrency::g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo const &_MethodInfo)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo const &_MethodInfo) -> TCFuture<void>
 								// On method call
 								{
 									if (_MethodInfo.m_Name == "login")
@@ -171,7 +171,7 @@ public:
 											CStr PasswordDigest = LoginParams["password"]["digest"].f_AsString();
 											CStr Password = "testpass";
 
-											CStr RightDigest = NCryptography::CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
+											CStr RightDigest = CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
 
 											if (PasswordDigest != RightDigest)
 											{
@@ -186,14 +186,14 @@ public:
 
 											_MethodInfo.f_Result(Result);
 										}
-										catch (NException::CException const &_Exception)
+										catch (CException const &_Exception)
 										{
 											_MethodInfo.f_Error(fp_MethodError("exception-logging-in", _Exception.f_GetErrorStr()));
 										}
 									}
 									else if (_MethodInfo.m_Name == "testChanged")
 									{
-										NContainer::TCVector<CDDPServerConnection::CChange> Changes;
+										TCVector<CDDPServerConnection::CChange> Changes;
 
 										auto &Collection = m_Data["testCollection"];
 										auto &ToChange = *Collection.f_FindSmallest();
@@ -219,7 +219,7 @@ public:
 									}
 									else if (_MethodInfo.m_Name == "testRemoved")
 									{
-										NContainer::TCVector<CDDPServerConnection::CChange> Changes;
+										TCVector<CDDPServerConnection::CChange> Changes;
 
 										auto &Collection = m_Data["testCollection"];
 										auto &ToChange = *Collection.f_FindSmallest();
@@ -242,14 +242,14 @@ public:
 
 									co_return {};
 								}
-								, NMib::NConcurrency::g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo const &_SubscribeInfo)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo const &_SubscribeInfo)
+								-> TCFuture<void>
 								// On subscribe
 								{
 									//DMibTrace("Subscription: {}\n", _SubscribeInfo.m_Name);
 									if (_SubscribeInfo.m_Name == "testSub")
 									{
-										NContainer::TCVector<CDDPServerConnection::CChange> Changes;
+										TCVector<CDDPServerConnection::CChange> Changes;
 										for (auto iCollection = m_Data.f_GetIterator(); iCollection; ++iCollection)
 										{
 											for (auto iDocument = iCollection->f_GetIterator(); iDocument; ++iDocument)
@@ -273,8 +273,8 @@ public:
 
 									co_return {};
 								}
-								, NMib::NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr const &_SubscriptionID)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [this](CStr const &_SubscriptionID)
+								-> TCFuture<void>
 								// On unsubscribe
 								{
 									++m_nUnsubscribe;
@@ -282,16 +282,16 @@ public:
 
 									co_return {};
 								}
-								, NMib::NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr const &_Error)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [this](CStr const &_Error)
+								-> TCFuture<void>
 								// On error
 								{
 									f_ReportError(_Error);
 
 									co_return {};
 								}
-								, NMib::NConcurrency::g_ActorFunctorWeak / [](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								-> TCFuture<void>
 								{
 									co_return {};
 								}
@@ -305,8 +305,8 @@ public:
 
 						co_return {};
 					}
-					, NMib::NConcurrency::g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
-					-> NMib::NConcurrency::TCFuture<void>
+					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
+					-> TCFuture<void>
 					{
 						f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
 
@@ -314,7 +314,7 @@ public:
 					}
 					, fg_TempCopy(m_ServerFactory)
 				)
-				> [this, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
+				> [this, Promise](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
 				{
 					if (_Result)
 					{
@@ -338,7 +338,7 @@ public:
 		}
 	};
 
-	void fp_Test(NFunction::TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
+	void fp_Test(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
 	{
 		DMibTestPath("Connection");
 		CActorRunLoopTestHelper RunLoopHelper;
@@ -390,8 +390,8 @@ public:
 					, CDDPClient::EObserveNotification_Added
 					| CDDPClient::EObserveNotification_Changed
 					| CDDPClient::EObserveNotification_Removed
-					, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, const NEncoding::CEJSONSorted &_NotificationData)
-					-> NMib::NConcurrency::TCFuture<void>
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, const CEJSONSorted &_NotificationData)
+					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
 							++pState->m_nAdded;
@@ -415,8 +415,8 @@ public:
 					, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
 					, CDDPClient::ESubscriptionNotification_Ready
 					| CDDPClient::ESubscriptionNotification_Error
-					, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSONSorted &_NotificationData)
-					-> NMib::NConcurrency::TCFuture<void>
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const CEJSONSorted &_NotificationData)
+					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
 							++pState->m_nReady;
@@ -444,10 +444,10 @@ public:
 			DMibAssert(pState->m_nReady.f_Load(), ==, 1);
 			DMibAssert(pState->m_nAdded.f_Load(), ==, 10);
 
-			auto fGetDocuments = [&]() -> TCMap<CStr, NEncoding::CEJSONSorted>
+			auto fGetDocuments = [&]() -> TCMap<CStr, CEJSONSorted>
 				{
-					TCMap<CStr, NEncoding::CEJSONSorted> Documents;
-					NThread::CMutual Lock;
+					TCMap<CStr, CEJSONSorted> Documents;
+					CMutual Lock;
 
 					Client
 						(
@@ -461,7 +461,7 @@ public:
 									for (auto iDocument = Collection.f_GetDocumentIterator(); iDocument; ++iDocument)
 										Documents[iDocument.f_GetKey()] = *iDocument;
 								}
-								catch (NException::CException const &_Exception)
+								catch (CException const &_Exception)
 								{
 									(void)_Exception;
 								}
@@ -475,7 +475,7 @@ public:
 
 			// Test document accessor
 			{
-				TCMap<CStr, NEncoding::CEJSONSorted> Documents = fGetDocuments();
+				TCMap<CStr, CEJSONSorted> Documents = fGetDocuments();
 
 				DMibAssert(Documents.f_GetLen(), ==, 10);
 
@@ -507,9 +507,9 @@ public:
 								, ""
 								, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
 								, CDDPClient::ESubscriptionNotification_None
-								, NMib::NConcurrency::g_ActorFunctorWeak(ProcessingActor)
-								/ [](CDDPClient::ESubscriptionNotification _Notification, const NEncoding::CEJSONSorted &_NotificationData)
-								-> NMib::NConcurrency::TCFuture<void>
+								, g_ActorFunctorWeak(ProcessingActor)
+								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted const &_NotificationData)
+								-> TCFuture<void>
 								{
 									co_return {};
 								}

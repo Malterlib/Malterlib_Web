@@ -19,15 +19,20 @@ MUST send an opening handshake
 	GET /chat HTTP/1.1
 */
 
-using namespace NMib::NWeb;
-using namespace NMib::NNetwork;
 using namespace NMib;
-using namespace NMib::NTest;
-using namespace NMib::NThread;
+using namespace NMib::NAtomic;
+using namespace NMib::NConcurrency;
 using namespace NMib::NContainer;
-using namespace NMib::NStr;
 using namespace NMib::NCryptography;
+using namespace NMib::NFile;
 using namespace NMib::NFunction;
+using namespace NMib::NNetwork;
+using namespace NMib::NStorage;
+using namespace NMib::NStr;
+using namespace NMib::NTest;
+using namespace NMib::NTime;
+using namespace NMib::NThread;
+using namespace NMib::NWeb;
 
 namespace
 {
@@ -36,13 +41,12 @@ namespace
 	fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 }
 
-class CWebsocket_Tests : public NMib::NTest::CTest
+class CWebsocket_Tests : public CTest
 {
 public:
-
 	void fp_Test
 		(
-			TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
+			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, bool _bTestTimeout = false
@@ -54,7 +58,7 @@ public:
 		}
 		{
 			DMibTestPath("Unix");
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + NNetwork::fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << NFile::CFile::fs_GetProgramDirectory()), false);
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << CFile::fs_GetProgramDirectory()), false);
 		}
 	}
 
@@ -67,42 +71,42 @@ public:
 				m_pDeleted->f_Store(true);
 			}
 
-			NConcurrency::TCActor<CWebSocketActor> m_Actor;
-			NConcurrency::CActorSubscription m_CallbacksReference;
-			NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> m_pDeleted = fg_Construct(false);
+			TCActor<CWebSocketActor> m_Actor;
+			CActorSubscription m_CallbacksReference;
+			TCSharedPointer<TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 		};
 
-		NStorage::CIntrusiveRefCount m_RefCount;
+		CIntrusiveRefCount m_RefCount;
 
 		CMutual m_Lock;
 		CEventAutoReset m_Event;
 
-		NConcurrency::TCActor<CWebSocketServerActor> m_ServerActor;
-		NConcurrency::CActorSubscription m_ListenCallbackReference;
+		TCActor<CWebSocketServerActor> m_ServerActor;
+		CActorSubscription m_ListenCallbackReference;
 		uint16 m_ListenPort = 0;
 
-		NContainer::TCLinkedList<CServerConnection> m_ServerConnections;
+		TCLinkedList<CServerConnection> m_ServerConnections;
 
-		NStr::CStr m_AcceptError;
+		CStr m_AcceptError;
 		bool m_bAcceptError = false;
-		NStr::CStr m_ListenError;
+		CStr m_ListenError;
 
-		NConcurrency::TCActor<CWebSocketClientActor> m_ClientActor;
+		TCActor<CWebSocketClientActor> m_ClientActor;
 
-		NConcurrency::TCActor<CWebSocketActor> m_ClientSocket;
-		NConcurrency::CActorSubscription m_ClientActorCallbacksReference;
+		TCActor<CWebSocketActor> m_ClientSocket;
+		CActorSubscription m_ClientActorCallbacksReference;
 
-		NStr::CStr m_ClientConnectionError;
+		CStr m_ClientConnectionError;
 		bool m_bClientConnectionResult = false;
 
 		EWebSocketCloseOrigin m_ClientConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
 		EWebSocketCloseOrigin m_ServerConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
 		EWebSocketStatus m_ClientConnectionCloseStatus = EWebSocketStatus_None;
 		EWebSocketStatus m_ServerConnectionCloseStatus = EWebSocketStatus_None;
-		NStr::CStr m_ClientConnectionCloseMessage;
-		NStr::CStr m_ServerConnectionCloseMessage;
+		CStr m_ClientConnectionCloseMessage;
+		CStr m_ServerConnectionCloseMessage;
 
-		NContainer::TCVector<NStr::CStr> m_Messages;
+		TCVector<CStr> m_Messages;
 
 		bool m_bCleared = false;
 
@@ -126,28 +130,28 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, NNetwork::FVirtualSocketFactory const &_ServerFactory)
+		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory)
 		{
-			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
+			TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ServerActor
 				(
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(_ListenAddress)
-					, NMib::NNetwork::ENetFlag_None
-					, NMib::NConcurrency::g_ActorFunctorWeak(NMib::NConcurrency::fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection &&_ConnectionInfo) -> NMib::NConcurrency::TCFuture<void>
+					, ENetFlag_None
+					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection &&_ConnectionInfo) -> TCFuture<void>
 					{
 						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
 						DMibLock(pState->m_Lock);
 
 						CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
 
-						ConnectionInfo.m_fOnReceiveTextMessage = NMib::NConcurrency::g_ActorFunctorWeak / [pState](NStr::CStr const &_Message) -> NMib::NConcurrency::TCFuture<void>
+						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr const &_Message) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								for (auto &Connection : pState->m_ServerConnections)
 								{
 									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0)
-										> NConcurrency::fg_DiscardResult()
+										> fg_DiscardResult()
 									;
 								}
 
@@ -155,17 +159,15 @@ public:
 								{
 									DMibLock(pState->m_Lock);
 									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, g_pCloseMessage) > NConcurrency::fg_DiscardResult();
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, g_pCloseMessage) > fg_DiscardResult();
 								}
 
 								co_return {};
 							}
 						;
 
-						ConnectionInfo.m_fOnClose
-							= NMib::NConcurrency::g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
-							-> NMib::NConcurrency::TCFuture<void>
+						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+							(EWebSocketStatus _Status, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								if (pState->m_bCleared)
@@ -182,15 +184,15 @@ public:
 							}
 						;
 
-						NStr::CStr Protocol;
+						CStr Protocol;
 						if (!ConnectionInfo.m_Protocols.f_IsEmpty())
 							Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
 
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, NMib::NConcurrency::fg_ConcurrentActor() / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-								(NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
+								, fg_ConcurrentActor() / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+								(TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback && !*pDeleted)
@@ -203,7 +205,7 @@ public:
 
 						co_return {};
 					}
-					, NMib::NConcurrency::g_ActorFunctorWeak(NMib::NConcurrency::fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo &&_ConnectionInfo) -> NMib::NConcurrency::TCFuture<void>
+					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo &&_ConnectionInfo) -> TCFuture<void>
 					{
 						DMibLock(pState->m_Lock);
 						pState->m_bAcceptError = true;
@@ -214,7 +216,7 @@ public:
 					}
 					, fg_TempCopy(_ServerFactory)
 				)
-				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NWeb::CWebSocketServerActor::CListenResult> &&_Result)
+				> fg_ConcurrentActor() / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
@@ -235,31 +237,30 @@ public:
 			return pState->m_ListenPort;
 		}
 
-		void f_Connect(CStr const &_Address, NNetwork::FVirtualSocketFactory const &_ClientFactory, uint16 _Port)
+		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port)
 		{
-			NStorage::TCSharedPointer<CState> pState = fg_Explicit(this);
+			TCSharedPointer<CState> pState = fg_Explicit(this);
 			m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
 					, _Address
 					, ""
-					, NNetwork::ENetAddressType_None
+					, ENetAddressType_None
 					, _Port
 					, "/Test"
 					, fg_Format("http://{}", _Address)
-					, NContainer::fg_CreateVector<NStr::CStr>("Test")
+					, fg_CreateVector<CStr>("Test")
 					, NHTTP::CRequest()
 					, fg_TempCopy(_ClientFactory)
 				)
-				> NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+				> fg_ConcurrentActor() / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
 					{
 						auto &Result = *_Result;
 
-						Result.m_fOnClose = NMib::NConcurrency::g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, NStr::CStr const &_Message, EWebSocketCloseOrigin _Origin)
-							-> NMib::NConcurrency::TCFuture<void>
+						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_ClientConnectionCloseMessage = _Message;
@@ -270,7 +271,7 @@ public:
 								co_return {};
 							}
 						;
-						Result.m_fOnReceiveTextMessage = NMib::NConcurrency::g_ActorFunctorWeak / [pState](NStr::CStr const &_Message) -> NMib::NConcurrency::TCFuture<void>
+						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr const &_Message) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_Messages.f_Insert(_Message);
@@ -282,7 +283,7 @@ public:
 
 						pState->m_ClientSocket = Result.f_Accept
 							(
-								NMib::NConcurrency::fg_ConcurrentActor() / [pState](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Callback)
+								fg_ConcurrentActor() / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback)
@@ -301,7 +302,7 @@ public:
 		}
 	};
 
-	bool fp_TestConnect(NStorage::TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
+	bool fp_TestConnect(TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
 	{
 		auto pState = _pState;
 		DMibTestPath("Connect");
@@ -368,7 +369,7 @@ public:
 	{
 		bool bTimedOut = false;
 
-		NTime::CClock Clock;
+		CClock Clock;
 		Clock.f_Start();
 
 		while (!_fPredicate())
@@ -386,7 +387,7 @@ public:
 
 	void fp_TestImp
 		(
-			TCFunction<NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory> ()> const &_fGetFactories
+			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, CStr const &_Address
@@ -412,7 +413,7 @@ public:
 			else
 				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
-				NStorage::TCSharedPointer<CState> pState = fg_Construct();
+				TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
 					= g_OnScopeExit / [&]
 					{
@@ -420,10 +421,10 @@ public:
 					}
 				;
 
-				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
+				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
-				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
@@ -432,11 +433,11 @@ public:
 					DMibTestPath("Messages");
 
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-					NContainer::CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
-					NStorage::TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
+					CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
+					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
-					NStorage::TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
+					TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
@@ -453,7 +454,7 @@ public:
 					}
 
 					DMibExpectFalse(bTimedOut);
-					DMibExpect(pState->m_Messages.f_GetLen(), ==, 4)(NTest::ETest_FailAndStop);
+					DMibExpect(pState->m_Messages.f_GetLen(), ==, 4)(ETest_FailAndStop);
 					DMibExpect(pState->m_Messages[0], ==, "TestTextReply");
 					DMibExpect(pState->m_Messages[1], ==, "TestBuffReply");
 					DMibExpect(pState->m_Messages[2], ==, "TestReply");
@@ -463,7 +464,7 @@ public:
 				{
 					DMibTestPath("Disconnect");
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > NConcurrency::fg_DiscardResult();
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > fg_DiscardResult();
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -486,7 +487,7 @@ public:
 			if (_bTestTimeout)
 			{
 				DMibTestPath("Timeout");
-				NStorage::TCSharedPointer<CState> pState = fg_Construct();
+				TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
 					= g_OnScopeExit / [&]
 					{
@@ -494,11 +495,11 @@ public:
 					}
 				;
 
-				pState->m_ServerActor = NConcurrency::fg_ConstructActor<CWebSocketServerActor>();
+				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
-				pState->m_ClientActor = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
@@ -547,7 +548,7 @@ public:
 				DMibTestPath("TCP");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							return {nullptr, nullptr};
 						}
@@ -561,7 +562,7 @@ public:
 				DMibTestPath("SSL");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -572,12 +573,12 @@ public:
 
 							CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -591,7 +592,7 @@ public:
 				DMibTestPath("SSL Client Certificate");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -603,7 +604,7 @@ public:
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -618,7 +619,7 @@ public:
 							CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
 							CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -631,7 +632,7 @@ public:
 				DMibTestPath("SSL Client Certificate Chain Without Intermediate CA");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -643,7 +644,7 @@ public:
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -668,7 +669,7 @@ public:
 							CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
 							CCertificate::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -681,7 +682,7 @@ public:
 				DMibTestPath("SSL Client Certificate Incorrect");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -694,7 +695,7 @@ public:
 
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -707,7 +708,7 @@ public:
 
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -720,7 +721,7 @@ public:
 				DMibTestPath("SSL Client Certificate Missing");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -733,13 +734,13 @@ public:
 
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -752,7 +753,7 @@ public:
 				DMibTestPath("SSL Client Certificate Allow Missing");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -765,13 +766,13 @@ public:
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 							ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -784,7 +785,7 @@ public:
 				DMibTestPath("SSL Client Certificate Incorrect Allow Missing");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -797,7 +798,7 @@ public:
 							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 							ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -810,7 +811,7 @@ public:
 
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -823,7 +824,7 @@ public:
 				DMibTestPath("SSL Server Certificate Incorrect");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -841,12 +842,12 @@ public:
 							ServerOptions2.m_KeySetting = gc_TestTestKeySetting;
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -859,7 +860,7 @@ public:
 				DMibTestPath("SSL Server Certificate Self Signed");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 
@@ -870,11 +871,11 @@ public:
 
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -887,7 +888,7 @@ public:
 				DMibTestPath("SSL Server Certificate Child Cert");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 							CByteVector RootCertData;
@@ -916,12 +917,12 @@ public:
 							ServerSettings.m_PublicCertificateData = ChildCertData;
 							ServerSettings.m_PrivateKeyData = ChildKeyData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_CACertificateData = RootCertData;
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
@@ -934,7 +935,7 @@ public:
 				DMibTestPath("SSL Server Certificate Incorrect Specific");
 				fp_Test
 					(
-						[]() -> NStorage::TCTuple<NNetwork::FVirtualSocketFactory, NNetwork::FVirtualSocketFactory>
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 						{
 							CSSLSettings ServerSettings;
 							CByteVector RootCertData;
@@ -963,13 +964,13 @@ public:
 							ServerSettings.m_PublicCertificateData = ChildCertData;
 							ServerSettings.m_PrivateKeyData = ChildKeyData;
 
-							NStorage::TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
 							CSSLSettings ClientSettings;
 							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 							ClientSettings.m_CACertificateData = RootCertData;
 
-							NStorage::TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
 						}
