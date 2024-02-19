@@ -40,6 +40,11 @@ Import "../../External/curl/Curl.MTarget"
 	{
 		!!PlatformFamily "Windows"
 	}
+
+	Compile.Warnings "Off"
+	{
+		!!CompileDialect "C"
+	}
 }
 
 Property
