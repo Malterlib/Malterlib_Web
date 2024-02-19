@@ -53,6 +53,10 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 		{
 			Compile.Type "C"
 		}
+		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_chkdint.c`
+		{
+			Compile.Type "C"
+		}
 		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_compile.c`
 		{
 			Compile.Type "C"

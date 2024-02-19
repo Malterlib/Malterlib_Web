@@ -1,8 +1,8 @@
 /* config.h for CMake builds */
 
+#define HAVE_BUILTIN_MUL_OVERFLOW 1
 #define HAVE_ATTRIBUTE_UNINITIALIZED 1
 #define HAVE_DIRENT_H 1
-#define HAVE_STRERROR 1
 #define HAVE_SYS_STAT_H 1
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_UNISTD_H 1
@@ -39,10 +39,12 @@
 /* #undef HEAP_MATCH_RECURSE */
 /* #undef NEVER_BACKSLASH_C */
 
+#define PCRE2_EXPORT		__attribute__ ((visibility ("default")))
 #define LINK_SIZE		2
 #define HEAP_LIMIT              20000000
 #define MATCH_LIMIT		10000000
 #define MATCH_LIMIT_DEPTH	MATCH_LIMIT
+#define MAX_VARLOOKBEHIND       255
 #define NEWLINE_DEFAULT         2
 #define PARENS_NEST_LIMIT       250
 #define PCRE2GREP_BUFSIZE       20480
