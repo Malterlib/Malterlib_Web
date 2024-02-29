@@ -169,52 +169,45 @@ namespace NMib::NWeb
 		if (!Internal.m_pMulti)
 			DMibError("Failed to initialize multi");
 
+		DMibLock(mp_ThreadLock);
 		mp_pThread = NThread::CThreadObject::fs_StartThread
 			(
 				[this](NThread::CThreadObject *_pThread) -> aint
 				{
-					mp_ThreadCanStartEvent.f_Wait();
-					mp_ThreadStartedEvent.f_SetSignaled();
-
+					{
+						DMibLock(mp_ThreadLock);
+					}
 					auto &Internal = *m_pInternal;
 					auto *pMultiHandle = Internal.m_pMulti.f_Get();
 
 					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 					{
-						NTime::CCyclesClock Clock;
-						Clock.f_Start();
-						while (true)
+						fp_RunProcess();
+						int RunningHandles;
+						curl_multi_perform(pMultiHandle, &RunningHandles);
+
 						{
-							fp_RunProcess();
-							int RunningHandles;
-							curl_multi_perform(pMultiHandle, &RunningHandles);
+							auto pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
 
+							while (true)
 							{
-								auto pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
+								int MessagesInQueue = 0;
+								auto pMessage = curl_multi_info_read(pMultiHandle, &MessagesInQueue);
+								if (!pMessage)
+									break;
 
-								while (true)
+								if (pMessage->msg == CURLMSG_DONE)
 								{
-									int MessagesInQueue = 0;
-									auto pMessage = curl_multi_info_read(pMultiHandle, &MessagesInQueue);
-									if (!pMessage)
-										break;
+									Curl_easy *pEasyHandle = pMessage->easy_handle;
 
-									if (pMessage->msg == CURLMSG_DONE)
-									{
-										Curl_easy *pEasyHandle = pMessage->easy_handle;
+									void *pRawRequest = nullptr;
+									curl_easy_getinfo(pEasyHandle, CURLINFO_PRIVATE, &pRawRequest);
 
-										void *pRawRequest = nullptr;
-										curl_easy_getinfo(pEasyHandle, CURLINFO_PRIVATE, &pRawRequest);
+									CCurlActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
 
-										CCurlActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
-
-										fg_ThisActor(pCurlActor)(&CCurlActor::fp_RequestFinished, pRequest->f_GetID(), pMessage->data.result) > NConcurrency::fg_DiscardResult();
-									}
+									fg_ThisActor(pCurlActor)(&CCurlActor::fp_RequestFinished, pRequest->f_GetID(), pMessage->data.result) > NConcurrency::fg_DiscardResult();
 								}
 							}
-
-							if (Clock.f_GetTime() > 0.000035) // Run for at least 35 µs
-								break;
 						}
 
 						curl_multi_poll(pMultiHandle, NULL, 0, TCLimitsInt<int>::mc_Max, NULL);
@@ -225,9 +218,6 @@ namespace NMib::NWeb
 				, f_ConcurrencyManager().f_GetExecutionPriority(f_GetPriority())
 			)
 		;
-
-		mp_ThreadCanStartEvent.f_SetSignaled();
-		mp_ThreadStartedEvent.f_Wait();
 	}
 
 	void CCurlActor::CActorHolder::fp_Wakeup()
@@ -238,27 +228,29 @@ namespace NMib::NWeb
 
 	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
 	{
+		DMibLock(mp_ThreadLock);
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
 	}
 
 	void CCurlActor::CActorHolder::fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
 	{
-		// Reference this so it doesn't go out of scope if queue is processed before thread has been notified
-		NConcurrency::TCActorHolderSharedPointer<CActorHolder> pThis = fg_Explicit(this);
-
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
 	}
 
 	void CCurlActor::CActorHolder::fp_DestroyThreaded()
 	{
-		mp_pThread->f_Stop(false);
-		fp_Wakeup();
-		mp_pThread.f_Clear();
+		{
+			DMibLock(mp_ThreadLock);
+			mp_pThread->f_Stop(false);
+			fp_Wakeup();
 
-		auto &Internal = *m_pInternal;
-		Internal.m_pMulti.f_Clear();
+			mp_pThread.f_Clear();
+
+			auto &Internal = *m_pInternal;
+			Internal.m_pMulti.f_Clear();
+		}
 
 		CDefaultActorHolder::fp_DestroyThreaded();
 	}
