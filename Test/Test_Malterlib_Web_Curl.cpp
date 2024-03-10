@@ -292,7 +292,6 @@ public:
 #endif
 		DMibTestSuite("General") -> TCFuture<void>
 		{
-			fg_GetSys()->f_AddStdErrLogger();
 			DMibTestPath("Path1");
 			CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebCurlGeneral";
 			fg_TestAddCleanupPath(TestDirectory);
