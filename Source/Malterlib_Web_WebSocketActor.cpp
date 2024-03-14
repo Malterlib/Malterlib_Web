@@ -1901,7 +1901,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		m_fOnFinishClientConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::NPrivate::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+		m_fOnFinishClientConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
 			{
 			}
 		;
@@ -1929,7 +1929,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		m_fOnFinishConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::NPrivate::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+		m_fOnFinishConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
 			{
 			}
 		;
@@ -2395,7 +2395,7 @@ namespace NMib::NWeb
 			{
 				m_bPendingPing = true;
 				m_pThis->f_SendPing(m_pTimeoutPingMessage)
-					> NConcurrency::NPrivate::fg_DirectResultActor() / [this, ThisWeak = fg_ThisActor(m_pThis).f_Weak()](NConcurrency::TCAsyncResult<void> &&_Result) mutable
+					> NConcurrency::fg_DirectResultActor() / [this, ThisWeak = fg_ThisActor(m_pThis).f_Weak()](NConcurrency::TCAsyncResult<void> &&_Result) mutable
 					{
 						if (!_Result)
 							return;
