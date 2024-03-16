@@ -196,12 +196,10 @@ namespace NMib::NWeb
 			: m_CurlActor{_CurlActor}
 			, m_Credentials{_Credentials}
 		{
-			m_FileActor = fg_Construct(fg_Construct(), "AWS Lambda code compress actor");
 		}
 
 		CAwsCredentials m_Credentials;
 		TCActor<CCurlActor> m_CurlActor;
-		TCActor<CSeparateThreadActor> m_FileActor;
 
 		static void fs_CheckZipError(int _Error, CStr const &_File)
 		{
