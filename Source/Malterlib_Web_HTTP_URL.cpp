@@ -900,6 +900,15 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
+	NStr::CStr CURL::fs_PercentEncode(NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
+	{
+		NStr::CStr Return;
+
+		fs_PercentEncode(Return, _Str, _pReserved, _Flags);
+
+		return Return;
+	}
+
 	NStr::CStr CURL::fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags)
 	{
 		NStr::CStr Output;

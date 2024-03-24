@@ -164,6 +164,7 @@ namespace NMib::NWeb::NHTTP
 		static bool fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
 		static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, EEncodeFlag _Flags = EEncodeFlag_None);
+		static NStr::CStr fs_PercentEncode(NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, EEncodeFlag _Flags = EEncodeFlag_None);
 		static NStr::CStr fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags = EEncodeFlag_None);
 
 		template <typename tf_CStream>
