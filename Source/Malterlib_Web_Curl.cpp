@@ -20,6 +20,7 @@ extern "C"
 
 namespace NMib::NWeb
 {
+	using namespace NConcurrency;
 	using namespace NContainer;
 	using namespace NStorage;
 	using namespace NStr;
@@ -91,6 +92,7 @@ namespace NMib::NWeb
 			}
 
 			CCurlActor *m_pActor = nullptr;
+			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 			TCUniquePointer<Curl_easy, CCurlDeleter> m_pCurl;
 			TCUniquePointer<curl_slist , CCurlDeleter> m_pHeaders;
 			CState m_State;
@@ -98,8 +100,16 @@ namespace NMib::NWeb
 			NContainer::CByteVector::CIteratorConst m_iData;
 			CStr m_CurlErrorBuffer;
 			CStr m_CookieStr;
-			NConcurrency::TCPromise<CCurlActor::CResult> m_FinishedPromise;
+			TCPromise<CCurlActor::CResult> m_FinishedPromise;
+			uint64 m_ReadDataSize = 0;
+			TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> m_fReadData;
+			TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> m_fWriteData;
+			NException::CExceptionPointer m_pWriteError;
+			NException::CExceptionPointer m_pReadError;
+			uint64 m_WriteDoneBytes = 0;
+			int m_PauseMask = 0;
 			bool m_bAddedHandle = false;
+			bool m_bWriteDone = false;
 		};
 
 		CCertificateConfig m_CertificateConfig;
@@ -142,13 +152,13 @@ namespace NMib::NWeb
 
 	CCurlActor::CActorHolder::CActorHolder
 		(
-			NConcurrency::CConcurrencyManager *_pConcurrencyManager
+			CConcurrencyManager *_pConcurrencyManager
 			, bool _bImmediateDelete
-			, NConcurrency::EPriority _Priority
-			, NStorage::TCSharedPointer<NConcurrency::ICDistributedActorData> &&_pDistributedActorData
+			, EPriority _Priority
+			, NStorage::TCSharedPointer<ICDistributedActorData> &&_pDistributedActorData
 			, NStr::CStr const &_ThreadName
 		)
-		: NConcurrency::CSeparateThreadActorHolder(_pConcurrencyManager, _bImmediateDelete, _Priority, fg_Move(_pDistributedActorData), _ThreadName)
+		: CSeparateThreadActorHolder(_pConcurrencyManager, _bImmediateDelete, _Priority, fg_Move(_pDistributedActorData), _ThreadName)
 		, m_pInternal(fg_Construct())
 	{
 	}
@@ -176,6 +186,9 @@ namespace NMib::NWeb
 					auto &Internal = *m_pInternal;
 					auto *pMultiHandle = Internal.m_pMulti.f_Get();
 
+					auto pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
+					CCurrentActorScope CurrentActorScope(pCurlActor);
+
 					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 					{
 						fp_RunProcess();
@@ -183,8 +196,6 @@ namespace NMib::NWeb
 						curl_multi_perform(pMultiHandle, &RunningHandles);
 
 						{
-							auto pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
-
 							while (true)
 							{
 								int MessagesInQueue = 0;
@@ -201,7 +212,22 @@ namespace NMib::NWeb
 
 									CCurlActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
 
-									fg_ThisActor(pCurlActor)(&CCurlActor::fp_RequestFinished, pRequest->f_GetID(), pMessage->data.result) > NConcurrency::fg_DiscardResult();
+									NException::CExceptionPointer pError;
+									if (pRequest->m_pWriteError && pRequest->m_pReadError)
+									{
+										NException::CExceptionExceptionVectorData::CErrorCollector ErrorCollector;
+
+										ErrorCollector.f_AddError(fg_Move(pRequest->m_pWriteError));
+										ErrorCollector.f_AddError(fg_Move(pRequest->m_pReadError));
+
+										pError = fg_Move(ErrorCollector).f_GetException();
+									}
+									else if (pRequest->m_pWriteError)
+										pError = fg_Move(pRequest->m_pWriteError);
+									else if (pRequest->m_pReadError)
+										pError = fg_Move(pRequest->m_pReadError);
+
+									fg_ThisActor(pCurlActor)(&CCurlActor::fp_RequestFinished, pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)) > fg_DiscardResult();
 								}
 							}
 						}
@@ -222,14 +248,14 @@ namespace NMib::NWeb
 		curl_multi_wakeup(Internal.m_pMulti.f_Get());
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
+	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		DMibLock(mp_ThreadLock);
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal)
+	void CCurlActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 			fp_Wakeup();
@@ -253,6 +279,8 @@ namespace NMib::NWeb
 
 	CCurlActor::CInternal::CRequest::~CRequest()
 	{
+		*m_pDeleted = true;
+
 		if (m_bAddedHandle)
 		{
 			auto pActorHolder = m_pActor->fp_GetActorHolder();
@@ -273,7 +301,7 @@ namespace NMib::NWeb
 		return static_cast<CActorHolder *>(self.m_pThis.f_Get());
 	}
 
-	NConcurrency::TCFuture<void> CCurlActor::fp_Destroy()
+	TCFuture<void> CCurlActor::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
 		for (auto &Request : Internal.m_Requests)
@@ -289,7 +317,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CCurlActor::fp_RequestFinished(CStr const &_RequestID, int32 _ResultCode)
+	TCFuture<void> CCurlActor::fp_RequestFinished(CStr const &_RequestID, int32 _ResultCode, NException::CExceptionPointer &&_pException)
 	{
 		auto &Internal = *mp_pInternal;
 		CURLcode ResultCode = (CURLcode)_ResultCode;
@@ -302,7 +330,9 @@ namespace NMib::NWeb
 
 		if (!Request.m_FinishedPromise.f_IsSet())
 		{
-			if (ResultCode != CURLE_OK)
+			if (_pException)
+				Request.m_FinishedPromise.f_SetException(fg_Move(_pException));
+			else if (ResultCode != CURLE_OK)
 			{
 				auto pEasyError = curl_easy_strerror(ResultCode);
 				auto pExtraError = pEasyError ? pEasyError : "";
@@ -321,7 +351,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<CCurlActor::CResult> CCurlActor::f_Request
+	TCFuture<CCurlActor::CResult> CCurlActor::f_Request
 		(
 			EMethod _Method
 			, NStr::CStr const &_URL
@@ -333,12 +363,12 @@ namespace NMib::NWeb
 		return fg_CallSafe(this, &CCurlActor::f_ExecuteRequest, CRequest{.m_URL = _URL, .m_Method = _Method, .m_Headers = _Headers, .m_Data = _Data, .m_Cookies = _Cookies});
 	}
 
-	NConcurrency::TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest &&_Request)
+	TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest &&_Request)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Curl actor shutting down");
 
-		auto CaptureScope = co_await NConcurrency::g_CaptureExceptions;
+		auto CaptureScope = co_await g_CaptureExceptions;
 
 		auto &Internal = *mp_pInternal;
 
@@ -349,18 +379,16 @@ namespace NMib::NWeb
 		Request.m_Data = fg_Move(_Request.m_Data);
 		Request.m_iData = fg_Const(Request.m_Data).f_GetIterator();
 		Request.m_CurlErrorBuffer.f_CreateWritableBuffer(CURL_ERROR_SIZE, true);
-
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-			}
-		;
+		Request.m_ReadDataSize = _Request.m_ReadDataSize;
+		Request.m_fReadData = fg_Move(_Request.m_fReadData);
+		Request.m_fWriteData = fg_Move(_Request.m_fWriteData);
 
 		if (!Request.m_pCurl)
-			DMibError("libcurl was not initialised");
+			co_return DMibErrorInstance("libcurl was not initialised");
 
 		Curl_easy *pCurl = Request.m_pCurl.f_Get();
 
-		auto fCheckResult = [&](CURLcode _Result) -> void
+		auto fCheckResult = [&](CURLcode _Result) -> TCFuture<void>
 			{
 				if (_Result != CURLE_OK)
 				{
@@ -370,8 +398,10 @@ namespace NMib::NWeb
 					CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 					if (CurlError)
 						fg_AddStrSep(FullError, CurlError, ". ");
-					DMibError(fg_Format("libcurl operation on {} failed ({}): {}", _Request.m_URL, _Result, FullError));
+					co_return DMibErrorInstance(fg_Format("libcurl operation on {} failed ({}): {}", _Request.m_URL, _Result, FullError));
 				}
+
+				co_return {};
 			}
 		;
 
@@ -385,14 +415,14 @@ namespace NMib::NWeb
 		;
 
 		//fCheckResult(curl_easy_setopt(pCurl, CURLOPT_VERBOSE, 1L));
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
 
 		for (auto &Cookie : _Request.m_Cookies.f_Entries())
 			Request.m_CookieStr += "{}={}; "_f << Cookie.f_Key() << Cookie.f_Value();
 
 		if (Request.m_CookieStr)
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
 
 		if (!_Request.m_Headers.f_FindEqual("Accept"))
 			pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
@@ -409,8 +439,8 @@ namespace NMib::NWeb
 			CertBlob.data = Internal.m_CertificateConfig.m_ClientCertificate.f_GetArray();
 			CertBlob.len = Internal.m_CertificateConfig.m_ClientCertificate.f_GetLen();
 			CertBlob.flags = CURL_BLOB_NOCOPY;
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
 		}
 
 		if (!Internal.m_CertificateConfig.m_ClientKey.f_IsEmpty())
@@ -419,8 +449,8 @@ namespace NMib::NWeb
 			CertKeyBlob.data = Internal.m_CertificateConfig.m_ClientKey.f_GetArray();
 			CertKeyBlob.len = Internal.m_CertificateConfig.m_ClientKey.f_GetLen();
 			CertKeyBlob.flags = CURL_BLOB_NOCOPY;
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
 		}
 
 		if (!Internal.m_CertificateConfig.m_CertificateAuthorities.f_IsEmpty())
@@ -429,48 +459,113 @@ namespace NMib::NWeb
 			CertAuthBlob.data = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetArray();
 			CertAuthBlob.len = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetLen();
 			CertAuthBlob.flags = CURL_BLOB_NOCOPY;
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
 		}
 
-		if (_Request.m_Method == EMethod_POST)
+		if (_Request.m_bFollowRedirects)
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_FOLLOWLOCATION, 1L));
+
+		if (_Request.m_Method == EMethod_POST || _Request.m_Method == EMethod_PUT || _Request.m_Method == EMethod_PATCH)
 		{
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POST, 1L));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, Request.m_Data.f_GetArray()));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTFIELDSIZE, Request.m_Data.f_GetLen()));
-		}
-		else if (_Request.m_Method == EMethod_PUT || _Request.m_Method == EMethod_PATCH)
-		{
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
+
 			if (_Request.m_Method == EMethod_PATCH)
-				fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
+			else if (_Request.m_Method == EMethod_POST)
+			{
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "POST"));
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
+			}
+			else
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PUT"));
 
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE, Request.m_Data.f_GetLen()));
-
-			auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
-				{
-					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
-					size_t Bytes = _Size * _nItems;
-
-					if (Bytes > 0)
+			if (Request.m_fReadData)
+			{
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE_LARGE, Request.m_ReadDataSize));
+				auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 					{
+						CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+						
+						if (pRequest->m_pReadError)
+							return CURL_READFUNC_ABORT;
+
+						size_t Bytes = _Size * _nItems;
+
+						if (Bytes <= 0)
+							return Bytes;
+
+						if (pRequest->m_Data.f_IsEmpty())
+						{
+							pRequest->m_fReadData(Bytes) > [pDeleted = pRequest->m_pDeleted, pRequest](TCAsyncResult<CByteVector> &&_Result)
+								{
+									if (*pDeleted)
+										return;
+
+									if (!_Result)
+										pRequest->m_pReadError = _Result.f_GetException();
+									else
+									{
+										pRequest->m_Data = fg_Move(*_Result);
+										pRequest->m_iData = fg_Const(pRequest->m_Data).f_GetIterator();
+									}
+									pRequest->m_PauseMask &= ~CURLPAUSE_SEND;
+									curl_easy_pause(pRequest->m_pCurl.f_Get(), pRequest->m_PauseMask);
+								}
+							;
+
+							pRequest->m_PauseMask |= CURLPAUSE_SEND;
+							return CURL_READFUNC_PAUSE;
+						}
+
 						NContainer::CByteVector::CIteratorConst &iData = pRequest->m_iData;
 						Bytes = fg_Min(iData.f_GetLen(), Bytes);
 						NMemory::fg_MemCopy(_pBuffer, &*iData, Bytes);
 						iData += Bytes;
+
+						if (iData.f_GetLen() == 0)
+						{
+							pRequest->m_iData = {};
+							pRequest->m_Data.f_Clear();
+						}
+
+						return Bytes;
 					}
+				;
 
-					return Bytes;
-				}
-			;
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
+			}
+			else
+			{
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE_LARGE, Request.m_Data.f_GetLen()));
 
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
+				auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+					{
+						CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+						size_t Bytes = _Size * _nItems;
+
+						if (Bytes > 0)
+						{
+							NContainer::CByteVector::CIteratorConst &iData = pRequest->m_iData;
+							Bytes = fg_Min(iData.f_GetLen(), Bytes);
+							if (Bytes)
+							{
+								NMemory::fg_MemCopy(_pBuffer, &*iData, Bytes);
+								iData += Bytes;
+							}
+						}
+
+						return Bytes;
+					}
+				;
+
+				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
+			}
 		}
 		else if (_Request.m_Method == EMethod_DELETE)
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
 		else if (_Request.m_Method == EMethod_HEAD)
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
 
 		NHTTP::CURL Url(_Request.m_URL);
 		CStr UrlHost = Url.f_GetHost();
@@ -478,47 +573,100 @@ namespace NMib::NWeb
 		{
 			auto UnixPath = UrlHost.f_RemovePrefix("UNIX:");
 			Url.f_SetHost("localhost");
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
 			auto NewURL = Url.f_Encode();
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
 		}
 		else
-			fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _Request.m_URL.f_GetStr()));
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _Request.m_URL.f_GetStr()));
 
 		for (auto &Header : _Request.m_Headers.f_Entries())
 		{
 			CStr HeaderStr(fg_Format("{}: {}", Header.f_Key(), Header.f_Value()));
 			pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
 		}
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
 
 		CleanupHeaders.f_Clear();
 		if (pHeaders)
 			Request.m_pHeaders = fg_Explicit(pHeaders);
 
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERDATA, &Request));
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERDATA, &Request));
 		auto fWriteHeaderCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 			{
+				mint nBytes = _Size * _nItems;
+
 				CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+
+				if (nBytes >= 5 && fg_StrFind(_pBuffer, "HTTP/", 5) == 0)
+					pRequest->m_State.m_Headers.f_Clear(); // Handle redirects
 
 				pRequest->m_State.m_Headers.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
 
 				return _Size * _nItems;
 			}
 		;
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, (curl_write_callback)fWriteHeaderCallback));
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, (curl_write_callback)fWriteHeaderCallback));
 
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, &Request));
-		auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
-			{
-				CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, &Request));
+		if (Request.m_fWriteData)
+		{
+			auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+				{
+					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
 
-				pRequest->m_State.m_Body.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+					if (pRequest->m_pWriteError)
+						return CURL_WRITEFUNC_ERROR;
+					else if (pRequest->m_bWriteDone)
+					{
+						pRequest->m_bWriteDone = false;
+						return pRequest->m_WriteDoneBytes;
+					}
 
-				return _Size * _nItems;
-			}
-		;
-		fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+					size_t Bytes = _Size * _nItems;
+
+					if (Bytes <= 0)
+						return Bytes;
+
+					CByteVector Data((uint8 const *)_pBuffer, Bytes);
+
+					pRequest->m_fWriteData(fg_Move(Data)) > [Bytes, pDeleted = pRequest->m_pDeleted, pRequest](TCAsyncResult<void> &&_Result)
+						{
+							if (*pDeleted)
+								return;
+
+							if (!_Result)
+								pRequest->m_pWriteError = _Result.f_GetException();
+							else
+							{
+								pRequest->m_bWriteDone = true;
+								pRequest->m_WriteDoneBytes = Bytes;
+							}
+
+							pRequest->m_PauseMask &= ~CURLPAUSE_RECV;
+							curl_easy_pause(pRequest->m_pCurl.f_Get(), pRequest->m_PauseMask);
+						}
+					;
+
+					pRequest->m_PauseMask |= CURLPAUSE_RECV;
+					return CURL_WRITEFUNC_PAUSE;
+				}
+			;
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+		}
+		else
+		{
+			auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
+				{
+					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
+
+					pRequest->m_State.m_Body.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+
+					return _Size * _nItems;
+				}
+			;
+			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+		}
 
 		auto *pActorHolder = fp_GetActorHolder();
 

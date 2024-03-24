@@ -5,6 +5,7 @@
 
 #include <Mib/Core/Core>
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/ActorFunctor>
 #include <Mib/Encoding/EJSON>
 
 namespace NMib::NWeb
@@ -65,13 +66,17 @@ namespace NMib::NWeb
 			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
 			NContainer::CByteVector m_Data;
 			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Cookies;
+			uint64 m_ReadDataSize = 0;
+			bool m_bFollowRedirects = false;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fReadData;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
 		};
 
 		struct CResult
 		{
 			CResult(CState const &_State);
 			
-			uint32 m_StatusCode;
+			uint32 m_StatusCode = 0;
 			NStr::CStr m_StatusMessage;
 			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
@@ -97,7 +102,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		CActorHolder *fp_GetActorHolder();
-		NConcurrency::TCFuture<void> fp_RequestFinished(NStr::CStr const &_RequestID, int32 _ResultCode);
+		NConcurrency::TCFuture<void> fp_RequestFinished(NStr::CStr const &_RequestID, int32 _ResultCode, NException::CExceptionPointer &&_pException);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
