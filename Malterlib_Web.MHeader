@@ -2,7 +2,6 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 Import "../Core/Lib_Malterlib.MTarget"
-Import "../../External/curl/Curl.MTarget"
 
 %Repository "curl"
 {
@@ -33,6 +32,13 @@ Import "../../External/curl/Curl.MTarget"
 	}
 }
 
+Property
+{
+	CurlEnableSMTP: bool = false
+	Pcre2IncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
+	CurlIncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Group:External.Group:CURL.Target:Lib_CURL_libcurl_static.Import:*")
+}
+
 %Import "../../External/pcre2/CMakeLists.txt"
 {
 	Import.CMake_Variables =+ ["PCRE2_BUILD_PCRE2GREP=OFF", "PCRE2_BUILD_TESTS=OFF"]
@@ -47,12 +53,116 @@ Import "../../External/curl/Curl.MTarget"
 	}
 }
 
-Property
+Import "../../External/nginx/nginx.MTarget"
+
+%Group "{Lib_CURL_libcurl_static}/{TargetInjection}"
 {
-	Pcre2IncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
+	Compile
+	{
+		&
+		{
+			LanguageFamily "Native"
+			CompileDialect "C"
+		}
+
+		SearchPath += ["../../External/curl/include"->MakeAbsolute(), CurlIncludePath / "lib"]
+		PreprocessorDefines += ["CURL_STATICLIB"]
+	}
 }
 
-Import "../../External/nginx/nginx.MTarget"
+%Import "../../External/curl/CMakeLists.txt"
+{
+	Import.CMake_Variables =+ [
+		"BUILD_SHARED_LIBS=OFF"
+		, "BUILD_STATIC_LIBS=ON"
+		, "BUILD_STATIC_CURL=ON"
+		, "USE_LIBIDN2=OFF"
+		, "CURL_ZSTD=ON"
+		, "ENABLE_UNIX_SOCKETS=ON"
+		, "CURL_USE_LIBSSH2=OFF"
+		, "CURL_USE_LIBPSL=OFF"
+		, "CURL_USE_LIBSSH=OFF"
+		, "CURL_DISABLE_LDAP=ON"
+		, "CURL_DISABLE_GOPHER=ON"
+		, "CURL_DISABLE_FILE=ON"
+		, "CURL_DISABLE_IMAP=ON"
+		, "CURL_DISABLE_LDAPS=ON"
+		, "CURL_DISABLE_POP3=ON"
+		, "CURL_DISABLE_PROXY=ON"
+		, "CURL_DISABLE_RTSP=ON"
+		, "CURL_DISABLE_TELNET=ON"
+		, "CURL_DISABLE_TFTP=ON"
+		, "CURL_DISABLE_FTP=ON"
+		, "CURL_DISABLE_GETOPTIONS=ON"
+		, "CURL_DISABLE_MQTT=ON"
+		, "CURL_DISABLE_NETRC=ON"
+		, "CURL_DISABLE_SMB=ON"
+		, `CURL_DISABLE_SMTP=@(CurlEnableSMTP ? "OFF" : "ON")`
+		, "CURL_DISABLE_DICT=ON"
+		, "BUILD_LIBCURL_DOCS=OFF"
+		, "ENABLE_CURL_MANUAL=OFF"
+		, "CURL_HIDDEN_EXTERN_SYMBOLS=ON"
+		, `Zstd_LIBRARY=@(Malterlib_DummmyLibrary)`
+		, `Zstd_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
+	]
+
+	Compile
+	{
+		!!CompileDialect "C"
+		PreprocessorDefines += "CURL_CA_EXTERNAL_FALLBACK=1"
+		{
+			!PlatformFamily "Linux"
+		}
+
+		Warnings_UnusedVariable false
+		{
+			!!GeneratorFamily "Xcode"
+		}
+
+		Warnings_DeprecatedDeclarations false
+		{
+			!!GeneratorFamily "Xcode"
+		}
+	}
+
+	%Target "Lib_CURL_libcurl_static"
+	{
+		Target
+		{
+			DependencyInjectionGroups =+ "{Lib_CURL_libcurl_static}/{TargetInjection}"
+			{
+				!DocumentationEnabled true
+			}
+		}
+
+		%Dependency "Lib_BoringSSL_decrepit"
+		{
+			!DocumentationEnabled true
+
+			Dependency.Indirect true
+		}
+		%Dependency "Lib_libzstd_libzstd_static"
+		{
+			!DocumentationEnabled true
+
+			Dependency.Indirect true
+		}
+		%Dependency "SystemConfiguration"
+		{
+			&
+			{
+				PlatformIsDarwin true
+				!Target.Type "Driver"
+			}
+
+			Dependency
+			{
+				Type "Framework"
+				Indirect true
+			}
+		}
+	}
+}
 
 %Group "{Malterlib}/{Lib_Malterlib_Web}"
 {
@@ -88,7 +198,7 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		Dependency.Indirect true
 	}	
-	%Dependency "Lib_Curl"
+	%Dependency "Lib_CURL_libcurl_static"
 	{
 		!DocumentationEnabled true
 
