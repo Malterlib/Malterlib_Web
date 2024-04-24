@@ -1,0 +1,146 @@
+GeneratorVersion: 40
+Import.CMake_FullRebuildVersion: 4-8
+Import.CMake_CacheExcludePatterns: [
+	*/CMakeFiles/*,
+	*/cmake.tmp/*,
+	*/cmake_install.cmake,
+	*/CPackConfig.cmake,
+	*/CPackSourceConfig.cmake,
+	*/CTestTestfile.cmake,
+	*.ninja,
+	*/CMakeCache.txt,
+	*/MalterlibFullRebuildVersion,
+	*/.NoDartCoverage,
+	*/compile_commands.json
+]
+
+Import.CMake_CacheReplaceContents: [
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": ,
+		"Replace": "MToolCMake"
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": ,
+		"Replace": "MToolCMake"
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/opt/local/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/opt/homebrew/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/local/go/bin/",
+		"Replace": ""
+	},
+	{
+		"ApplyToPaths": false,
+		"ExcludeFilePatterns": [],
+		"FilePatterns": [],
+		"Find": "/usr/local/bin/",
+		"Replace": ""
+	}
+]
+Import.CMake_Environment: {}
+Import.CMake_CacheIgnoreInputs: [
+]
+
+Import.CMake_Languages: [
+	{
+		"CMakeLanguage": "C",
+		"MalterlibLanguage": "C"
+	},
+	{
+		"CMakeLanguage": "CXX",
+		"MalterlibLanguage": "C++"
+	},
+	{
+		"CMakeLanguage": "OBJCXX",
+		"MalterlibLanguage": "ObjC++"
+	},
+	{
+		"CMakeLanguage": "ASM",
+		"MalterlibLanguage": "Assembler"
+	}
+]
+Import.CMake_Config: Release
+Import.CMake_Variables: [
+	CMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_EXE_LINKER_FLAGS_INIT;CMAKE_STATIC_LINKER_FLAGS_INIT;CMAKE_MODULE_LINKER_FLAGS_INIT;CMAKE_SHARED_LINKER_FLAGS_INIT;CMAKE_RANLIB;CMAKE_AR;CMAKE_C_COMPILER;CMAKE_CXX_COMPILER;CMAKE_CXX_COMPILER_TARGET;CMAKE_C_COMPILER_TARGET;CMAKE_TOOLCHAIN_NO_PREFIX;CMAKE_FIND_ROOT_PATH;CMAKE_SYSROOT;CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN;CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN;CMAKE_SYSTEM_NAME;CMAKE_SYSTEM_PROCESSOR;CMAKE_LINKER,
+	CMAKE_OBJECT_PATH_MAX=4096,
+	CMAKE_EXE_LINKER_FLAGS_INIT= -fuse-ld=lld -stdlib=libc++ -Wno-unused-command-line-argument -L"/Binaries/MalterlibLLVM/Linux/x86/lib/i686-unknown-linux-gnu" -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib32 -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/usr/lib32,
+	CMAKE_MODULE_LINKER_FLAGS_INIT= -fuse-ld=lld -stdlib=libc++ -Wno-unused-command-line-argument -L"/Binaries/MalterlibLLVM/Linux/x86/lib/i686-unknown-linux-gnu" -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib32 -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/usr/lib32,
+	CMAKE_SHARED_LINKER_FLAGS_INIT= -fuse-ld=lld -stdlib=libc++ -Wno-unused-command-line-argument -L"/Binaries/MalterlibLLVM/Linux/x86/lib/i686-unknown-linux-gnu" -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib32 -Xlinker -rpath-link -Xlinker /Binaries/MalterlibSDK/Linux/x86/Linux.sdk/usr/lib32,
+	CMAKE_CXX_FLAGS_INIT=-stdlib=libc++,
+	CMAKE_LINKER=lld,
+	CMAKE_INSTALL_NAME_TOOL=llvm-install-name-tool,
+	CMAKE_NM=llvm-nm,
+	CMAKE_OBJDUMP=llvm-objdump,
+	CMAKE_STRIP=llvm-strip,
+	CMAKE_RANLIB=llvm-ranlib,
+	CMAKE_AR=llvm-ar,
+	,
+	OPENSSL_ROOT_DIR=/External/boringssl,
+	OPENSSL_LIBRARIES=/Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so,
+	OPENSSL_CRYPTO_LIBRARY=/Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so,
+	OPENSSL_SSL_LIBRARY=/Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so,
+	BUILD_SHARED_LIBS=OFF,
+	BUILD_STATIC_LIBS=ON,
+	BUILD_STATIC_CURL=ON,
+	USE_LIBIDN2=OFF,
+	CURL_ZSTD=ON,
+	ENABLE_UNIX_SOCKETS=ON,
+	CURL_USE_LIBSSH2=OFF,
+	CURL_USE_LIBPSL=OFF,
+	CURL_USE_LIBSSH=OFF,
+	CURL_DISABLE_LDAP=ON,
+	CURL_DISABLE_GOPHER=ON,
+	CURL_DISABLE_FILE=ON,
+	CURL_DISABLE_IMAP=ON,
+	CURL_DISABLE_LDAPS=ON,
+	CURL_DISABLE_POP3=ON,
+	CURL_DISABLE_PROXY=ON,
+	CURL_DISABLE_RTSP=ON,
+	CURL_DISABLE_TELNET=ON,
+	CURL_DISABLE_TFTP=ON,
+	CURL_DISABLE_FTP=ON,
+	CURL_DISABLE_GETOPTIONS=ON,
+	CURL_DISABLE_MQTT=ON,
+	CURL_DISABLE_NETRC=ON,
+	CURL_DISABLE_SMB=ON,
+	CURL_DISABLE_SMTP=ON,
+	CURL_DISABLE_DICT=ON,
+	BUILD_LIBCURL_DOCS=OFF,
+	ENABLE_CURL_MANUAL=OFF,
+	CURL_HIDDEN_EXTERN_SYMBOLS=ON,
+	Zstd_LIBRARY=/Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so,
+	Zstd_INCLUDE_DIR=/External/zstd/lib
+]
+
+Import.CMake_IncludeInHash: [
+]
+
+Import.CMake_IntermediateName: External_curl

@@ -1,0 +1,10 @@
+CMakeFiles/curl_uninstall.rule
+src/tool_hugehelp.c.rule
+tests/CMakeFiles/test-am.rule
+tests/CMakeFiles/test-ci.rule
+tests/CMakeFiles/test-event.rule
+tests/CMakeFiles/test-full.rule
+tests/CMakeFiles/test-nonflaky.rule
+tests/CMakeFiles/test-quiet.rule
+tests/CMakeFiles/test-torture.rule
+tests/libtest/lib1521.c.rule

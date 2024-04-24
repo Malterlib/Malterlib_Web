@@ -106,6 +106,11 @@ Import "../../External/nginx/nginx.MTarget"
 		, `Zstd_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
 	]
 
+	Import.CMake_Variables =+ "SHARE_LIB_OBJECT=OFF"
+	{
+		!!PlatformFamily "Windows"
+	}	
+
 	Compile
 	{
 		!!CompileDialect "C"
