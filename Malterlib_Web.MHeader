@@ -115,9 +115,6 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		!!CompileDialect "C"
 		PreprocessorDefines += "CURL_CA_EXTERNAL_FALLBACK=1"
-		{
-			!PlatformFamily "Linux"
-		}
 
 		Warnings_UnusedVariable false
 		{

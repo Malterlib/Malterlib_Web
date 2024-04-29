@@ -10,8 +10,6 @@
 
 #include <curl/curl.h>
 
-#ifndef DPlatformFamily_Linux
-
 extern "C"
 {
 	void curl_ca_external_fallback(X509_STORE *_pStore)
@@ -19,8 +17,6 @@ extern "C"
 		NMib::NCryptography::CCertificate::fs_GetSystemCertificates(_pStore);
 	}
 }
-
-#endif
 
 namespace NMib::NWeb
 {
