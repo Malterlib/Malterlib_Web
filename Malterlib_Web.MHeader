@@ -118,12 +118,12 @@ Import "../../External/nginx/nginx.MTarget"
 
 		Warnings_UnusedVariable false
 		{
-			!!GeneratorFamily "Xcode"
+			!!Compiler "Clang"
 		}
 
 		Warnings_DeprecatedDeclarations false
 		{
-			!!GeneratorFamily "Xcode"
+			!!Compiler "Clang"
 		}
 	}
 
@@ -137,12 +137,8 @@ Import "../../External/nginx/nginx.MTarget"
 			}
 		}
 
-		%Dependency "Lib_BoringSSL_decrepit"
-		{
-			!DocumentationEnabled true
+		Target.ExtraGroups =+ "{Malterlib}/{Lib_Malterlib_Cryptography}/{DependOnBoringSSL}"
 
-			Dependency.Indirect true
-		}
 		%Dependency "Lib_libzstd_libzstd_static"
 		{
 			!DocumentationEnabled true
