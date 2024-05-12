@@ -174,7 +174,7 @@ while test $# -gt 0; do
 
     --static-libs)
         if test "Xyes" != "Xno" ; then
-          echo "/usr/local/lib/libcurl.a" -stdlib=libc++ -Wno-unused-command-line-argument  -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
+          echo "/usr/local/lib/libcurl.a" -stdlib=libc++ -Wno-unused-command-line-argument -fuse-ld=lld  -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
         else
           echo "curl was built with static libraries disabled" >&2
           exit 1

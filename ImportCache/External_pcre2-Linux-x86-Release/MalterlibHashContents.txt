@@ -1,5 +1,5 @@
 GeneratorVersion: 40
-Import.CMake_FullRebuildVersion: 4-8
+Import.CMake_FullRebuildVersion: 5-8
 Import.CMake_CacheExcludePatterns: [
 	*/CMakeFiles/*,
 	*/cmake.tmp/*,
