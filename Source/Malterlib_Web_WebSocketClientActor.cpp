@@ -48,12 +48,12 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
 		(
-			NStr::CStr const& _ConnectToAddress
-			, NStr::CStr const& _BindToAddress
+			NStr::CStr const &_ConnectToAddress
+			, NStr::CStr const &_BindToAddress
 			, NMib::NNetwork::ENetAddressType _PreferAddress
 			, uint16 _Port
-			, NStr::CStr const& _URI
-			, NStr::CStr const& _Origin
+			, NStr::CStr const &_URI
+			, NStr::CStr const &_Origin
 			, NContainer::TCVector<NStr::CStr> const &_Protocols
 			, NHTTP::CRequest &&_Request
 			, NNetwork::FVirtualSocketFactory &&_SocketFactory
@@ -75,7 +75,8 @@ namespace NMib::NWeb
 			)
 		;
 
-		ConnectToAdress.f_SetPort(_Port);
+		if (_Port)
+			ConnectToAdress.f_SetPort(_Port);
 
 		auto Settings = mp_DefaultSettings;
 
