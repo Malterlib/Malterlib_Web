@@ -20,6 +20,13 @@ extern "C"
 
 namespace NMib::NWeb
 {
+	DMibImpErrorClassImplement(CWebRequestException);
+
+	CWebRequestExceptionData CWebRequestExceptionData::fs_FromResult(CCurlActor::CResult const &_Result)
+	{
+		return CWebRequestExceptionData{.m_StatusCode = _Result.m_StatusCode, .m_StatusMessage = _Result.m_StatusMessage};
+	}
+
 	using namespace NConcurrency;
 	using namespace NContainer;
 	using namespace NStorage;
