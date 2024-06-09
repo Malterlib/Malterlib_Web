@@ -125,6 +125,11 @@ Import "../../External/nginx/nginx.MTarget"
 		{
 			!!Compiler "Clang"
 		}
+
+		Warnings_Format false
+		{
+			!!Compiler "Clang"
+		}
 	}
 
 	%Target "Lib_CURL_libcurl_static"
