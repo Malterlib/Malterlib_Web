@@ -33,7 +33,7 @@
 /* #undef CURL_CA_PATH */
 
 /* Default SSL backend */
-/* #undef CURL_DEFAULT_SSL_BACKEND */
+#define CURL_DEFAULT_SSL_BACKEND "openssl"
 
 /* disables alt-svc */
 /* #undef CURL_DISABLE_ALTSVC */
@@ -702,7 +702,7 @@
 /* #undef USE_OPENLDAP */
 
 /* if OpenSSL is in use */
-/* #undef USE_OPENSSL */
+#define USE_OPENSSL 1
 
 /* Define to 1 if you don't want the OpenSSL configuration to be loaded
    automatically */

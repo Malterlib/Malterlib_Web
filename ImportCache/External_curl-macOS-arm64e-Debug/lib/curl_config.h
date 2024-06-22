@@ -33,7 +33,7 @@
 /* #undef CURL_CA_PATH */
 
 /* Default SSL backend */
-/* #undef CURL_DEFAULT_SSL_BACKEND */
+#define CURL_DEFAULT_SSL_BACKEND "openssl"
 
 /* disables alt-svc */
 /* #undef CURL_DISABLE_ALTSVC */

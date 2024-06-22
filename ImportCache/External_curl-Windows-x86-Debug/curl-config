@@ -78,7 +78,7 @@ while test $# -gt 0; do
         ;;
 
     --cc)
-        echo "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.39.33519/bin/Hostx64/x86/cl.exe"
+        echo "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.40.33807/bin/Hostx64/x86/cl.exe"
         ;;
 
     --prefix)
@@ -86,13 +86,13 @@ while test $# -gt 0; do
         ;;
 
     --feature|--features)
-        for feature in IPv6 UnixSockets zstd AsynchDNS Largefile alt-svc HSTS NTLM threadsafe ""; do
+        for feature in SSL IPv6 UnixSockets zstd AsynchDNS Largefile alt-svc HSTS NTLM HTTPS-proxy threadsafe ""; do
             test -n "$feature" && echo "$feature"
         done
         ;;
 
     --protocols)
-        for protocol in HTTP IPFS IPNS; do
+        for protocol in HTTP HTTPS IPFS IPNS; do
             echo "$protocol"
         done
         ;;
@@ -163,18 +163,18 @@ while test $# -gt 0; do
            CURLLIBDIR=""
         fi
         if test "Xno" = "Xno"; then
-          echo ${CURLLIBDIR}-lcurl  -lws2_32 -lbcrypt kernel32.lib -ladvapi32 -lcrypt32
+          echo ${CURLLIBDIR}-lcurl  -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib kernel32.lib -ladvapi32 -lcrypt32
         else
           echo ${CURLLIBDIR}-lcurl
         fi
         ;;
     --ssl-backends)
-        echo ""
+        echo "OpenSSL"
         ;;
 
     --static-libs)
         if test "Xyes" != "Xno" ; then
-          echo "C:/Program Files (x86)/CURL/lib/libcurl.lib" /machine:X86  -lws2_32 -lbcrypt kernel32.lib -ladvapi32 -lcrypt32
+          echo "C:/Program Files (x86)/CURL/lib/libcurl.lib" /machine:X86  -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib kernel32.lib -ladvapi32 -lcrypt32
         else
           echo "curl was built with static libraries disabled" >&2
           exit 1

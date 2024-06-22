@@ -51,7 +51,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@('.'->MakeAbsolute())`->MakeAbsolute(),
 			`@('../../../../External/curl'->MakeAbsolute())/lib`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/lib`->MakeAbsolute(),
-			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute()
+			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"BUILDING_LIBCURL",
@@ -1436,7 +1437,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"BUILDING_CURL",
@@ -1457,7 +1459,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"BUILDING_CURL",
@@ -1882,7 +1885,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"BUILDING_CURL",
@@ -1904,7 +1908,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"BUILDING_CURL",
@@ -3617,7 +3622,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CHKHOSTNAME",
@@ -3665,7 +3671,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -3717,7 +3724,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -3777,7 +3785,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -3837,7 +3846,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -3905,7 +3915,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -3957,7 +3968,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4017,7 +4029,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4077,7 +4090,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4137,7 +4151,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4189,7 +4204,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4241,7 +4257,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4301,7 +4318,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4353,7 +4371,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4405,7 +4424,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4457,7 +4477,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4509,7 +4530,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4561,7 +4583,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4613,7 +4636,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4665,7 +4689,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4717,7 +4742,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4769,7 +4795,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4821,7 +4848,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4873,7 +4901,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4925,7 +4954,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -4977,7 +5007,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5029,7 +5060,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5081,7 +5113,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5133,7 +5166,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5193,7 +5227,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5253,7 +5288,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5313,7 +5349,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5373,7 +5410,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5433,7 +5471,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5493,7 +5532,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5553,7 +5593,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5605,7 +5646,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5657,7 +5699,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5709,7 +5752,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5769,7 +5813,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5821,7 +5866,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5873,7 +5919,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5925,7 +5972,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -5977,7 +6025,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6029,7 +6078,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6081,7 +6131,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6133,7 +6184,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6185,7 +6237,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6237,7 +6290,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6289,7 +6343,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6341,7 +6396,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6401,7 +6457,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6453,7 +6510,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6505,7 +6563,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6557,7 +6616,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6609,7 +6669,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6669,7 +6730,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6721,7 +6783,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6781,7 +6844,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6833,7 +6897,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6885,7 +6950,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6937,7 +7003,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -6989,7 +7056,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7041,7 +7109,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7093,7 +7162,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7145,7 +7215,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7197,7 +7268,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7265,7 +7337,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7317,7 +7390,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7377,7 +7451,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7429,7 +7504,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7481,7 +7557,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7533,7 +7610,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7593,7 +7671,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7645,7 +7724,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7697,7 +7777,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7765,7 +7846,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7817,7 +7899,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7869,7 +7952,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7921,7 +8005,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -7973,7 +8058,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8033,7 +8119,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8093,7 +8180,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8145,7 +8233,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8197,7 +8286,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8249,7 +8339,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8301,7 +8392,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8353,7 +8445,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8405,7 +8498,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8457,7 +8551,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8509,7 +8604,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8561,7 +8657,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8613,7 +8710,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8673,7 +8771,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8733,7 +8832,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8785,7 +8885,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8837,7 +8938,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8897,7 +8999,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -8957,7 +9060,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9017,7 +9121,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9077,7 +9182,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9137,7 +9243,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9197,7 +9304,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9257,7 +9365,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9317,7 +9426,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9377,7 +9487,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9437,7 +9548,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9497,7 +9609,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9557,7 +9670,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9617,7 +9731,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9677,7 +9792,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9737,7 +9853,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9797,7 +9914,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9857,7 +9975,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9917,7 +10036,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -9977,7 +10097,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10037,7 +10158,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10097,7 +10219,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10157,7 +10280,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10217,7 +10341,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10277,7 +10402,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10337,7 +10463,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10397,7 +10524,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10457,7 +10585,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10517,7 +10646,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10569,7 +10699,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10621,7 +10752,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10673,7 +10805,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10758,7 +10891,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10826,7 +10960,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10878,7 +11013,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10938,7 +11074,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -10998,7 +11135,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11058,7 +11196,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11118,7 +11257,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11178,7 +11318,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11238,7 +11379,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11298,7 +11440,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11358,7 +11501,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11418,7 +11562,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11478,7 +11623,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11538,7 +11684,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11598,7 +11745,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11658,7 +11806,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11718,7 +11867,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11778,7 +11928,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11838,7 +11989,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11898,7 +12050,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -11966,7 +12119,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12018,7 +12172,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12070,7 +12225,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12122,7 +12278,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12174,7 +12331,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12234,7 +12392,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12294,7 +12453,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12346,7 +12506,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12406,7 +12567,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12466,7 +12628,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12526,7 +12689,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12586,7 +12750,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12646,7 +12811,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12706,7 +12872,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12766,7 +12933,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12826,7 +12994,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12878,7 +13047,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12930,7 +13100,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -12982,7 +13153,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13042,7 +13214,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13102,7 +13275,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13162,7 +13336,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13222,7 +13397,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13282,7 +13458,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13342,7 +13519,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13402,7 +13580,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13462,7 +13641,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13514,7 +13694,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13574,7 +13755,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13634,7 +13816,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13694,7 +13877,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13754,7 +13938,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13814,7 +13999,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13874,7 +14060,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13934,7 +14121,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -13994,7 +14182,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14054,7 +14243,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14114,7 +14304,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14166,7 +14357,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14218,7 +14410,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14270,7 +14463,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14322,7 +14516,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14382,7 +14577,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14442,7 +14638,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14502,7 +14699,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14562,7 +14760,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14614,7 +14813,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14666,7 +14866,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14718,7 +14919,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14770,7 +14972,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14822,7 +15025,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14874,7 +15078,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14926,7 +15131,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -14978,7 +15184,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15038,7 +15245,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15098,7 +15306,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15158,7 +15367,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15218,7 +15428,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15278,7 +15489,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15330,7 +15542,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15390,7 +15603,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15450,7 +15664,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15510,7 +15725,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15570,7 +15786,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15630,7 +15847,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15690,7 +15908,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15750,7 +15969,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15802,7 +16022,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15854,7 +16075,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15906,7 +16128,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -15974,7 +16197,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16026,7 +16250,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16086,7 +16311,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16146,7 +16372,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16206,7 +16433,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16266,7 +16494,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16326,7 +16555,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16386,7 +16616,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16446,7 +16677,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16506,7 +16738,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16566,7 +16799,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16626,7 +16860,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/tests/libtest`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16678,7 +16913,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16823,7 +17059,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -16976,7 +17213,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17133,7 +17371,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17294,7 +17533,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17455,7 +17695,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17616,7 +17857,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17769,7 +18011,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17930,7 +18173,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
@@ -17969,7 +18213,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/include`->MakeAbsolute(),
 			`@(CMakeIntermediateDirectory)/External_curl`->MakeAbsolute(),
-			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute()
+			`@('../../../../External/curl'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_STATICLIB",
