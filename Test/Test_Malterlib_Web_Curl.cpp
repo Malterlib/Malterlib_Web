@@ -319,6 +319,8 @@ public:
 					auto Result = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies);
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
+
+				co_await CurlActor.f_Destroy();
 			}
 			{
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
@@ -347,6 +349,43 @@ public:
 						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
 				}
 
+				co_await CurlActor.f_Destroy();
+
+				DMibExpect(ExceptionText, ==, "");
+				DMibExpect(ResultsText, ==, ExpectedResultsText);
+			}
+			{
+				NHTTP::CURL HttpUrl = HttpUrlTemplate;
+				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+				DMibTestPath("Multiple Actors");
+				TCVector<TCActor<CCurlActor>> CurlActors;
+
+				CStr ExpectedResultsText;
+
+				TCActorResultVector<CCurlActor::CResult> AsyncResults;
+				for (mint i = 0; i < 100; ++i)
+				{
+					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults.f_AddResult();
+					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
+					CurlActors.f_Insert(fg_Move(CurlActor));
+				}
+
+				CStr ExceptionText;
+				CStr ResultsText;
+
+				auto Results = co_await AsyncResults.f_GetResults();
+				for (auto &Result : Results)
+				{
+					if (Result)
+						fg_AddStrSep(ResultsText, Result->m_Body, "\n");
+					else
+						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
+				}
+
+				for (auto &Actor : CurlActors)
+					co_await Actor.f_Destroy();
+
 				DMibExpect(ExceptionText, ==, "");
 				DMibExpect(ResultsText, ==, ExpectedResultsText);
 			}
@@ -364,6 +403,7 @@ public:
 						)
 					;
 				}
+				co_await CurlActor.f_Destroy();
 			}
 			{
 				DMibTestPath("Abort Request");

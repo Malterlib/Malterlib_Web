@@ -99,6 +99,7 @@ namespace NMib::NWeb
 	private:
 		struct CInternal;
 
+		void fp_Construct() override;
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		CActorHolder *fp_GetActorHolder();

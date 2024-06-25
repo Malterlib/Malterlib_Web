@@ -74,6 +74,8 @@ namespace NMib::NWeb
 	struct CCurlActor::CActorHolder::CInternal
 	{
 		TCUniquePointer<CURLM, CCurlDeleter> m_pMulti;
+		NThread::CEvent m_ActorCreatedEvent;
+		NThread::CEvent m_ProcessingStartedEvent;
 	};
 
 	struct CCurlActor::CState
@@ -172,6 +174,14 @@ namespace NMib::NWeb
 
 	CCurlActor::CActorHolder::~CActorHolder() = default;
 
+	void CCurlActor::fp_Construct()
+	{
+		auto pActorHolder = fp_GetActorHolder();
+		auto &HolderInternal = *pActorHolder->m_pInternal;
+		HolderInternal.m_ActorCreatedEvent.f_SetSignaled();
+		HolderInternal.m_ProcessingStartedEvent.f_Wait();
+	}
+
 	void CCurlActor::CActorHolder::fp_StartQueueProcessing()
 	{
 		*g_CurlInit;
@@ -187,14 +197,20 @@ namespace NMib::NWeb
 			(
 				[this](NThread::CThreadObject *_pThread) -> aint
 				{
-					{
-						DMibLock(mp_ThreadLock);
-					}
 					auto &Internal = *m_pInternal;
 					auto *pMultiHandle = Internal.m_pMulti.f_Get();
 
-					auto pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
+					CCurlActor *pCurlActor = nullptr;
+					Internal.m_ActorCreatedEvent.f_Wait();
+					{
+						DMibLock(mp_ThreadLock);
+						pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
+					}
+
+					DMibFastCheck(pCurlActor);
 					CCurrentActorScope CurrentActorScope(pCurlActor);
+
+					Internal.m_ProcessingStartedEvent.f_SetSignaled();
 
 					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 					{
@@ -272,12 +288,15 @@ namespace NMib::NWeb
 	{
 		{
 			DMibLock(mp_ThreadLock);
+
+			auto &Internal = *m_pInternal;
+			Internal.m_ActorCreatedEvent.f_SetSignaled();
+
 			mp_pThread->f_Stop(false);
 			fp_Wakeup();
 
 			mp_pThread.f_Clear();
 
-			auto &Internal = *m_pInternal;
 			Internal.m_pMulti.f_Clear();
 		}
 
