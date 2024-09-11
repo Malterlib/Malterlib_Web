@@ -431,7 +431,7 @@ namespace NMib::NWeb
 
 		auto fWaitForStatusValid = [&](CStr const &_Url, CStr const &_Message)
 			{
-				return self / [=, Timeout = _RequestCertificate.m_Timeout]() -> TCFuture<void>
+				return self / [=, Timeout = _RequestCertificate.m_Timeout]() -> TCFuture<CEJSONSorted>
 					{
 						CClock Clock{true};
 
@@ -455,7 +455,7 @@ namespace NMib::NWeb
 								co_return DMibErrorInstance("Authorization response missing 'status'");
 
 							if (pStatus->f_String() == "valid")
-								break;
+								co_return ResponseJSON;
 
 							if (pStatus->f_String() == "invalid")
 							{
@@ -468,7 +468,7 @@ namespace NMib::NWeb
 							if (Clock.f_GetTime() > Timeout)
 								co_return DMibErrorInstance("Timed out waiting for {} to turn valid. Status is: '{}'"_f << _Message << ResponseJSON);
 
-							co_await fg_Timeout(1.0);
+							co_await fg_Timeout(3.0);
 						}
 
 						co_return {};
@@ -743,15 +743,16 @@ namespace NMib::NWeb
 				else
 					co_return DMibErrorInstance("Finalize order response is missing 'status'");
 
-				if (auto pCertificate = ResponseJSON.f_GetMember("certificate", EJSONType_String))
-					CertificateUrl = pCertificate->f_String();
-				else
-					co_return DMibErrorInstance("Finalize order response is missing 'certificate'");
 			}
 		}
 
-		if (Status != "valid")
-			co_await fWaitForStatusValid(OrderUrl, "order status");
+		auto OrderResponseJson = co_await fWaitForStatusValid(OrderUrl, "order status");
+
+		if (auto pCertificate = OrderResponseJson.f_GetMember("certificate", EJSONType_String))
+			CertificateUrl = pCertificate->f_String();
+		else
+			co_return DMibErrorInstance("Order response is missing 'certificate': {}"_f << OrderResponseJson);
+
 
 		{
 			auto Result = co_await fPostAsGet(CertificateUrl);
