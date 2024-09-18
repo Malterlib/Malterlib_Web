@@ -720,10 +720,12 @@ namespace NMib::NWeb
 		Options.f_AddExtension_KeyUsage(EKeyUsage_KeyEncipherment | EKeyUsage_DigitalSignature);
 
 		CByteVector CertificateSigningRequest;
-
-		CSecureByteVector PrivateKey;
-		CCertificate::fs_GenerateClientCertificateRequest(Options, CertificateSigningRequest, PrivateKey);
-		ReturnChains.m_PrivateKey = CStrSecure((ch8 const *)PrivateKey.f_GetArray(), PrivateKey.f_GetLen());
+		{
+			auto CaptureScope = co_await (g_CaptureExceptions % "Exception generating certificate request");
+			CSecureByteVector PrivateKey;
+			CCertificate::fs_GenerateClientCertificateRequest(Options, CertificateSigningRequest, PrivateKey);
+			ReturnChains.m_PrivateKey = CStrSecure((ch8 const *)PrivateKey.f_GetArray(), PrivateKey.f_GetLen());
+		}
 
 		CStr Status;
 		CStr CertificateUrl;
