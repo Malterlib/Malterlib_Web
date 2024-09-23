@@ -47,6 +47,14 @@ endmacro()
 
 ####################################################################################
 
+if(NOT DEFINED CURL_USE_PKGCONFIG)
+  if(UNIX OR (MSVC AND VCPKG_TOOLCHAIN))  # Keep in sync with root CMakeLists.txt
+    set(CURL_USE_PKGCONFIG ON)
+  else()
+    set(CURL_USE_PKGCONFIG OFF)
+  endif()
+endif()
+
 include(CMakeFindDependencyMacro)
 if(ON)
   find_dependency(OpenSSL )
@@ -62,3 +70,7 @@ check_required_components("CURL")
 if(NOT TARGET CURL::libcurl)
   add_library(CURL::libcurl ALIAS CURL::libcurl_static)
 endif()
+
+# For compatibility with CMake's FindCURL.cmake
+set(CURL_LIBRARIES CURL::libcurl)
+set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")

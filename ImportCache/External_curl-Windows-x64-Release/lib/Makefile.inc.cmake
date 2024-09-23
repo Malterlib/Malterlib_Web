@@ -22,7 +22,7 @@
 #
 ###########################################################################
 
-SET(LIB_VAUTH_CFILES 
+set(LIB_VAUTH_CFILES 
   vauth/cleartext.c     
   vauth/cram.c          
   vauth/digest.c        
@@ -37,13 +37,14 @@ SET(LIB_VAUTH_CFILES
   vauth/spnego_sspi.c   
   vauth/vauth.c)
 
-SET(LIB_VAUTH_HFILES 
+set(LIB_VAUTH_HFILES 
   vauth/digest.h        
   vauth/ntlm.h          
   vauth/vauth.h)
 
-SET(LIB_VTLS_CFILES 
+set(LIB_VTLS_CFILES 
   vtls/bearssl.c            
+  vtls/cipher_suite.c       
   vtls/gtls.c               
   vtls/hostcheck.c          
   vtls/keylog.c             
@@ -58,8 +59,9 @@ SET(LIB_VTLS_CFILES
   vtls/wolfssl.c            
   vtls/x509asn1.c)
 
-SET(LIB_VTLS_HFILES 
+set(LIB_VTLS_HFILES 
   vtls/bearssl.h            
+  vtls/cipher_suite.h       
   vtls/gtls.h               
   vtls/hostcheck.h          
   vtls/keylog.h             
@@ -75,7 +77,7 @@ SET(LIB_VTLS_HFILES
   vtls/wolfssl.h            
   vtls/x509asn1.h)
 
-SET(LIB_VQUIC_CFILES 
+set(LIB_VQUIC_CFILES 
   vquic/curl_msh3.c   
   vquic/curl_ngtcp2.c   
   vquic/curl_osslq.c   
@@ -83,7 +85,7 @@ SET(LIB_VQUIC_CFILES
   vquic/vquic.c 
   vquic/vquic-tls.c)
 
-SET(LIB_VQUIC_HFILES 
+set(LIB_VQUIC_HFILES 
   vquic/curl_msh3.h   
   vquic/curl_ngtcp2.h   
   vquic/curl_osslq.h   
@@ -92,15 +94,15 @@ SET(LIB_VQUIC_HFILES
   vquic/vquic_int.h 
   vquic/vquic-tls.h)
 
-SET(LIB_VSSH_CFILES 
+set(LIB_VSSH_CFILES 
   vssh/libssh.c    
   vssh/libssh2.c   
   vssh/wolfssh.c)
 
-SET(LIB_VSSH_HFILES 
+set(LIB_VSSH_HFILES 
   vssh/ssh.h)
 
-SET(LIB_CFILES 
+set(LIB_CFILES 
   altsvc.c           
   amigaos.c          
   asyn-ares.c        
@@ -129,7 +131,6 @@ SET(LIB_CFILES
   curl_memrchr.c     
   curl_multibyte.c   
   curl_ntlm_core.c   
-  curl_ntlm_wb.c     
   curl_path.c        
   curl_range.c       
   curl_rtmp.c        
@@ -140,6 +141,7 @@ SET(LIB_CFILES
   curl_trc.c         
   cw-out.c           
   dict.c             
+  dllmain.c          
   doh.c              
   dynbuf.c           
   dynhds.c           
@@ -235,7 +237,7 @@ SET(LIB_CFILES
   warnless.c         
   ws.c)
 
-SET(LIB_HFILES 
+set(LIB_HFILES 
   altsvc.h           
   amigaos.h          
   arpa_telnet.h      
@@ -271,7 +273,6 @@ SET(LIB_HFILES
   curl_memrchr.h     
   curl_multibyte.h   
   curl_ntlm_core.h   
-  curl_ntlm_wb.h     
   curl_path.h        
   curl_printf.h      
   curl_range.h       
@@ -372,9 +373,9 @@ SET(LIB_HFILES
   warnless.h         
   ws.h)
 
-SET(LIB_RCFILES libcurl.rc)
+set(LIB_RCFILES libcurl.rc)
 
-SET(CSOURCES ${LIB_CFILES} ${LIB_VAUTH_CFILES} ${LIB_VTLS_CFILES} 
+set(CSOURCES ${LIB_CFILES} ${LIB_VAUTH_CFILES} ${LIB_VTLS_CFILES} 
   ${LIB_VQUIC_CFILES} ${LIB_VSSH_CFILES})
-SET(HHEADERS ${LIB_HFILES} ${LIB_VAUTH_HFILES} ${LIB_VTLS_HFILES} 
+set(HHEADERS ${LIB_HFILES} ${LIB_VAUTH_HFILES} ${LIB_VTLS_HFILES} 
   ${LIB_VQUIC_HFILES} ${LIB_VSSH_HFILES})

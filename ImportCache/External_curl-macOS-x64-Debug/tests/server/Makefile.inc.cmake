@@ -22,10 +22,10 @@
 #
 ###########################################################################
 
-SET(noinst_PROGRAMS getpart resolve rtspd sockfilt sws tftpd fake_ntlm    
+set(noinst_PROGRAMS getpart resolve rtspd sockfilt sws tftpd    
  socksd disabled mqttd)
 
-SET(CURLX_SRCS 
+set(CURLX_SRCS 
  ../../lib/mprintf.c 
  ../../lib/nonblock.c 
  ../../lib/strtoofft.c 
@@ -36,7 +36,7 @@ SET(CURLX_SRCS
  ../../lib/strcase.c 
  ../../lib/curl_multibyte.c)
 
-SET(CURLX_HDRS 
+set(CURLX_HDRS 
  ../../lib/curlx.h 
  ../../lib/nonblock.h 
  ../../lib/strtoofft.h 
@@ -47,7 +47,7 @@ SET(CURLX_HDRS
  ../../lib/strdup.h 
  ../../lib/curl_multibyte.h)
 
-SET(USEFUL 
+set(USEFUL 
  getpart.c 
  getpart.h 
  server_setup.h 
@@ -56,62 +56,57 @@ SET(USEFUL
  ../../lib/memdebug.c 
  ../../lib/memdebug.h)
 
-SET(UTIL 
+set(UTIL 
  util.c 
  util.h)
 
-SET(getpart_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} 
+set(getpart_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} 
  testpart.c)
-SET(getpart_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(getpart_CFLAGS ${AM_CFLAGS})
+set(getpart_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(getpart_CFLAGS ${AM_CFLAGS})
 
-SET(resolve_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(resolve_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  resolve.c)
-SET(resolve_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(resolve_CFLAGS ${AM_CFLAGS})
+set(resolve_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(resolve_CFLAGS ${AM_CFLAGS})
 
-SET(rtspd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(rtspd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h 
  rtspd.c)
-SET(rtspd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(rtspd_CFLAGS ${AM_CFLAGS})
+set(rtspd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(rtspd_CFLAGS ${AM_CFLAGS})
 
-SET(sockfilt_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(sockfilt_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h 
  sockfilt.c 
  ../../lib/inet_pton.c)
-SET(sockfilt_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(sockfilt_CFLAGS ${AM_CFLAGS})
+set(sockfilt_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(sockfilt_CFLAGS ${AM_CFLAGS})
 
-SET(socksd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(socksd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h socksd.c 
  ../../lib/inet_pton.c)
-SET(socksd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(socksd_CFLAGS ${AM_CFLAGS})
+set(socksd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(socksd_CFLAGS ${AM_CFLAGS})
 
-SET(mqttd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(mqttd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h mqttd.c 
  ../../lib/inet_pton.c)
-SET(mqttd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(mqttd_CFLAGS ${AM_CFLAGS})
+set(mqttd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(mqttd_CFLAGS ${AM_CFLAGS})
 
-SET(sws_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(sws_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h 
  sws.c 
  ../../lib/inet_pton.c)
-SET(sws_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(sws_CFLAGS ${AM_CFLAGS})
+set(sws_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(sws_CFLAGS ${AM_CFLAGS})
 
-SET(tftpd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
+set(tftpd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
  server_sockaddr.h 
  tftpd.c 
  tftp.h)
-SET(tftpd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(tftpd_CFLAGS ${AM_CFLAGS})
+set(tftpd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
+set(tftpd_CFLAGS ${AM_CFLAGS})
 
-SET(fake_ntlm_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- fake_ntlm.c)
-SET(fake_ntlm_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-SET(fake_ntlm_CFLAGS ${AM_CFLAGS})
-
-SET(disabled_SOURCES disabled.c)
+set(disabled_SOURCES disabled.c)

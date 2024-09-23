@@ -25,18 +25,18 @@
 # Using the backslash as line continuation character might be problematic with
 # some make flavours. If we ever want to change this in a portable manner then
 # we should consider this idea :
-# SET(CSRC1 file1.c file2.c file3.c)
-# SET(CSRC2 file4.c file5.c file6.c)
-# SET(CSOURCES ${CSRC1} ${CSRC2})
+# set(CSRC1 file1.c file2.c file3.c)
+# set(CSRC2 file4.c file5.c file6.c)
+# set(CSOURCES ${CSRC1} ${CSRC2})
 
 # libcurl sources to include in curltool lib we use for test binaries
-SET(CURLTOOL_LIBCURL_CFILES 
+set(CURLTOOL_LIBCURL_CFILES 
   ../lib/base64.c 
   ../lib/dynbuf.c)
 
-# libcurl has sources that provide functions named curlx_* that aren't part of
+# libcurl has sources that provide functions named curlx_* that are not part of
 # the official API, but we reuse the code here to avoid duplication.
-SET(CURLX_CFILES 
+set(CURLX_CFILES 
   ../lib/base64.c 
   ../lib/curl_multibyte.c 
   ../lib/dynbuf.c 
@@ -46,7 +46,7 @@ SET(CURLX_CFILES
   ../lib/version_win32.c 
   ../lib/warnless.c)
 
-SET(CURLX_HFILES 
+set(CURLX_HFILES 
   ../lib/curl_ctype.h 
   ../lib/curl_multibyte.h 
   ../lib/curl_setup.h 
@@ -57,8 +57,9 @@ SET(CURLX_HFILES
   ../lib/version_win32.h 
   ../lib/warnless.h)
 
-SET(CURL_CFILES 
+set(CURL_CFILES 
   slist_wc.c 
+  terminal.c 
   tool_binmode.c 
   tool_bname.c 
   tool_cb_dbg.c 
@@ -66,6 +67,7 @@ SET(CURL_CFILES
   tool_cb_prg.c 
   tool_cb_rea.c 
   tool_cb_see.c 
+  tool_cb_soc.c 
   tool_cb_wrt.c 
   tool_cfgable.c 
   tool_dirhie.c 
@@ -101,8 +103,9 @@ SET(CURL_CFILES
   tool_xattr.c 
   var.c)
 
-SET(CURL_HFILES 
+set(CURL_HFILES 
   slist_wc.h 
+  terminal.h 
   tool_binmode.h 
   tool_bname.h 
   tool_cb_dbg.h 
@@ -110,6 +113,7 @@ SET(CURL_HFILES
   tool_cb_prg.h 
   tool_cb_rea.h 
   tool_cb_see.h 
+  tool_cb_soc.h 
   tool_cb_wrt.h 
   tool_cfgable.h 
   tool_dirhie.h 
@@ -147,7 +151,7 @@ SET(CURL_HFILES
   tool_xattr.h 
   var.h)
 
-SET(CURL_RCFILES curl.rc)
+set(CURL_RCFILES curl.rc)
 
 # curl_SOURCES is special and gets assigned in src/Makefile.am
-SET(CURL_FILES ${CURL_CFILES} ${CURLX_CFILES} ${CURL_HFILES})
+set(CURL_FILES ${CURL_CFILES} ${CURLX_CFILES} ${CURL_HFILES})

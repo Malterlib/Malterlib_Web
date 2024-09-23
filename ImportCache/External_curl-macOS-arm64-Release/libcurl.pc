@@ -22,20 +22,20 @@
 #
 ###########################################################################
 
-# This should most probably benefit from getting a "Requires:" field added
-# dynamically by configure.
-#
 prefix=/usr/local
 exec_prefix=${prefix}
 libdir=/usr/local/lib
 includedir=${prefix}/include
 supported_protocols="HTTP HTTPS IPFS IPNS"
-supported_features="SSL IPv6 UnixSockets libz zstd AsynchDNS Largefile alt-svc HSTS NTLM HTTPS-proxy threadsafe"
+supported_features="alt-svc AsynchDNS HSTS HTTPS-proxy IPv6 Largefile libz NTLM SSL threadsafe UnixSockets zstd"
 
 Name: libcurl
 URL: https://curl.se/
 Description: Library to transfer files with ftp, http, etc.
-Version: 8.7.0-DEV
-Libs: -L${libdir} -lcurl  -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
-Libs.private:  -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
+Version: 8.10.1-DEV
+Requires: openssl,zlib,libzstd
+Requires.private: openssl,zlib,libzstd
+Libs: -L${libdir} -lcurl -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
+Libs.private: -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
 Cflags: -I${includedir} -DCURL_STATICLIB
+Cflags.private: -DCURL_STATICLIB

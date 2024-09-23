@@ -49,6 +49,8 @@ else ()
   set(PCRE2_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
   if (MINGW AND PCRE2_NON_STANDARD_LIB_SUFFIX)
     set(PCRE2_SUFFIX "-0.dll")
+  elseif(MSVC)
+    set(PCRE2_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX})
   endif ()
 endif ()
 find_library(PCRE2_8BIT_LIBRARY NAMES ${PCRE2_PREFIX}${PCRE2_8BIT_NAME}${PCRE2_SUFFIX} ${PCRE2_PREFIX}${PCRE2_8BIT_NAME}d${PCRE2_SUFFIX} DOC "8 bit PCRE2 library")
@@ -64,7 +66,7 @@ unset(PCRE2_POSIX_NAME)
 
 # Set version
 if (PCRE2_INCLUDE_DIR)
-  set(PCRE2_VERSION "10.43.0")
+  set(PCRE2_VERSION "10.44.0")
 endif ()
 
 # Which components have been found.
