@@ -385,7 +385,7 @@ namespace NMib::NWeb
 
 			if (auto pEnvironment = JSONConfig.f_GetMember("Environment", EJSONType_Object))
 			{
-				if (auto pVariables = JSONConfig.f_GetMember("Variables", EJSONType_Object))
+				if (auto pVariables = pEnvironment->f_GetMember("Variables", EJSONType_Object))
 				{
 					auto &OutEnv = *(Config.m_EnvironmentVariables = NContainer::TCMap<NStr::CStr, NStr::CStr>{});
 					for (auto &EnvVar : pVariables->f_Object())
