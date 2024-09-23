@@ -1,11 +1,11 @@
 {
 	"../../External/curl": {
-		"Hash": "8376962bb1951d24bf8181e2d78e27fa3e876d7f"
+		"Hash": "7fc58fd219d7668880fb6fd0615a58cdd44725d3"
 	},
 	"../../External/nginx": {
-		"Hash": "4376986a3fbb566342ac0edc4004e9fba471220f"
+		"Hash": "1f269642273536465539120d2f501476751cf8d2"
 	},
 	"../../External/pcre2": {
-		"Hash": "3864abdb713f78831dd12d898ab31bbb0fa630b6"
+		"Hash": "6ae58beca071f13ccfed31d03b3f479ab520639b"
 	}
 }
