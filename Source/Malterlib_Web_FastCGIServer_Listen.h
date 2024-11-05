@@ -15,12 +15,12 @@ namespace NMib::NWeb::NFastCGI
 		CListenActor
 			(
 				NConcurrency::TCActor<CFastCGIServer> const &_Server
-				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+				, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
 			)
 		;
 		~CListenActor();
 
-		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket>const& _pSocket);
+		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 	private:
@@ -31,6 +31,6 @@ namespace NMib::NWeb::NFastCGI
 	private:
 		NNetwork::CSocket mp_Socket;
 		NConcurrency::TCActor<CFastCGIServer> mp_Server;
-		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> mp_pOnRequest;
+		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
 	};
 }

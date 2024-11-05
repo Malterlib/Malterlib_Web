@@ -16,7 +16,7 @@ namespace NMib::NWeb::NWebSocket
 		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, CWebsocketSettings const &_Settings);
 		~CListenActor();
 
-		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
+		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 	private:

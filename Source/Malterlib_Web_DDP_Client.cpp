@@ -45,7 +45,7 @@ namespace NMib::NWeb
 				return NContainer::TCMap<NStr::CStr, CSubscription>::fs_GetKey(*this);
 			}
 
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted const &_Message)> m_fCallback;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted _Message)> m_fCallback;
 			ESubscriptionNotification m_NotifyOn;
 			NFunction::TCFunctionMovable<void ()> m_fOnReady;
 			NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)> m_fOnError;
@@ -61,7 +61,7 @@ namespace NMib::NWeb
 				*m_pDestroyed = true;
 			}
 
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted const &_Message)> m_fCallback;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted _Message)> m_fCallback;
 			EObserveNotification m_NotifyOn;
 			NStorage::TCSharedPointer<bool> m_pDestroyed = fg_Construct(false);
 		};
@@ -276,31 +276,27 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<CDDPClient::CConnectInfo> CDDPClient::f_Connect
 		(
-			NStr::CStr const &_UserName
-			, NStr::CStrSecure const &_Password
-			, NStr::CStrSecure const &_Token
-			, NStr::CStr const &_SessionID
+			NStr::CStr _UserName
+			, NStr::CStrSecure _Password
+			, NStr::CStrSecure _Token
+			, NStr::CStr _SessionID
 			, fp32 _Timeout
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> _fOnClose
 		)
 	{
-		NConcurrency::TCPromise<CConnectInfo> Promise;
-
 		auto &Internal = *mp_pInternal;
 
 		if (Internal.m_bConnectCalled)
-		{
-			Promise.f_SetException(DMibErrorInstance("The DDP client can only be connected once"));
-			return Promise.f_MoveFuture();
-		}
+			co_return DMibErrorInstance("The DDP client can only be connected once");
 
 		Internal.m_bConnectCalled = true;
 		Internal.m_UserName = _UserName;
 		Internal.m_Password = _Password;
 		Internal.m_LoginToken = _Token;
 
-		Internal.m_ConnectPromise = Promise;
-		Internal.m_ConnectionFactory
+		Internal.m_ConnectPromise = {};
+
+		auto ConnectResult = co_await Internal.m_ConnectionFactory
 			(
 				&CWebSocketClientActor::f_Connect
 				, Internal.m_ConnectTo.f_GetHost()
@@ -313,58 +309,53 @@ namespace NMib::NWeb
 				, NHTTP::CRequest()
 				, fg_TempCopy(Internal.m_SocketFactory)
 			)
-			> [this, _SessionID, _Timeout, fOnClose = fg_Move(_fOnClose)](NConcurrency::TCAsyncResult<CWebSocketNewClientConnection> &&_Result) mutable
+			.f_Wrap()
+		;
+
+		if (!ConnectResult)
+			co_return ConnectResult.f_GetException();
+
+		auto &Result = *ConnectResult;
+
+		Result.m_fOnReceiveTextMessage = NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr _Message) -> NConcurrency::TCFuture<void>
 			{
-				auto &Internal = *mp_pInternal;
-				if (!_Result)
-				{
-					Internal.m_ConnectPromise.f_SetException(_Result);
-					return;
-				}
+				mp_pInternal->fp_ReceiveMessage(_Message);
 
-				CWebSocketNewClientConnection& Result = _Result.f_Get();
-
-				Result.m_fOnReceiveTextMessage = NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr const &_Message) -> NConcurrency::TCFuture<void>
-					{
-						mp_pInternal->fp_ReceiveMessage(_Message);
-
-						co_return {};
-					}
-				;
-
-				if (fOnClose)
-				{
-					Result.m_fOnClose = NConcurrency::g_ActorFunctorWeak
-						/ [fOnClose = fg_Move(fOnClose)](EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin) mutable -> NConcurrency::TCFuture<void>
-						{
-							co_await fOnClose(_Reason, _Message, _Origin).f_Timeout(60.0, "Timed out waiting for on close");
-
-							co_return {};
-						}
-					;
-				}
-
-				Internal.m_WebSocket = Result.f_Accept
-					(
-						fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
-						{
-							auto &Internal = *mp_pInternal;
-							if (_Result)
-								mp_pInternal->m_WebSocketCallbackSubscription = fg_Move(_Result.f_Get());
-							else
-							{
-								if (!Internal.m_ConnectPromise.f_IsSet())
-									Internal.m_ConnectPromise.f_SetException(fg_Move(_Result));
-							}
-						}
-					)
-				;
-
-				Internal.fp_SendConnect(_Timeout, _SessionID);
+				co_return {};
 			}
 		;
 
-		return Internal.m_ConnectPromise.f_Future();
+		if (_fOnClose)
+		{
+			Result.m_fOnClose = NConcurrency::g_ActorFunctorWeak / [fOnClose = fg_Move(_fOnClose)]
+				(EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin) mutable -> NConcurrency::TCFuture<void>
+				{
+					co_await fOnClose(_Reason, _Message, _Origin).f_Timeout(60.0, "Timed out waiting for on close");
+
+					co_return {};
+				}
+			;
+		}
+
+		Internal.m_WebSocket = Result.f_Accept
+			(
+				fg_ThisActor(this) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
+				{
+					auto &Internal = *mp_pInternal;
+					if (_Result)
+						mp_pInternal->m_WebSocketCallbackSubscription = fg_Move(_Result.f_Get());
+					else
+					{
+						if (!Internal.m_ConnectPromise.f_IsSet())
+							Internal.m_ConnectPromise.f_SetException(fg_Move(_Result));
+					}
+				}
+			)
+		;
+
+		Internal.fp_SendConnect(_Timeout, _SessionID);
+
+		co_return co_await Internal.m_ConnectPromise.f_Future();
 	}
 
 	NConcurrency::TCFuture<void> CDDPClient::fp_Destroy()
@@ -379,20 +370,20 @@ namespace NMib::NWeb
 			Internal.m_ConnectPromise.f_SetException(DMibErrorInstance("Destroy called before connection finished"));
 
 		if (Internal.m_WebSocket)
-			co_await Internal.m_WebSocket.f_Destroy().f_Wrap() > LogError.f_Warning("Failed to destroy Websocket");
+			co_await fg_Move(Internal.m_WebSocket).f_Destroy().f_Wrap() > LogError.f_Warning("Failed to destroy Websocket");
 
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<NEncoding::CEJSONSorted> CDDPClient::f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params)
+	NConcurrency::TCFuture<NEncoding::CEJSONSorted> CDDPClient::f_Method(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> _Params)
 	{
-		NConcurrency::TCPromise<NEncoding::CEJSONSorted> Promise;
+		NConcurrency::TCPromiseFuturePair<NEncoding::CEJSONSorted> Promise;
 		auto &Internal = *mp_pInternal;
 		Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Promise](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
 						Promise.f_SetException(DMibErrorInstance(_Error));
@@ -401,23 +392,23 @@ namespace NMib::NWeb
 				}
 			)
 		;
-		return Promise.f_MoveFuture();
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 
 	NConcurrency::TCFuture<NEncoding::CEJSONSorted> CDDPClient::f_MethodWithUpdated
 		(
-			NStr::CStr const &_MethodName
-			, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fOnUpdated
+			NStr::CStr _MethodName
+			, NContainer::TCVector<NEncoding::CEJSONSorted> _Params
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated
 		)
 	{
-		NConcurrency::TCPromise<NEncoding::CEJSONSorted> Promise;
+		NConcurrency::TCPromiseFuturePair<NEncoding::CEJSONSorted> Promise;
 		auto &Internal = *mp_pInternal;
 		uint64 MethodID = Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Promise](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
 						Promise.f_SetException(DMibErrorInstance(_Error));
@@ -429,15 +420,15 @@ namespace NMib::NWeb
 
 		Internal.m_PendingMethodUpdated[MethodID] = fg_Move(_fOnUpdated);
 
-		return Promise.f_MoveFuture();
+		co_return co_await fg_Move(Promise.m_Future);
 
 	}
 
 	NConcurrency::CActorSubscription CDDPClient::f_Observe
 		(
-			NStr::CStr const &_CollectionName // Leave empty to observe all collections
+			NStr::CStr _CollectionName // Leave empty to observe all collections
 			, EObserveNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
 		)
 	{
 		auto &Internal = *mp_pInternal;
@@ -474,16 +465,14 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CDDPClient::f_Subscribe
 		(
-			NStr::CStr const &_SubscriptionName
-			, NStr::CStr const &_SubscriptionID
-			, NEncoding::CEJSONSorted const &_Params
+			NStr::CStr _SubscriptionName
+			, NStr::CStr _SubscriptionID
+			, NEncoding::CEJSONSorted _Params
 			, ESubscriptionNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
 			, bool _bWaitForResponse
 		)
 	{
-		NConcurrency::TCPromise<NConcurrency::CActorSubscription> Promise;
-
 		NStr::CStr SubscriptionID = _SubscriptionID;
 
 		if (SubscriptionID.f_IsEmpty())
@@ -502,7 +491,7 @@ namespace NMib::NWeb
 		Message["id"] = SubscriptionID;
 		Message["name"] = _SubscriptionName;
 		if (_Params.f_IsValid())
-			Message["params"] = _Params;
+			Message["params"] = fg_Move(_Params);
 
 		Internal.fp_SendMessage(Message);
 
@@ -537,25 +526,24 @@ namespace NMib::NWeb
 		;
 
 		if (!_bWaitForResponse)
-		{
-			Promise.f_SetResult(fg_Move(CleanupSubscription));
-			return Promise.f_MoveFuture();
-		}
+			co_return fg_Move(CleanupSubscription);
 
-		Subscription.m_fOnReady = [Promise, CleanupSubscription = fg_Move(CleanupSubscription)]() mutable
+		NConcurrency::TCPromiseFuturePair<NConcurrency::CActorSubscription> Promise;
+
+		Subscription.m_fOnReady = [Promise = Promise.m_Promise, CleanupSubscription = fg_Move(CleanupSubscription)]() mutable
 			{
 				if (!Promise.f_IsSet())
 					Promise.f_SetResult(fg_Move(CleanupSubscription));
 			}
 		;
-		Subscription.m_fOnError = [Promise](NStr::CStr const &_Error)
+		Subscription.m_fOnError = [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error)
 			{
 				if (!Promise.f_IsSet())
 					Promise.f_SetException(DMibErrorInstance(_Error));
 			}
 		;
 
-		return Promise.f_MoveFuture();
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 
 	void CDDPClient::f_AccessData(NFunction::TCFunctionMovable<void (CDataAccessor const &_Accessor)> &&_ProcessData)
@@ -572,7 +560,7 @@ namespace NMib::NWeb
 	void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJSONSorted const &_Message)
 	{
 		if (m_WebSocket)
-			m_WebSocket(&CWebSocketActor::f_SendText, _Message.f_ToString(nullptr), 0) > NConcurrency::fg_DiscardResult();
+			m_WebSocket.f_Bind<&CWebSocketActor::f_SendText>(_Message.f_ToString(nullptr), 0).f_DiscardResult();
 	}
 
 	void CDDPClient::CInternal::fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJSONSorted const &_Message, EObserveNotification _Notification)
@@ -584,7 +572,7 @@ namespace NMib::NWeb
 					if (Observation.m_NotifyOn & _Notification)
 					{
 						if (Observation.m_fCallback)
-							Observation.m_fCallback(_Notification, _Message) > NConcurrency::fg_DiscardResult();
+							Observation.m_fCallback.f_CallDiscard(_Notification, _Message);
 					}
 				}
 			}
@@ -695,7 +683,7 @@ namespace NMib::NWeb
 			if (pSub->m_NotifyOn & ESubscriptionNotification_Ready)
 			{
 				if (pSub->m_fCallback)
-					pSub->m_fCallback(ESubscriptionNotification_Ready, NEncoding::CEJSONSorted()) > NConcurrency::fg_DiscardResult();
+					pSub->m_fCallback.f_CallDiscard(ESubscriptionNotification_Ready, NEncoding::CEJSONSorted());
 			}
 		}
 	}
@@ -719,7 +707,7 @@ namespace NMib::NWeb
 				}
 			;
 
-			(*pMethodUpdated)() > NConcurrency::fg_DiscardResult();
+			pMethodUpdated->f_CallDiscard();
 		}
 	}
 
@@ -774,7 +762,7 @@ namespace NMib::NWeb
 				if (pSub->m_NotifyOn & ESubscriptionNotification_Error)
 				{
 					if (pSub->m_fCallback)
-						pSub->m_fCallback(ESubscriptionNotification_Error, _Message) > NConcurrency::fg_DiscardResult();
+						pSub->m_fCallback.f_CallDiscard(ESubscriptionNotification_Error, _Message);
 				}
 			}
 		}
@@ -1033,13 +1021,15 @@ namespace NMib::NWeb
 				&NConcurrency::CTimerActor::f_OneshotTimerAbortable
 				, _Timeout
 				, fg_ThisActor(m_pThis)
-				, [this]
+				, [this]() -> NConcurrency::TCFuture<void>
 				{
 					if (!m_bConnectFinished)
 					{
 						if (!m_ConnectPromise.f_IsSet())
 							m_ConnectPromise.f_SetException(DMibErrorInstance("Timed out waiting for reply to connect message"));
 					}
+
+					co_return {};
 				}
 			)
 			> fg_ThisActor(m_pThis) / [this](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_TimerReference)

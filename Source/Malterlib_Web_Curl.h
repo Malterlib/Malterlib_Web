@@ -69,7 +69,7 @@ namespace NMib::NWeb
 			uint64 m_ReadDataSize = 0;
 			bool m_bFollowRedirects = false;
 			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fReadData;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data)> m_fWriteData;
 		};
 
 		struct CResult
@@ -87,14 +87,14 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CResult> f_Request
 			(
 				EMethod _Method
-				, NStr::CStr const &_URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
-				, NContainer::CByteVector const &_Data
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
+				, NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+				, NContainer::CByteVector _Data
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Cookies
 			)
 		;
 
-		NConcurrency::TCFuture<CResult> f_ExecuteRequest(CRequest &&_Request);
+		NConcurrency::TCFuture<CResult> f_ExecuteRequest(CRequest _Request);
 
 	private:
 		struct CInternal;
@@ -103,7 +103,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		CActorHolder *fp_GetActorHolder();
-		NConcurrency::TCFuture<void> fp_RequestFinished(NStr::CStr const &_RequestID, int32 _ResultCode, NException::CExceptionPointer &&_pException);
+		NConcurrency::TCFuture<void> fp_RequestFinished(NStr::CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

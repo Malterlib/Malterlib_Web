@@ -30,7 +30,7 @@ namespace NMib::NWeb
 
 	CAwsS3Actor::~CAwsS3Actor() = default;
 
-	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
+	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr _BucketName, NStr::CStr _Key)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
@@ -69,17 +69,27 @@ namespace NMib::NWeb
 		co_return fg_Move(MetaData);
 	}
 
-	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr const &_BucketName)
+	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr _BucketName)
 	{
-		TCPromise<CAwsS3Actor::CListBucket> Promise;
-
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
 
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
-		auto fDoRequest = [=, this](auto const &_fDoRequest, CStr const &_ContinuationToken) -> void
+		TCPromiseFuturePair<CAwsS3Actor::CListBucket> Promise;
+		
+		auto fDoRequest = [=, Promise = fg_Move(Promise.m_Promise), this]
+			(
+#if !defined(DCompiler_Workaround_Apple_clang) && !defined(DCompiler_MSVC_Workaround)
+				this
+#endif
+				auto &&_fDoRequest
+				, CStr const &_ContinuationToken
+			) -> void
 			{
+#if defined(DCompiler_Workaround_Apple_clang) || defined(DCompiler_MSVC_Workaround)
+				#define _fDoRequest(...) _fDoRequest(_fDoRequest, __VA_ARGS__)
+#endif
 				auto &Internal = *mp_pInternal;
 
 				auto NewURL = AWSUrl;
@@ -157,7 +167,7 @@ namespace NMib::NWeb
 							if (!ContinuationToken)
 								return fReportInvalidXML("NextContinuationToken");
 
-							_fDoRequest(_fDoRequest, ContinuationToken);
+							_fDoRequest(ContinuationToken);
 							return;
 						}
 						pResult->m_BucketName = Results.f_GetChildValue(pListBucketResult, "Name", _BucketName);
@@ -167,10 +177,12 @@ namespace NMib::NWeb
 				;
 			}
 		;
+#if defined(DCompiler_Workaround_Apple_clang) || defined(DCompiler_MSVC_Workaround)
+		#define fDoRequest(...) fDoRequest(fDoRequest, __VA_ARGS__)
+#endif
+		fDoRequest("");
 
-		fDoRequest(fDoRequest, "");
-
-		return Promise.f_MoveFuture();
+		return fg_Move(Promise.m_Future);
 	}
 
 	namespace
@@ -233,7 +245,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key, CPutObjectInfo const &_Info, NContainer::CByteVector &&_Data)
+	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObject(NStr::CStr _BucketName, NStr::CStr _Key, CPutObjectInfo _Info, NContainer::CByteVector _Data)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
@@ -250,17 +262,17 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObjectMultipart
 		(
-			NStr::CStr const &_BucketName
-			, NStr::CStr const &_Key
-			, CPutObjectInfo const &_Info
+			NStr::CStr _BucketName
+			, NStr::CStr _Key
+			, CPutObjectInfo _Info
 			, uint64 _TotalSize
-			, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> &&_fGetPart
+			, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> _fGetPart
 		)
 	{
 		co_return DMibErrorInstance("Not implemented");
 	}
 
-	NConcurrency::TCFuture<void> CAwsS3Actor::f_DeleteObject(NStr::CStr const &_BucketName, NStr::CStr const &_Key)
+	NConcurrency::TCFuture<void> CAwsS3Actor::f_DeleteObject(NStr::CStr _BucketName, NStr::CStr _Key)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};

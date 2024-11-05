@@ -288,7 +288,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	auto CAcmeClientActor::f_RequestCertificate(CCertificateRequest &&_RequestCertificate) -> TCFuture<CCertificateChains>
+	auto CAcmeClientActor::f_RequestCertificate(CCertificateRequest _RequestCertificate) -> TCFuture<CCertificateChains>
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -300,7 +300,7 @@ namespace NMib::NWeb
 		auto fGet = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_CurlActor.f_CallByValue<&CCurlActor::f_Request>
+				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
 						CCurlActor::EMethod_GET
 						, _Path
@@ -308,6 +308,7 @@ namespace NMib::NWeb
 						, CByteVector{}
 						, TCMap<CStr, CStr>{}
 					)
+					.f_Call()
 				;
 			}
 		;
@@ -315,7 +316,7 @@ namespace NMib::NWeb
 		auto fHead = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_CurlActor.f_CallByValue<&CCurlActor::f_Request>
+				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
 						CCurlActor::EMethod_HEAD
 						, _Path
@@ -323,6 +324,7 @@ namespace NMib::NWeb
 						, CByteVector{}
 						, TCMap<CStr, CStr>{}
 					)
+					.f_Call()
 				;
 			}
 		;
@@ -334,7 +336,7 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_CurlActor.f_CallByValue<&CCurlActor::f_Request>
+				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
 						CCurlActor::EMethod_POST
 						, _Path
@@ -342,6 +344,7 @@ namespace NMib::NWeb
 						, fg_FlattenedJwsEncode(_Path, fg_Move(_Payload), *pState)
 						, TCMap<CStr, CStr>{}
 					)
+					.f_Call()
 				;
 			}
 		;
@@ -350,7 +353,7 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_CurlActor.f_CallByValue<&CCurlActor::f_Request>
+				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
 						CCurlActor::EMethod_POST
 						, _Path
@@ -358,11 +361,12 @@ namespace NMib::NWeb
 						, fg_FlattenedJwsEncode(_Path, {}, *pState)
 						, TCMap<CStr, CStr>{}
 					)
+					.f_Call()
 				;
 			}
 		;
 
-		auto fUpdateNonce = [pState](CCurlActor::CResult const &_Result) -> TCFuture<void>
+		auto fUpdateNonce = [pState](CCurlActor::CResult const &_Result) -> TCUnsafeFuture<void>
 			{
 				CStr Nonce;
 

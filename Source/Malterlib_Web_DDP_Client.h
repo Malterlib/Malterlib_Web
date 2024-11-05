@@ -96,37 +96,37 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<CConnectInfo> f_Connect
 			(
-				NStr::CStr const &_UserName
-				, NStr::CStrSecure const &_Password
-				, NStr::CStrSecure const &_Token
-				, NStr::CStr const &_SessionID
+				NStr::CStr _UserName
+				, NStr::CStrSecure _Password
+				, NStr::CStrSecure _Token
+				, NStr::CStr _SessionID
 				, fp32 _Timeout
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> _fOnClose
 			)
 		;
-		NConcurrency::TCFuture<NEncoding::CEJSONSorted> f_Method(NStr::CStr const &_MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params);
+		NConcurrency::TCFuture<NEncoding::CEJSONSorted> f_Method(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> _Params);
 		NConcurrency::TCFuture<NEncoding::CEJSONSorted> f_MethodWithUpdated
 			(
-				NStr::CStr const &_MethodName
-				, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fOnUpdated
+				NStr::CStr _MethodName
+				, NContainer::TCVector<NEncoding::CEJSONSorted> _Params
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated
 			)
 		;
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Subscribe
 			(
-				NStr::CStr const &_SubscriptionName
-				, NStr::CStr const &_SubscriptionID
-				, NEncoding::CEJSONSorted const &_Params
+				NStr::CStr _SubscriptionName
+				, NStr::CStr _SubscriptionID
+				, NEncoding::CEJSONSorted _Params
 				, ESubscriptionNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
 				, bool _bWaitForResponse
 			)
 		;
 		NConcurrency::CActorSubscription f_Observe
 			(
-				NStr::CStr const &_CollectionName // Leave empty to observe all collections
+				NStr::CStr _CollectionName // Leave empty to observe all collections
 				, EObserveNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted const &_Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
 			)
 		;
 

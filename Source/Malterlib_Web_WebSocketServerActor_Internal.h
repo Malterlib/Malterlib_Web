@@ -21,8 +21,8 @@ namespace NMib::NWeb
 
 		CWebSocketServerActor *m_pThis;
 		NContainer::TCVector<NConcurrency::TCActor<NWebSocket::CListenActor>> m_ListenSockets;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection &&_NewConnection)> m_fOnNewConnection;
-		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo &&_ConnectionInfo)> m_fOnFailedConnection;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _NewConnection)> m_fOnNewConnection;
+		NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> m_fOnFailedConnection;
 		NContainer::TCLinkedList<NConcurrency::CActorSubscription> m_Subscriptions;
 		CWebsocketSettings m_DefaultSettings;
 		bool m_bBroken = false;

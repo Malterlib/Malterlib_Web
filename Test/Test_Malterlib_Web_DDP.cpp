@@ -54,7 +54,7 @@ public:
 		TCFuture<void> fp_Destroy() override
 		{
 			if (m_WebsocketServer)
-				co_await m_WebsocketServer.f_Destroy();
+				co_await fg_Move(m_WebsocketServer).f_Destroy();
 
 			co_return {};
 		}
@@ -133,7 +133,7 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 					, TCVector<CNetAddress>{ToListenTo}
 					, ENetFlag_None
-					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection &&_ConnectionInfo)
+					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _ConnectionInfo)
 					-> TCFuture<void>
 					{
 						auto &NewConnection = m_Connections.f_Insert();
@@ -145,14 +145,14 @@ public:
 						auto Subscription = co_await NewConnection.m_Connection
 							(
 								&CDDPServerConnection::f_Register
-								, g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo const &_ConnectionInfo) -> TCFuture<void>
+								, g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
 								// On connection
 								{
 									_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo const &_MethodInfo) -> TCFuture<void>
+								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo _MethodInfo) -> TCFuture<void>
 								// On method call
 								{
 									if (_MethodInfo.m_Name == "login")
@@ -215,7 +215,7 @@ public:
 
 										_MethodInfo.f_Result(CEJSONSorted(EJSONType_Object));
 
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)) > fg_DiscardResult();
+										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
 									else if (_MethodInfo.m_Name == "testRemoved")
 									{
@@ -235,14 +235,14 @@ public:
 
 										_MethodInfo.f_Result(CEJSONSorted(EJSONType_Object));
 
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)) > fg_DiscardResult();
+										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
 									else
 										_MethodInfo.f_Error(fp_MethodError("method-not-found", "Method not found"));
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo const &_SubscribeInfo)
+								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo _SubscribeInfo)
 								-> TCFuture<void>
 								// On subscribe
 								{
@@ -264,7 +264,7 @@ public:
 										CDDPServerConnection::CReady Ready;
 										Ready.m_Subscriptions.f_Insert(_SubscribeInfo.m_ID);
 										Changes.f_Insert(fg_Move(Ready));
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)) > fg_DiscardResult();
+										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
 									else
 									{
@@ -273,7 +273,7 @@ public:
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this](CStr const &_SubscriptionID)
+								, g_ActorFunctorWeak / [this](CStr _SubscriptionID)
 								-> TCFuture<void>
 								// On unsubscribe
 								{
@@ -282,7 +282,7 @@ public:
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this](CStr const &_Error)
+								, g_ActorFunctorWeak / [this](CStr _Error)
 								-> TCFuture<void>
 								// On error
 								{
@@ -290,7 +290,7 @@ public:
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr const& _Message, EWebSocketCloseOrigin _Origin)
+								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin)
 								-> TCFuture<void>
 								{
 									co_return {};
@@ -305,7 +305,7 @@ public:
 
 						co_return {};
 					}
-					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo && _ConnectionInfo)
+					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo _ConnectionInfo)
 					-> TCFuture<void>
 					{
 						f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
@@ -334,7 +334,7 @@ public:
 				}
 			;
 
-			return Promise.f_MoveFuture();
+			co_return co_await Promise.f_MoveFuture();
 		}
 	};
 
@@ -390,7 +390,7 @@ public:
 					, CDDPClient::EObserveNotification_Added
 					| CDDPClient::EObserveNotification_Changed
 					| CDDPClient::EObserveNotification_Removed
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, const CEJSONSorted &_NotificationData)
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJSONSorted _NotificationData)
 					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
@@ -415,7 +415,7 @@ public:
 					, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
 					, CDDPClient::ESubscriptionNotification_Ready
 					| CDDPClient::ESubscriptionNotification_Error
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, const CEJSONSorted &_NotificationData)
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted _NotificationData)
 					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
@@ -508,7 +508,7 @@ public:
 								, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
 								, CDDPClient::ESubscriptionNotification_None
 								, g_ActorFunctorWeak(ProcessingActor)
-								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted const &_NotificationData)
+								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted _NotificationData)
 								-> TCFuture<void>
 								{
 									co_return {};

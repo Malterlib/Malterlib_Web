@@ -10,7 +10,7 @@
 
 namespace NMib::NWeb
 {
-	class CFastCGIServer::CInternal
+	class CFastCGIServer::CInternal : public NConcurrency::CActorInternal
 	{
 	public:
 		CInternal(CFastCGIServer *_pThis);
@@ -18,17 +18,17 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_Start
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
-				, NNetwork::CNetAddress const &_BindAddress
+				, NNetwork::CNetAddress _BindAddress
 			)
 		;
 
 		NConcurrency::TCFuture<void> f_StartListenAddress
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
-				, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+				, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 			)
 		;
 
@@ -43,6 +43,6 @@ namespace NMib::NWeb
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> mp_ListenSockets;
 		NContainer::TCSet<NConcurrency::TCActor<CFastCGIConnectionActor>> mp_Connections;
 		NStorage::TCSharedPointer<NConcurrency::CCanDestroyTracker> mp_pCanDestroyTracker = fg_Construct();
-		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> mp_pOnRequest;
+		NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
 	};
 }

@@ -24,22 +24,22 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::f_Start
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, uint16 _FastCGIListenStartPort
 			, uint16 _nListen
-			, NNetwork::CNetAddress const &_BindAddress
+			, NNetwork::CNetAddress _BindAddress
 		)
 	{
-		return NConcurrency::fg_CallSafe(*mp_pInternal, &CInternal::f_Start, fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen, _BindAddress);
+		return mp_pInternal->f_Start(fg_Move(_fOnRequest), _FastCGIListenStartPort, _nListen, _BindAddress);
 	}
 
 	NConcurrency::TCFuture<void> CFastCGIServer::f_StartListenAddress
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
-			, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+			, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 		)
 	{
-		return NConcurrency::fg_CallSafe(*mp_pInternal, &CInternal::f_StartListenAddress, fg_Move(_fOnRequest), fg_Move(_Addresses));
+		return mp_pInternal->f_StartListenAddress(fg_Move(_fOnRequest), fg_Move(_Addresses));
 	}
 
 	///
@@ -67,28 +67,28 @@ namespace NMib::NWeb
 		return mp_bFinished;
 	}
 
-	void CFastCGIRequest::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnStdInputRaw, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_OnStdInputRaw>(fg_Move(_fCallback)).f_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnData, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_OnData>(fg_Move(_fCallback)).f_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
+	void CFastCGIRequest::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnStdInput, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_OnStdInput>(fg_Move(_fCallback)).f_DiscardResult();
 	}
 
 	void CFastCGIRequest::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
 	{
 		DMibRequire(!mp_bFinished);
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_OnAbort, fg_Move(_fCallback)) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_OnAbort>(fg_Move(_fCallback)).f_DiscardResult();
 	}
 
 	NContainer::TCMap<NStr::CStr, NStr::CStr> const& CFastCGIRequest::f_GetParams()
@@ -114,7 +114,7 @@ namespace NMib::NWeb
 		NContainer::CByteVector Data;
 		Data.f_Insert(_pOutput, _Len);
 
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_SendStdOutput, Data) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_SendStdOutput>(Data).f_DiscardResult();
 	}
 
 	void CFastCGIRequest::f_SendStdError(uint8 const* _pOutput, mint _Len)
@@ -123,20 +123,20 @@ namespace NMib::NWeb
 		NContainer::CByteVector Data;
 		Data.f_Insert(_pOutput, _Len);
 
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_SendStdError, Data) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_SendStdError>(Data).f_DiscardResult();
 	}
 
 	void CFastCGIRequest::f_FinishRequest()
 	{
 		DMibRequire(!mp_bFinished);
 		mp_bFinished = true;
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_FinishRequest) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_FinishRequest>().f_DiscardResult();
 	}
 
 	void CFastCGIRequest::f_Accept()
 	{
 		DMibRequire(!mp_bAccepted);
 		mp_bAccepted = true;
-		mp_ConnectionActor(&CFastCGIConnectionActor::f_Accept) > NConcurrency::fg_DiscardResult();
+		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_Accept>().f_DiscardResult();
 	}
 }

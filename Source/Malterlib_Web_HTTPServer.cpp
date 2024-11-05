@@ -60,8 +60,8 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
 			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
 
-			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> const& _pRequest, CHTTPServerInternal& _Internal)
-				: mp_pRequest(_pRequest)
+			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, CHTTPServerInternal& _Internal)
+				: mp_pRequest(fg_Move(_pRequest))
 				, mp_ContentStream(NContainer::CByteVector())
 				, mp_Internal(_Internal)
 			{
@@ -185,9 +185,9 @@ namespace NMib::NWeb
 					mp_pRequest->f_OnStdInputRaw
 						(
 							NConcurrency::g_ActorFunctor(NConcurrency::fg_ConcurrentActor())
-							/ [nPostBytes, pData, _pThis](NContainer::CByteVector &&_Data, bool _bEOF) -> NConcurrency::TCFuture<void>
+							/ [nPostBytes, pData, _pThis](NContainer::CByteVector _Data, bool _bEOF) -> NConcurrency::TCFuture<void>
 							{
-								pData->f_Insert(_Data);
+								pData->f_Insert(fg_Move(_Data));
 
 								if (_bEOF)
 								{
@@ -201,7 +201,7 @@ namespace NMib::NWeb
 										_pThis->f_HandleRequest();
 									}
 								}
-								return NConcurrency::TCPromise<void>() <<= g_Void;
+								return g_Void;
 							}
 						)
 					;
@@ -358,7 +358,7 @@ namespace NMib::NWeb
 			f_Stop();
 		}
 
-		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority)
+		void f_AddHandlerForPath(NStr::CStr _Path, CHTTPRequestHandler *_pHandler, int _Priority)
 		{
 			if (mp_bActorHandlers)
 				DMibError("Cannot mix actor an non-actor handlers");
@@ -368,7 +368,7 @@ namespace NMib::NWeb
 			NewEntry.m_pHandler = _pHandler;
 		}
 
-		void f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandler, int _Priority)
+		void f_AddHandlerActorForPath(NStr::CStr _Path, FActorRequestHandler _fHandler, int _Priority)
 		{
 			if (!mp_bActorHandlers)
 			{
@@ -381,7 +381,7 @@ namespace NMib::NWeb
 			NewEntry.m_pHandleRequest = fg_Construct(fg_Move(_fHandler));
 		}
 
-		bool f_Run(CHTTPServerOptions const& _Options)
+		bool f_Run(CHTTPServerOptions _Options)
 		{
 			if (f_IsRunning())
 				return false;
@@ -398,20 +398,18 @@ namespace NMib::NWeb
 			}
 
 			mp_pFastCGIServer = fg_Construct();
-			mp_pFastCGIServer
+			mp_pFastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
 				(
-					&CFastCGIServer::f_StartListenAddress
-					, NConcurrency::g_ActorFunctor(NConcurrency::fg_DynamicConcurrentActor())
-					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest) -> NConcurrency::TCFuture<void>
+					NConcurrency::g_ActorFunctor(NConcurrency::fg_DynamicConcurrentActor())
+					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
 					{
-						NConcurrency::TCPromise<void> Promise;
 						auto& Params = _pRequest->f_GetParams();
 						auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
 
 						if (!pURI)
 						{
 							fsp_ReportRequestError(_pRequest, 500, "No URI specified");
-							return Promise <<= g_Void;
+							co_return {};
 						}
 
 						NStr::CStr URI = *pURI;
@@ -421,17 +419,17 @@ namespace NMib::NWeb
 #endif
 
 						// Check registered handlers
-						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(_pRequest, *this);
+						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(fg_Move(_pRequest), *this);
 
 						pConnection->f_HandleRequest(pConnection, Params);
 
 						DMibDTrace("HTTPServer: URI Served ({fe3} s): {}\n", Clock.f_GetTime() << URI);
 						//DMibTrace("Handled in {} s\n", Clock.f_GetTime());
-						return Promise <<= g_Void;
+						co_return {};
 					}
 					, mp_Options.m_FastCGIListenAddresses
 				)
-				> NConcurrency::fg_DiscardResult()
+				.f_DiscardResult()
 			;
 			return true;
 		}

@@ -120,36 +120,64 @@ namespace NMib::NWeb
 		using CReturn = typename NTraits::TCFunctionTraits<t_CCallback>::CReturn;
 		using CFunction = NFunction::TCFunctionMovable<t_CCallback>;
 		using CStripedReturn = typename NConcurrency::NPrivate::TCIsFuture<CReturn>::CType;
-		using CMoveList = typename NConcurrency::NPrivate::TCDecayedTupleHelper<typename NTraits::TCFunctionTraits<t_CCallback>::CParams>::CMoveList;
-		using CTupleType = typename NConcurrency::NPrivate::TCDecayedTupleHelper<typename NTraits::TCFunctionTraits<t_CCallback>::CParams>::CType;
 
 		template <typename ...tfp_CParams>
 		NConcurrency::TCFuture<CStripedReturn> operator() (tfp_CParams && ...p_Params)
 		{
 			if (!mp_fCallback.f_IsEmpty())
-				return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...).f_Future();
+				return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...);
 			else if (!mp_bDoDefer)
-				return NConcurrency::TCPromise<CStripedReturn>() <<= DMibErrorInstance("Invalid call to non-defered").f_ExceptionPointer();
+				return DMibErrorInstance("Invalid call to non-defered").f_ExceptionPointer();
 
-			NConcurrency::TCPromise<CStripedReturn> Promise;
-			mp_DeferredCalls.f_Insert
-				(
-					[Promise, Params = CTupleType(fg_Forward<tfp_CParams>(p_Params)...)](NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
-					{
-						return NStorage::fg_TupleApplyAs<CMoveList>
-							(
-								[&](auto &&..._Params)
+			NConcurrency::TCPromiseFuturePair<CStripedReturn> Promise;
+			[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&) mutable
+			{
+				mp_DeferredCalls.f_Insert
+					(
+						[Promise = fg_Move(Promise.m_Promise), ...p_Params2 = NTraits::TCDecayType<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+						{
+							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
 								{
-									_fCallback(fg_Move(_Params)...) > Promise;
+									_fCallback(fg_Move(p_Params)...) > fg_Move(Promise);
 								}
-								, fg_Move(Params)
-							)
-						;
-					}
-				)
-			;
+								(fg_Move(p_Params2)...)
+							;
+						}
+					)
+				;
+			}
+			(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
 
-			return Promise.f_MoveFuture();
+			return fg_Move(Promise.m_Future);
+		}
+
+		template <typename ...tfp_CParams>
+		void f_CallDiscard(tfp_CParams && ...p_Params)
+		{
+			if (!mp_fCallback.f_IsEmpty())
+				return mp_fCallback.f_CallDiscard(fg_Forward<tfp_CParams>(p_Params)...);
+			else if (!mp_bDoDefer)
+				return;
+
+			[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&) mutable
+			{
+				mp_DeferredCalls.f_Insert
+					(
+						[...p_Params2 = NTraits::TCDecayType<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+						{
+							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
+								{
+									_fCallback.f_CallDiscard(fg_Move(p_Params)...);
+								}
+								(fg_Move(p_Params2)...)
+							;
+						}
+					)
+				;
+			}
+			(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
 		}
 
 		void f_SetCallback(NConcurrency::TCActorFunctorWeak<t_CCallback> &&_fCallback)
@@ -280,13 +308,13 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_pClosePromise;
 		NContainer::TCLinkedList<NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _pMessage)> m_fOnReceiveBinaryMessage;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr const& _Message)> m_fOnReceiveTextMessage;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fOnReceivePing;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> const& _ApplicationData)> m_fOnReceivePong;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> m_fOnFinishConnection;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> m_fOnFinishClientConnection;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePing;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePong;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> m_fOnFinishConnection;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> m_fOnFinishClientConnection;
 
 		void f_FinishClientConnection(EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo);
 		void f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo);
@@ -495,7 +523,7 @@ namespace NMib::NWeb
 		co_return fg_Move(DebugStats);
 	}
 
-	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, const NStr::CStr &_Reason)
+	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_Close(EWebSocketStatus _Status, NStr::CStr _Reason)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -556,10 +584,10 @@ namespace NMib::NWeb
 			Internal.m_pClosePromise.f_Clear();
 		}
 
-		return NConcurrency::TCPromise<void>() <<= g_Void;
+		return g_Void;
 	}
 
-	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, const NStr::CStr &_Reason, fp64 _MaxLingerTime)
+	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -574,7 +602,7 @@ namespace NMib::NWeb
 				CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
 				CloseInfo.m_Reason = "Already fully closed";
 
-				fg_ThisActor(this).f_Destroy() > NConcurrency::fg_DiscardResult();
+				fg_ThisActor(this).f_Destroy().f_DiscardResult();
 
 				co_return fg_Move(CloseInfo);
 			}
@@ -587,7 +615,7 @@ namespace NMib::NWeb
 
 		DMibLog(DebugVerbose3, " ++++ {} {} f_CloseWithLinger", fg_ThisActor(this), !mp_pInternal->m_bClient);
 
-		NConcurrency::TCPromise<CWebSocketActor::CCloseInfo> Promise;
+		NConcurrency::TCPromiseFuturePair<CWebSocketActor::CCloseInfo> Promise;
 		{
 			auto &Internal = *mp_pInternal;
 
@@ -601,7 +629,7 @@ namespace NMib::NWeb
 
 				void f_Finish()
 				{
-					fg_Move(m_WebSocketActor).f_Destroy() > NConcurrency::fg_DiscardResult();
+					fg_Move(m_WebSocketActor).f_Destroy().f_DiscardResult();
 				}
 
 				NConcurrency::TCActor<CWebSocketActor> m_WebSocketActor;
@@ -611,7 +639,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CState> pState = fg_Construct();
 			pState->m_WebSocketActor = fg_ThisActor(this);
 
-			auto Cleanup = NConcurrency::g_OnScopeExitActor(ProcessingActor) / [pState, Promise]
+			auto Cleanup = NConcurrency::g_OnScopeExitActor(ProcessingActor) / [pState, Promise = Promise.m_Promise]
 				{
 					if (pState->m_bHandled.f_Exchange(true))
 						return;
@@ -623,7 +651,7 @@ namespace NMib::NWeb
 
 			Internal.m_OnShutdown.f_Insert
 				(
-					[Cleanup, pState, Promise, this](NStr::CStr const &_Error)
+					[Cleanup, pState, Promise = Promise.m_Promise, this](NStr::CStr const &_Error)
 					{
 						if (pState->m_bHandled.f_Exchange(true))
 							return;
@@ -638,7 +666,7 @@ namespace NMib::NWeb
 				)
 			;
 
-			self(&CWebSocketActor::f_Close, _Status, _Reason) > ProcessingActor / [pState, Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
+			f_Close(_Status, _Reason) > ProcessingActor / [pState, Promise = Promise.m_Promise](NConcurrency::TCAsyncResult<NWeb::CWebSocketActor::CCloseInfo> &&_Result)
 				{
 					if (!_Result)
 					{
@@ -651,23 +679,25 @@ namespace NMib::NWeb
 				}
 			;
 
-			NConcurrency::fg_Timeout(_MaxLingerTime, false)(ProcessingActor) > [Promise, pState]
+			NConcurrency::fg_Timeout(_MaxLingerTime, false)(ProcessingActor) > [Promise = fg_Move(Promise.m_Promise), pState]() -> NConcurrency::TCFuture<void>
 				{
 					if (pState->m_bHandled.f_Exchange(true))
-						return;
+						co_return {};
 
 					Promise.f_SetException(DMibErrorInstance("Timed out waiting for websocket to close gracefully"));
 					pState->f_Finish();
+
+					co_return {};
 				}
 			;
 		}
 
 		co_await fg_ContinueRunningOnActor(ProcessingActor);
 
-		co_return co_await Promise.f_MoveFuture();
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -712,7 +742,7 @@ namespace NMib::NWeb
 		fp_ProcessState(_StateAdded);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendText(NStr::CStr const& _Data, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendText(NStr::CStr _Data, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -741,7 +771,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> const &_pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> _pMessage, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -770,7 +800,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> const &_pMessageBuffers, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> _pMessageBuffers, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -1005,7 +1035,7 @@ namespace NMib::NWeb
 					DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 7 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					Internal.m_bOnCloseCalled = true;
 					if (Internal.m_fOnClose.f_ShouldCall())
-						Internal.m_fOnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
+						Internal.m_fOnClose.f_CallDiscard(_Status, _Reason, _Origin);
 				}
 
 				if (!_bFatal)
@@ -1081,7 +1111,7 @@ namespace NMib::NWeb
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 16 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				Internal.m_bOnCloseCalled = true;
-				Internal.m_fOnClose(_Status, _Reason, _Origin) > NConcurrency::fg_DiscardResult();
+				Internal.m_fOnClose.f_CallDiscard(_Status, _Reason, _Origin);
 			}
 
 			Internal.m_pSocket.f_Clear();
@@ -1626,7 +1656,7 @@ namespace NMib::NWeb
 				else
 				{
 					// Otherwise we let the application reply
-					m_fOnReceivePing(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+					m_fOnReceivePing.f_CallDiscard(fg_Construct(fg_Move(_Message.m_Data)));
 				}
 			}
 			break;
@@ -1636,7 +1666,7 @@ namespace NMib::NWeb
 				if (m_pTimeoutPingMessage && _Message.m_Data == *m_pTimeoutPingMessage)
 					f_OnTimeoutPongReceived();
 				else if (!m_fOnReceivePong.f_IsEmpty())
-					m_fOnReceivePong(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+					m_fOnReceivePong.f_CallDiscard(fg_Construct(fg_Move(_Message.m_Data)));
 			}
 			break;
 		default:
@@ -1664,14 +1694,14 @@ namespace NMib::NWeb
 				DMibLog(DebugVerbose3, " ++++ {} {} call m_OnReceiveTextMessage", fg_ThisActor(m_pThis), !m_bClient);
 
 				if (m_fOnReceiveTextMessage.f_ShouldCall())
-					m_fOnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
+					m_fOnReceiveTextMessage.f_CallDiscard(fg_Move(Data));
 			}
 			break;
 		case EOpcode_BinaryFrame:
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} call m_OnReceiveBinaryMessage", fg_ThisActor(m_pThis), !m_bClient);
 				if (m_fOnReceiveBinaryMessage.f_ShouldCall())
-					m_fOnReceiveBinaryMessage(fg_Construct(fg_Move(_Message.m_Data))) > NConcurrency::fg_DiscardResult();
+					m_fOnReceiveBinaryMessage.f_CallDiscard(fg_Construct(fg_Move(_Message.m_Data)));
 			}
 			break;
 		default:
@@ -1929,17 +1959,20 @@ namespace NMib::NWeb
 				{
 					NConcurrency::g_Dispatch(Actor) / [this]
 						{
-							fg_Move(m_fOnFinishClientConnection).f_Destroy() > NConcurrency::fg_DiscardResult();
+							fg_Move(m_fOnFinishClientConnection).f_Destroy().f_DiscardResult();
 						}
-						> NConcurrency::fg_DiscardResult()
+						> NConcurrency::g_DiscardResult
 					;
 				}
 			}
 		;
 
-		m_fOnFinishClientConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
-			{
-			}
+		m_fOnFinishClientConnection(_Result, fg_Move(_ConnectionInfo)).f_OnResultSet
+			(
+				[Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+				{
+				}
+			)
 		;
 	}
 
@@ -1957,17 +1990,20 @@ namespace NMib::NWeb
 				{
 					NConcurrency::g_Dispatch(Actor) / [this]
 						{
-							fg_Move(m_fOnFinishConnection).f_Destroy() > NConcurrency::fg_DiscardResult();
+							fg_Move(m_fOnFinishConnection).f_Destroy().f_DiscardResult();
 						}
-						> NConcurrency::fg_DiscardResult()
+						> NConcurrency::g_DiscardResult
 					;
 				}
 			}
 		;
 
-		m_fOnFinishConnection(_Result, fg_Move(_ConnectionInfo)) > NConcurrency::fg_DirectResultActor() / [Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
-			{
-			}
+		m_fOnFinishConnection(_Result, fg_Move(_ConnectionInfo)).f_OnResultSet
+			(
+				[Cleanup = fg_Move(Cleanup)](NConcurrency::TCAsyncResult<void> &&)
+				{
+				}
+			)
 		;
 	}
 
@@ -1994,7 +2030,7 @@ namespace NMib::NWeb
 		Internal.m_fOnFinishClientConnection.f_StopDeferring();
 	}
 
-	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptClientConnection(CCallbacks &&_Callbacks)
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptClientConnection(CCallbacks _Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -2004,7 +2040,7 @@ namespace NMib::NWeb
 		return Subscription;
 	}
 
-	void CWebSocketActor::fp_RejectClientConnection(NStr::CStr const &_Error)
+	void CWebSocketActor::fp_RejectClientConnection(NStr::CStr _Error)
 	{
 		fp_TryStopDeferring();
 
@@ -2021,22 +2057,22 @@ namespace NMib::NWeb
 
 		return NConcurrency::g_ActorSubscription / [this]() -> NConcurrency::TCFuture<void>
 			{
-				NConcurrency::TCActorResultVector<void> DestroyResults;
+				NConcurrency::TCFutureVector<void> DestroyResults;
 
-				fg_Move(m_fOnReceiveBinaryMessage).f_Destroy() > DestroyResults.f_AddResult();
-				fg_Move(m_fOnReceiveTextMessage).f_Destroy() > DestroyResults.f_AddResult();
-				fg_Move(m_fOnReceivePing).f_Destroy() > DestroyResults.f_AddResult();
-				fg_Move(m_fOnReceivePong).f_Destroy() > DestroyResults.f_AddResult();
-				fg_Move(m_fOnClose).f_Destroy() > DestroyResults.f_AddResult();
+				fg_Move(m_fOnReceiveBinaryMessage).f_Destroy() > DestroyResults;
+				fg_Move(m_fOnReceiveTextMessage).f_Destroy() > DestroyResults;
+				fg_Move(m_fOnReceivePing).f_Destroy() > DestroyResults;
+				fg_Move(m_fOnReceivePong).f_Destroy() > DestroyResults;
+				fg_Move(m_fOnClose).f_Destroy() > DestroyResults;
 
-				co_await DestroyResults.f_GetResults();
+				co_await fg_AllDoneWrapped(DestroyResults);
 
 				co_return {};
 			}
 		;
 	}
 
-	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptServerConnection(NStr::CStr const &_Protocol, NHTTP::CResponseHeader &&_ResponseHeader, CCallbacks &&_Callbacks)
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptServerConnection(NStr::CStr _Protocol, NHTTP::CResponseHeader _ResponseHeader, CCallbacks _Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
 		auto Subscription = Internal.f_SetCallbacks(fg_Move(_Callbacks));
@@ -2082,7 +2118,7 @@ namespace NMib::NWeb
 		return Subscription;
 	}
 
-	void CWebSocketActor::fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader, NStr::CStr const &_Content)
+	void CWebSocketActor::fp_RejectServerConnection(NStr::CStr _Error, NHTTP::CResponseHeader _ResponseHeader, NStr::CStr _Content)
 	{
 		auto &Internal = *mp_pInternal;
 		fp_TryStopDeferring();
@@ -2218,7 +2254,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CWebSocketActor::fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> && _pSocket)
+	void CWebSocketActor::fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -2248,7 +2284,7 @@ namespace NMib::NWeb
 
 	NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishServerConnection
 		(
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> _fOnFinishConnection
 		)
 	{
 		auto &Internal = *mp_pInternal;
@@ -2271,12 +2307,12 @@ namespace NMib::NWeb
 
 	NConcurrency::CActorSubscription CWebSocketActor::fp_OnFinishClientConnection
 		(
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo)> &&_fOnFinishConnection
-			, NHTTP::CRequest &&_RequestHeader
-			, NStr::CStr const &_ConnectToAddress
-			, NStr::CStr const &_URI
-			, NStr::CStr const &_Origin
-			, NContainer::TCVector<NStr::CStr> const &_Protocols
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> _fOnFinishConnection
+			, NHTTP::CRequest _RequestHeader
+			, NStr::CStr _ConnectToAddress
+			, NStr::CStr _URI
+			, NStr::CStr _Origin
+			, NContainer::TCVector<NStr::CStr> _Protocols
 		)
 	{
 		auto &Internal = *mp_pInternal;
@@ -2430,26 +2466,28 @@ namespace NMib::NWeb
 			if (!m_bPendingPing)
 			{
 				m_bPendingPing = true;
-				m_pThis->f_SendPing(m_pTimeoutPingMessage)
-					> NConcurrency::fg_DirectResultActor() / [this, ThisWeak = fg_ThisActor(m_pThis).f_Weak()](NConcurrency::TCAsyncResult<void> &&_Result) mutable
-					{
-						if (!_Result)
-							return;
-						auto This = ThisWeak.f_Lock();
-						if (!This)
-							return;
-						fg_Dispatch
-							(
-								This
-								,[this]
-								{
-									if (m_bPendingPing)
-										m_bSentPing = true;
-								}
-							)
-							> NConcurrency::fg_DiscardResult()
-						;
-					}
+				m_pThis->f_SendPing(m_pTimeoutPingMessage).f_OnResultSet
+					(
+						[this, ThisWeak = fg_ThisActor(m_pThis).f_Weak()](NConcurrency::TCAsyncResult<void> &&_Result) mutable
+						{
+							if (!_Result)
+								return;
+							auto This = ThisWeak.f_Lock();
+							if (!This)
+								return;
+							fg_Dispatch
+								(
+									This
+									,[this]
+									{
+										if (m_bPendingPing)
+											m_bSentPing = true;
+									}
+								)
+								.f_DiscardResult()
+							;
+						}
+					)
 				;
 			}
 

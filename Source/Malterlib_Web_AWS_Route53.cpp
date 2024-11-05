@@ -86,7 +86,7 @@ namespace NMib::NWeb
 		DMibError("Unknown resource type: {}"_f << _Type);
 	}
 
-	auto CAwsRoute53Actor::f_ListResourceRecordSets(NStr::CStr const &_HostedZoneID, CListResourceRecordSetsParams const &_Params)
+	auto CAwsRoute53Actor::f_ListResourceRecordSets(NStr::CStr _HostedZoneID, CListResourceRecordSetsParams _Params)
 		-> NConcurrency::TCFuture<NContainer::TCVector<CResourceRecordSet>>
 	{
 		auto &Internal = *mp_pInternal;
@@ -251,7 +251,7 @@ namespace NMib::NWeb
 		co_return fg_Move(Return);
 	}
 
-	auto CAwsRoute53Actor::f_ListHostedZonesByName(CListHostedZonesByNameParams const &_Params) -> NConcurrency::TCFuture<NContainer::TCVector<CHostedZone>>
+	auto CAwsRoute53Actor::f_ListHostedZonesByName(CListHostedZonesByNameParams _Params) -> NConcurrency::TCFuture<NContainer::TCVector<CHostedZone>>
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -371,7 +371,7 @@ namespace NMib::NWeb
 		co_return fg_Move(Return);
 	}
 
-	NConcurrency::TCFuture<void> CAwsRoute53Actor::f_ChangeResourceRecordSets(NStr::CStr const &_HostedZoneID, CChangeResourceRecordSetsParams const &_Params)
+	NConcurrency::TCFuture<void> CAwsRoute53Actor::f_ChangeResourceRecordSets(NStr::CStr _HostedZoneID, CChangeResourceRecordSetsParams _Params)
 	{
 		auto &Internal = *mp_pInternal;
 

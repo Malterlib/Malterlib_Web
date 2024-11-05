@@ -55,11 +55,11 @@ namespace NMib::NWeb
 
 	auto CWebSocketServerActor::f_StartListenAddress
 		(
-			NContainer::TCVector<NNetwork::CNetAddress> &&_AddressesToListenTo
+			NContainer::TCVector<NNetwork::CNetAddress> _AddressesToListenTo
 			, NMib::NNetwork::ENetFlag _ListenFlags
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
-			, NNetwork::FVirtualSocketFactory &&_SocketFactory
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
+			, NNetwork::FVirtualSocketFactory _SocketFactory
 		)
 		-> NConcurrency::TCFuture<CListenResult>
 	{
@@ -89,17 +89,17 @@ namespace NMib::NWeb
 			{
 				auto &Internal = *mp_pInternal;
 
-				NConcurrency::TCActorResultVector<void> DestroyResults;
-				fg_Move(Internal.m_fOnNewConnection).f_Destroy() > DestroyResults.f_AddResult();
-				fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > DestroyResults.f_AddResult();
+				NConcurrency::TCFutureVector<void> DestroyResults;
+				fg_Move(Internal.m_fOnNewConnection).f_Destroy() > DestroyResults;
+				fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > DestroyResults;
 
-				co_await DestroyResults.f_GetResults();
+				co_await fg_AllDoneWrapped(DestroyResults);
 
 				co_return {};
 			}
 		;
 
-		NConcurrency::TCActorResultVector<void> SetSocketResults;
+		NConcurrency::TCFutureVector<void> SetSocketResults;
 		{
 
 			mint nListenTo = _AddressesToListenTo.f_GetLen();
@@ -131,7 +131,7 @@ namespace NMib::NWeb
 							auto ListenActor = WeakListenActor.f_Lock();
 							if (!ListenActor)
 								return;
-							ListenActor(&CListenActor::f_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+							ListenActor.f_Bind<&CListenActor::f_StateAdded>(_StateAdded).f_DiscardResult();
 						}
 						, _ListenFlags
 					)
@@ -139,11 +139,11 @@ namespace NMib::NWeb
 
 				ListenResults.m_ListenPorts.f_Insert(pListenSocket->f_GetListenPort());
 
-				ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults.f_AddResult();
+				ListenActor(&CListenActor::f_SetSocket, fg_Move(pListenSocket)) > SetSocketResults;
 			}
 		}
 
-		co_await (co_await SetSocketResults.f_GetResults() | NConcurrency::g_Unwrap);
+		co_await fg_AllDone(SetSocketResults);
 
 		Cleanup.f_Clear();
 
@@ -155,9 +155,9 @@ namespace NMib::NWeb
 			uint16 _StartListen
 			, uint16 _nListen
 			, NMib::NNetwork::ENetFlag _ListenFlags
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection && _Connection)> &&_fNewConnection
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo && _ConnectionInfo)> &&_fFailedConnection
-			, NNetwork::FVirtualSocketFactory &&_SocketFactory
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
+			, NNetwork::FVirtualSocketFactory _SocketFactory
 		)
 		-> NConcurrency::TCFuture<CListenResult>
 	{
@@ -170,7 +170,7 @@ namespace NMib::NWeb
 			Address.f_Set(AnyAddress);
 			AddressesToListenTo.f_Insert(fg_Move(Address));
 		}
-		co_return co_await self(&CWebSocketServerActor::f_StartListenAddress, fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
+		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()
@@ -179,27 +179,27 @@ namespace NMib::NWeb
 
 		NConcurrency::CLogError LogError("WebSocketServer");
 
-		NConcurrency::TCActorResultVector<void> Results;
+		NConcurrency::TCFutureVector<void> Results;
 		for (auto &ListenSocket : Internal.m_ListenSockets)
-			ListenSocket.f_Destroy() > Results.f_AddResult();
+			fg_Move(ListenSocket).f_Destroy() > Results;
 
 		for (auto &Connection : Internal.m_Subscriptions)
 		{
 			if (Connection)
-				Connection->f_Destroy() > Results.f_AddResult();
+				Connection->f_Destroy() > Results;
 		}
 
 		Internal.m_Subscriptions.f_Clear();
 
-		fg_Move(Internal.m_fOnNewConnection).f_Destroy() > Results.f_AddResult();
-		fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > Results.f_AddResult();
+		fg_Move(Internal.m_fOnNewConnection).f_Destroy() > Results;
+		fg_Move(Internal.m_fOnFailedConnection).f_Destroy() > Results;
 
-		co_await Results.f_GetUnwrappedResults().f_Wrap() > LogError.f_Warning("Failed to destroy web socket server");
+		co_await fg_AllDone(Results).f_Wrap() > LogError.f_Warning("Failed to destroy web socket server");
 
 		co_return {};
 	}
 
-	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection)
+	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> _Connection)
 	{
 		if (f_IsDestroyed() || mp_pInternal->m_bBroken)
 			return;
@@ -210,7 +210,7 @@ namespace NMib::NWeb
 			(
 				&CWebSocketActor::fp_OnFinishServerConnection
 				, NConcurrency::g_ActorFunctorWeak / [this, _Connection, pHandled, pSubscription, AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
-				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo &&_ConnectionInfo) mutable -> NConcurrency::TCFuture<void>
+				(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CConnectionInfo _ConnectionInfo) mutable -> NConcurrency::TCFuture<void>
 				{
 					if (*pHandled || f_IsDestroyed())
 						co_return {};
@@ -220,7 +220,7 @@ namespace NMib::NWeb
 					case CWebSocketActor::EFinishConnectionResult_Error:
 						{
 							if (mp_pInternal->m_fOnFailedConnection)
-								mp_pInternal->m_fOnFailedConnection(fg_Move(_ConnectionInfo)) > NConcurrency::fg_DiscardResult();
+								mp_pInternal->m_fOnFailedConnection.f_CallDiscard(fg_Move(_ConnectionInfo));
 							pSubscription->f_Clear();
 						}
 						break;
@@ -229,7 +229,7 @@ namespace NMib::NWeb
 							auto Protocols = _ConnectionInfo.m_Protocols;
 							CWebSocketNewServerConnection Connection(fg_Move(_ConnectionInfo), fg_Move(Protocols), _Connection);
 							if (mp_pInternal->m_fOnNewConnection)
-								mp_pInternal->m_fOnNewConnection(fg_Move(Connection)) > NConcurrency::fg_DiscardResult();
+								mp_pInternal->m_fOnNewConnection.f_CallDiscard(fg_Move(Connection));
 							pSubscription->f_Clear();
 						}
 						break;

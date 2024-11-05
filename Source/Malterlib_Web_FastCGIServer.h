@@ -23,9 +23,9 @@ namespace NMib::NWeb
 		CFastCGIRequest(NConcurrency::TCActor<CFastCGIConnectionActor> const &_ConnectionActor, NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> const &_pParams);
 		~CFastCGIRequest();
 
-		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
-		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback);
-		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback);
+		void f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> &&_fCallback);
+		void f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> &&_fCallback);
 		void f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback);
 		void f_Accept(); // Call after setting the callbacks to continue processing incoming data
 
@@ -57,17 +57,17 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_StartListenAddress
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
-				, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+				, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 			)
 		;
 
 		NConcurrency::TCFuture<void> f_Start
 			(
-				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+				NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
-				, NNetwork::CNetAddress const &_BindAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
+				, NNetwork::CNetAddress _BindAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
 			)
 		;
 
@@ -76,8 +76,8 @@ namespace NMib::NWeb
 		friend class NFastCGI::CListenActor;
 
 		NConcurrency::TCFuture<void> fp_Destroy();
-		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);
-		void fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> &&_Connection);
+		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> _Connection);
+		void fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> _Connection);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

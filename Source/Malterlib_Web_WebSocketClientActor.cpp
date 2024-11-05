@@ -48,15 +48,15 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
 		(
-			NStr::CStr const &_ConnectToAddress
-			, NStr::CStr const &_BindToAddress
+			NStr::CStr _ConnectToAddress
+			, NStr::CStr _BindToAddress
 			, NMib::NNetwork::ENetAddressType _PreferAddress
 			, uint16 _Port
-			, NStr::CStr const &_URI
-			, NStr::CStr const &_Origin
-			, NContainer::TCVector<NStr::CStr> const &_Protocols
-			, NHTTP::CRequest &&_Request
-			, NNetwork::FVirtualSocketFactory &&_SocketFactory
+			, NStr::CStr _URI
+			, NStr::CStr _Origin
+			, NContainer::TCVector<NStr::CStr> _Protocols
+			, NHTTP::CRequest _Request
+			, NNetwork::FVirtualSocketFactory _SocketFactory
 		)
 	{
 		if (!_SocketFactory)
@@ -99,7 +99,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		NConcurrency::TCPromise<CWebSocketNewClientConnection> Promise;
+		NConcurrency::TCPromiseFuturePair<CWebSocketNewClientConnection> Promise;
 
 		auto CaptureScope = co_await NConcurrency::g_CaptureExceptions.f_Specific<NCryptography::CExceptionCryptography, NNetwork::CExceptionNet>();
 
@@ -114,6 +114,7 @@ namespace NMib::NWeb
 					, WeakThis = fg_ThisActor(this).f_Weak()
 					, CleanupPending = fg_Move(CleanupPending)
 					, pRequest = NStorage::TCSharedPointer<NHTTP::CRequest>(fg_Construct(fg_Move(_Request)))
+					, Promise = fg_Move(Promise.m_Promise)
 				]
 				(::NMib::NNetwork::ENetTCPState _StateAdded) mutable
 				{
@@ -141,7 +142,7 @@ namespace NMib::NWeb
 
 										Promise.f_SetException(DMibErrorInstance(Error));
 									}
-									> NConcurrency::fg_DiscardResult()
+									> NConcurrency::g_DiscardResult
 								;
 							}
 						}
@@ -191,14 +192,14 @@ namespace NMib::NWeb
 								// Capture here
 								auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable
 									{
-										ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pNewSocket)) > NConcurrency::fg_DiscardResult();
+										ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pNewSocket)).f_DiscardResult();
 
 										ConnectionActor
 											(
 												&CWebSocketActor::fp_OnFinishClientConnection
 												, NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ThisConcurrentActor())
 												/ [Promise, pCleanupPromise, ConnectionActor, CleanupPending = fg_Move(CleanupPending), AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy]
-												(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo &&_ConnectionInfo) mutable
+												(CWebSocketActor::EFinishConnectionResult _Result, CWebSocketActor::CClientConnectionInfo _ConnectionInfo) mutable
 												-> NConcurrency::TCFuture<void>
 												{
 													if (_Result == CWebSocketActor::EFinishConnectionResult_Error)
@@ -244,14 +245,14 @@ namespace NMib::NWeb
 											auto ConnectionActor = WeakConnectionActor.f_Lock();
 											if (!ConnectionActor)
 												return;
-											ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+											ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded).f_DiscardResult();
 										}
 									)
 								;
 
 								fFinishConnection();
 							}
-							> NConcurrency::fg_DiscardResult()
+							> NConcurrency::g_DiscardResult
 						;
 					}
 				}
@@ -259,6 +260,6 @@ namespace NMib::NWeb
 			)
 		;
 
-		co_return co_await Promise.f_MoveFuture();
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 }

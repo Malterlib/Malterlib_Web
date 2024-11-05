@@ -180,8 +180,7 @@ namespace NMib::NWeb
 		return Headers;
 	}
 
-	template <typename tf_CReturn>
-	void fg_ReportAWSErrorXML(TCPromise<tf_CReturn> const &_Promise, CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
+	NException::CExceptionPointer fg_ReportAWSErrorXML(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
 		NXML::CXMLDocument ErrorReturn;
 		do
@@ -210,31 +209,28 @@ namespace NMib::NWeb
 				break;
 
 			CAwsErrorData ErrorData{Code, _Result.m_StatusCode};
-			_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {} - {}"_f << _pRequestDescription << _Result.m_StatusCode << Code << Message, ErrorData));
-			return;
+			return DMibErrorInstanceAws("{} request failed with status {}: {} - {}"_f << _pRequestDescription << _Result.m_StatusCode << Code << Message, ErrorData);
 		}
 		while (false);
 
 		CAwsErrorData ErrorData{"Unknown", _Result.m_StatusCode};
-		_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData));
+		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
 	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
+			, NHTTP::CURL _URL
+			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> _Contents
 			, CCurlActor::EMethod _Method
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace
 		)
 	{
-		TCPromise<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> Promise;
-
 		CByteVector Contents;
 
 		if (_Contents.f_IsOfType<CByteVector>())
@@ -247,32 +243,24 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{})
-			> Promise / [=](CCurlActor::CResult &&_Result)
-			{
-				if (_Result.m_StatusCode != _ExpectedStatus)
-					return fg_ReportAWSErrorXML(Promise, _Result, _Description);
+		auto Result = co_await _CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
+		if (Result.m_StatusCode != _ExpectedStatus)
+			co_return fg_ReportAWSErrorXML(Result, _Description);
 
-				if (_Result.m_Body.f_IsEmpty())
-					return Promise.f_SetResult(fg_Tuple(NXML::CXMLDocument{}, fg_Move(_Result)));
+		if (Result.m_Body.f_IsEmpty())
+			co_return fg_Tuple(NXML::CXMLDocument{}, fg_Move(Result));
 
-				NXML::CXMLDocument Results;
-				if (!Results.f_ParseString(_Result.m_Body))
-				{
-					CAwsErrorData ErrorData{"ResultParse", _Result.m_StatusCode};
-					Promise.f_SetException(DMibErrorInstanceAws("{} request failed to parse result"_f << _Description, ErrorData));
-					return;
-				}
+		NXML::CXMLDocument Results;
+		if (!Results.f_ParseString(Result.m_Body))
+		{
+			CAwsErrorData ErrorData{"ResultParse", Result.m_StatusCode};
+			co_return DMibErrorInstanceAws("{} request failed to parse result"_f << _Description, ErrorData);
+		}
 
-				Promise.f_SetResult(fg_Tuple(fg_Move(Results), fg_Move(_Result)));
-			}
-		;
-
-		return Promise.f_MoveFuture();
+		co_return fg_Tuple(fg_Move(Results), fg_Move(Result));
 	}
 
-	template <typename tf_CReturn>
-	void fg_ReportAWSErrorJSON(TCPromise<tf_CReturn> const &_Promise, CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
+	NException::CExceptionPointer fg_ReportAWSErrorJSON(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
 		CJSONSorted ErrorReturn;
 		do
@@ -284,13 +272,10 @@ namespace NMib::NWeb
 			catch (NException::CException const &_Exception)
 			{
 				CAwsErrorData ErrorData{"ResultParse", _Result.m_StatusCode};
-				return _Promise.f_SetException
+				return DMibErrorInstanceAws
 					(
-						DMibErrorInstanceAws
-						(
-							"{} request failed with status {}. Failed to parse JSON: {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Exception << _Result.m_Body
-							, ErrorData
-						)
+						"{} request failed with status {}. Failed to parse JSON: {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Exception << _Result.m_Body
+						, ErrorData
 					)
 				;
 			}
@@ -304,8 +289,7 @@ namespace NMib::NWeb
 			if (!pCodeNode)
 			{
 				CAwsErrorData ErrorData{"Unknown", _Result.m_StatusCode};
-				_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << Message, ErrorData));
-				return;
+				return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << Message, ErrorData);
 			}
 
 			auto Code = pCodeNode->f_String();
@@ -313,31 +297,28 @@ namespace NMib::NWeb
 				break;
 
 			CAwsErrorData ErrorData{Code, _Result.m_StatusCode};
-			_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {} - {}"_f << _pRequestDescription << _Result.m_StatusCode << Code << Message, ErrorData));
-			return;
+			return DMibErrorInstanceAws("{} request failed with status {}: {} - {}"_f << _pRequestDescription << _Result.m_StatusCode << Code << Message, ErrorData);
 		}
 		while (false);
 
 		CAwsErrorData ErrorData{"Unknown", _Result.m_StatusCode};
-		_Promise.f_SetException(DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData));
+		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
 	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> const &_Contents
+			, NHTTP::CURL _URL
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> _Contents
 			, CCurlActor::EMethod _Method
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace
 		)
 	{
-		TCPromise<NEncoding::CJSONSorted> Promise;
-
 		CByteVector Contents;
 
 		if (_Contents.f_IsOfType<CByteVector>())
@@ -358,57 +339,54 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{})
-			> Promise / [=](CCurlActor::CResult &&_Result)
-			{
-				if (_Result.m_StatusCode != _ExpectedStatus)
-					return fg_ReportAWSErrorJSON(Promise, _Result, _Description);
+		auto Result = co_await _CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
 
-				if (_Result.m_Body.f_IsEmpty())
-					return Promise.f_SetResult(fg_Default());
+		if (Result.m_StatusCode != _ExpectedStatus)
+			co_return fg_ReportAWSErrorJSON(Result, _Description);
 
-				try
-				{
-					Promise.f_SetResult(NEncoding::CJSONSorted::fs_FromString(_Result.m_Body));
-				}
-				catch (NException::CException const &_Exception)
-				{
-					CAwsErrorData ErrorData{"ErrorParse", _Result.m_StatusCode};
-					Promise.f_SetException(DMibErrorInstanceAws("{} request failed to parse result: {}"_f << _Description << _Exception, ErrorData));
-				}
-			}
-		;
+		if (Result.m_Body.f_IsEmpty())
+			co_return {};
 
-		return Promise.f_MoveFuture();
+		try
+		{
+			co_return NEncoding::CJSONSorted::fs_FromString(Result.m_Body);
+		}
+		catch (NException::CException const &_Exception)
+		{
+			CAwsErrorData ErrorData{"ErrorParse", Result.m_StatusCode};
+			co_return DMibErrorInstanceAws("{} request failed to parse result: {}"_f << _Description << _Exception, ErrorData);
+		}
 	}
 
 	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, NHTTP::CURL _URL
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace
 		)
 	{
-		TCPromise<NContainer::TCMap<NStr::CStr, NStr::CStr>> Promise;
-
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CCurlActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		_CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_HEAD, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, NContainer::CByteVector{}, TCMap<CStr, CStr>{})
-			> Promise / [=](CCurlActor::CResult &&_Result)
-			{
-				if (_Result.m_StatusCode != _ExpectedStatus)
-					return fg_ReportAWSErrorJSON(Promise, _Result, _Description);
-
-				return Promise.f_SetResult(fg_Move(_Result.m_Headers));
-			}
+		auto Result = co_await _CurlActor
+			(
+				&CCurlActor::f_Request
+				, CCurlActor::EMethod_HEAD
+				, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
+				, Headers
+				, NContainer::CByteVector{}
+				, TCMap<CStr, CStr>{}
+			)
 		;
 
-		return Promise.f_MoveFuture();
+		if (Result.m_StatusCode != _ExpectedStatus)
+			co_return fg_ReportAWSErrorJSON(Result, _Description);
+
+		co_return fg_Move(Result.m_Headers);
 	}
 }

@@ -112,7 +112,7 @@ namespace NMib::NWeb
 			TCPromise<CCurlActor::CResult> m_FinishedPromise;
 			uint64 m_ReadDataSize = 0;
 			TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> m_fReadData;
-			TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> m_fWriteData;
+			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
 			NException::CExceptionPointer m_pWriteError;
 			NException::CExceptionPointer m_pReadError;
 			uint64 m_WriteDoneBytes = 0;
@@ -343,7 +343,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	TCFuture<void> CCurlActor::fp_RequestFinished(CStr const &_RequestID, int32 _ResultCode, NException::CExceptionPointer &&_pException)
+	TCFuture<void> CCurlActor::fp_RequestFinished(CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException)
 	{
 		auto &Internal = *mp_pInternal;
 		CURLcode ResultCode = (CURLcode)_ResultCode;
@@ -380,16 +380,16 @@ namespace NMib::NWeb
 	TCFuture<CCurlActor::CResult> CCurlActor::f_Request
 		(
 			EMethod _Method
-			, NStr::CStr const &_URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Headers
-			, NContainer::CByteVector const &_Data
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Cookies
+			, NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			, NContainer::CByteVector _Data
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Cookies
 		)
 	{
-		return fg_CallSafe(this, &CCurlActor::f_ExecuteRequest, CRequest{.m_URL = _URL, .m_Method = _Method, .m_Headers = _Headers, .m_Data = _Data, .m_Cookies = _Cookies});
+		return f_ExecuteRequest(CRequest{.m_URL = fg_Move(_URL), .m_Method = _Method, .m_Headers = fg_Move(_Headers), .m_Data = fg_Move(_Data), .m_Cookies = fg_Move(_Cookies)});
 	}
 
-	TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest &&_Request)
+	TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest _Request)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Curl actor shutting down");

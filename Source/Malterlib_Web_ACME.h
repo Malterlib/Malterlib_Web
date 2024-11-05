@@ -73,14 +73,14 @@ namespace NMib::NWeb
 		{
 			NCryptography::CPublicKeySetting m_KeySettings;
 			NContainer::TCVector<NStr::CStr> m_DnsNames;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<bool> (CChallenge const &_Challenge)> m_fChallenge;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<bool> (CChallenge _Challenge)> m_fChallenge;
 			fp32 m_Timeout = 60.0;
 		};
 
 		CAcmeClientActor(CDependencies &&_Dependencies);
 		~CAcmeClientActor();
 
-		NConcurrency::TCFuture<CCertificateChains> f_RequestCertificate(CCertificateRequest &&_RequestCertificate);
+		NConcurrency::TCFuture<CCertificateChains> f_RequestCertificate(CCertificateRequest _RequestCertificate);
 
 	private:
 		struct CInternal;

@@ -46,43 +46,43 @@ namespace NMib::NWeb
 
 	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> const &_Contents
+			, NHTTP::CURL _URL
+			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> _Contents
 			, CCurlActor::EMethod _Method
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace = false
 		)
 	;
 
 	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> const &_Contents
+			, NHTTP::CURL _URL
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> _Contents
 			, CCurlActor::EMethod _Method
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace = false
 		)
 	;
 
 	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
-			CStr const &_Description
-			, TCActor<CCurlActor> const &_CurlActor
+			CStr _Description
+			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL const &_URL
-			, CAwsCredentials const &_Credentials
-			, TCMap<CStr, CStr> const &_AWSHeaders
-			, CStr const &_Service
+			, NHTTP::CURL _URL
+			, CAwsCredentials _Credentials
+			, TCMap<CStr, CStr> _AWSHeaders
+			, CStr _Service
 			, bool _bTrace = false
 		)
 	;

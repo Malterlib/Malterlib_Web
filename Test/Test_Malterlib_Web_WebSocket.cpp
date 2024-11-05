@@ -151,35 +151,31 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(_ListenAddress)
 					, ENetFlag_None
-					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection &&_ConnectionInfo) -> TCFuture<void>
+					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
 					{
 						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
 						DMibLock(pState->m_Lock);
 
 						CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
 
-						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr const &_Message) -> TCFuture<void>
+						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								for (auto &Connection : pState->m_ServerConnections)
-								{
-									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0)
-										> fg_DiscardResult()
-									;
-								}
+									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
 
 								if (_Message == "Disconnect")
 								{
 									DMibLock(pState->m_Lock);
 									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessage) > fg_DiscardResult();
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessage).f_DiscardResult();
 								}
 
 								if (_Message == "DisconnectLongClose")
 								{
 									DMibLock(pState->m_Lock);
 									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessageTooLong) > fg_DiscardResult();
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessageTooLong).f_DiscardResult();
 								}
 
 								co_return {};
@@ -187,7 +183,7 @@ public:
 						;
 
 						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(EWebSocketStatus _Status, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+							(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								if (pState->m_bCleared)
@@ -225,7 +221,7 @@ public:
 
 						co_return {};
 					}
-					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo &&_ConnectionInfo) -> TCFuture<void>
+					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
 					{
 						DMibLock(pState->m_Lock);
 						pState->m_bAcceptError = true;
@@ -280,7 +276,7 @@ public:
 					{
 						auto &Result = *_Result;
 
-						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_ClientConnectionCloseMessage = _Message;
@@ -291,7 +287,7 @@ public:
 								co_return {};
 							}
 						;
-						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr const &_Message) -> TCFuture<void>
+						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_Messages.f_Insert(_Message);
@@ -515,7 +511,7 @@ public:
 				{
 					DMibTestPath("Disconnect");
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, _bTestTooLongCloseMessage ? "DisconnectLongClose" : "Disconnect", 0) > fg_DiscardResult();
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, _bTestTooLongCloseMessage ? "DisconnectLongClose" : "Disconnect", 0).f_DiscardResult();
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -1159,7 +1155,7 @@ public:
 
 					auto Address = NewConnection.m_PeerAddress;
 
-					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_pMessage) -> TCFuture<void>
+					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> _pMessage) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
@@ -1169,7 +1165,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [_pState, SocketID, Address, fOnMessage = fg_Move(_fOnMessage)](CStr const &_Message) -> TCFuture<void>
+					NewConnection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [_pState, SocketID, Address, fOnMessage = fg_Move(_fOnMessage)](CStr _Message) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
 
@@ -1185,7 +1181,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
@@ -1195,7 +1191,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CSecureByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							co_return {};
@@ -1203,22 +1199,22 @@ public:
 					;
 
 					TCPromise<void> ClosedPromise;
-					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise](EWebSocketStatus _Reason, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
 							if (pClient)
 							{
-								TCActorResultVector<void> Destroys;
+								TCFutureVector<void> Destroys;
 
 								if (pClient->m_Subscription)
-									pClient->m_Subscription->f_Destroy() > Destroys.f_AddResult();
+									pClient->m_Subscription->f_Destroy() > Destroys;
 
-								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys.f_AddResult();
+								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys;
 
 								_pState->m_Connections.f_Remove(pClient);
 
-								co_await Destroys.f_GetResults();
+								co_await fg_AllDoneWrapped(Destroys);
 							}
 
 							ClosedPromise.f_SetResult();

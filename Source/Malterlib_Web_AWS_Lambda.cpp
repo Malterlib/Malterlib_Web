@@ -223,7 +223,7 @@ namespace NMib::NWeb
 
 		TCFuture<CCodeBlob> f_CreateCodeBlob(TCMap<CStr, CStr> const &_Files)
 		{
-			return g_Future <<= g_ConcurrentDispatch / [=]() -> CCodeBlob
+			return g_ConcurrentDispatch / [=]() -> CCodeBlob
 				{
 					CMiniZipAdaptor Adaptor({});
 
@@ -591,9 +591,9 @@ namespace NMib::NWeb
 
 	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction
 		(
-			CStr const &_FunctionName
-			, TCMap<CStr, CStr> const &_Files
-			, CFunctionConfiguration const &_Config
+			CStr _FunctionName
+			, TCMap<CStr, CStr> _Files
+			, CFunctionConfiguration _Config
 		)
 	{
 		auto &Internal = *mp_pInternal;

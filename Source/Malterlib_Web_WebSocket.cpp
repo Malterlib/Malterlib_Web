@@ -23,11 +23,7 @@ namespace NMib::NWeb
 	void CWebSocketNewServerConnection::f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader) const
 	{
 		if (!mp_pHelper->m_bRepliedToConnection.f_Exchange(true))
-		{
-			mp_Connection(&CWebSocketActor::fp_RejectServerConnection, _Error, fg_Move(_ResponseHeader), NStr::CStr())
-				> NConcurrency::fg_DiscardResult()
-			;
-		}
+			mp_Connection.f_Bind<&CWebSocketActor::fp_RejectServerConnection>(_Error, fg_Move(_ResponseHeader), NStr::CStr()).f_DiscardResult();
 	}
 
 	CWebSocketNewServerConnection::CWebSocketNewServerConnection(CWebSocketActor::CConnectionInfo &&_ConnectionInfo, NContainer::TCVector<NStr::CStr> &&_Protocols, NConcurrency::TCActor<CWebSocketActor> const &_Connection)
@@ -46,11 +42,7 @@ namespace NMib::NWeb
 	CWebSocketNewServerConnection::CRepliedHelper::~CRepliedHelper()
 	{
 		if (!m_bRepliedToConnection.f_Exchange(true))
-		{
-			m_Connection(&CWebSocketActor::fp_RejectServerConnection, "Abandoned", NHTTP::CResponseHeader(), NStr::CStr())
-				> NConcurrency::fg_DiscardResult()
-			;
-		}
+			m_Connection.f_Bind<&CWebSocketActor::fp_RejectServerConnection>("Abandoned", NHTTP::CResponseHeader(), NStr::CStr()).f_DiscardResult();
 	}
 	CWebSocketNewServerConnection::~CWebSocketNewServerConnection()
 	{
@@ -64,13 +56,8 @@ namespace NMib::NWeb
 	void CWebSocketNewClientConnection::f_Reject(NStr::CStr const &_Error) const
 	{
 		if (!mp_pHelper->m_bRepliedToConnection.f_Exchange(true))
-		{
-			mp_Connection(&CWebSocketActor::fp_RejectClientConnection, _Error)
-				> NConcurrency::fg_DiscardResult()
-			;
-		}
+			mp_Connection.f_Bind<&CWebSocketActor::fp_RejectClientConnection>(_Error).f_DiscardResult();
 	}
-
 
 	CWebSocketNewClientConnection::CWebSocketNewClientConnection
 		(
@@ -104,11 +91,7 @@ namespace NMib::NWeb
 	CWebSocketNewClientConnection::CRepliedHelper::~CRepliedHelper()
 	{
 		if (!m_bRepliedToConnection.f_Exchange(true))
-		{
-			m_Connection(&CWebSocketActor::fp_RejectClientConnection, "Abandoned")
-				> NConcurrency::fg_DiscardResult()
-			;
-		}
+			m_Connection.f_Bind<&CWebSocketActor::fp_RejectClientConnection>("Abandoned").f_DiscardResult();
 	}
 
 	bool CWebSocketActor::fs_IsValidCloseStatus(EWebSocketStatus _Status)

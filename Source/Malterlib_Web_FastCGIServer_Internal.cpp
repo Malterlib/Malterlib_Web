@@ -24,8 +24,8 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_StartListenAddress
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
-			, NContainer::TCVector<NNetwork::CNetAddress> &&_Addresses
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
+			, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 		)
 	{
 		if (mp_pOnRequest)
@@ -41,7 +41,7 @@ namespace NMib::NWeb
 				for (auto &ListenSocket : ListenSockets)
 				{
 					if (ListenSocket)
-						ListenSocket.f_Destroy() > NConcurrency::fg_DiscardResult();
+						fg_Move(ListenSocket).f_Destroy().f_DiscardResult();
 				}
 			}
 		;
@@ -64,7 +64,7 @@ namespace NMib::NWeb
 							auto ListenActor = WeakListenActor.f_Lock();
 							if (!ListenActor)
 								return;
-							ListenActor(&CListenActor::f_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+							ListenActor.f_Bind<&CListenActor::f_StateAdded>(_StateAdded).f_DiscardResult();
 						}
 						, NNetwork::ENetFlag_None
 					)
@@ -83,10 +83,10 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
 		(
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)> &&_fOnRequest
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, uint16 _FastCGIListenStartPort
 			, uint16 _nListen
-			, NNetwork::CNetAddress const &_BindAddress
+			, NNetwork::CNetAddress _BindAddress
 		)
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> Addresses;
@@ -101,18 +101,18 @@ namespace NMib::NWeb
 			Addresses.f_Insert(fg_Move(Address));
 		}
 
-		co_await NConcurrency::fg_CallSafe(this, &CInternal::f_StartListenAddress, fg_Move(_fOnRequest), fg_Move(Addresses));
+		co_await f_StartListenAddress(fg_Move(_fOnRequest), fg_Move(Addresses));
 
 		co_return {};
 	}
 
-	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection)
+	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> _Connection)
 	{
 		auto &Internal = *mp_pInternal;
 		Internal.mp_Connections[fg_Move(_Connection)];
 	}
 
-	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> &&_Connection)
+	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> _Connection)
 	{
 		auto Connection = _Connection.f_Lock();
 		auto &Internal = *mp_pInternal;
@@ -136,10 +136,10 @@ namespace NMib::NWeb
 			co_await fg_Move(CanDestroyFuture).f_Wrap() > LogError.f_Warning("Failed to destroy can destroy tracker");
 		}
 		
-		NConcurrency::TCActorResultVector<void> DestroyResults;
+		NConcurrency::TCFutureVector<void> DestroyResults;
 		
 		for (auto& ListenSocket : Internal.mp_ListenSockets)
-		fg_Move(ListenSocket).f_Destroy() > DestroyResults.f_AddResult();
+		fg_Move(ListenSocket).f_Destroy() > DestroyResults;
 		
 		Internal.mp_ListenSockets.f_Clear();
 		
@@ -147,12 +147,12 @@ namespace NMib::NWeb
 			(
 				[&](auto &&_Handle)
 				{
-					fg_Move(*_Handle).f_Destroy() > DestroyResults.f_AddResult();
+					fg_Move(*_Handle).f_Destroy() > DestroyResults;
 				}
 			)
 		;
 
-		co_await DestroyResults.f_GetUnwrappedResults().f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
+		co_await fg_AllDone(DestroyResults).f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
 
 		co_return {};
 	}

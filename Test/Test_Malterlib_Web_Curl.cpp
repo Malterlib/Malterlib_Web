@@ -44,10 +44,10 @@ public:
 		~CWebServerResults()
 		{
 			if (m_Subscription)
-				m_Subscription->f_Destroy() > fg_DiscardResult();
+				m_Subscription->f_Destroy().f_DiscardResult();
 
 			if (m_WebServerLaunch)
-				fg_Move(m_WebServerLaunch).f_Destroy() > fg_DiscardResult();
+				fg_Move(m_WebServerLaunch).f_Destroy().f_DiscardResult();
 		}
 
 		TCActor<CProcessLaunchActor> m_WebServerLaunch;
@@ -320,7 +320,7 @@ public:
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
 
-				co_await CurlActor.f_Destroy();
+				co_await fg_Move(CurlActor).f_Destroy();
 			}
 			{
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
@@ -330,17 +330,17 @@ public:
 
 				CStr ExpectedResultsText;
 
-				TCActorResultVector<CCurlActor::CResult> AsyncResults;
+				TCFutureVector<CCurlActor::CResult> AsyncResults;
 				for (mint i = 0; i < 100; ++i)
 				{
-					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults.f_AddResult();
+					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
 				}
 
 				CStr ExceptionText;
 				CStr ResultsText;
 
-				auto Results = co_await AsyncResults.f_GetResults();
+				auto Results = co_await fg_AllDoneWrapped(AsyncResults);
 				for (auto &Result : Results)
 				{
 					if (Result)
@@ -349,7 +349,7 @@ public:
 						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
 				}
 
-				co_await CurlActor.f_Destroy();
+				co_await fg_Move(CurlActor).f_Destroy();
 
 				DMibExpect(ExceptionText, ==, "");
 				DMibExpect(ResultsText, ==, ExpectedResultsText);
@@ -362,11 +362,11 @@ public:
 
 				CStr ExpectedResultsText;
 
-				TCActorResultVector<CCurlActor::CResult> AsyncResults;
+				TCFutureVector<CCurlActor::CResult> AsyncResults;
 				for (mint i = 0; i < 100; ++i)
 				{
 					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults.f_AddResult();
+					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
 					CurlActors.f_Insert(fg_Move(CurlActor));
 				}
@@ -374,7 +374,7 @@ public:
 				CStr ExceptionText;
 				CStr ResultsText;
 
-				auto Results = co_await AsyncResults.f_GetResults();
+				auto Results = co_await fg_AllDoneWrapped(AsyncResults);
 				for (auto &Result : Results)
 				{
 					if (Result)
@@ -384,7 +384,7 @@ public:
 				}
 
 				for (auto &Actor : CurlActors)
-					co_await Actor.f_Destroy();
+					co_await fg_Move(Actor).f_Destroy();
 
 				DMibExpect(ExceptionText, ==, "");
 				DMibExpect(ResultsText, ==, ExpectedResultsText);
@@ -403,7 +403,7 @@ public:
 						)
 					;
 				}
-				co_await CurlActor.f_Destroy();
+				co_await fg_Move(CurlActor).f_Destroy();
 			}
 			{
 				DMibTestPath("Abort Request");
@@ -415,9 +415,9 @@ public:
 				{
 					DMibTestPath("HTTP");
 					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					auto RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Future();
+					TCFuture<CCurlActor::CResult> RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Call();
 					CClock Clock{true};
-					co_await CurlActor.f_Destroy();
+					co_await fg_Move(CurlActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
@@ -427,9 +427,9 @@ public:
 				{
 					DMibTestPath("HTTPS");
 					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					auto RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Future();
+					TCFuture<CCurlActor::CResult> RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Call();
 					CClock Clock{true};
-					co_await CurlActor.f_Destroy();
+					co_await fg_Move(CurlActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();

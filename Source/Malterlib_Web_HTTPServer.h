@@ -114,7 +114,7 @@ namespace NMib::NWeb
 
 	using FActorRequestHandler = NConcurrency::TCActorFunctor
 		<
-			NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest)
+			NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> _pConnection, NStorage::TCSharedPointer<CHTTPRequest> _pRequest)
 		>
 	;
 

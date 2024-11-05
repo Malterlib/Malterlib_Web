@@ -170,7 +170,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_PostMessage(CStr const &_Token, CMessage const &_Message)
+	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_PostMessage(CStr _Token, CMessage _Message)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -209,7 +209,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_UpdateMessage(CStr const &_Token, CStr const &_Timestamp, CMessage const &_Message)
+	NConcurrency::TCFuture<NStr::CStr> CSlackActor::f_UpdateMessage(CStr _Token, CStr _Timestamp, CMessage _Message)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -251,7 +251,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message)
+	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL _IncomingWebhook, CMessage _Message)
 	{
 		auto &Internal = *mp_pInternal;
 

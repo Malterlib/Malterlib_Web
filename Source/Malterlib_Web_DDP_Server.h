@@ -158,25 +158,25 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Register
 			(
-				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CConnectionInfo const &_MethodInfo)> &&_fOnConnection
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CMethodInfo const &_MethodInfo)> &&_fOnMethod
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CSubscribeInfo const &_SubscribeInfo)> &&_fOnSubscribe
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_ID)> &&_fOnUnSubscribe
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr const &_Error)> &&_fOnError
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr const& _Message, EWebSocketCloseOrigin _Origin)> &&_fOnClose
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CConnectionInfo _MethodInfo)> _fOnConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CMethodInfo _MethodInfo)> _fOnMethod
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CSubscribeInfo _SubscribeInfo)> _fOnSubscribe
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _ID)> _fOnUnSubscribe
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Error)> _fOnError
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> _fOnClose
 			)
 		;
 
-		void f_SendChanges(NContainer::TCVector<CChange> &&_Changes);
+		void f_SendChanges(NContainer::TCVector<CChange> _Changes);
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
-		void fp_AcceptConnection(NStr::CStr const &_SessionID);
+		void fp_AcceptConnection(NStr::CStr _SessionID);
 		void fp_RejectConnection();
-		void fp_MethodResult(NStr::CStr const &_MethodID, NEncoding::CEJSONSorted const &_Result, bool _bUpdated);
-		void fp_MethodError(NStr::CStr const &_MethodID, NEncoding::CEJSONSorted const &_Error);
-		void fp_SubscriptionError(NStr::CStr const &_SubscriptionID, NEncoding::CEJSONSorted const &_Error);
+		void fp_MethodResult(NStr::CStr _MethodID, NEncoding::CEJSONSorted _Result, bool _bUpdated);
+		void fp_MethodError(NStr::CStr _MethodID, NEncoding::CEJSONSorted _Error);
+		void fp_SubscriptionError(NStr::CStr _SubscriptionID, NEncoding::CEJSONSorted _Error);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

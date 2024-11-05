@@ -123,9 +123,9 @@ namespace NMib::NWeb
 			NContainer::TCVector<CAttachment> m_Attachments;
 		};
 
-		NConcurrency::TCFuture<NStr::CStr> f_PostMessage(NStr::CStr const &_Token, CMessage const &_Message);
-		NConcurrency::TCFuture<NStr::CStr> f_UpdateMessage(NStr::CStr const &_Token, NStr::CStr const &_Timestamp, CMessage const &_Message);
-		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL const &_IncomingWebhook, CMessage const &_Message);
+		NConcurrency::TCFuture<NStr::CStr> f_PostMessage(NStr::CStr _Token, CMessage _Message);
+		NConcurrency::TCFuture<NStr::CStr> f_UpdateMessage(NStr::CStr _Token, NStr::CStr _Timestamp, CMessage _Message);
+		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL _IncomingWebhook, CMessage _Message);
 
 		CSlackActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor);
 		~CSlackActor();

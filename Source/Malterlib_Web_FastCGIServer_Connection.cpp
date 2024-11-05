@@ -22,7 +22,7 @@ namespace NMib::NWeb
 	CFastCGIConnectionActor::CFastCGIConnectionActor
 		(
 			NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
-			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest)>> const &_pOnRequest
+			, NStorage::TCSharedPointer<NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> const &_pOnRequest
 		)
 		: mp_NeededData(0)
 		, mp_IncomingPosition(0)
@@ -37,11 +37,11 @@ namespace NMib::NWeb
 		if (!mp_bConnectionRemoved)
 		{
 			mp_bConnectionRemoved = true;
-			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, NConcurrency::fg_ThisActorWeak(this)) > NConcurrency::fg_DiscardResult();
+			mp_ServerActor.f_Bind<&CFastCGIServer::fp_RemoveConnection>(NConcurrency::fg_ThisActorWeak(this)).f_DiscardResult();
 		}
 	}
 
-	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> const& _pSocket)
+	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket)
 	{
 		if (f_IsDestroyed())
 			return;
@@ -89,7 +89,7 @@ namespace NMib::NWeb
 		if (!mp_bConnectionRemoved)
 		{
 			mp_bConnectionRemoved = true;
-			mp_ServerActor(&CFastCGIServer::fp_RemoveConnection, fg_ThisActorWeak(this)) > NConcurrency::fg_DiscardResult();
+			mp_ServerActor.f_Bind<&CFastCGIServer::fp_RemoveConnection>(fg_ThisActorWeak(this)).f_DiscardResult();
 		}
 	}
 
@@ -144,38 +144,38 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CFastCGIConnectionActor::f_SendStdOutput(NContainer::CByteVector const& _Data)
+	void CFastCGIConnectionActor::f_SendStdOutput(NContainer::CByteVector _Data)
 	{
 		mp_RecordInfo.m_bSentStdOut = true;
 		fp_SendStdOutput(_Data, ERequestType_StdOut);
 	}
 
-	void CFastCGIConnectionActor::f_SendStdError(NContainer::CByteVector const& _Data)
+	void CFastCGIConnectionActor::f_SendStdError(NContainer::CByteVector _Data)
 	{
 		mp_RecordInfo.m_bSentStdErr = true;
 		fp_SendStdOutput(_Data, ERequestType_StdErr);
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnStdInputRaw(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback)
 	{
 		mp_fOnStdInputRaw = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnData(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data, bool _bEOF)> _fCallback)
 	{
 		mp_fOnData = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr const& _Input, bool _bEOF)> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnStdInput(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Input, bool _bEOF)> _fCallback)
 	{
 		mp_fOnStdInputStr = fg_Move(_fCallback);
 	}
 
-	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> &&_fCallback)
+	void CFastCGIConnectionActor::f_OnAbort(NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> ()> _fCallback)
 	{
 		mp_fOnAbort = fg_Move(_fCallback);
 		if (mp_bConnectionRemoved && mp_fOnAbort)
-			mp_fOnAbort() > NConcurrency::fg_DiscardResult();
+			mp_fOnAbort.f_CallDiscard();
 	}
 
 	void CFastCGIConnectionActor::f_Accept()
@@ -231,32 +231,32 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnStdInputRaw)
-			mp_fOnStdInputRaw(NContainer::CByteVector(_pData, _Len), _Len == 0) > NConcurrency::fg_DiscardResult();
+			mp_fOnStdInputRaw.f_CallDiscard(NContainer::CByteVector(_pData, _Len), _Len == 0);
 		else if (mp_fOnStdInputStr)
 		{
 			NStr::CStr String;
 			String.f_AddStr((ch8 const*)_pData, _Len);
-			mp_fOnStdInputStr(String, _Len == 0) > NConcurrency::fg_DiscardResult();
+			mp_fOnStdInputStr.f_CallDiscard(String, _Len == 0);
 		}
 	}
 
 	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, mint _Len)
 	{
 		if (mp_fOnData)
-			mp_fOnData(NContainer::CByteVector(_pData, _Len), _Len == 0) > NConcurrency::fg_DiscardResult();
+			mp_fOnData.f_CallDiscard(NContainer::CByteVector(_pData, _Len), _Len == 0);
 	}
 
 	void CFastCGIConnectionActor::fp_OnParams()
 	{
 		mp_bAcceptInput = false;
 		NStorage::TCSharedPointer<CFastCGIRequest> pRequest = fg_Construct(fg_ThisActor(this), mp_pParams);
-		(*mp_pOnRequest)(pRequest) > NConcurrency::fg_DiscardResult();
+		mp_pOnRequest->f_CallDiscard(pRequest);
 	}
 
 	void CFastCGIConnectionActor::fp_OnAbort()
 	{
 		if (mp_fOnAbort)
-			mp_fOnAbort() > NConcurrency::fg_DiscardResult();
+			mp_fOnAbort.f_CallDiscard();
 	}
 
 	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const& _Header, uint8 const* _pData, mint _DataLen)

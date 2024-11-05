@@ -70,9 +70,9 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<CFunctionInfo> f_CreateOrUpdateFunction
 			(
-				NStr::CStr const &_FunctionName
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Files
-				, CFunctionConfiguration const &_Config
+				NStr::CStr _FunctionName
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Files
+				, CFunctionConfiguration _Config
 			)
 		;
 

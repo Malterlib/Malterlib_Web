@@ -18,7 +18,7 @@ namespace NMib::NWeb::NWebSocket
 	{
 	}
 
-	void CListenActor::f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> && _pSocket)
+	void CListenActor::f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket)
 	{
 		mp_pSocket = fg_Move(_pSocket);
 		fp_ProcessState();
@@ -54,7 +54,7 @@ namespace NMib::NWeb::NWebSocket
 							{
 								auto ConnectionActor = WeakConnectionActor.f_Lock();
 								if (ConnectionActor)
-									ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+									ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded).f_DiscardResult();
 							}
 						)
 					;
@@ -64,11 +64,11 @@ namespace NMib::NWeb::NWebSocket
 
 					DMibFastCheck(pAcceptedSocket->f_IsValid());
 
-					ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pAcceptedSocket)) > NConcurrency::fg_DiscardResult();
+					ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pAcceptedSocket)).f_DiscardResult();
 
 					auto Server = mp_Server.f_Lock();
 					if (Server)
-						Server(&CWebSocketServerActor::fp_AddConnection, fg_Move(ConnectionActor)) > NConcurrency::fg_DiscardResult();
+						Server.f_Bind<&CWebSocketServerActor::fp_AddConnection>(fg_Move(ConnectionActor)).f_DiscardResult();
 				}
 				catch (NException::CException const &)
 				{

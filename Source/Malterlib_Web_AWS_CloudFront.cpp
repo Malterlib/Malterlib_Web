@@ -29,7 +29,7 @@ namespace NMib::NWeb
 
 	CAwsCloudFrontActor::~CAwsCloudFrontActor() = default;
 
-	NConcurrency::TCFuture<NStr::CStr> CAwsCloudFrontActor::f_CreateInvalidation(NStr::CStr const &_DistributionID, NContainer::TCVector<NStr::CStr> const &_Paths)
+	NConcurrency::TCFuture<NStr::CStr> CAwsCloudFrontActor::f_CreateInvalidation(NStr::CStr _DistributionID, NContainer::TCVector<NStr::CStr> _Paths)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/invalidation"_f << _DistributionID};
@@ -92,8 +92,8 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions
 		(
-			NStr::CStr const &_DistributionID
-			, NContainer::TCMap<EFunctionEventType, NStr::CStr> const &_FunctionAssociations
+			NStr::CStr _DistributionID
+			, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations
 		)
 	{
 		auto &Internal = *mp_pInternal;
