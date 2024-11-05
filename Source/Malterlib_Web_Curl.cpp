@@ -207,14 +207,16 @@ namespace NMib::NWeb
 						pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
 					}
 
+					auto &ThreadLocal = fg_ConcurrencyThreadLocal();
+
 					DMibFastCheck(pCurlActor);
-					CCurrentActorScope CurrentActorScope(pCurlActor);
+					CCurrentActorScope CurrentActorScope(ThreadLocal, this);
 
 					Internal.m_ProcessingStartedEvent.f_SetSignaled();
 
 					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 					{
-						fp_RunProcess();
+						fp_RunQueue(ThreadLocal);
 						int RunningHandles;
 						curl_multi_perform(pMultiHandle, &RunningHandles);
 
@@ -250,7 +252,7 @@ namespace NMib::NWeb
 									else if (pRequest->m_pReadError)
 										pError = fg_Move(pRequest->m_pReadError);
 
-									fg_ThisActor(pCurlActor)(&CCurlActor::fp_RequestFinished, pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)) > fg_DiscardResult();
+									fg_ThisActor(pCurlActor).f_Bind<&CCurlActor::fp_RequestFinished>(pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)).f_DiscardResult();
 								}
 							}
 						}
@@ -271,17 +273,79 @@ namespace NMib::NWeb
 		curl_multi_wakeup(Internal.m_pMulti.f_Get());
 	}
 
+	void CCurlActor::CActorHolder::fp_QueueJob(FActorQueueDispatchNoAlloc &&_ToQueue, CConcurrencyThreadLocal &_ThreadLocal)
+	{
+		auto pQueueEntry = CConcurrentRunQueueNonVirtualNoAlloc::fs_QueueEntry(fg_Move(_ToQueue));
+
+		if (_ThreadLocal.m_pCurrentlyProcessingActorHolder == this && _ThreadLocal.m_bCurrentlyProcessingInActorHolder)
+		{
+			mp_JobQueue.f_AddToQueueLocal(fg_Move(pQueueEntry), mp_JobQueueLocal);
+			return;
+		}
+		mp_JobQueue.f_AddToQueue(fg_Move(pQueueEntry));
+
+		mint Value = mp_JobQueueWorking.f_FetchAdd(1);
+		if (Value == 0)
+			fp_Wakeup();
+	}
+	
 	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
+		// Make sure the memory isn't deallocated
+		TCActorHolderWeakPointer<CActorHolder> pStayAlive = fg_Explicit(this);
+
 		DMibLock(mp_ThreadLock);
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
-			fp_Wakeup();
+		{
+			fp_QueueJob
+				(
+					[this, pStayAlive = fg_Move(pStayAlive)](CConcurrencyThreadLocal &_ThreadLocal)
+					{
+						if (this->mp_Destroyed.f_Load() >= 3)
+							return;
+
+						this->fp_RunProcess(_ThreadLocal);
+					}
+					, _ThreadLocal
+				)
+			;
+		}
 	}
 
 	void CCurlActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
-			fp_Wakeup();
+		{
+			DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
+			fp_QueueJob
+				(
+					[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
+					{
+						DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
+						pThis->fp_RunProcess(_ThreadLocal);
+					}
+					, _ThreadLocal
+				)
+			;
+		}
+	}
+
+	void CCurlActor::CActorHolder::fp_QueueProcessEntry(CConcurrentRunQueueEntryHolder &&_Entry, CConcurrencyThreadLocal &_ThreadLocal)
+	{
+		if (fp_AddToQueue(fg_Move(_Entry), _ThreadLocal))
+		{
+			DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
+			fp_QueueJob
+				(
+					[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
+					{
+						DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
+						pThis->fp_RunProcess(_ThreadLocal);
+					}
+					, _ThreadLocal
+				)
+			;
+		}
 	}
 
 	void CCurlActor::CActorHolder::fp_DestroyThreaded()
