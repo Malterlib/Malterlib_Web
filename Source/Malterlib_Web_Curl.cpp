@@ -279,8 +279,11 @@ namespace NMib::NWeb
 
 		if (_ThreadLocal.m_pCurrentlyProcessingActorHolder == this && _ThreadLocal.m_bCurrentlyProcessingInActorHolder)
 		{
-			mp_JobQueue.f_AddToQueueLocal(fg_Move(pQueueEntry), mp_JobQueueLocal);
-			return;
+			if (!_ThreadLocal.m_bForceNonLocal) [[likely]]
+			{
+				mp_JobQueue.f_AddToQueueLocal(fg_Move(pQueueEntry), mp_JobQueueLocal);
+				return;
+			}
 		}
 		mp_JobQueue.f_AddToQueue(fg_Move(pQueueEntry));
 
@@ -310,6 +313,21 @@ namespace NMib::NWeb
 				)
 			;
 		}
+	}
+
+	void CCurlActor::CActorHolder::fp_QueueRunProcess(CConcurrencyThreadLocal &_ThreadLocal)
+	{
+		DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
+		fp_QueueJob
+			(
+				[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
+				{
+					DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
+					pThis->fp_RunProcess(_ThreadLocal);
+				}
+				, _ThreadLocal
+			)
+		;
 	}
 
 	void CCurlActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
