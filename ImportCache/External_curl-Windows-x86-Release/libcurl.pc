@@ -35,7 +35,7 @@ Description: Library to transfer files with ftp, http, etc.
 Version: 8.10.1-DEV
 Requires: openssl,libzstd
 Requires.private: openssl,libzstd
-Libs: -L${libdir} -lcurl -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib -lkernel32.lib -ladvapi32 -lcrypt32
-Libs.private: -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib -lkernel32.lib -ladvapi32 -lcrypt32
+Libs: -L${libdir} -lcurl -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib -ladvapi32 -lcrypt32
+Libs.private: -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x86/delayimp.lib -ladvapi32 -lcrypt32
 Cflags: -I${includedir} -DCURL_STATICLIB
 Cflags.private: -DCURL_STATICLIB

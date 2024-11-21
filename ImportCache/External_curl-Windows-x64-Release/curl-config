@@ -75,7 +75,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo 'C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.41.34120/bin/Hostx64/x64/cl.exe'
+    echo 'C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/bin/Hostx64/x64/cl.exe'
     ;;
 
   --prefix)
@@ -161,7 +161,7 @@ while test "$#" -gt 0; do
       CURLLIBDIR=""
     fi
     if test "Xno" = "Xno"; then
-      echo "${CURLLIBDIR}-lcurl -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib -lkernel32.lib -ladvapi32 -lcrypt32"
+      echo "${CURLLIBDIR}-lcurl -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib -ladvapi32 -lcrypt32"
     else
       echo "${CURLLIBDIR}-lcurl"
     fi
@@ -173,7 +173,7 @@ while test "$#" -gt 0; do
 
   --static-libs)
     if test "Xyes" != "Xno" ; then
-      echo "C:/Program Files (x86)/CURL/lib/libcurl.lib" /machine:x64 -lws2_32 -lbcrypt -lkernel32.lib -lkernel32.lib -lkernel32.lib -ladvapi32 -lcrypt32
+      echo "C:/Program Files (x86)/CURL/lib/libcurl.lib" /machine:x64 -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib -ladvapi32 -lcrypt32
     else
       echo 'curl was built with static libraries disabled' >&2
       exit 1

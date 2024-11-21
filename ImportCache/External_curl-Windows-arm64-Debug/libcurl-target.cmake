@@ -52,7 +52,7 @@ add_library(CURL::libcurl_static STATIC IMPORTED)
 set_target_properties(CURL::libcurl_static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB"
   INTERFACE_INCLUDE_DIRECTORIES "../../../../External/curl/include"
-  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:ws2_32>;\$<LINK_ONLY:bcrypt>;\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:kernel32.lib>;\$<LINK_ONLY:advapi32>;\$<LINK_ONLY:crypt32>"
+  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:ws2_32>;\$<LINK_ONLY:bcrypt>;\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/arm64/delayimp.lib;\$<LINK_ONLY:advapi32>;\$<LINK_ONLY:crypt32>"
 )
 
 # Import target "CURL::libcurl_static" for configuration "Debug"

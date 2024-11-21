@@ -18,6 +18,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = '"C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.41.34120/bin/Hostx64/x64/cl.exe" -E -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib -I../../../../../External/curl/lib';
+$Cpreprocessor = '"C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/bin/Hostx64/x64/cl.exe" -E -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib -I../../../../../External/curl/lib';
 
 1;
