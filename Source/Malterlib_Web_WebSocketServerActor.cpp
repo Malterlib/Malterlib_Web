@@ -170,7 +170,7 @@ namespace NMib::NWeb
 			Address.f_Set(AnyAddress);
 			AddressesToListenTo.f_Insert(fg_Move(Address));
 		}
-		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
+		co_return co_await self(&CWebSocketServerActor::f_StartListenAddress, fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()
