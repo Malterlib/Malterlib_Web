@@ -135,19 +135,16 @@ namespace NMib::NWeb::NHTTP
 
 	CResponseFields &CResponseHeader::f_GetResponseFields()
 	{
-		DMibRequire(mp_pD->m_Status.f_GetStatus() != EStatus_Unknown);
 		return mp_pD->m_ResponseFields;
 	}
 
 	CGeneralFields &CResponseHeader::f_GetGeneralFields()
 	{
-		DMibRequire(mp_pD->m_Status.f_GetStatus() != EStatus_Unknown);
 		return mp_pD->m_GeneralFields;
 	}
 
 	CEntityFields &CResponseHeader::f_GetEntityFields()
 	{
-		DMibRequire(mp_pD->m_Status.f_GetStatus() != EStatus_Unknown);
 		return mp_pD->m_EntityFields;
 	}
 
