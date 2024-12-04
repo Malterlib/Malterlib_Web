@@ -1335,6 +1335,12 @@ namespace NMib::NWeb
 				}
 			}
 
+			if (Header.m_bReserver0 || Header.m_bReserver1 || Header.m_bReserver2)
+			{
+				fp_Disconnect(EWebSocketStatus_ProtocolError, "Reserved bit cannot be set", false, EWebSocketCloseOrigin_Local);
+				return false;
+			}
+
 			bool bControlMessage = Header.m_Opcode >= EOpcode_ConnectionClose && Header.m_Opcode <= EOpcode_Pong;
 			if (bControlMessage && Header.m_PayloadLength >= 126)
 			{
