@@ -1245,8 +1245,10 @@ namespace NMib::NWeb
 
 		uint8 *pCurrent = _pData;
 		uint8 *pEnd = _pData + _nBytes;
-		uint8 *pAlignedStart = fg_AlignUp(_pData, 4);
 		uint8 *pAlignedEnd = fg_AlignDown(pEnd, 4);
+		uint8 *pAlignedStart = fg_AlignUp(_pData, 4);
+		mint MaskOffset = (_iDataStart + (pAlignedStart - _pData)) % 4;
+		pAlignedStart = fg_Min(pAlignedStart, pAlignedEnd);
 
 		for (mint i = _iDataStart % 4; pCurrent < pAlignedStart; pCurrent += 1)
 		{
@@ -1254,31 +1256,25 @@ namespace NMib::NWeb
 			++i;
 		}
 
-		mint MaskOffset = (_iDataStart + (pAlignedStart - _pData)) % 4;
-
 		uint32 AlignedMask = 0;
 		NMemory::fg_MemCopy(&AlignedMask, DoubleMask + MaskOffset, sizeof(uint32));
 
 #ifdef DEnableVector
-		uint8 *pAlignedVectorStart = fg_AlignUp(_pData, 16);
 		uint8 *pAlignedVectorEnd = fg_AlignDown(pEnd, 16);
+		uint8 *pAlignedVectorStart = fg_Min(fg_AlignUp(_pData, 16), pAlignedVectorEnd);
 
 		for (; pCurrent < pAlignedVectorStart; pCurrent += 4)
-		{
 			*((uint32 *)pCurrent) ^= AlignedMask;
-		}
 
 		vec4uint32 VectorMask = {AlignedMask, AlignedMask, AlignedMask, AlignedMask};
 		for (; pCurrent < pAlignedVectorEnd; pCurrent += 16)
-		{
 			*((vec4uint32 *)pCurrent) ^= VectorMask;
-		}
 #endif
 
 		for (; pCurrent < pAlignedEnd; pCurrent += 4)
-		{
 			*((uint32 *)pCurrent) ^= AlignedMask;
-		}
+
+		MaskOffset = (_iDataStart + (pCurrent - _pData)) % 4;
 		for (mint i = 0; pCurrent < pEnd; pCurrent += 1)
 		{
 			*pCurrent ^= DoubleMask[MaskOffset + i];

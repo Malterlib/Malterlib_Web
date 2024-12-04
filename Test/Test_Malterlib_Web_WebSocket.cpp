@@ -443,9 +443,11 @@ public:
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
@@ -453,33 +455,61 @@ public:
 				{
 					DMibTestPath("Messages");
 
+					mint nMessages = 0;
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					++nMessages;
+
 					CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
 					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					++nMessages;
 
 					TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					nMessages += 2;
+
+					CStr BigText;
+					for (mint i = 0; i < 1024 * 8 * 2; ++i) // 2 MiB
+						BigText += gc_Str<"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF">.m_Str;
+
+					BigText = BigText.f_Left(m_CurrentFragmentationSize * 128);
+
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					++nMessages;
+
+					for (mint i = 0; i < 32; ++i)
+					{
+						CStr Message = BigText.f_Left(i);
+						pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						++nMessages;
+					}
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
 					{
 						{
 							DMibLock(pState->m_Lock);
-							if (pState->m_Messages.f_GetLen() >= 4)
+							if (pState->m_Messages.f_GetLen() >= nMessages)
 								break;
 						}
 						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
 					}
 
 					DMibExpectFalse(bTimedOut);
-					DMibExpect(pState->m_Messages.f_GetLen(), ==, 4)(ETest_FailAndStop);
+					DMibExpect(pState->m_Messages.f_GetLen(), ==, nMessages)(ETest_FailAndStop);
 					DMibExpect(pState->m_Messages[0], ==, "TestTextReply");
 					DMibExpect(pState->m_Messages[1], ==, "TestBuffReply");
 					DMibExpect(pState->m_Messages[2], ==, "TestReply");
 					DMibExpect(pState->m_Messages[3], ==, "BuffReply");
+					DMibExpect(pState->m_Messages[4], ==, BigText + "Reply")(ETestFlag_NoValues);
+
+					for (mint i = 0; i < 32; ++i)
+					{
+						CStr Message = BigText.f_Left(i);
+						DMibExpect(pState->m_Messages[5 + i], ==, Message + "Reply")(ETestFlag_Aggregated);
+					}
 				}
 
 				{
@@ -519,10 +549,12 @@ public:
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort);
 
@@ -563,461 +595,478 @@ public:
 		};
 	}
 
+	void fp_TestProtocols(mint _FragmentationSize)
+	{
+		DMibTestPath("Fragmentation {}"_f << _FragmentationSize);
+		m_CurrentFragmentationSize = _FragmentationSize;
+		{
+			DMibTestPath("TCP");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						return {nullptr, nullptr};
+					}
+					, ""
+					, ""
+					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+				)
+			;
+		}
+
+		{
+			DMibTestPath("SSL");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions Options;
+						Options.m_CommonName = "Malterlib test Self Signed";
+						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						Options.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+				)
+			;
+		}
+
+		if (m_CurrentFragmentationSize != CWebsocketSettings::mc_DefaultFragmentationSize)
+			return;
+
+		{
+			DMibTestPath("TCP Long Close");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						return {nullptr, nullptr};
+					}
+					, ""
+					, ""
+					, false
+					, true
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CByteVector CertificateRequestData;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate Chain Without Intermediate CA");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CByteVector CertificateRequestData;
+						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+						CSSLSettings ClientSettings2;
+						ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CCertificateOptions ClientOptions2;
+						ClientOptions2.m_CommonName = "Test Client";
+						ClientOptions2.m_KeySetting = gc_TestTestKeySetting;
+
+						CByteVector CertificateRequestData2;
+						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
+						CCertificate::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate Incorrect");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate Missing");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate Allow Missing");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Client Certificate Incorrect Allow Missing");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Server Certificate Incorrect");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						CSSLSettings ServerSettings2;
+						CCertificateOptions ServerOptions2;
+						ServerOptions2.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions2.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions2.m_KeySetting = gc_TestTestKeySetting;
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Server Certificate Self Signed");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Server Certificate Child Cert");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+						CByteVector RootCertData;
+						CSecureByteVector RootKeyData;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
+
+						CByteVector ChildCertData;
+						CSecureByteVector ChildKeyData;
+						CByteVector RequestData;
+
+						CCertificateOptions RequestOptions;
+						RequestOptions.m_CommonName = "Malterlib test request";
+						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
+
+						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
+
+						ServerSettings.m_PublicCertificateData = ChildCertData;
+						ServerSettings.m_PrivateKeyData = ChildKeyData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_CACertificateData = RootCertData;
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL Server Certificate Incorrect Specific");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+						CByteVector RootCertData;
+						CSecureByteVector RootKeyData;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
+
+						CByteVector ChildCertData;
+						CSecureByteVector ChildKeyData;
+						CByteVector RequestData;
+
+						CCertificateOptions RequestOptions;
+						RequestOptions.m_CommonName = "Malterlib test request";
+						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						RequestOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
+
+						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
+
+						ServerSettings.m_PublicCertificateData = ChildCertData;
+						ServerSettings.m_PrivateKeyData = ChildKeyData;
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = RootCertData;
+
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, "Socket closed: Mismatching specific certificate"
+				)
+			;
+		}
+	}
+
 	void f_DoTests()
 	{
 		DMibTestSuite("Tests")
 		{
-			{
-				DMibTestPath("TCP");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							return {nullptr, nullptr};
-						}
-						, ""
-						, ""
-						, true
-					)
-				;
-			}
-			{
-				DMibTestPath("TCP Long Close");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							return {nullptr, nullptr};
-						}
-						, ""
-						, ""
-						, false
-						, true
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions Options;
-							Options.m_CommonName = "Malterlib test Self Signed";
-							Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							Options.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, ""
-						, true
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							CByteVector CertificateRequestData;
-
-							CCertificateOptions ClientOptions;
-							ClientOptions.m_CommonName = "Test Client";
-							ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-							CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate Chain Without Intermediate CA");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-
-							CCertificateOptions ClientOptions;
-							ClientOptions.m_CommonName = "Test Client";
-							ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CByteVector CertificateRequestData;
-							CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-							CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
-
-							CSSLSettings ClientSettings2;
-							ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							CCertificateOptions ClientOptions2;
-							ClientOptions2.m_CommonName = "Test Client";
-							ClientOptions2.m_KeySetting = gc_TestTestKeySetting;
-
-							CByteVector CertificateRequestData2;
-							CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
-							CCertificate::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate Incorrect");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							CCertificateOptions ClientOptions;
-							ClientOptions.m_CommonName = "Test Client";
-							ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-							ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate Missing");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate Allow Missing");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-							ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Client Certificate Incorrect Allow Missing");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-							ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-							ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-							CCertificateOptions ClientOptions;
-							ClientOptions.m_CommonName = "Test Client";
-							ClientOptions.m_KeySetting = gc_TestTestKeySetting;
-							ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Server Certificate Incorrect");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							CSSLSettings ServerSettings2;
-							CCertificateOptions ServerOptions2;
-							ServerOptions2.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions2.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions2.m_KeySetting = gc_TestTestKeySetting;
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Server Certificate Self Signed");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Server Certificate Child Cert");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-							CByteVector RootCertData;
-							CSecureByteVector RootKeyData;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
-
-							CByteVector ChildCertData;
-							CSecureByteVector ChildKeyData;
-							CByteVector RequestData;
-
-							CCertificateOptions RequestOptions;
-							RequestOptions.m_CommonName = "Malterlib test request";
-							RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							RequestOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-
-							CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-
-							ServerSettings.m_PublicCertificateData = ChildCertData;
-							ServerSettings.m_PrivateKeyData = ChildKeyData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_CACertificateData = RootCertData;
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, ""
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL Server Certificate Incorrect Specific");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
-							CByteVector RootCertData;
-							CSecureByteVector RootKeyData;
-
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
-
-							CByteVector ChildCertData;
-							CSecureByteVector ChildKeyData;
-							CByteVector RequestData;
-
-							CCertificateOptions RequestOptions;
-							RequestOptions.m_CommonName = "Malterlib test request";
-							RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							RequestOptions.m_KeySetting = gc_TestTestKeySetting;
-
-							CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-
-							CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-
-							ServerSettings.m_PublicCertificateData = ChildCertData;
-							ServerSettings.m_PrivateKeyData = ChildKeyData;
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = RootCertData;
-
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-						, ""
-						, "Socket closed: Mismatching specific certificate"
-					)
-				;
-			};
+			for (mint i = 1; i < 16; ++i)
+				fp_TestProtocols(i);
+
+			for (mint i = 32; i <= CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
+				fp_TestProtocols(i);
 		};
+
 		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
 		{
 			/* https://github.com/crossbario/autobahn-testsuite
@@ -1234,6 +1283,8 @@ public:
 			co_return {};
 		};
 	}
+
+	mint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
 };
 
 DMibTestRegister(CWebsocket_Tests, Malterlib::Web);
