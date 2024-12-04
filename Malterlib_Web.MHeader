@@ -2,6 +2,7 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 Import "../Core/Lib_Malterlib.MTarget"
+Import "Apps/*/*.MHeader"
 
 %Repository "curl"
 {
@@ -278,3 +279,29 @@ Property
 	}
 }
 */
+
+Property
+{
+	Malterlib_Web_App_Targets: [type(CEntity)] = []
+	Malterlib_All_App_Targets =+ Malterlib_Web_App_Targets
+}
+
+%Workspace "Apps_Malterlib_Web"
+{
+	&
+	{
+		MalterlibEnableInternalWorkspaces true
+	}
+
+	Property.MalterlibPostCopyProject "Malterlib_Web"
+	{
+		!!TargetIsExecutable true
+	}
+
+	Property.MalterlibLog_Severities ["Error", "Critical", "Warning", "Info"]
+	{
+		!!MalterlibLog_EnableVerboseDebugLog false
+	}
+
+	%Target Malterlib_Web_App_Targets
+}

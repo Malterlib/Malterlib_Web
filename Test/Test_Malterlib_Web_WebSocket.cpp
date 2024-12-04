@@ -980,6 +980,221 @@ public:
 				;
 			};
 		};
+		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
+		{
+			/* https://github.com/crossbario/autobahn-testsuite
+
+			Install test suite
+
+				rm -rf ~/wstest
+				rm -rf ~/Library/Caches/pip
+				export BREW_HOME=`brew --prefix`
+				brew install pyenv
+				brew install openssl@1.1 --force
+				pyenv install 2.7.18 -f
+				pyenv global 2.7.18
+				PATH="$(pyenv root)/shims:$PATH"
+				which python
+				pip install virtualenv
+				virtualenv ~/wstest
+				source ~/wstest/bin/activate
+				python --version
+				pip install typing
+				CPPFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" CFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" pip install autobahntestsuite
+
+			To test client
+
+				In tab 1
+					source ~/wstest/bin/activate
+					cd ~/wstest
+					mkdir MalterlibClient
+					cd MalterlibClient
+					wstest -m fuzzingserver
+
+				In tab 2
+					cd /opt/Deploy/Tests
+					./Test_Malterlib_Web -g Manual --logs
+					open ~/wstest/MalterlibClient/reports/clients/index.html
+
+			To test server
+
+				Enable Malterlib_App_Enable_WebSocketEcho in user settings
+				Build Apps_Malterlib_Web
+
+				In tab 1
+					cd /opt/Deploy/Malterlib_Web
+					./WebSocketEcho --daemon-run-debug --log-to-stderr
+
+				In tab 2
+					source ~/wstest/bin/activate
+					cd ~/wstest
+					mkdir MalterlibServer
+					cd MalterlibServer
+					wstest -m fuzzingclient
+					open ~/wstest/MalterlibServer/reports/servers/index.html
+			*/
+
+			struct CConnection
+			{
+				TCActor<CWebSocketActor> m_WebSocket;
+				CActorSubscription m_Subscription;
+			};
+
+			struct CState
+			{
+				TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
+				TCMap<mint, CConnection> m_Connections;
+				mint m_SocketID = 0;
+			};
+
+			TCSharedPointer<CState> pState = fg_Construct();
+
+			auto fOpenConnection = [](TCSharedPointer<CState> _pState, CStr _Path, TCActorFunctor<TCFuture<void> (CStr _Text)> _fOnMessage = {}) -> TCUnsafeFuture<TCFuture<void>>
+				{
+					auto SocketID = _pState->m_SocketID++;
+
+					NHTTP::CRequest Request;
+					Request.f_GetRequestFields().f_SetUserAgent("MalterlibWebSocket");
+					auto NewConnection = co_await _pState->m_WebSocketClient
+						(
+							&CWebSocketClientActor::f_Connect
+							, "127.0.0.1:9001"
+							, ""
+							, ENetAddressType_None
+							, 9001
+							, _Path
+							, "http://127.0.0.1/"
+							, fg_CreateVector<CStr>()
+							, fg_Move(Request)
+							, FVirtualSocketFactory()
+						)
+					;
+
+					auto Address = NewConnection.m_PeerAddress;
+
+					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_pMessage) -> TCFuture<void>
+						{
+							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetLen());
+							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+							if (pClient)
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinary, _pMessage, 0);
+
+							co_return {};
+						}
+					;
+					NewConnection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [_pState, SocketID, Address, fOnMessage = fg_Move(_fOnMessage)](CStr const &_Message) -> TCFuture<void>
+						{
+							DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
+
+							if (fOnMessage)
+								co_await fOnMessage(_Message);
+							else
+							{
+								auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+								if (pClient)
+									co_await pClient->m_WebSocket(&CWebSocketActor::f_SendText, _Message, 0);
+							}
+
+							co_return {};
+						}
+					;
+					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+						{
+							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+							if (pClient)
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _ApplicationData);
+
+							co_return {};
+						}
+					;
+					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+						{
+							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							co_return {};
+						}
+					;
+
+					TCPromise<void> ClosedPromise;
+					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise](EWebSocketStatus _Reason, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+						{
+							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
+							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+							if (pClient)
+							{
+								TCActorResultVector<void> Destroys;
+
+								if (pClient->m_Subscription)
+									pClient->m_Subscription->f_Destroy() > Destroys.f_AddResult();
+
+								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys.f_AddResult();
+
+								_pState->m_Connections.f_Remove(pClient);
+
+								co_await Destroys.f_GetResults();
+							}
+
+							ClosedPromise.f_SetResult();
+
+							co_return {};
+						}
+					;
+
+					TCPromise<void> AcceptedPromise;
+					auto WebSocket = NewConnection.f_Accept
+						(
+							fg_CurrentActor() / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
+							{
+								if (!_Subscription)
+								{
+									DMibLog(Info, "{} Failed to accept connection '{}': {}", SocketID, Address, _Subscription.f_GetExceptionStr());
+									_pState->m_Connections.f_Remove(SocketID);
+									AcceptedPromise.f_SetException(_Subscription.f_GetException());
+									return;
+								}
+
+								auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+								if (pClient)
+								{
+									DMibLog(Info, "{} Accepted connection '{}'", SocketID, Address);
+									pClient->m_Subscription = fg_Move(*_Subscription);
+								}
+
+								AcceptedPromise.f_SetResult();
+							}
+						)
+					;
+
+					_pState->m_Connections[SocketID].m_WebSocket = WebSocket;
+
+					co_await AcceptedPromise.f_Future();
+
+					co_return ClosedPromise.f_Future();
+				}
+			;
+
+			mint nCases = 0;
+			co_await co_await fOpenConnection
+				(
+					pState
+					, "/getCaseCount"
+					, g_ActorFunctor / [&](CStr _Message) -> TCFuture<void>
+					{
+						DMibLog(Info, "Case count message: {}", _Message);
+						nCases = _Message.f_ToInt(0);
+
+						co_return {};
+					}
+				)
+			;
+
+			for (mint i = 0; i < nCases; ++i)
+				co_await co_await fOpenConnection(pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (i + 1));
+
+			co_await co_await fOpenConnection(pState, "/updateReports?agent=MalterlibWebSocket");
+
+			co_return {};
+		};
 	}
 };
 

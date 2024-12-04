@@ -1,0 +1,68 @@
+// Copyright © 2024 Favro Holding AB
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+%Target "Lib_Malterlib_Web_WebSocketEcho"
+{
+	Property
+	{
+	}
+	Target
+	{
+		Type "StaticLibrary"
+		BaseName "Malterlib_Web_WebSocketEcho"
+		Group "Apps"
+	}
+	%Group "Source"
+	{
+		%File "Source/Malterlib_Web_App_*"
+	}
+	%Dependency "Lib_Malterlib_Web"
+	{
+		Dependency.Indirect true
+	}
+	%Dependency "Lib_Malterlib_Cloud"
+	{
+		Dependency.Indirect true
+	}
+	%Dependency "Lib_Malterlib"
+	{
+		Dependency.Indirect true
+	}
+}
+
+%Target "Malterlib_Web_WebSocketEcho"
+{
+	Property
+	{
+		ProductName "Malterlib Web Socket Echo"
+		MalterlibTestApp true
+		MalterlibPostCopyProject "Malterlib_Web_WebSocketEcho"
+		{
+			!!MalterlibPostCopyProject undefined
+		}
+		MalterlibTargetNameType "Normal"
+		MalterlibCloudVersionInfo_RunAsUser "MalterlibWebSocketEcho"
+		MalterlibCloudVersionInfo_RunAsGroup "MalterlibWebSocketEcho"
+	}
+	Target
+	{
+		DebuggerCommandArguments ["--daemon-run-debug"]
+		BaseFileName "WebSocketEcho"
+		Group "Apps"
+	}
+	%Group "Source"
+	{
+		%File "Source/Malterlib_Web_AppLocal_*"
+	}
+	%Dependency "Lib_Malterlib_Web_WebSocketEcho"
+}
+
+Property
+{
+	Malterlib_App_Enable_WebSocketEcho: bool = false // User(Apps)=true: Enable WebSocketServer app
+
+	Malterlib_Web_App_Targets =+ "Malterlib_Web_WebSocketEcho"
+	{
+		!!Malterlib_App_Enable_WebSocketEcho true
+	}
+}
