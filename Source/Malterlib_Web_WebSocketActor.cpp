@@ -1731,7 +1731,7 @@ namespace NMib::NWeb
 									break;
 								}
 
-								if (GeneralFields.f_GetUpgrade() != "websocket")
+								if (GeneralFields.f_GetUpgrade().f_CmpNoCase("websocket") != 0)
 								{
 									fp_RejectClientConnection("Upgrade was not set to 'websocket'");
 									break;
