@@ -1602,6 +1602,12 @@ namespace NMib::NWeb
 						m_pThis->fp_Disconnect(EWebSocketStatus_InvalidFramePayloadData, NStr::gc_Str<"Invalid UTF-8">, false, EWebSocketCloseOrigin_Local);
 						break;
 					}
+
+					if (!fs_IsValidCloseStatus(Status))
+					{
+						m_pThis->fp_Disconnect(EWebSocketStatus_ProtocolError, NStr::gc_Str<"Invalid Close Code">, false, EWebSocketCloseOrigin_Local);
+						break;
+					}
 				}
 
 				// TODO: Send reponse frame

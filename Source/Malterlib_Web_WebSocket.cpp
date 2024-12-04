@@ -110,4 +110,14 @@ namespace NMib::NWeb
 			;
 		}
 	}
+
+	bool CWebSocketActor::fs_IsValidCloseStatus(EWebSocketStatus _Status)
+	{
+		return (_Status >= EWebSocketStatus_NormalClosure && _Status <= EWebSocketStatus_PrivateEnd)
+			&& !(_Status >= EWebSocketStatus_ReservedStart && _Status <= EWebSocketStatus_ReservedEnd)
+			&& _Status != EWebSocketStatus_NoStatusReceived
+			&& _Status != EWebSocketStatus_AbnormalClosure
+			&& _Status != EWebSocketStatus_Reserved0
+		;
+	}
 }
