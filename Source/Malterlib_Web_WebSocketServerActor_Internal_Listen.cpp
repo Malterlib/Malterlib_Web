@@ -46,29 +46,32 @@ namespace NMib::NWeb::NWebSocket
 			while (true)
 			{
 				NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(false, mp_Settings);
-				NStorage::TCUniquePointer<NNetwork::ICSocket> pAcceptedSocket = mp_pSocket->f_Accept
-					(
-						[WeakConnectionActor = ConnectionActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)
-						{
-							auto ConnectionActor = WeakConnectionActor.f_Lock();
-							if (ConnectionActor)
-								ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
-						}
-					)
-				;
-
-				if (!pAcceptedSocket)
-					break;
-
-				DMibFastCheck(pAcceptedSocket->f_IsValid());
-
-				ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pAcceptedSocket)) > NConcurrency::fg_DiscardResult();
-
-				auto Server = mp_Server.f_Lock();
-
-				if (Server)
+				try
 				{
-					Server(&CWebSocketServerActor::fp_AddConnection, fg_Move(ConnectionActor)) > NConcurrency::fg_DiscardResult();
+					NStorage::TCUniquePointer<NNetwork::ICSocket> pAcceptedSocket = mp_pSocket->f_Accept
+						(
+							[WeakConnectionActor = ConnectionActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)
+							{
+								auto ConnectionActor = WeakConnectionActor.f_Lock();
+								if (ConnectionActor)
+									ConnectionActor(&CWebSocketActor::fp_StateAdded, _StateAdded) > NConcurrency::fg_DiscardResult();
+							}
+						)
+					;
+
+					if (!pAcceptedSocket)
+						break;
+
+					DMibFastCheck(pAcceptedSocket->f_IsValid());
+
+					ConnectionActor(&CWebSocketActor::fp_SetSocket, fg_Move(pAcceptedSocket)) > NConcurrency::fg_DiscardResult();
+
+					auto Server = mp_Server.f_Lock();
+					if (Server)
+						Server(&CWebSocketServerActor::fp_AddConnection, fg_Move(ConnectionActor)) > NConcurrency::fg_DiscardResult();
+				}
+				catch (NException::CException const &)
+				{
 				}
 			}
 		}
