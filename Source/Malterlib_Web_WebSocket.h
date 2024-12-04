@@ -205,6 +205,8 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _Flags);
 		NConcurrency::TCFuture<CDebugStats> f_DebugGetStats();
 
+		constexpr static mint mc_MaxCloseMessageLength = 125 - 2;
+
 	private:
 		friend class NWebSocket::CListenActor;
 		friend class CWebSocketServerActor;

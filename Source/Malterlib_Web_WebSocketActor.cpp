@@ -962,7 +962,14 @@ namespace NMib::NWeb
 					DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 3 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 					NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 					Stream << uint16(_Status);
+
 					NStr::CStr Reason = _Reason;
+					if (Reason.f_GetLen() > mc_MaxCloseMessageLength)
+					{
+						Reason = Reason.f_Left(mc_MaxCloseMessageLength);
+						DMibLog(Warning, "Cut off Websocket close reason:\n   {}\n   {}", _Reason, Reason);
+					}
+
 					mint ReasonLen = Reason.f_GetLen();
 					if (ReasonLen != 0)
 						Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
@@ -1328,6 +1335,13 @@ namespace NMib::NWeb
 				}
 			}
 
+			bool bControlMessage = Header.m_Opcode >= EOpcode_ConnectionClose && Header.m_Opcode <= EOpcode_Pong;
+			if (bControlMessage && Header.m_PayloadLength >= 126)
+			{
+				fp_Disconnect(EWebSocketStatus_ProtocolError, "Control frame too big", false, EWebSocketCloseOrigin_Local);
+				return false;
+			}
+
 			if (Header.m_PayloadLength == 126)
 			{
 				ThisPosition += 2;
@@ -1614,7 +1628,6 @@ namespace NMib::NWeb
 			}
 			break;
 		}
-
 	}
 
 	void CWebSocketActor::CInternal::f_HandleDataMessage(CMessage &_Message)

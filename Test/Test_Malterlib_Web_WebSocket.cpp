@@ -37,7 +37,10 @@ using namespace NMib::NWeb;
 namespace
 {
 	CPublicKeySetting gc_TestTestKeySetting = CPublicKeySettings_EC_secp256r1{};
-	char const *g_pCloseMessage = "Malterlib Web closed connection";
+	constexpr static auto gc_CloseMessage = gc_Str<"Malterlib Web closed connection">;
+	constexpr static auto gc_CloseMessageTooLong = gc_Str<"Malterlib Web closed connection. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789">;
+	static_assert((gc_CloseMessageTooLong.m_StrData.mc_nChars - 1) > CWebSocketActor::mc_MaxCloseMessageLength);
+
 	fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 }
 
@@ -50,15 +53,25 @@ public:
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
 			, bool _bTestTimeout = false
+			, bool _bTestTooLongCloseMessage = false
 		)
 	{
 		{
 			DMibTestPath("IP");
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout);
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout, _bTestTooLongCloseMessage);
 		}
 		{
 			DMibTestPath("Unix");
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "UNIX:" + fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << CFile::fs_GetProgramDirectory()), false);
+			fp_TestImp
+				(
+					_fGetFactories
+					, _AcceptError
+					, _ConnectError
+					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << CFile::fs_GetProgramDirectory())
+					, false
+					, _bTestTooLongCloseMessage
+				)
+			;
 		}
 	}
 
@@ -159,7 +172,14 @@ public:
 								{
 									DMibLock(pState->m_Lock);
 									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, g_pCloseMessage) > fg_DiscardResult();
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessage) > fg_DiscardResult();
+								}
+
+								if (_Message == "DisconnectLongClose")
+								{
+									DMibLock(pState->m_Lock);
+									for (auto &Connection : pState->m_ServerConnections)
+										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessageTooLong) > fg_DiscardResult();
 								}
 
 								co_return {};
@@ -392,6 +412,7 @@ public:
 			, CStr const &_ConnectError
 			, CStr const &_Address
 			, bool _bTestTimeout
+			, bool _bTestTooLongCloseMessage
 		)
 	{
 		{
@@ -464,7 +485,7 @@ public:
 				{
 					DMibTestPath("Disconnect");
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "Disconnect", 0) > fg_DiscardResult();
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, _bTestTooLongCloseMessage ? "DisconnectLongClose" : "Disconnect", 0) > fg_DiscardResult();
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -477,9 +498,11 @@ public:
 						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
 					}
 
+					auto ExpectedCloseMessage = _bTestTooLongCloseMessage ? gc_CloseMessageTooLong.m_Str.f_Left(CWebSocketActor::mc_MaxCloseMessageLength) : gc_CloseMessage.m_Str;
+
 					DMibTest(!DMibExpr(bTimedOut));
-					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, g_pCloseMessage);
-					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, g_pCloseMessage);
+					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, ExpectedCloseMessage);
+					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, ExpectedCloseMessage);
 
 				}
 			}
@@ -554,6 +577,21 @@ public:
 						}
 						, ""
 						, ""
+						, true
+					)
+				;
+			}
+			{
+				DMibTestPath("TCP Long Close");
+				fp_Test
+					(
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+						{
+							return {nullptr, nullptr};
+						}
+						, ""
+						, ""
+						, false
 						, true
 					)
 				;
