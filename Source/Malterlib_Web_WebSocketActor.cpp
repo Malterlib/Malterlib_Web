@@ -1595,7 +1595,13 @@ namespace NMib::NWeb
 					if (Len != 0)
 						Stream.f_ConsumeBytes(pData, Len);
 					pData[Len] = 0;
-					Reason.f_SetStrLen(-1);
+					Reason.f_SetStrLen(Len);
+
+					if (!NStr::fg_IsValidUTF8(Reason.f_GetStr(), Reason.f_GetLen()))
+					{
+						m_pThis->fp_Disconnect(EWebSocketStatus_InvalidFramePayloadData, NStr::gc_Str<"Invalid UTF-8">, false, EWebSocketCloseOrigin_Local);
+						break;
+					}
 				}
 
 				// TODO: Send reponse frame
@@ -1643,9 +1649,15 @@ namespace NMib::NWeb
 		{
 		case EOpcode_TextFrame:
 			{
-				NStr::CStr Data;
-				Data.f_AddStr(_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
+				if (!NStr::fg_IsValidUTF8((ch8 const *)_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen()))
+				{
+					m_pThis->fp_Disconnect(EWebSocketStatus_InvalidFramePayloadData, NStr::gc_Str<"Invalid UTF-8">, false, EWebSocketCloseOrigin_Local);
+					break;
+				}
+
+				NStr::CStr Data(NStr::CAllowNUL(), (ch8 const *)_Message.m_Data.f_GetArray(), _Message.m_Data.f_GetLen());
 				DMibLog(DebugVerbose3, " ++++ {} {} call m_OnReceiveTextMessage", fg_ThisActor(m_pThis), !m_bClient);
+
 				if (m_fOnReceiveTextMessage.f_ShouldCall())
 					m_fOnReceiveTextMessage(fg_Move(Data)) > NConcurrency::fg_DiscardResult();
 			}
