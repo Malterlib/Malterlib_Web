@@ -915,6 +915,9 @@ namespace NMib::NWeb
 			m_OutgoingData.f_InsertBack(Mask, sizeof(Mask));
 		}
 
+		if (_nBytes == 0)
+			return;
+
 		mint StartPos = m_OutgoingData.f_GetLen();
 		m_OutgoingData.f_InsertBack(_pData, _nBytes);
 
