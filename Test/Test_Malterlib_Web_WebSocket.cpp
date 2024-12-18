@@ -52,6 +52,7 @@ public:
 			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
+			, mint _FragmentationSize
 			, bool _bTestTimeout = false
 			, bool _bTestTooLongCloseMessage = false
 		)
@@ -67,7 +68,7 @@ public:
 					_fGetFactories
 					, _AcceptError
 					, _ConnectError
-					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/Websocket.socket"_f << CFile::fs_GetProgramDirectory())
+					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize)
 					, false
 					, _bTestTooLongCloseMessage
 				)
@@ -103,6 +104,8 @@ public:
 		CStr m_AcceptError;
 		bool m_bAcceptError = false;
 		CStr m_ListenError;
+
+		TCActor<CActor> m_ProcessingActor{fg_Construct()};
 
 		TCActor<CWebSocketClientActor> m_ClientActor;
 
@@ -151,7 +154,7 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 					, fg_CreateVector(_ListenAddress)
 					, ENetFlag_None
-					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
+					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
 					{
 						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
 						DMibLock(pState->m_Lock);
@@ -207,7 +210,7 @@ public:
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, fg_ConcurrentActor() / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
 								(TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
@@ -221,7 +224,7 @@ public:
 
 						co_return {};
 					}
-					, g_ActorFunctorWeak(fg_ConcurrentActor()) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
 					{
 						DMibLock(pState->m_Lock);
 						pState->m_bAcceptError = true;
@@ -232,7 +235,7 @@ public:
 					}
 					, fg_TempCopy(_ServerFactory)
 				)
-				> fg_ConcurrentActor() / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
+				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
@@ -269,7 +272,7 @@ public:
 					, NHTTP::CRequest()
 					, fg_TempCopy(_ClientFactory)
 				)
-				> fg_ConcurrentActor() / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
 					DMibLock(pState->m_Lock);
 					if (_Result)
@@ -299,7 +302,7 @@ public:
 
 						pState->m_ClientSocket = Result.f_Accept
 							(
-								fg_ConcurrentActor() / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
+								pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback)
@@ -451,19 +454,21 @@ public:
 				{
 					DMibTestPath("Messages");
 
+					TCFutureVector<void> Results;
+
 					mint nMessages = 0;
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0) > Results;
 					++nMessages;
 
 					CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
 					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0) > Results;
 					++nMessages;
 
 					TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0) > Results;
 					nMessages += 2;
 
 					CStr BigText;
@@ -472,15 +477,17 @@ public:
 
 					BigText = BigText.f_Left(m_CurrentFragmentationSize * 128);
 
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0) > Results;
 					++nMessages;
 
 					for (mint i = 0; i < 32; ++i)
 					{
-						CStr Message = BigText.f_Left(i);
-						pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						CStr Message = BigText.f_Left(i % 32);
+						pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0) > Results;
 						++nMessages;
 					}
+
+					fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
 					bool bTimedOut = false;
 					while (!bTimedOut)
@@ -503,8 +510,9 @@ public:
 
 					for (mint i = 0; i < 32; ++i)
 					{
-						CStr Message = BigText.f_Left(i);
-						DMibExpect(pState->m_Messages[5 + i], ==, Message + "Reply")(ETestFlag_Aggregated);
+						DMibTestPath("Length {}"_f << i);
+						CStr Message = BigText.f_Left(i % 32);
+						DMibExpect(pState->m_Messages[5 + i], ==, Message + "Reply");
 					}
 				}
 
@@ -593,7 +601,6 @@ public:
 
 	void fp_TestProtocols(mint _FragmentationSize)
 	{
-		DMibTestPath("Fragmentation {}"_f << _FragmentationSize);
 		m_CurrentFragmentationSize = _FragmentationSize;
 		{
 			DMibTestPath("TCP");
@@ -605,6 +612,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
 				)
 			;
@@ -636,6 +644,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
 				)
 			;
@@ -654,6 +663,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 					, false
 					, true
 				)
@@ -696,6 +706,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -746,6 +757,7 @@ public:
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -785,6 +797,7 @@ public:
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -817,6 +830,7 @@ public:
 					}
 					, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -849,6 +863,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -888,6 +903,7 @@ public:
 					}
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -924,6 +940,7 @@ public:
 					}
 					, ""
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+					, _FragmentationSize
 				)
 			;
 		}
@@ -952,6 +969,7 @@ public:
 					}
 					, ""
 					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+					, _FragmentationSize
 				)
 			;
 		}
@@ -999,6 +1017,7 @@ public:
 					}
 					, ""
 					, ""
+					, _FragmentationSize
 				)
 			;
 		}
@@ -1047,6 +1066,7 @@ public:
 					}
 					, ""
 					, "Socket closed: Mismatching specific certificate"
+					, _FragmentationSize
 				)
 			;
 		}
@@ -1054,13 +1074,23 @@ public:
 
 	void f_DoTests()
 	{
-		DMibTestSuite("Tests")
+		DMibTestCategory("Tests")
 		{
 			for (mint i = 1; i < 16; ++i)
-				fp_TestProtocols(i);
+			{
+				DMibTestSuite("Fragmentation {}"_f << i)
+				{
+					fp_TestProtocols(i);
+				};
+			}
 
-			for (mint i = 32; i <= CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
-				fp_TestProtocols(i);
+			for (mint i = 32; i < CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
+			{
+				DMibTestSuite("Fragmentation {}"_f << i)
+				{
+					fp_TestProtocols(i);
+				};
+			}
 		};
 
 		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
@@ -1125,6 +1155,7 @@ public:
 
 			struct CState
 			{
+				TCActor<CActor> m_ProcessingActor{fg_Construct()};
 				TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
 				TCMap<mint, CConnection> m_Connections;
 				mint m_SocketID = 0;
@@ -1226,7 +1257,7 @@ public:
 					TCPromise<void> AcceptedPromise;
 					auto WebSocket = NewConnection.f_Accept
 						(
-							fg_CurrentActor() / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
+							_pState->m_ProcessingActor / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
 							{
 								if (!_Subscription)
 								{
