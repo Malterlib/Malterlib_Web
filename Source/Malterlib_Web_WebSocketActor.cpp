@@ -501,6 +501,8 @@ namespace NMib::NWeb
 			Internal.f_SetupTimeout();
 		}
 
+		fp_UpdateSend();
+
 		co_return {};
 	}
 
