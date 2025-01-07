@@ -501,6 +501,26 @@ namespace NMib::NWeb
 		return mp_Internal(&CHTTPServerInternal::f_Stop).f_CallSync();
 	}
 
+	NConcurrency::TCFuture<void> CHTTPServer::f_AddHandlerActorForPathAsync(NStr::CStr _Path, FActorRequestHandler _fHandler, int _Priority)
+	{
+		return mp_Internal(&CHTTPServerInternal::f_AddHandlerActorForPath, fg_Move(_Path), fg_Move(_fHandler), _Priority);
+	}
+
+	NConcurrency::TCFuture<bool> CHTTPServer::f_RunAsync(CHTTPServerOptions _Options)
+	{
+		return mp_Internal(&CHTTPServerInternal::f_Run, fg_Move(_Options));
+	}
+
+	NConcurrency::TCFuture<bool> CHTTPServer::f_IsRunningAsync()
+	{
+		return mp_Internal(&CHTTPServerInternal::f_IsRunning);
+	}
+
+	NConcurrency::TCFuture<bool> CHTTPServer::f_StopAsync()
+	{
+		return mp_Internal(&CHTTPServerInternal::f_Stop);
+	}
+
 	// CHTTPResponseHeader Public Methods
 
 	CHTTPResponseHeader::CHTTPResponseHeader() = default;

@@ -177,6 +177,11 @@ namespace NMib::NWeb
 		bool f_Run(CHTTPServerOptions const& _Options);
 		bool f_IsRunning();
 		bool f_Stop();
+
+		NConcurrency::TCFuture<void> f_AddHandlerActorForPathAsync(NStr::CStr _Path, FActorRequestHandler _fHandleRequest, int _Priority);
+		NConcurrency::TCFuture<bool> f_RunAsync(CHTTPServerOptions _Options);
+		NConcurrency::TCFuture<bool> f_IsRunningAsync();
+		NConcurrency::TCFuture<bool> f_StopAsync();
 	};
 
 	/*
