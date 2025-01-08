@@ -182,7 +182,7 @@ namespace NMib::NWeb
 #endif
 		fDoRequest("");
 
-		return fg_Move(Promise.m_Future);
+		co_return co_await fg_Move(Promise.m_Future);
 	}
 
 	namespace
