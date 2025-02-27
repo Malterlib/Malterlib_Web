@@ -94,6 +94,8 @@ namespace NMib::NWeb
 	class CWebSocketActor : public NConcurrency::CActor
 	{
 	public:
+		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
+
 		struct CCloseInfo
 		{
 			EWebSocketStatus m_Status = EWebSocketStatus_None;
