@@ -2184,12 +2184,12 @@ namespace NMib::NWeb
 			DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_Read", fg_ThisActor(this), !Internal.m_bClient);
 
 			NNetwork::CSocketOperationResult CombinedResults;
-			uint8 Data[4096];
+			uint8 Data[16384];
 			try
 			{
 				while (true)
 				{
-					mint Size = 4096;
+					mint Size = 16384;
 					NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Data, Size);
 					CombinedResults += Result;
 					if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
