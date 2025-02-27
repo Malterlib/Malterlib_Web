@@ -2200,6 +2200,8 @@ namespace NMib::NWeb
 					fp_ProcessIncoming();
 					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 						return;
+
+					fp_UpdateSend();
 				}
 			}
 			catch (NCryptography::CExceptionCryptography const& _Exception)
