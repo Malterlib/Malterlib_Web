@@ -197,12 +197,12 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_SetTimeout(fp64 _Seconds);
 
-		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendText(NStr::CStr _Data, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> _pMessage, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> _pMessageBuffers, uint32 _Priority);
-		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
-		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData);
 
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, NStr::CStr _Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime);
@@ -231,10 +231,10 @@ namespace NMib::NWeb
 
 		struct CCallbacks
 		{
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePing;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePong;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePing;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePong;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		};
 

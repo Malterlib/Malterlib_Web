@@ -1186,7 +1186,7 @@ public:
 
 					auto Address = NewConnection.m_PeerAddress;
 
-					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> _pMessage) -> TCFuture<void>
+					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector> _pMessage) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
@@ -1212,7 +1212,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CSecureByteVector> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
@@ -1222,7 +1222,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CSecureByteVector> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							co_return {};

@@ -77,7 +77,7 @@ namespace NMib::NWeb
 				NMemory::fg_MemClear(m_Mask); // MSVC does not support inline initializing of array
 			}
 			uint64 m_Length = 0;
-			NContainer::CSecureByteVector m_Data;
+			NContainer::CIOByteVector m_Data;
 			mint m_Position = 0;
 			uint8 m_Mask[4];
 			CHeader m_Header;
@@ -92,7 +92,7 @@ namespace NMib::NWeb
 					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
-			NStorage::TCSharedPointer<NContainer::CSecureByteVector> m_pData;
+			NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pData;
 			EOpcode m_Opcode;
 			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 			bool m_bFinished = false;
@@ -276,7 +276,7 @@ namespace NMib::NWeb
 		void f_HandleDataMessage(CMessage &_Message);
 		void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, bool _bFinished);
 
-		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pData, uint32 _Priority);
+		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData, uint32 _Priority);
 		COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
 		void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
 		static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
@@ -308,10 +308,10 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_pClosePromise;
 		NContainer::TCLinkedList<NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePing;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)> m_fOnReceivePong;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePing;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePong;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> m_fOnFinishConnection;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> m_fOnFinishClientConnection;
@@ -322,7 +322,7 @@ namespace NMib::NWeb
 		NConcurrency::CActorSubscription m_TimeoutTimerSubscription;
 		NTime::CClock m_TimeoutReceivedData;
 		NTime::CClock m_TimeoutSentData;
-		NStorage::TCSharedPointer<NContainer::CSecureByteVector> m_pTimeoutPingMessage;
+		NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pTimeoutPingMessage;
 		CWebsocketSettings m_Settings;
 		mint m_TimeoutTimerSubscriptionSequence = 0;
 		uint64 m_nSentBytes = 0;
@@ -364,7 +364,7 @@ namespace NMib::NWeb
 	COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage
 		(
 			EOpcode _Opcode
-			, NStorage::TCSharedPointer<NContainer::CSecureByteVector> const &_pData
+			, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData
 			, uint32 _Priority
 		)
 	{
@@ -388,7 +388,7 @@ namespace NMib::NWeb
 		while (true)
 		{
 			mint ThisTime = fg_Min(nBytes, m_Settings.m_FragmentationSize);
-			NContainer::CSecureByteVector VectorData;
+			NContainer::CIOByteVector VectorData;
 			VectorData.f_Insert(pBytes, ThisTime);
 			nBytes -= ThisTime;
 			pBytes += ThisTime;
@@ -699,7 +699,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -868,7 +868,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -888,7 +888,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CSecureByteVector> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -1789,11 +1789,10 @@ namespace NMib::NWeb
 
 									NCryptography::CHash_SHA1::CMessageDigest Digest = Hash;
 
-									NContainer::CSecureByteVector DigestData;
+									NContainer::CByteVector DigestData;
 									DigestData.f_Insert(Digest.f_GetData(), Digest.mc_Size);
 
-									NStr::CStr CorrectKey = NEncoding::fg_Base64Encode(DigestData);
-
+									auto CorrectKey = NEncoding::fg_Base64Encode(DigestData);
 									if (CorrectKey != *pAccept)
 									{
 										fp_RejectClientConnection("Invalid Sec-WebSocket-Accept key");
@@ -2106,7 +2105,7 @@ namespace NMib::NWeb
 		Hash.f_AddData("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36);
 		NCryptography::CHash_SHA1::CMessageDigest Digest = Hash;
 
-		NContainer::CSecureByteVector DigestData;
+		NContainer::CByteVector DigestData;
 		DigestData.f_Insert(Digest.f_GetData(), Digest.mc_Size);
 
 		EntityFields.f_SetUnknownField("Sec-WebSocket-Accept", NEncoding::fg_Base64Encode(DigestData));
@@ -2341,7 +2340,7 @@ namespace NMib::NWeb
 		for (auto &Protocol : _Protocols)
 			fg_AddStrSep(Protocols, Protocol, ", ");
 
-		NContainer::CSecureByteVector RandomData;
+		NContainer::CByteVector RandomData;
 		RandomData.f_SetLen(16);
 		NCryptography::fg_GenerateRandomData(RandomData.f_GetArray(), RandomData.f_GetLen());
 
@@ -2356,7 +2355,6 @@ namespace NMib::NWeb
 			Internal.m_ClientConnectionInput.m_Protocols[Protocol];
 		Internal.m_ClientConnectionInput.m_EncodedKey = EncodedRandomData;
 
-		NContainer::CSecureByteVector SendData;
 		_RequestHeader.f_WriteHeaders
 			(
 				[&](uint8 const *_pData, mint _nBytes)
