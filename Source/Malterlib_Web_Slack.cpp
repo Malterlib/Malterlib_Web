@@ -94,7 +94,7 @@ namespace NMib::NWeb
 
 			for (auto &Attachment : _Message.m_Attachments)
 			{
-				auto &OutputAttachment = SlackMessage["attachments"].f_Array().f_Insert() =
+				auto &OutputAttachment = SlackMessage["attachments"].f_Array().f_Insert() = _=
 					{
 						"fallback"_= Attachment.m_Fallback
 						, "title"_= Attachment.m_Title
@@ -154,7 +154,7 @@ namespace NMib::NWeb
 
 				for (auto &Field : Attachment.m_Fields)
 				{
-					auto &OutputField = OutputAttachment["fields"].f_Array().f_Insert() =
+					auto &OutputField = OutputAttachment["fields"].f_Array().f_Insert() = _=
 						{
 							"title"_= Field.m_Title
 							, "value"_= Field.m_Value
