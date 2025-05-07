@@ -13,7 +13,7 @@
 #include <Mib/Cryptography/Exception>
 #include <Mib/Encoding/Base64>
 
-#include <Mib/Encoding/JSON>
+#include <Mib/Encoding/Json>
 
 #include <deque>
 
@@ -1860,7 +1860,7 @@ namespace NMib::NWeb
 								auto &Paths = URI.f_GetPath();
 								if (Paths.f_GetLen() == 2 && Paths[0] == "sockjs" && Paths[1] == "info")
 								{
-									NEncoding::CJSONSorted Reply;
+									NEncoding::CJsonSorted Reply;
 									Reply["websocket"] = true;
 									Reply["origins"].f_Array().f_Insert("*:*");
 									Reply["cookie_needed"] = false;

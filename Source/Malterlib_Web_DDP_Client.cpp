@@ -14,7 +14,7 @@ namespace NMib::NWeb
 {
 	struct CDDPClient::CCollection
 	{
-		NContainer::TCMap<NStr::CStr, NEncoding::CEJSONSorted> m_Documents;
+		NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted> m_Documents;
 
 		static NStr::CStr fs_IDParse(NStr::CStr const &_ID)
 		{
@@ -45,7 +45,7 @@ namespace NMib::NWeb
 				return NContainer::TCMap<NStr::CStr, CSubscription>::fs_GetKey(*this);
 			}
 
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted _Message)> m_fCallback;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> m_fCallback;
 			ESubscriptionNotification m_NotifyOn;
 			NFunction::TCFunctionMovable<void ()> m_fOnReady;
 			NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)> m_fOnError;
@@ -61,7 +61,7 @@ namespace NMib::NWeb
 				*m_pDestroyed = true;
 			}
 
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted _Message)> m_fCallback;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> m_fCallback;
 			EObserveNotification m_NotifyOn;
 			NStorage::TCSharedPointer<bool> m_pDestroyed = fg_Construct(false);
 		};
@@ -141,7 +141,7 @@ namespace NMib::NWeb
 
 		uint64 m_LastMethodID = 0;
 
-		NContainer::TCMap<uint64, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)>> m_PendingMethodCalls;
+		NContainer::TCMap<uint64, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)>> m_PendingMethodCalls;
 		NContainer::TCMap<NStr::CStr, CCollection> m_Collections;
 
 		NContainer::TCMap<uint64, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()>> m_PendingMethodUpdated;
@@ -163,34 +163,34 @@ namespace NMib::NWeb
 
 		void fp_OnError(NStr::CStr const &_Error);
 		void fp_ReceiveMessage(NStr::CStr const &_Message);
-		void fp_HandleRemoved(NEncoding::CEJSONSorted const &_Message);
-		void fp_HandleAddedChanged(NEncoding::CEJSONSorted const &_Message, EChangeOperation _Operation);
-		void fp_HandleReady(NEncoding::CEJSONSorted const &_Message);
-		void fp_HandleUpdated(NEncoding::CEJSONSorted const &_Message);
-		void fp_HandleNoSub(NEncoding::CEJSONSorted const &_Message);
-		void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJSONSorted const &_Message, EObserveNotification _Notification);
+		void fp_HandleRemoved(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleAddedChanged(NEncoding::CEJsonSorted const &_Message, EChangeOperation _Operation);
+		void fp_HandleReady(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleUpdated(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleNoSub(NEncoding::CEJsonSorted const &_Message);
+		void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJsonSorted const &_Message, EObserveNotification _Notification);
 		uint64 fp_SendMethod
 			(
 				NStr::CStr const &_MethodName
-				, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params
-				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)> &&_fOnResult
+				, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
+				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
 			)
 		;
 		void fp_SendLoginResumeMessage();
 		void fp_SendLoginMessage();
 		void fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
-		void fp_SendMessage(NEncoding::CEJSONSorted const &_Message);
+		void fp_SendMessage(NEncoding::CEJsonSorted const &_Message);
 
-		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJSONSorted const &_Info);
+		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
 
 
-	NContainer::TCMap<NStr::CStr, NEncoding::CEJSONSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetDocumentIterator() const
+	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetDocumentIterator() const
 	{
 		return mp_pCollection->m_Documents.f_GetIterator();
 	}
 
-	NEncoding::CEJSONSorted const &CDDPClient::CCollectionAccessor::f_GetDocument(NStr::CStr const &_Id) const
+	NEncoding::CEJsonSorted const &CDDPClient::CCollectionAccessor::f_GetDocument(NStr::CStr const &_Id) const
 	{
 		auto pDocument = mp_pCollection->m_Documents.f_FindEqual(_Id);
 		if (!pDocument)
@@ -199,7 +199,7 @@ namespace NMib::NWeb
 		return *pDocument;
 	}
 
-	NContainer::TCMap<NStr::CStr, NEncoding::CEJSONSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetRandomDocumentIterator() const
+	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetRandomDocumentIterator() const
 	{
 		auto iDoc = mp_pCollection->m_Documents.f_GetIterator();
 		mint nDocuments = mp_pCollection->m_Documents.f_GetLen();
@@ -375,15 +375,15 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<NEncoding::CEJSONSorted> CDDPClient::f_Method(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJSONSorted> _Params)
+	NConcurrency::TCFuture<NEncoding::CEJsonSorted> CDDPClient::f_Method(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJsonSorted> _Params)
 	{
-		NConcurrency::TCPromiseFuturePair<NEncoding::CEJSONSorted> Promise;
+		NConcurrency::TCPromiseFuturePair<NEncoding::CEJsonSorted> Promise;
 		auto &Internal = *mp_pInternal;
 		Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
 						Promise.f_SetException(DMibErrorInstance(_Error));
@@ -395,20 +395,20 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	NConcurrency::TCFuture<NEncoding::CEJSONSorted> CDDPClient::f_MethodWithUpdated
+	NConcurrency::TCFuture<NEncoding::CEJsonSorted> CDDPClient::f_MethodWithUpdated
 		(
 			NStr::CStr _MethodName
-			, NContainer::TCVector<NEncoding::CEJSONSorted> _Params
+			, NContainer::TCVector<NEncoding::CEJsonSorted> _Params
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated
 		)
 	{
-		NConcurrency::TCPromiseFuturePair<NEncoding::CEJSONSorted> Promise;
+		NConcurrency::TCPromiseFuturePair<NEncoding::CEJsonSorted> Promise;
 		auto &Internal = *mp_pInternal;
 		uint64 MethodID = Internal.fp_SendMethod
 			(
 				_MethodName
 				, _Params
-				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, [Promise = fg_Move(Promise.m_Promise)](NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
 						Promise.f_SetException(DMibErrorInstance(_Error));
@@ -428,7 +428,7 @@ namespace NMib::NWeb
 		(
 			NStr::CStr _CollectionName // Leave empty to observe all collections
 			, EObserveNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
 		)
 	{
 		auto &Internal = *mp_pInternal;
@@ -467,9 +467,9 @@ namespace NMib::NWeb
 		(
 			NStr::CStr _SubscriptionName
 			, NStr::CStr _SubscriptionID
-			, NEncoding::CEJSONSorted _Params
+			, NEncoding::CEJsonSorted _Params
 			, ESubscriptionNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJSONSorted _Message)> _Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
 			, bool _bWaitForResponse
 		)
 	{
@@ -485,7 +485,7 @@ namespace NMib::NWeb
 		else
 			Subscription.m_NotifyOn = ESubscriptionNotification_None;
 
-		NEncoding::CEJSONSorted Message;
+		NEncoding::CEJsonSorted Message;
 
 		Message["msg"] = "sub";
 		Message["id"] = SubscriptionID;
@@ -507,7 +507,7 @@ namespace NMib::NWeb
 
 				if (!pSubscription->m_bWasError)
 				{
-					NEncoding::CEJSONSorted Message;
+					NEncoding::CEJsonSorted Message;
 
 					Message["msg"] = "unsub";
 					Message["id"] = pSubscription->f_GetID();
@@ -557,13 +557,13 @@ namespace NMib::NWeb
 			m_ConnectPromise.f_SetException(DMibErrorInstance(_Error));
 	}
 
-	void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJSONSorted const &_Message)
+	void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJsonSorted const &_Message)
 	{
 		if (m_WebSocket)
 			m_WebSocket.f_Bind<&CWebSocketActor::f_SendText>(_Message.f_ToString(nullptr), 0).f_DiscardResult();
 	}
 
-	void CDDPClient::CInternal::fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJSONSorted const &_Message, EObserveNotification _Notification)
+	void CDDPClient::CInternal::fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJsonSorted const &_Message, EObserveNotification _Notification)
 	{
 		auto fNotify = [&](CCollectionObservations &_CollectionObservations)
 			{
@@ -589,14 +589,14 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPClient::CInternal::fp_HandleRemoved(NEncoding::CEJSONSorted const &_Message)
+	void CDDPClient::CInternal::fp_HandleRemoved(NEncoding::CEJsonSorted const &_Message)
 	{
 		auto pCollection = _Message.f_GetMember("collection");
 		auto pID = _Message.f_GetMember("id");
 
-		if (!pCollection || pCollection->f_Type() != NEncoding::EJSONType_String)
+		if (!pCollection || pCollection->f_Type() != NEncoding::EJsonType_String)
 			return;
-		if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
+		if (!pID || pID->f_Type() != NEncoding::EJsonType_String)
 			return;
 
 		if (m_ClientOptions & EClientOption_MaintainDatabase)
@@ -611,17 +611,17 @@ namespace NMib::NWeb
 		fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Removed);
 	}
 
-	void CDDPClient::CInternal::fp_HandleAddedChanged(NEncoding::CEJSONSorted const &_Message, EChangeOperation _Operation)
+	void CDDPClient::CInternal::fp_HandleAddedChanged(NEncoding::CEJsonSorted const &_Message, EChangeOperation _Operation)
 	{
 		auto pCollection = _Message.f_GetMember("collection");
 		auto pID = _Message.f_GetMember("id");
 		auto pFields = _Message.f_GetMember("fields");
 
-		if (!pCollection || pCollection->f_Type() != NEncoding::EJSONType_String)
+		if (!pCollection || pCollection->f_Type() != NEncoding::EJsonType_String)
 			return;
-		if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
+		if (!pID || pID->f_Type() != NEncoding::EJsonType_String)
 			return;
-		if (pFields && pFields->f_Type() != NEncoding::EJSONType_Object)
+		if (pFields && pFields->f_Type() != NEncoding::EJsonType_Object)
 			return;
 
 		auto const ID = CCollection::fs_IDParse(pID->f_String());
@@ -642,7 +642,7 @@ namespace NMib::NWeb
 
 					{
 						auto pCleared = _Message.f_GetMember("cleared");
-						if (pCleared && pCleared->f_Type() == NEncoding::EJSONType_Array)
+						if (pCleared && pCleared->f_Type() == NEncoding::EJsonType_Array)
 						{
 							for (auto iField = pCleared->f_Array().f_GetIterator(); iField; ++iField)
 								Object.f_Object().f_RemoveMember(iField->f_AsString(""));
@@ -661,10 +661,10 @@ namespace NMib::NWeb
 			fp_NotifyObserve(pCollection->f_String(), _Message, EObserveNotification_Added);
 	}
 
-	void CDDPClient::CInternal::fp_HandleReady(NEncoding::CEJSONSorted const &_Message)
+	void CDDPClient::CInternal::fp_HandleReady(NEncoding::CEJsonSorted const &_Message)
 	{
 		auto pSubscriptions = _Message.f_GetMember("subs");
-		if (!pSubscriptions || pSubscriptions->f_Type() != NEncoding::EJSONType_Array)
+		if (!pSubscriptions || pSubscriptions->f_Type() != NEncoding::EJsonType_Array)
 			return;
 
 		for (auto iSubId = pSubscriptions->f_Array().f_GetIterator(); iSubId; ++iSubId)
@@ -683,14 +683,14 @@ namespace NMib::NWeb
 			if (pSub->m_NotifyOn & ESubscriptionNotification_Ready)
 			{
 				if (pSub->m_fCallback)
-					pSub->m_fCallback.f_CallDiscard(ESubscriptionNotification_Ready, NEncoding::CEJSONSorted());
+					pSub->m_fCallback.f_CallDiscard(ESubscriptionNotification_Ready, NEncoding::CEJsonSorted());
 			}
 		}
 	}
 
-	void CDDPClient::CInternal::fp_HandleUpdated(NEncoding::CEJSONSorted const &_Message)
+	void CDDPClient::CInternal::fp_HandleUpdated(NEncoding::CEJsonSorted const &_Message)
 	{
-		auto pMethods = _Message.f_GetMember("methods", NEncoding::EJSONType_Array);
+		auto pMethods = _Message.f_GetMember("methods", NEncoding::EJsonType_Array);
 		if (!pMethods)
 			return;
 
@@ -713,7 +713,7 @@ namespace NMib::NWeb
 
 	namespace
 	{
-		NStr::CStr fg_DecodeError(NEncoding::CEJSONSorted const &_Error)
+		NStr::CStr fg_DecodeError(NEncoding::CEJsonSorted const &_Error)
 		{
 			NStr::CStr ErrorMessage;
 			if (auto pMessage = _Error.f_GetMember("error"))
@@ -735,10 +735,10 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPClient::CInternal::fp_HandleNoSub(NEncoding::CEJSONSorted const &_Message)
+	void CDDPClient::CInternal::fp_HandleNoSub(NEncoding::CEJsonSorted const &_Message)
 	{
 		auto pID = _Message.f_GetMember("id");
-		if (!pID || pID->f_Type() != NEncoding::EJSONType_String)
+		if (!pID || pID->f_Type() != NEncoding::EJsonType_String)
 			return;
 
 		auto pError = _Message.f_GetMember("error");
@@ -775,19 +775,19 @@ namespace NMib::NWeb
 	{
 		try
 		{
-			NEncoding::CEJSONSorted JSON = NEncoding::CEJSONSorted::fs_FromString(_Message);
+			NEncoding::CEJsonSorted Json = NEncoding::CEJsonSorted::fs_FromString(_Message);
 
-			auto *pValue = JSON.f_GetMember("msg");
+			auto *pValue = Json.f_GetMember("msg");
 			if (!pValue)
 			{
-				if (JSON.f_GetMember("server_id"))
+				if (Json.f_GetMember("server_id"))
 					return;
 
-				fp_OnError(NStr::fg_Format("No msg in DDP packet: {}", JSON));
+				fp_OnError(NStr::fg_Format("No msg in DDP packet: {}", Json));
 				return;
 			}
 
-			if (pValue->f_Type() != NEncoding::EJSONType_String)
+			if (pValue->f_Type() != NEncoding::EJsonType_String)
 			{
 				fp_OnError("Invalid type for msg (should be String)");
 				return;
@@ -796,7 +796,7 @@ namespace NMib::NWeb
 			auto &MessageType = pValue->f_String();
 			if (MessageType == "result")
 			{
-				auto pID = JSON.f_GetMember("id");
+				auto pID = Json.f_GetMember("id");
 				if (!pID)
 					return;
 
@@ -814,47 +814,47 @@ namespace NMib::NWeb
 					}
 				;
 				NStr::CStr ErrorMessage;
-				NEncoding::CEJSONSorted Result;
+				NEncoding::CEJsonSorted Result;
 
-				auto pError = JSON.f_GetMember("error");
+				auto pError = Json.f_GetMember("error");
 				if (pError && pError->f_IsObject())
 					ErrorMessage = fg_DecodeError(*pError);
 
-				if (auto pResult = JSON.f_GetMember("result"))
+				if (auto pResult = Json.f_GetMember("result"))
 					Result = fg_Move(*pResult);
 
 				(*pPending)(ErrorMessage, fg_Move(Result));
 			}
 			else if (MessageType == "added")
 			{
-				fp_HandleAddedChanged(JSON, EChangeOperation_Added);
+				fp_HandleAddedChanged(Json, EChangeOperation_Added);
 			}
 			else if (MessageType == "updated")
 			{
-				fp_HandleUpdated(JSON);
+				fp_HandleUpdated(Json);
 			}
 			else if (MessageType == "changed")
 			{
-				fp_HandleAddedChanged(JSON, EChangeOperation_Changed);
+				fp_HandleAddedChanged(Json, EChangeOperation_Changed);
 			}
 			else if (MessageType == "removed")
 			{
-				fp_HandleRemoved(JSON);
+				fp_HandleRemoved(Json);
 			}
 			else if (MessageType == "ready")
 			{
-				fp_HandleReady(JSON);
+				fp_HandleReady(Json);
 			}
 			else if (MessageType == "nosub")
 			{
-				fp_HandleNoSub(JSON);
+				fp_HandleNoSub(Json);
 			}
 			else if (MessageType == "ping")
 			{
-				NEncoding::CEJSONSorted Reply;
+				NEncoding::CEJsonSorted Reply;
 				Reply["msg"] = "pong";
 
-				if (auto pID = JSON.f_GetMember("id"))
+				if (auto pID = Json.f_GetMember("id"))
 					Reply["id"] = *pID;
 
 				fp_SendMessage(Reply);
@@ -864,7 +864,7 @@ namespace NMib::NWeb
 				m_bConnectFinished = true;
 				m_ConnectTimeoutTimerRef.f_Clear();
 
-				if (auto pSessionID = JSON.f_GetMember("session"))
+				if (auto pSessionID = Json.f_GetMember("session"))
 					m_SessionID = pSessionID->f_String();
 				else
 					m_SessionID = NStr::CStr();
@@ -888,7 +888,7 @@ namespace NMib::NWeb
 				m_ConnectTimeoutTimerRef.f_Clear();
 
 				NStr::CStr Error;
-				if (auto pError = JSON.f_GetMember("reason"))
+				if (auto pError = Json.f_GetMember("reason"))
 					Error = pError->f_AsString();
 				fp_OnError(Error);
 			}
@@ -898,7 +898,7 @@ namespace NMib::NWeb
 				m_ConnectTimeoutTimerRef.f_Clear();
 
 				NStr::CStr SuggestedVersion = "Unknown";
-				if (auto pVersion = JSON.f_GetMember("version"))
+				if (auto pVersion = Json.f_GetMember("version"))
 					SuggestedVersion = pVersion->f_AsString();
 				fp_OnError(fg_Format("Unsupported version for DDP connection. Suggested version: {}", SuggestedVersion));
 			}
@@ -916,13 +916,13 @@ namespace NMib::NWeb
 	uint64 CDDPClient::CInternal::fp_SendMethod
 		(
 			NStr::CStr const &_MethodName
-			, NContainer::TCVector<NEncoding::CEJSONSorted> const &_Params
-			, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)> &&_fOnResult
+			, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
+			, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
 		)
 	{
 		uint64 MethodID = ++m_LastMethodID;
 
-		NEncoding::CEJSONSorted Message;
+		NEncoding::CEJsonSorted Message;
 
 		Message["msg"] = "method";
 		Message["method"] = _MethodName;
@@ -936,7 +936,7 @@ namespace NMib::NWeb
 		return MethodID;
 	}
 
-	auto CDDPClient::CInternal::fp_ExtractConnectInfo(NEncoding::CEJSONSorted const &_Info) -> CConnectInfo
+	auto CDDPClient::CInternal::fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info) -> CConnectInfo
 	{
 		CConnectInfo Info(m_SessionID);
 
@@ -957,14 +957,14 @@ namespace NMib::NWeb
 
 	void CDDPClient::CInternal::fp_SendLoginResumeMessage()
 	{
-		NEncoding::CEJSONSorted LoginParams;
+		NEncoding::CEJsonSorted LoginParams;
 		LoginParams["resume"] = m_LoginToken;
 
 		fp_SendMethod
 			(
 				"login"
-				, NContainer::fg_CreateVector<NEncoding::CEJSONSorted>(LoginParams)
-				, [this](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, NContainer::fg_CreateVector<NEncoding::CEJsonSorted>(LoginParams)
+				, [this](NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)
 				{
 					if (!_Error.f_IsEmpty())
 						fp_SendLoginMessage();
@@ -977,7 +977,7 @@ namespace NMib::NWeb
 
 	void CDDPClient::CInternal::fp_SendLoginMessage()
 	{
-		NEncoding::CEJSONSorted LoginParams;
+		NEncoding::CEJsonSorted LoginParams;
 		LoginParams["user"]["email"] = m_UserName;
 		auto &Password = LoginParams["password"];
 		Password["digest"] = NCryptography::CHash_SHA256::fs_DigestFromData((uint8 const *)m_Password.f_GetStr(), m_Password.f_GetLen()).f_GetString();
@@ -986,8 +986,8 @@ namespace NMib::NWeb
 		fp_SendMethod
 			(
 				"login"
-				, NContainer::fg_CreateVector<NEncoding::CEJSONSorted>(LoginParams)
-				, [this](NStr::CStr const &_Error, NEncoding::CEJSONSorted &&_Result)
+				, NContainer::fg_CreateVector<NEncoding::CEJsonSorted>(LoginParams)
+				, [this](NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)
 				{
 					if (!m_ConnectPromise.f_IsSet())
 					{
@@ -1003,7 +1003,7 @@ namespace NMib::NWeb
 
 	void CDDPClient::CInternal::fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID)
 	{
-		NEncoding::CEJSONSorted Message;
+		NEncoding::CEJsonSorted Message;
 
 		Message["msg"] = "connect";
 		Message["version"] = "1";

@@ -3,8 +3,8 @@
 
 #include "Malterlib_Web_AWS_Internal.h"
 
-#include <Mib/Encoding/JSON>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/Json>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Web/Curl>
 #include <Mib/Cryptography/MessageAuthentication>
 #include <Mib/XML/XML>
@@ -260,28 +260,28 @@ namespace NMib::NWeb
 		co_return fg_Tuple(fg_Move(Results), fg_Move(Result));
 	}
 
-	NException::CExceptionPointer fg_ReportAWSErrorJSON(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
+	NException::CExceptionPointer fg_ReportAWSErrorJson(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
-		CJSONSorted ErrorReturn;
+		CJsonSorted ErrorReturn;
 		do
 		{
 			try
 			{
-				ErrorReturn = CJSONSorted::fs_FromString(_Result.m_Body);
+				ErrorReturn = CJsonSorted::fs_FromString(_Result.m_Body);
 			}
 			catch (NException::CException const &_Exception)
 			{
 				CAwsErrorData ErrorData{"ResultParse", _Result.m_StatusCode};
 				return DMibErrorInstanceAws
 					(
-						"{} request failed with status {}. Failed to parse JSON: {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Exception << _Result.m_Body
+						"{} request failed with status {}. Failed to parse Json: {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Exception << _Result.m_Body
 						, ErrorData
 					)
 				;
 			}
 
-			auto pCodeNode = ErrorReturn.f_GetMember("Code", EJSONType_String);
-			auto pMessageNode = ErrorReturn.f_GetMember("Message", EJSONType_String);
+			auto pCodeNode = ErrorReturn.f_GetMember("Code", EJsonType_String);
+			auto pMessageNode = ErrorReturn.f_GetMember("Message", EJsonType_String);
 			if (!pMessageNode)
 				break;
 
@@ -305,13 +305,13 @@ namespace NMib::NWeb
 		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
-	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
+	TCFuture<NEncoding::CJsonSorted> fg_DoAWSRequestJson
 		(
 			CStr _Description
 			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL _URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> _Contents
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJsonSorted> _Contents
 			, CCurlActor::EMethod _Method
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders
@@ -323,9 +323,9 @@ namespace NMib::NWeb
 
 		if (_Contents.f_IsOfType<CByteVector>())
 			Contents = _Contents.f_GetAsType<CByteVector>();
-		else if (_Contents.f_IsOfType<NEncoding::CJSONSorted>())
+		else if (_Contents.f_IsOfType<NEncoding::CJsonSorted>())
 		{
-			CStr ContentsStr = _Contents.f_GetAsType<NEncoding::CJSONSorted>().f_ToString(nullptr);
+			CStr ContentsStr = _Contents.f_GetAsType<NEncoding::CJsonSorted>().f_ToString(nullptr);
 			Contents.f_Insert((uint8 const *)ContentsStr.f_GetStr(), ContentsStr.f_GetLen());
 		}
 
@@ -342,14 +342,14 @@ namespace NMib::NWeb
 		auto Result = co_await _CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
 
 		if (Result.m_StatusCode != _ExpectedStatus)
-			co_return fg_ReportAWSErrorJSON(Result, _Description);
+			co_return fg_ReportAWSErrorJson(Result, _Description);
 
 		if (Result.m_Body.f_IsEmpty())
 			co_return {};
 
 		try
 		{
-			co_return NEncoding::CJSONSorted::fs_FromString(Result.m_Body);
+			co_return NEncoding::CJsonSorted::fs_FromString(Result.m_Body);
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -385,7 +385,7 @@ namespace NMib::NWeb
 		;
 
 		if (Result.m_StatusCode != _ExpectedStatus)
-			co_return fg_ReportAWSErrorJSON(Result, _Description);
+			co_return fg_ReportAWSErrorJson(Result, _Description);
 
 		co_return fg_Move(Result.m_Headers);
 	}

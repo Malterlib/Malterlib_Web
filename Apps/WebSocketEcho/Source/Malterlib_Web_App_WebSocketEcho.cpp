@@ -16,7 +16,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 	CWebSocketEchoActor::~CWebSocketEchoActor() = default;
 
-	TCFuture<void> CWebSocketEchoActor::fp_StartApp(CEJSONSorted const &_Params)
+	TCFuture<void> CWebSocketEchoActor::fp_StartApp(CEJsonSorted const &_Params)
 	{
 		auto OnResume = co_await fg_OnResume
 			(

@@ -1,8 +1,8 @@
 // Copyright © 2020 Nonna Holding AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include <Mib/Encoding/JSON>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/Json>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Web/Curl>
 #include <Mib/XML/XML>
@@ -49,9 +49,9 @@ namespace NMib::NWeb
 			return fg_Base64Encode(_Source).f_TrimRight("=").f_ReplaceChar('+', '-').f_ReplaceChar('/', '_');
 		}
 
-		CStr fg_JwkThumbPrint(CJSONSorted const &_JSON)
+		CStr fg_JwkThumbPrint(CJsonSorted const &_Json)
 		{
-			CStr String = _JSON.f_ToString(nullptr);
+			CStr String = _Json.f_ToString(nullptr);
 			auto Digest = CHash_SHA256::fs_DigestFromData(String.f_GetStr(), String.f_GetLen());
 			return fg_Base64URLEncode(CByteVector(Digest.f_GetData(), Digest.mc_Size));
 		}
@@ -71,10 +71,10 @@ namespace NMib::NWeb
 			EDigestType m_DigestType = EDigestType_None;
 		};
 
-		CByteVector fg_FlattenedJwsEncode(CStr const &_Url, CJSONSorted &&_Payload, CAcmeState &_State)
+		CByteVector fg_FlattenedJwsEncode(CStr const &_Url, CJsonSorted &&_Payload, CAcmeState &_State)
 		{
-			CJSONSorted JwsMessage;
-			CJSONSorted Protected;
+			CJsonSorted JwsMessage;
+			CJsonSorted Protected;
 
 			Protected["nonce"] = _State.m_Nonce;
 			if (_State.m_AccountLocation)
@@ -85,7 +85,7 @@ namespace NMib::NWeb
 				auto PublicKey = CPublicCrypto::fs_GetPublicKeyFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
 				auto KeyParams = CPublicCrypto::fs_GetPublicKeyParameters(PublicKey);
 
-				CJSONSorted Jwk;
+				CJsonSorted Jwk;
 				CStr Algorithm;
 
 				switch (KeySettings.f_GetTypeID())
@@ -331,7 +331,7 @@ namespace NMib::NWeb
 
 		TCSharedPointer<CAcmeState> pState = fg_Construct(Internal.m_Dependencies);
 
-		auto fPost = [this, pState](CStr const &_Path, CJSONSorted &&_Payload)
+		auto fPost = [this, pState](CStr const &_Path, CJsonSorted &&_Payload)
 			{
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
@@ -382,24 +382,24 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fGetErrorFromJson = [](CEJSONSorted const &_JSON)
+		auto fGetErrorFromJson = [](CEJsonSorted const &_Json)
 			{
 				CStr ErrorMessage;
-				if (auto *pValue = _JSON.f_GetMember("type", EJSONType_String))
+				if (auto *pValue = _Json.f_GetMember("type", EJsonType_String))
 					fg_AddStrSep(ErrorMessage, pValue->f_String(), ". ");
 
-				if (auto *pValue = _JSON.f_GetMember("detail", EJSONType_String))
+				if (auto *pValue = _Json.f_GetMember("detail", EJsonType_String))
 					fg_AddStrSep(ErrorMessage, pValue->f_String(), ". ");
 
-				if (auto *pSubProblems = _JSON.f_GetMember("subproblems", EJSONType_Array))
+				if (auto *pSubProblems = _Json.f_GetMember("subproblems", EJsonType_Array))
 				{
 					for (auto &SubProblem : pSubProblems->f_Array())
 					{
 						CStr SubMessage;
 
-						if (auto *pValue = SubProblem.f_GetMember("type", EJSONType_String))
+						if (auto *pValue = SubProblem.f_GetMember("type", EJsonType_String))
 							fg_AddStrSep(SubMessage, pValue->f_String(), ". ");
-						if (auto *pValue = SubProblem.f_GetMember("detail", EJSONType_String))
+						if (auto *pValue = SubProblem.f_GetMember("detail", EJsonType_String))
 							fg_AddStrSep(SubMessage, pValue->f_String(), ". ");
 
 						ErrorMessage += "\n    {}"_f << SubMessage;
@@ -435,7 +435,7 @@ namespace NMib::NWeb
 
 		auto fWaitForStatusValid = [&](CStr const &_Url, CStr const &_Message)
 			{
-				return self / [=, Timeout = _RequestCertificate.m_Timeout]() -> TCFuture<CEJSONSorted>
+				return self / [=, Timeout = _RequestCertificate.m_Timeout]() -> TCFuture<CEJsonSorted>
 					{
 						CClock Clock{true};
 
@@ -448,29 +448,29 @@ namespace NMib::NWeb
 
 							co_await fUpdateNonce(Result);
 
-							CEJSONSorted ResponseJSON;
+							CEJsonSorted ResponseJson;
 							{
 								auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-								ResponseJSON = Result.f_ToJson();
+								ResponseJson = Result.f_ToJson();
 							}
 
-							auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
+							auto pStatus = ResponseJson.f_GetMember("status", EJsonType_String);
 							if (!pStatus)
 								co_return DMibErrorInstance("Authorization response missing 'status'");
 
 							if (pStatus->f_String() == "valid")
-								co_return ResponseJSON;
+								co_return ResponseJson;
 
 							if (pStatus->f_String() == "invalid")
 							{
-								if (auto *pError = ResponseJSON.f_GetMember("error", EJSONType_Object))
+								if (auto *pError = ResponseJson.f_GetMember("error", EJsonType_Object))
 									co_return DMibErrorInstance("{cc} is invalid: {}"_f << _Message << fGetErrorFromJson(*pError));
 
 								co_return DMibErrorInstance("{cc} is invalid"_f << _Message);
 							}
 
 							if (Clock.f_GetTime() > Timeout)
-								co_return DMibErrorInstance("Timed out waiting for {} to turn valid. Status is: '{}'"_f << _Message << ResponseJSON);
+								co_return DMibErrorInstance("Timed out waiting for {} to turn valid. Status is: '{}'"_f << _Message << ResponseJson);
 
 							co_await fg_Timeout(3.0);
 						}
@@ -485,7 +485,7 @@ namespace NMib::NWeb
 		if (GetResult.m_StatusCode != 200)
 			co_return DMibErrorInstance("Unexpected status getting ACME directory: {} {}"_f << GetResult.m_StatusCode << GetResult.m_StatusMessage);
 
-		CEJSONSorted DirectoryJson;
+		CEJsonSorted DirectoryJson;
 		{
 			auto CaptureScope = co_await g_CaptureExceptions;
 			DirectoryJson = GetResult.f_ToJson();
@@ -495,17 +495,17 @@ namespace NMib::NWeb
 		CStr NewNonceUrl;
 		CStr NewOrderUrl;
 
-		if (auto pValue = DirectoryJson.f_GetMember("newAccount", EJSONType_String))
+		if (auto pValue = DirectoryJson.f_GetMember("newAccount", EJsonType_String))
 			NewAccountUrl = pValue->f_String();
 		else
 			co_return DMibErrorInstance("Directory response is missing a valid 'newAccount' URL");
 
-		if (auto pValue = DirectoryJson.f_GetMember("newNonce", EJSONType_String))
+		if (auto pValue = DirectoryJson.f_GetMember("newNonce", EJsonType_String))
 			NewNonceUrl = pValue->f_String();
 		else
 			co_return DMibErrorInstance("Directory response is missing a valid 'newNonce' URL");
 
-		if (auto pValue = DirectoryJson.f_GetMember("newOrder", EJSONType_String))
+		if (auto pValue = DirectoryJson.f_GetMember("newOrder", EJsonType_String))
 			NewOrderUrl = pValue->f_String();
 		else
 			co_return DMibErrorInstance("Directory response is missing a valid 'newOrder' URL");
@@ -520,7 +520,7 @@ namespace NMib::NWeb
 		}
 
 		{
-			CJSONSorted EmailContacts = EJSONType_Array;
+			CJsonSorted EmailContacts = EJsonType_Array;
 
 			for (auto &Email: Internal.m_Dependencies.m_AccountInfo.m_Emails)
 				EmailContacts.f_Insert("mailto:{}"_f << Email);
@@ -549,9 +549,9 @@ namespace NMib::NWeb
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing create/get account result");
 
-				auto ResponseJSON = Result.f_ToJson();
+				auto ResponseJson = Result.f_ToJson();
 
-				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
+				if (auto pStatus = ResponseJson.f_GetMember("status", EJsonType_String))
 				{
 					if (pStatus->f_String() != "valid")
 						co_return DMibErrorInstance("Expected account status to be 'valid', got '{}'"_f << pStatus->f_String());
@@ -565,9 +565,9 @@ namespace NMib::NWeb
 		CStr OrderUrl;
 		CStr FinalizeUrl;
 		{
-			CJSONSorted Identifiers = EJSONType_Array;
+			CJsonSorted Identifiers = EJsonType_Array;
 			for (auto &DnsName : _RequestCertificate.m_DnsNames)
-				Identifiers.f_Array().f_Insert(CJSONSorted{"type"_j= "dns", "value"_j= DnsName});
+				Identifiers.f_Array().f_Insert(CJsonSorted{"type"_j= "dns", "value"_j= DnsName});
 
 			auto Result = co_await fPost(NewOrderUrl, {"identifiers"_j= fg_Move(Identifiers)});
 
@@ -583,14 +583,14 @@ namespace NMib::NWeb
 
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing new certificate order result");
-				auto ResponseJSON = Result.f_ToJson();
+				auto ResponseJson = Result.f_ToJson();
 
-				if (auto pAuthorizations = ResponseJSON.f_GetMember("authorizations", EJSONType_Array))
+				if (auto pAuthorizations = ResponseJson.f_GetMember("authorizations", EJsonType_Array))
 					AuthorizationUrls = pAuthorizations->f_StringArray();
 				else
 					co_return DMibErrorInstance("Missing authorizations in new order response");
 
-				if (auto pAuthorizations = ResponseJSON.f_GetMember("finalize", EJSONType_String))
+				if (auto pAuthorizations = ResponseJson.f_GetMember("finalize", EJsonType_String))
 					FinalizeUrl = pAuthorizations->f_String();
 				else
 					co_return DMibErrorInstance("Missing finalize in new order response");
@@ -608,14 +608,14 @@ namespace NMib::NWeb
 			CStr SuccessfulChallengeUrl;
 
 			{
-				CEJSONSorted ResponseJSON;
+				CEJsonSorted ResponseJson;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-					ResponseJSON = Result.f_ToJson();
+					ResponseJson = Result.f_ToJson();
 				}
 
 				{
-					auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
+					auto pStatus = ResponseJson.f_GetMember("status", EJsonType_String);
 					if (!pStatus)
 						co_return DMibErrorInstance("Authorization response missing 'status'");
 
@@ -625,7 +625,7 @@ namespace NMib::NWeb
 
 				CStr Identifier;
 				{
-					auto pIdentifier = ResponseJSON.f_GetMember("identifier", EJSONType_Object);
+					auto pIdentifier = ResponseJson.f_GetMember("identifier", EJsonType_Object);
 					if (!pIdentifier)
 						co_return DMibErrorInstance("Authorization response missing 'identifier'");
 
@@ -637,14 +637,14 @@ namespace NMib::NWeb
 						co_return DMibErrorInstance("Expected authorization identifier value to not be empty");
 				}
 
-				auto pChallenges = ResponseJSON.f_GetMember("challenges", EJSONType_Array);
+				auto pChallenges = ResponseJson.f_GetMember("challenges", EJsonType_Array);
 				if (!pChallenges)
 					co_return DMibErrorInstance("Authorization response missing 'challenges'");
 
 				for (auto &Challenge : pChallenges->f_Array())
 				{
 					EChallengeType ChallengeType;
-					if (auto *pType = Challenge.f_GetMember("type", EJSONType_String))
+					if (auto *pType = Challenge.f_GetMember("type", EJsonType_String))
 					{
 						if (pType->f_String() == "http-01")
 							ChallengeType = EChallengeType_Http01;
@@ -658,11 +658,11 @@ namespace NMib::NWeb
 					else
 						co_return DMibErrorInstance("Authorization response challenge is missing 'type'");
 
-					auto *pToken = Challenge.f_GetMember("token", EJSONType_String);
+					auto *pToken = Challenge.f_GetMember("token", EJsonType_String);
 					if (!pToken || pToken->f_String().f_IsEmpty())
 						co_return DMibErrorInstance("Authorization response challenge is missing a valid 'token'");
 
-					auto *pUrl = Challenge.f_GetMember("url", EJSONType_String);
+					auto *pUrl = Challenge.f_GetMember("url", EJsonType_String);
 					if (!pUrl || pUrl->f_String().f_IsEmpty())
 						co_return DMibErrorInstance("Authorization response challenge is missing a valid 'url'");
 
@@ -686,27 +686,27 @@ namespace NMib::NWeb
 				co_return DMibErrorInstance("None of the challenges were successful, aborting");
 
 			{
-				auto Result = co_await fPost(SuccessfulChallengeUrl, EJSONType_Object);
+				auto Result = co_await fPost(SuccessfulChallengeUrl, EJsonType_Object);
 
 				if (Result.m_StatusCode != 200)
 					co_return fGetError(Result, "Error getting challenge result");
 
 				co_await fUpdateNonce(Result);
 
-				CEJSONSorted ResponseJSON;
+				CEJsonSorted ResponseJson;
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing authorization result");
-					ResponseJSON = Result.f_ToJson();
+					ResponseJson = Result.f_ToJson();
 				}
 
-				auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String);
+				auto pStatus = ResponseJson.f_GetMember("status", EJsonType_String);
 				if (!pStatus)
 					co_return DMibErrorInstance("Authorization response missing 'status'");
 
 				if (pStatus->f_String() == "valid")
 					break;
 
-				auto Url = ResponseJSON.f_GetMemberValue("url", "").f_String();
+				auto Url = ResponseJson.f_GetMemberValue("url", "").f_String();
 				if (!Url)
 					co_return DMibErrorInstance("Authorization response missing valid 'url'");
 
@@ -742,9 +742,9 @@ namespace NMib::NWeb
 
 			{
 				auto CaptureScope = co_await (g_CaptureExceptions % "Exception parsing order finalize result");
-				auto ResponseJSON = Result.f_ToJson();
+				auto ResponseJson = Result.f_ToJson();
 
-				if (auto pStatus = ResponseJSON.f_GetMember("status", EJSONType_String))
+				if (auto pStatus = ResponseJson.f_GetMember("status", EJsonType_String))
 					Status = pStatus->f_String();
 				else
 					co_return DMibErrorInstance("Finalize order response is missing 'status'");
@@ -754,7 +754,7 @@ namespace NMib::NWeb
 
 		auto OrderResponseJson = co_await fWaitForStatusValid(OrderUrl, "order status");
 
-		if (auto pCertificate = OrderResponseJson.f_GetMember("certificate", EJSONType_String))
+		if (auto pCertificate = OrderResponseJson.f_GetMember("certificate", EJsonType_String))
 			CertificateUrl = pCertificate->f_String();
 		else
 			co_return DMibErrorInstance("Order response is missing 'certificate': {}"_f << OrderResponseJson);

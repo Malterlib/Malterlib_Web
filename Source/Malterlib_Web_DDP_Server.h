@@ -3,7 +3,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Concurrency/ConcurrencyDefines>
 #include <Mib/Web/WebSocket>
-#include <Mib/Encoding/EJSON>
+#include <Mib/Encoding/EJson>
 #include <Mib/Storage/Variant>
 #include <Mib/Storage/Indirection>
 
@@ -58,8 +58,8 @@ namespace NMib::NWeb
 		{
 			NStr::CStr m_Name;
 			NStr::CStr m_ID;
-			NContainer::TCVector<NEncoding::CEJSONSorted> m_Parameters;
-			NEncoding::CEJSONSorted m_RandomSeed;
+			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
+			NEncoding::CEJsonSorted m_RandomSeed;
 
 			~CMethodInfo();
 
@@ -69,8 +69,8 @@ namespace NMib::NWeb
 			CMethodInfo &operator =(CMethodInfo const &_Other);
 			CMethodInfo &operator =(CMethodInfo &&_Other);
 
-			void f_Result(NEncoding::CEJSONSorted const &_Result, bool _bUpdated = true) const;
-			void f_Error(NEncoding::CEJSONSorted const &_Error) const;
+			void f_Result(NEncoding::CEJsonSorted const &_Result, bool _bUpdated = true) const;
+			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
@@ -84,7 +84,7 @@ namespace NMib::NWeb
 		{
 			NStr::CStr m_ID;
 			NStr::CStr m_Name;
-			NContainer::TCVector<NEncoding::CEJSONSorted> m_Parameters;
+			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
 
 			~CSubscribeInfo();
 
@@ -94,7 +94,7 @@ namespace NMib::NWeb
 			CSubscribeInfo &operator =(CSubscribeInfo const &_Other);
 			CSubscribeInfo &operator =(CSubscribeInfo &&_Other);
 
-			void f_Error(NEncoding::CEJSONSorted const &_Error) const;
+			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
@@ -108,14 +108,14 @@ namespace NMib::NWeb
 		{
 			NStr::CStr m_Collection;
 			NStr::CStr m_DocumentID;
-			NEncoding::CEJSONSorted m_Fields;
+			NEncoding::CEJsonSorted m_Fields;
 		};
 
 		struct CChanged
 		{
 			NStr::CStr m_Collection;
 			NStr::CStr m_DocumentID;
-			NEncoding::CEJSONSorted m_Fields;
+			NEncoding::CEJsonSorted m_Fields;
 			NContainer::TCVector<NStr::CStr> m_Cleared;
 		};
 
@@ -174,9 +174,9 @@ namespace NMib::NWeb
 
 		void fp_AcceptConnection(NStr::CStr _SessionID);
 		void fp_RejectConnection();
-		void fp_MethodResult(NStr::CStr _MethodID, NEncoding::CEJSONSorted _Result, bool _bUpdated);
-		void fp_MethodError(NStr::CStr _MethodID, NEncoding::CEJSONSorted _Error);
-		void fp_SubscriptionError(NStr::CStr _SubscriptionID, NEncoding::CEJSONSorted _Error);
+		void fp_MethodResult(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Result, bool _bUpdated);
+		void fp_MethodError(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Error);
+		void fp_SubscriptionError(NStr::CStr _SubscriptionID, NEncoding::CEJsonSorted _Error);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

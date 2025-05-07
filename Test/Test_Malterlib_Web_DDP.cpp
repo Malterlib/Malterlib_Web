@@ -5,7 +5,7 @@
 #include <Mib/Web/DDPServer>
 #include <Mib/Web/DDPClient>
 #include <Mib/Network/Sockets/SSL>
-#include <Mib/Encoding/EJSON>
+#include <Mib/Encoding/EJson>
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Concurrency/DistributedActorTestHelpers>
 
@@ -75,7 +75,7 @@ public:
 		CEventAutoReset m_Event;
 		CStr m_Error;
 
-		TCMap<CStr, TCMap<CStr, CEJSONSorted>> m_Data;
+		TCMap<CStr, TCMap<CStr, CEJsonSorted>> m_Data;
 
 		TCAtomic<mint> m_nUnsubscribe;
 
@@ -108,9 +108,9 @@ public:
 
 		TCLinkedList<CConnection> m_Connections;
 
-		CEJSONSorted fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details = "")
+		CEJsonSorted fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details = "")
 		{
-			CEJSONSorted Ret;
+			CEJsonSorted Ret;
 			Ret["error"] = _Error;
 			if (!_Reason.f_IsEmpty())
 				Ret["reason"] = _Reason;
@@ -178,7 +178,7 @@ public:
 												_MethodInfo.f_Error(fp_MethodError("invalid-password", "Invalid password"));
 												co_return {};
 											}
-											CEJSONSorted Result;
+											CEJsonSorted Result;
 
 											Result["id"] = "testuserid";
 											Result["token"] = "testusertoken";
@@ -213,7 +213,7 @@ public:
 
 										Changes.f_Insert(fg_Move(Updated));
 
-										_MethodInfo.f_Result(CEJSONSorted(EJSONType_Object));
+										_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
 
 										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
@@ -233,7 +233,7 @@ public:
 
 										Changes.f_Insert(fg_Move(Removed));
 
-										_MethodInfo.f_Result(CEJSONSorted(EJSONType_Object));
+										_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
 
 										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
@@ -268,7 +268,7 @@ public:
 									}
 									else
 									{
-										_SubscribeInfo.f_Error(CEJSONSorted());
+										_SubscribeInfo.f_Error(CEJsonSorted());
 									}
 
 									co_return {};
@@ -390,7 +390,7 @@ public:
 					, CDDPClient::EObserveNotification_Added
 					| CDDPClient::EObserveNotification_Changed
 					| CDDPClient::EObserveNotification_Removed
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJSONSorted _NotificationData)
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJsonSorted _NotificationData)
 					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
@@ -412,10 +412,10 @@ public:
 					&CDDPClient::f_Subscribe
 					, "testSub"
 					, ""
-					, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
+					, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
 					, CDDPClient::ESubscriptionNotification_Ready
 					| CDDPClient::ESubscriptionNotification_Error
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted _NotificationData)
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData)
 					-> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
@@ -444,9 +444,9 @@ public:
 			DMibAssert(pState->m_nReady.f_Load(), ==, 1);
 			DMibAssert(pState->m_nAdded.f_Load(), ==, 10);
 
-			auto fGetDocuments = [&]() -> TCMap<CStr, CEJSONSorted>
+			auto fGetDocuments = [&]() -> TCMap<CStr, CEJsonSorted>
 				{
-					TCMap<CStr, CEJSONSorted> Documents;
+					TCMap<CStr, CEJsonSorted> Documents;
 					CMutual Lock;
 
 					Client
@@ -475,7 +475,7 @@ public:
 
 			// Test document accessor
 			{
-				TCMap<CStr, CEJSONSorted> Documents = fGetDocuments();
+				TCMap<CStr, CEJsonSorted> Documents = fGetDocuments();
 
 				DMibAssert(Documents.f_GetLen(), ==, 10);
 
@@ -505,10 +505,10 @@ public:
 								&CDDPClient::f_Subscribe
 								, "testFalseSub"
 								, ""
-								, CEJSONSorted(fg_CreateVector<CEJSONSorted>())
+								, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
 								, CDDPClient::ESubscriptionNotification_None
 								, g_ActorFunctorWeak(ProcessingActor)
-								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJSONSorted _NotificationData)
+								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData)
 								-> TCFuture<void>
 								{
 									co_return {};
@@ -523,13 +523,13 @@ public:
 
 			DMibExpectException
 				(
-					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout))
+					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout))
 					, DMibErrorInstance("method-not-found: Method not found")
 				)
 			;
 
 			DMibExpect(pState->m_nChanged, ==, 0);
-			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
+			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nChanged.f_Load())
 			{
@@ -543,7 +543,7 @@ public:
 			DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
 
 			DMibExpect(pState->m_nRemoved, ==, 0);
-			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJSONSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
+			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
 			Timeout.f_Start();
 			while (!pState->m_nRemoved.f_Load())
 			{

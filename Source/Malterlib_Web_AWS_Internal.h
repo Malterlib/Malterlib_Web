@@ -1,7 +1,7 @@
 // Copyright © 2018 Nonna Holding AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include <Mib/Encoding/JSON>
+#include <Mib/Encoding/Json>
 #include <Mib/Web/Curl>
 #include <Mib/Web/HTTP/URL>
 #include <Mib/XML/XML>
@@ -59,13 +59,13 @@ namespace NMib::NWeb
 		)
 	;
 
-	TCFuture<NEncoding::CJSONSorted> fg_DoAWSRequestJSON
+	TCFuture<NEncoding::CJsonSorted> fg_DoAWSRequestJson
 		(
 			CStr _Description
 			, TCActor<CCurlActor> _CurlActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL _URL
-			, NStorage::TCVariant<void, CByteVector, NEncoding::CJSONSorted> _Contents
+			, NStorage::TCVariant<void, CByteVector, NEncoding::CJsonSorted> _Contents
 			, CCurlActor::EMethod _Method
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders

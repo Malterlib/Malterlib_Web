@@ -1,8 +1,8 @@
 // Copyright © 2018 Nonna Holding AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include <Mib/Encoding/JSON>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/Json>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Web/Curl>
 #include <Mib/XML/XML>
 

@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Mib/Core/Core>
-#include <Mib/Encoding/EJSON>
+#include <Mib/Encoding/EJson>
 #include <Mib/Container/Registry>
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/ActorFunctor>
@@ -152,7 +152,7 @@ namespace NMib::NWeb
 		// Uses the same options (without the -) and uses key-value structure. .hrf style.
 		void f_ParseSettings(NContainer::CRegistry const& _Params);
 		void f_ParseSettings(NContainer::CRegistryPreserveWhitespace const& _Params);
-		void f_ParseSettings(NEncoding::CEJSONSorted const &_Params);
+		void f_ParseSettings(NEncoding::CEJsonSorted const &_Params);
 
 	private:
 		template <typename tf_CRegistry>

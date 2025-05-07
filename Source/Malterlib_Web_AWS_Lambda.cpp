@@ -275,11 +275,11 @@ namespace NMib::NWeb
 			;
 		}
 
-		TCFuture<CJSONSorted> f_GetFunction(CStr const &_FunctionName)
+		TCFuture<CJsonSorted> f_GetFunction(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 			AWSUrl.f_AppendPath({_FunctionName});
-			return fg_DoAWSRequestJSON("Get function", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
+			return fg_DoAWSRequestJson("Get function", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
 		static CStr fsp_TracingConfigToString(CFunctionConfiguration::ETracingMode _Mode)
@@ -302,7 +302,7 @@ namespace NMib::NWeb
 			return CFunctionConfiguration::ETracingMode_Unknown;
 		}
 
-		void fp_PopulateFunctionConfigurationRequest(CJSONSorted &o_Request, CFunctionConfiguration const &_Config)
+		void fp_PopulateFunctionConfigurationRequest(CJsonSorted &o_Request, CFunctionConfiguration const &_Config)
 		{
 			if (_Config.m_DeadLetterConfig.m_TargetArn)
 				o_Request["DeadLetterConfig"]["TargetArn"] = *_Config.m_DeadLetterConfig.m_TargetArn;
@@ -345,34 +345,34 @@ namespace NMib::NWeb
 				o_Request["Timeout"] = *_Config.m_TimeoutSeconds;
 		}
 
-		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJSONSorted const &_JSON)
+		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJsonSorted const &_Json)
 		{
-			auto &JSONConfig = _JSON["Configuration"];
+			auto &JsonConfig = _Json["Configuration"];
 
 			CFunctionConfiguration Config;
 
-			if (auto pValue = JSONConfig.f_GetMember("DeadLetterConfig", EJSONType_Object))
+			if (auto pValue = JsonConfig.f_GetMember("DeadLetterConfig", EJsonType_Object))
 			{
-				if (auto pTargetArn = pValue->f_GetMember("TargetArn", EJSONType_String))
+				if (auto pTargetArn = pValue->f_GetMember("TargetArn", EJsonType_String))
 					Config.m_DeadLetterConfig.m_TargetArn = pTargetArn->f_String();
 			}
 
-			if (auto pValue = JSONConfig.f_GetMember("TracingConfig", EJSONType_Object))
+			if (auto pValue = JsonConfig.f_GetMember("TracingConfig", EJsonType_Object))
 			{
-				if (auto pTargetArn = pValue->f_GetMember("Mode", EJSONType_String))
+				if (auto pTargetArn = pValue->f_GetMember("Mode", EJsonType_String))
 					Config.m_TracingConfig.m_Mode = fsp_TracingConfigFromString(pTargetArn->f_String());
 			}
 
-			if (auto pValue = JSONConfig.f_GetMember("VpcConfig", EJSONType_Object))
+			if (auto pValue = JsonConfig.f_GetMember("VpcConfig", EJsonType_Object))
 			{
-				if (auto pSecurityGroupIds = pValue->f_GetMember("SecurityGroupIds", EJSONType_Array))
+				if (auto pSecurityGroupIds = pValue->f_GetMember("SecurityGroupIds", EJsonType_Array))
 				{
 					auto &OutSecurityGroupIds = *(Config.m_VpcConfig.m_SecurityGroupIds = NContainer::TCVector<NStr::CStr>{});
 					for (auto &ID : pSecurityGroupIds->f_Array())
 						OutSecurityGroupIds.f_Insert(ID.f_String());
 				}
 
-				if (auto pSubnetIDs = pValue->f_GetMember("SubnetIDs", EJSONType_Array))
+				if (auto pSubnetIDs = pValue->f_GetMember("SubnetIDs", EJsonType_Array))
 				{
 					auto &OutSubnetIDs = *(Config.m_VpcConfig.m_SubnetIDs = NContainer::TCVector<NStr::CStr>{});
 					for (auto &ID : pSubnetIDs->f_Array())
@@ -380,12 +380,12 @@ namespace NMib::NWeb
 				}
 			}
 
-			if (auto pValue = JSONConfig.f_GetMember("Description", EJSONType_String))
+			if (auto pValue = JsonConfig.f_GetMember("Description", EJsonType_String))
 				Config.m_Description = pValue->f_String();
 
-			if (auto pEnvironment = JSONConfig.f_GetMember("Environment", EJSONType_Object))
+			if (auto pEnvironment = JsonConfig.f_GetMember("Environment", EJsonType_Object))
 			{
-				if (auto pVariables = pEnvironment->f_GetMember("Variables", EJSONType_Object))
+				if (auto pVariables = pEnvironment->f_GetMember("Variables", EJsonType_Object))
 				{
 					auto &OutEnv = *(Config.m_EnvironmentVariables = NContainer::TCMap<NStr::CStr, NStr::CStr>{});
 					for (auto &EnvVar : pVariables->f_Object())
@@ -395,22 +395,22 @@ namespace NMib::NWeb
 				}
 			}
 
-			if (auto pValue = JSONConfig.f_GetMember("Handler", EJSONType_String))
+			if (auto pValue = JsonConfig.f_GetMember("Handler", EJsonType_String))
 				Config.m_Handler = pValue->f_String();
 
-			if (auto pValue = JSONConfig.f_GetMember("KMSKeyArn", EJSONType_String))
+			if (auto pValue = JsonConfig.f_GetMember("KMSKeyArn", EJsonType_String))
 				Config.m_KMSKeyArn = pValue->f_String();
 
-			if (auto pValue = JSONConfig.f_GetMember("MemorySize", EJSONType_Integer))
+			if (auto pValue = JsonConfig.f_GetMember("MemorySize", EJsonType_Integer))
 				Config.m_MemorySizeMB = pValue->f_Integer();
 
-			if (auto pValue = JSONConfig.f_GetMember("Role", EJSONType_String))
+			if (auto pValue = JsonConfig.f_GetMember("Role", EJsonType_String))
 				Config.m_Role = pValue->f_String();
 
-			if (auto pValue = JSONConfig.f_GetMember("Runtime", EJSONType_String))
+			if (auto pValue = JsonConfig.f_GetMember("Runtime", EJsonType_String))
 				Config.m_Runtime = pValue->f_String();
 
-			if (auto pValue = JSONConfig.f_GetMember("Timeout", EJSONType_Integer))
+			if (auto pValue = JsonConfig.f_GetMember("Timeout", EJsonType_Integer))
 				Config.m_TimeoutSeconds = pValue->f_Integer();
 
 			return Config;
@@ -424,7 +424,7 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
-			CJSONSorted Request;
+			CJsonSorted Request;
 			Request["Code"]["ZipFile"] = _CodeBlob.m_Base64;
 			Request["FunctionName"] = _FunctionName;
 
@@ -440,7 +440,7 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			auto Results = co_await fg_DoAWSRequestJSON("Create function", m_CurlActor, 201, AWSUrl, Request, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
+			auto Results = co_await fg_DoAWSRequestJson("Create function", m_CurlActor, 201, AWSUrl, Request, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
 			FunctionInfo.m_Arn = "{}:{}"_f << Results.f_GetMemberValue("FunctionArn", "").f_String() << FunctionInfo.m_Version;
@@ -462,11 +462,11 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/configuration"_f << m_Credentials.m_Region << _FunctionName};
-			CJSONSorted Request;
+			CJsonSorted Request;
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Arn = Results.f_GetMemberValue("FunctionArn", "").f_String();
@@ -484,13 +484,13 @@ namespace NMib::NWeb
 			)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/code"_f << m_Credentials.m_Region << _FunctionName};
-			CJSONSorted Request;
+			CJsonSorted Request;
 			Request["ZipFile"] = _CodeBlob.m_Base64;
 
 			if (_Config.m_bPublish)
 				Request["Publish"] = *_Config.m_bPublish;
 
-			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -506,16 +506,16 @@ namespace NMib::NWeb
 			co_return fg_Move(FunctionInfo);
 		}
 
-		TCFuture<CJSONSorted> f_GetFunctionVersions(CStr const &_FunctionName)
+		TCFuture<CJsonSorted> f_GetFunctionVersions(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
-			return fg_DoAWSRequestJSON("Get function versions", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
+			return fg_DoAWSRequestJson("Get function versions", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
 		TCFuture<CFunctionInfo> f_PublishVersion(CStr _FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
-			CJSONSorted Results = co_await fg_DoAWSRequestJSON("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -536,13 +536,13 @@ namespace NMib::NWeb
 			NTime::CClock Clock(true);
 			while (true)
 			{
-				CJSONSorted FunctionInfo = co_await f_GetFunction(_FunctionName);
+				CJsonSorted FunctionInfo = co_await f_GetFunction(_FunctionName);
 
-				auto *pConfig = FunctionInfo.f_GetMember("Configuration", EJSONType_Object);
+				auto *pConfig = FunctionInfo.f_GetMember("Configuration", EJsonType_Object);
 				if (!pConfig)
 					co_return DMibErrorInstance("No function configuration when waiting for function to become active");
 
-				auto *pState = pConfig->f_GetMember("State", EJSONType_String);
+				auto *pState = pConfig->f_GetMember("State", EJsonType_String);
 				if (!pState)
 					co_return DMibErrorInstance("No function state when waiting for function to become active");
 
@@ -550,7 +550,7 @@ namespace NMib::NWeb
 
 				auto fGetFailedErrorString = [&](CStr const &_ReasonName) -> CStr
 					{
-						if (auto pReason = pConfig->f_GetMember(_ReasonName, EJSONType_String))
+						if (auto pReason = pConfig->f_GetMember(_ReasonName, EJsonType_String))
 							return "Function update failed ({}): {}"_f << _ReasonName << pReason->f_String();
 						else
 							return "Function update failed for unknown reason";
@@ -561,7 +561,7 @@ namespace NMib::NWeb
 					co_return DMibErrorInstance(fGetFailedErrorString("StateReason"));
 				else if (State == "Active")
 				{
-					auto *pLastUpdateStatus = pConfig->f_GetMember("LastUpdateStatus", EJSONType_String);
+					auto *pLastUpdateStatus = pConfig->f_GetMember("LastUpdateStatus", EJsonType_String);
 					if (!pLastUpdateStatus)
 						co_return {};
 
@@ -599,7 +599,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		CInternal::CCodeBlob CodeBlob = co_await Internal.f_CreateCodeBlob(_Files);
-		TCAsyncResult<CJSONSorted> ExistingFunctionWrapped = co_await Internal.f_GetFunction(_FunctionName).f_Wrap();
+		TCAsyncResult<CJsonSorted> ExistingFunctionWrapped = co_await Internal.f_GetFunction(_FunctionName).f_Wrap();
 
 		if (!ExistingFunctionWrapped)
 		{
@@ -657,10 +657,10 @@ namespace NMib::NWeb
 			if (bChangedConfig)
 				co_await Internal.f_UpdateFunctionConfiguration(_FunctionName, _Config);
 
-			auto &ExistingConfigJSON = ExistingFunction["Configuration"];
+			auto &ExistingConfigJson = ExistingFunction["Configuration"];
 
 			NContainer::CByteVector HashData;
-			NEncoding::fg_Base64Decode(ExistingConfigJSON["CodeSha256"].f_String(), HashData);
+			NEncoding::fg_Base64Decode(ExistingConfigJson["CodeSha256"].f_String(), HashData);
 
 			auto Hash = NCryptography::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
 
@@ -670,25 +670,25 @@ namespace NMib::NWeb
 				FunctionInfo = co_await Internal.f_UpdateFunctionCode(_FunctionName, CodeBlob, _Config);
 			else
 			{
-				CJSONSorted VersionsJSON = co_await Internal.f_GetFunctionVersions(_FunctionName);
+				CJsonSorted VersionsJson = co_await Internal.f_GetFunctionVersions(_FunctionName);
 				{
 					auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function versions");
 
 					bool bAlreadyLatest = false;
-					for (auto &VersionJSON : VersionsJSON["Versions"].f_Array())
+					for (auto &VersionJson : VersionsJson["Versions"].f_Array())
 					{
 						NContainer::CByteVector HashData;
-						NEncoding::fg_Base64Decode(VersionJSON["CodeSha256"].f_String(), HashData);
+						NEncoding::fg_Base64Decode(VersionJson["CodeSha256"].f_String(), HashData);
 						auto CodeHash = NCryptography::CHashDigest_SHA256::fs_FromBytes(HashData.f_GetArray(), HashData.f_GetLen());
 						if (CodeHash == CodeBlob.m_SHA256)
 						{
-							CStr Version = VersionJSON.f_GetMemberValue("Version", "").f_String();
+							CStr Version = VersionJson.f_GetMemberValue("Version", "").f_String();
 
 							if (Version == "$LATEST")
 								continue;
 
 							bAlreadyLatest = true;
-							FunctionInfo = CFunctionInfo{VersionJSON.f_GetMemberValue("FunctionArn", "").f_String(), Version};
+							FunctionInfo = CFunctionInfo{VersionJson.f_GetMemberValue("FunctionArn", "").f_String(), Version};
 							break;
 						}
 					}
@@ -697,7 +697,7 @@ namespace NMib::NWeb
 						if (_Config.m_bPublish && *_Config.m_bPublish)
 							FunctionInfo = co_await Internal.f_PublishVersion(_FunctionName);
 						else
-							FunctionInfo = CFunctionInfo{ExistingConfigJSON.f_GetMemberValue("FunctionArn", "").f_String(), ExistingConfigJSON.f_GetMemberValue("Version", "").f_String()};
+							FunctionInfo = CFunctionInfo{ExistingConfigJson.f_GetMemberValue("FunctionArn", "").f_String(), ExistingConfigJson.f_GetMemberValue("Version", "").f_String()};
 					}
 				}
 			}

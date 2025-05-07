@@ -2,8 +2,8 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include "Malterlib_Web_Slack.h"
-#include <Mib/Encoding/JSON>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/Json>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Web/Curl>
 
 namespace NMib::NWeb
@@ -61,9 +61,9 @@ namespace NMib::NWeb
 
 	namespace
 	{
-		CEJSONSorted fg_MessageToJson(CSlackActor::CMessage const &_Message)
+		CEJsonSorted fg_MessageToJson(CSlackActor::CMessage const &_Message)
 		{
-			CEJSONSorted SlackMessage(EJSONType_Object);
+			CEJsonSorted SlackMessage(EJsonType_Object);
 
 			if (_Message.m_Text)
 				SlackMessage["text"] = *_Message.m_Text;
@@ -174,7 +174,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
+		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 		auto SlackMessageString = SlackMessage.f_ToString();
 
 		TCMap<CStr, CStr> Headers;
@@ -213,7 +213,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
+		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 		SlackMessage["ts"] = _Timestamp;
 		SlackMessage["as_user"] = true;
 
@@ -255,7 +255,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		CEJSONSorted SlackMessage = fg_MessageToJson(_Message);
+		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 
 		auto SlackMessageString = SlackMessage.f_ToString();
 		auto Result = co_await Internal.m_CurlActor
