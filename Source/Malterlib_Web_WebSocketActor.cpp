@@ -289,8 +289,8 @@ namespace NMib::NWeb
 
 		EState m_State = EState_None;
 
-		NContainer::CPagedByteVector m_IncomingData;
-		NContainer::CPagedByteVector m_OutgoingData;
+		NContainer::CPagedByteVector m_IncomingData{4096};
+		NContainer::CPagedByteVector m_OutgoingData{4096};
 		std::deque<COutgoingDataPromise> m_OutgoingDataPromises;
 
 		NStorage::TCVariant<void, CConnectionInfo, CClientConnectionInfo> m_ConnectionInfo;
