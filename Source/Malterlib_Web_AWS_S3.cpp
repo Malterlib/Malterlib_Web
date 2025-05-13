@@ -30,43 +30,43 @@ namespace NMib::NWeb
 
 	CAwsS3Actor::~CAwsS3Actor() = default;
 
-	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetaData> CAwsS3Actor::f_GetObjectMetaData(NStr::CStr _BucketName, NStr::CStr _Key)
+	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetadata> CAwsS3Actor::f_GetObjectMetadata(NStr::CStr _BucketName, NStr::CStr _Key)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		auto Headers = co_await fg_DoAWSRequestHEAD("Get meta data", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
+		auto Headers = co_await fg_DoAWSRequestHEAD("Get metadata", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
 
-		CAwsS3Actor::CObjectInfoMetaData MetaData;
+		CAwsS3Actor::CObjectInfoMetadata Metadata;
 
 		for (auto &HeaderValue : Headers)
 		{
 			auto &Header = Headers.fs_GetKey(HeaderValue);
 			if (Header == "cache-control")
-				MetaData.m_CacheControl = HeaderValue;
+				Metadata.m_CacheControl = HeaderValue;
 			else if (Header == "content-length")
-				MetaData.m_ContentLength = HeaderValue.f_ToInt(uint64(0));
+				Metadata.m_ContentLength = HeaderValue.f_ToInt(uint64(0));
 			else if (Header == "cache-control")
-				MetaData.m_CacheControl = HeaderValue;
+				Metadata.m_CacheControl = HeaderValue;
 			else if (Header == "content-type")
-				MetaData.m_ContentType = HeaderValue;
+				Metadata.m_ContentType = HeaderValue;
 			else if (Header == "content-encoding")
-				MetaData.m_ContentEncoding = HeaderValue;
+				Metadata.m_ContentEncoding = HeaderValue;
 			else if (Header == "content-disposition")
-				MetaData.m_ContentDisposition = HeaderValue;
+				Metadata.m_ContentDisposition = HeaderValue;
 			else if (Header == "etag")
-				MetaData.m_ETag = HeaderValue;
+				Metadata.m_ETag = HeaderValue;
 			else if (Header == "date")
-				MetaData.m_Date = HeaderValue;
+				Metadata.m_Date = HeaderValue;
 			else if (Header == "last-modified")
-				MetaData.m_LastModified = HeaderValue;
-			else if (Header == "x-amz-website​-redirect-location")
-				MetaData.m_RedirectLocation = HeaderValue;
+				Metadata.m_LastModified = HeaderValue;
+			else if (Header == "x-amz-website-redirect-location")
+				Metadata.m_RedirectLocation = HeaderValue;
 			else if (Header.f_StartsWith("x-amz-meta-"))
-				MetaData.m_MetaData[Header.f_Extract(11)] = HeaderValue;
+				Metadata.m_Metadata[Header.f_Extract(11)] = HeaderValue;
 		}
 
-		co_return fg_Move(MetaData);
+		co_return fg_Move(Metadata);
 	}
 
 	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr _BucketName)
@@ -204,10 +204,10 @@ namespace NMib::NWeb
 				Headers["Content-Type"] = *_Info.m_ContentType;
 
 			if (_Info.m_RedirectLocation)
-				Headers["x-amz-website​-redirect-location"] = *_Info.m_RedirectLocation;
+				Headers["x-amz-website-redirect-location"] = *_Info.m_RedirectLocation;
 
-			for (auto &MetaValue : _Info.m_MetaData)
-				Headers[CStr{"x-amz-meta-{}"_f << _Info.m_MetaData.fs_GetKey(MetaValue)}] = MetaValue;
+			for (auto &MetaValue : _Info.m_Metadata)
+				Headers[CStr{"x-amz-meta-{}"_f << _Info.m_Metadata.fs_GetKey(MetaValue)}] = MetaValue;
 
 			if (_Info.m_StorageClass != CAwsS3Actor::EStorageClass_Unknown)
 			{

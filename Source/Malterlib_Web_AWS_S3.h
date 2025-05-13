@@ -43,7 +43,7 @@ namespace NMib::NWeb
 			EStorageClass m_StorageClass = EStorageClass_Unknown;
 		};
 
-		struct CObjectInfoMetaData : public CObjectInfo
+		struct CObjectInfoMetadata : public CObjectInfo
 		{
 			NStorage::TCOptional<NStr::CStr> m_CacheControl;
 			NStorage::TCOptional<uint64> m_ContentLength;
@@ -53,7 +53,7 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NStr::CStr> m_Date;
 			NStorage::TCOptional<NStr::CStr> m_LastModified;
 			NStorage::TCOptional<NStr::CStr> m_RedirectLocation;
-			NContainer::TCMap<NStr::CStr, NStr::CStr> m_MetaData;
+			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Metadata;
 		};
 
 		struct CListBucket
@@ -70,13 +70,13 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NStr::CStr> m_ContentType;
 			NStorage::TCOptional<NStr::CStr> m_RedirectLocation;
 			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Tags;
-			NContainer::TCMap<NStr::CStr, NStr::CStr> m_MetaData;
+			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Metadata;
 			EStorageClass m_StorageClass = EStorageClass_Unknown;
 		};
 
 		NConcurrency::TCFuture<CListBucket> f_ListBucket(NStr::CStr _BucketName);
 
-		NConcurrency::TCFuture<CObjectInfoMetaData> f_GetObjectMetaData(NStr::CStr _BucketName, NStr::CStr _Key);
+		NConcurrency::TCFuture<CObjectInfoMetadata> f_GetObjectMetadata(NStr::CStr _BucketName, NStr::CStr _Key);
 		NConcurrency::TCFuture<void> f_PutObject(NStr::CStr _BucketName, NStr::CStr _Key, CPutObjectInfo _Info, NContainer::CByteVector _Data);
 		NConcurrency::TCFuture<void> f_PutObjectMultipart
 			(
