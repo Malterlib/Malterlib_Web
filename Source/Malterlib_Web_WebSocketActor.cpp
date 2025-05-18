@@ -134,7 +134,7 @@ namespace NMib::NWeb
 			{
 				mp_DeferredCalls.f_Insert
 					(
-						[Promise = fg_Move(Promise.m_Promise), ...p_Params2 = NTraits::TCDecayType<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						[Promise = fg_Move(Promise.m_Promise), ...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
 						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
 						{
 							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
@@ -164,7 +164,7 @@ namespace NMib::NWeb
 			{
 				mp_DeferredCalls.f_Insert
 					(
-						[...p_Params2 = NTraits::TCDecayType<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						[...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
 						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
 						{
 							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable

@@ -208,7 +208,7 @@ namespace NMib::NWeb::NHTTP
 	template<typename t_CEnum>
 	char const* fg_HTTP_GetEnumName(t_CEnum _Value)
 	{
-		static_assert(NTraits::TCIsSame<t_CEnum, void>::mc_Value);
+		static_assert(NTraits::cIsSame<t_CEnum, void>);
 	}
 
 	template<>
@@ -247,7 +247,7 @@ namespace NMib::NWeb::NHTTP
 	template<typename t_CEnum>
 	t_CEnum fg_HTTP_LookupEnum(NStr::CStr const& _Name)
 	{
-		static_assert(NTraits::TCIsSame<t_CEnum, void>::mc_Value);
+		static_assert(NTraits::cIsSame<t_CEnum, void>);
 	}
 
 	template<>
