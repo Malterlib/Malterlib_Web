@@ -24,14 +24,15 @@
 #endif
 
 #ifdef DEnableVector
-typedef uint32 vec4uint32 __attribute__((ext_vector_type(4)));
+using vec4uint32 = uint32 __attribute__((ext_vector_type(4)));
 #endif
 
 namespace NMib::NWeb
 {
 	static ch8 const gs_PingMessageData[] = "WdI6Q6-HvOxlK5Vc";
 
-	typedef NContainer::TCBinaryStreamPagedByteVector<NStream::CBinaryStreamBigEndian> CBinaryStreamPagedByteVector;
+	using CBinaryStreamPagedByteVector = NContainer::TCBinaryStreamPagedByteVector<NStream::CBinaryStreamBigEndian>;
+
 	namespace
 	{
 		enum EState

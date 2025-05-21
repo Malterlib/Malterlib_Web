@@ -227,7 +227,7 @@ namespace NMib::NWeb
 			NStr::CStr m_Text;		// HTML or user data name
 		};
 
-		typedef NContainer::TCVector<CBlock>::CIteratorConst CIteratorConst;
+		using CIteratorConst = NContainer::TCVector<CBlock>::CIteratorConst;
 
 	public:
 		CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs);

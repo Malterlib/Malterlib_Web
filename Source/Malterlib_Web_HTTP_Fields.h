@@ -21,7 +21,7 @@ up a HTTP message header.
 
 namespace NMib::NWeb::NHTTP
 {
-	typedef NFunction::TCFunction<void (uint8 const *_pBytes, mint _nBytes)> COutputMethod;
+	using COutputMethod = NFunction::TCFunction<void (uint8 const *_pBytes, mint _nBytes)>;
 
 	// Request line fields
 	struct CRequestLine
@@ -129,7 +129,7 @@ namespace NMib::NWeb::NHTTP
 	class TCFieldsBase
 	{
 	public:
-		typedef t_CEnum CEnum;
+		using CEnum = t_CEnum;
 
 	protected:
 		EVersion mp_HTTPVersion;
