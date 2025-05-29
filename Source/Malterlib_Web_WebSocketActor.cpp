@@ -2197,11 +2197,14 @@ namespace NMib::NWeb
 					DMibLog(DebugVerbose3, " ++++ {} {} Received data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
 					Internal.m_IncomingData.f_InsertBack(Data, Result.m_nBytes);
 					Internal.m_nReceivedBytes += Result.m_nBytes;
+
 					fp_ProcessIncoming();
 					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 						return;
 
 					fp_UpdateSend();
+					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+						return;
 				}
 			}
 			catch (NCryptography::CExceptionCryptography const& _Exception)
