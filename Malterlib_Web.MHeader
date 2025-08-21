@@ -1,4 +1,4 @@
-// Copyright © 2015 Hansoft AB 
+// Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 Import "../Core/Lib_Malterlib.MTarget"
@@ -7,7 +7,7 @@ Import "Apps/*/*.MHeader"
 %Repository "curl"
 {
 //	!!MalterlibNeedCurl true
-	
+
 	Repository
 	{
 		Type "External"
@@ -36,8 +36,8 @@ Import "Apps/*/*.MHeader"
 Property
 {
 	CurlEnableSMTP: bool = false
-	Pcre2IncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
-	CurlIncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Group:External.Group:CURL.Target:Lib_CURL_libcurl_static.Import:*")
+	Pcre2IncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
+	CurlIncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:CURL.Target:Lib_CURL_libcurl_static.Import:*")
 }
 
 %Import "../../External/pcre2/CMakeLists.txt"
@@ -113,7 +113,7 @@ Import "../../External/nginx/nginx.MTarget"
 	Import.CMake_Variables =+ "SHARE_LIB_OBJECT=OFF"
 	{
 		!!PlatformFamily "Windows"
-	}	
+	}
 
 	Compile
 	{
@@ -204,7 +204,7 @@ Import "../../External/nginx/nginx.MTarget"
 	%Dependency "Lib_Malterlib_Concurrency"
 	{
 		Dependency.Indirect true
-	}	
+	}
 	%Dependency "Lib_CURL_libcurl_static"
 	{
 		!DocumentationEnabled true
@@ -214,7 +214,7 @@ Import "../../External/nginx/nginx.MTarget"
 	%Dependency "Lib_zlib"
 	{
 		!DocumentationEnabled true
-		
+
 		Dependency.Indirect true
 	}
 }
@@ -263,7 +263,7 @@ Property
 Property
 {
 	!!MalterlibEnableInternalTests true
-	
+
 	MalterlibTests =+ "Malterlib_Web"
 	MalterlibTestFiles_Malterlib_Web: [type(CEntity)] = ["Test/^*"->MakeAbsolute()]
 	MalterlibTestDependencies_Malterlib_Web: [type(CEntity)] = ["Lib_Malterlib_Web"]
