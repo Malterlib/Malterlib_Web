@@ -90,7 +90,7 @@ namespace NMib::NWeb
 
 				switch (KeySettings.f_GetTypeID())
 				{
-				case EPublicKeyType_RSA:
+				case EPublicKeyType::mc_RSA:
 					{
 						_State.m_Algorithm = "RS256";
 						_State.m_DigestType = EDigestType_SHA256;
@@ -109,9 +109,9 @@ namespace NMib::NWeb
 						;
 					}
 					break;
-				case EPublicKeyType_EC_secp256r1:
-				case EPublicKeyType_EC_secp384r1:
-				case EPublicKeyType_EC_secp521r1:
+				case EPublicKeyType::mc_EC_secp256r1:
+				case EPublicKeyType::mc_EC_secp384r1:
+				case EPublicKeyType::mc_EC_secp521r1:
 					{
 						if (!KeyParams.f_IsOfType<CPublicCrypto::CPublicKeyParameters_EC>())
 							DMibError("Public key and private key type do not match");
@@ -121,17 +121,17 @@ namespace NMib::NWeb
 						CStr Curve;
 						switch (KeySettings.f_GetTypeID())
 						{
-						case EPublicKeyType_EC_secp256r1:
+						case EPublicKeyType::mc_EC_secp256r1:
 							Curve = "P-256";
 							_State.m_Algorithm = "ES256";
 							_State.m_DigestType = EDigestType_SHA256;
 							break;
-						case EPublicKeyType_EC_secp384r1:
+						case EPublicKeyType::mc_EC_secp384r1:
 							Curve = "P-384";
 							_State.m_Algorithm = "ES384";
 							_State.m_DigestType = EDigestType_SHA384;
 							break;
-						case EPublicKeyType_EC_secp521r1:
+						case EPublicKeyType::mc_EC_secp521r1:
 							Curve = "P-521";
 							_State.m_Algorithm = "ES512";
 							_State.m_DigestType = EDigestType_SHA512;
