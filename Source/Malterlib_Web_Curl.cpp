@@ -54,6 +54,31 @@ namespace NMib::NWeb
 
 		using CCurlDeleter = NMemory::TCAllocator_FunctorDeleter<CDeleterHelper>;
 
+		template <CURLoption tf_Option, typename tf_CValue>
+		CURLcode fg_CurlSetOpt(CURL *_pCurl, tf_CValue _Value)
+		{
+			static_assert(CURLOPTTYPE_LONG == 0);
+
+			if constexpr (tf_Option < CURLOPTTYPE_OBJECTPOINT) // CURLOPTTYPE_LONG (0-9999)
+				return curl_easy_setopt(_pCurl, tf_Option, static_cast<long>(_Value));
+			else if constexpr (tf_Option >= CURLOPTTYPE_OBJECTPOINT && tf_Option < CURLOPTTYPE_FUNCTIONPOINT) // CURLOPTTYPE_OBJECTPOINT (10000-19999)
+				return curl_easy_setopt(_pCurl, tf_Option, static_cast<void const *>(_Value));
+			else if constexpr (tf_Option >= CURLOPTTYPE_FUNCTIONPOINT && tf_Option < CURLOPTTYPE_OFF_T) // CURLOPTTYPE_FUNCTIONPOINT (20000-29999)
+			{
+				static_assert(NTraits::cIsFunction<NTraits::TCRemovePointer<tf_CValue>>);
+				return curl_easy_setopt(_pCurl, tf_Option, _Value);
+			}
+			else if constexpr (tf_Option >= CURLOPTTYPE_OFF_T && tf_Option < CURLOPTTYPE_BLOB) // CURLOPTTYPE_OFF_T (30000-39999)
+				return curl_easy_setopt(_pCurl, tf_Option, static_cast<curl_off_t>(_Value));
+			else if constexpr (tf_Option >= CURLOPTTYPE_BLOB && tf_Option < (CURLOPTTYPE_BLOB + (CURLOPTTYPE_BLOB - CURLOPTTYPE_OFF_T))) // CURLOPTTYPE_BLOB (40000-49999)
+			{
+				static_assert(NTraits::cIsSame<NTraits::TCRemovePointer<tf_CValue>, struct curl_blob>);
+				return curl_easy_setopt(_pCurl, tf_Option, _Value);
+			}
+			else
+				static_assert(tf_Option >= 0, "Unknown CURLOPTTYPE");
+		}
+
 		class CCurlInit
 		{
 		public:
@@ -291,7 +316,7 @@ namespace NMib::NWeb
 		if (Value == 0)
 			fp_Wakeup();
 	}
-	
+
 	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		// Make sure the memory isn't deallocated
@@ -513,7 +538,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		curl_easy_setopt(pCurl, CURLOPT_ERRORBUFFER, Request.m_CurlErrorBuffer.f_GetStr());
+		fg_CurlSetOpt<CURLOPT_ERRORBUFFER>(pCurl, Request.m_CurlErrorBuffer.f_GetStr());
 
 		curl_slist *pHeaders = NULL;
 		auto CleanupHeaders = g_OnScopeExit / [&]
@@ -522,15 +547,15 @@ namespace NMib::NWeb
 			}
 		;
 
-		//fCheckResult(curl_easy_setopt(pCurl, CURLOPT_VERBOSE, 1L));
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOSIGNAL, 1L));
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_PRIVATE, &Request));
+		//fCheckResult(fg_CurlSetOpt<CURLOPT_VERBOSE>(pCurl, 1L));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_NOSIGNAL>(pCurl, 1L));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_PRIVATE>(pCurl, &Request));
 
 		for (auto &Cookie : _Request.m_Cookies.f_Entries())
 			Request.m_CookieStr += "{}={}; "_f << Cookie.f_Key() << Cookie.f_Value();
 
 		if (Request.m_CookieStr)
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_COOKIE, Request.m_CookieStr.f_GetStr()));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_COOKIE>(pCurl, Request.m_CookieStr.f_GetStr()));
 
 		if (!_Request.m_Headers.f_FindEqual("Accept"))
 			pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
@@ -547,8 +572,8 @@ namespace NMib::NWeb
 			CertBlob.data = Internal.m_CertificateConfig.m_ClientCertificate.f_GetArray();
 			CertBlob.len = Internal.m_CertificateConfig.m_ClientCertificate.f_GetLen();
 			CertBlob.flags = CURL_BLOB_NOCOPY;
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERT_BLOB, &CertBlob));
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_SSLCERT_BLOB>(pCurl, &CertBlob));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_SSLCERTTYPE>(pCurl, "PEM"));
 		}
 
 		if (!Internal.m_CertificateConfig.m_ClientKey.f_IsEmpty())
@@ -557,8 +582,8 @@ namespace NMib::NWeb
 			CertKeyBlob.data = Internal.m_CertificateConfig.m_ClientKey.f_GetArray();
 			CertKeyBlob.len = Internal.m_CertificateConfig.m_ClientKey.f_GetLen();
 			CertKeyBlob.flags = CURL_BLOB_NOCOPY;
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLKEY_BLOB, &CertKeyBlob));
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_SSLCERTTYPE, "PEM"));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_SSLKEY_BLOB>(pCurl, &CertKeyBlob));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_SSLCERTTYPE>(pCurl, "PEM"));
 		}
 
 		if (!Internal.m_CertificateConfig.m_CertificateAuthorities.f_IsEmpty())
@@ -567,34 +592,34 @@ namespace NMib::NWeb
 			CertAuthBlob.data = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetArray();
 			CertAuthBlob.len = Internal.m_CertificateConfig.m_CertificateAuthorities.f_GetLen();
 			CertAuthBlob.flags = CURL_BLOB_NOCOPY;
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CAINFO_BLOB, &CertAuthBlob));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CAINFO_BLOB>(pCurl, &CertAuthBlob));
 		}
 
 		if (_Request.m_bFollowRedirects)
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_FOLLOWLOCATION, 1L));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_FOLLOWLOCATION>(pCurl, 1L));
 
 		if (_Request.m_Method == EMethod_POST || _Request.m_Method == EMethod_PUT || _Request.m_Method == EMethod_PATCH)
 		{
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UPLOAD, 1L));
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READDATA, &Request));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_UPLOAD>(pCurl, 1L));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_READDATA>(pCurl, &Request));
 
 			if (_Request.m_Method == EMethod_PATCH)
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PATCH"));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CUSTOMREQUEST>(pCurl, "PATCH"));
 			else if (_Request.m_Method == EMethod_POST)
 			{
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "POST"));
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CUSTOMREQUEST>(pCurl, "POST"));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_POSTREDIR>(pCurl, CURL_REDIR_POST_ALL));
 			}
 			else
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "PUT"));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CUSTOMREQUEST>(pCurl, "PUT"));
 
 			if (Request.m_fReadData)
 			{
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE_LARGE, Request.m_ReadDataSize));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_INFILESIZE_LARGE>(pCurl, Request.m_ReadDataSize));
 				auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 					{
 						CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
-						
+
 						if (pRequest->m_pReadError)
 							return CURL_READFUNC_ABORT;
 
@@ -641,11 +666,11 @@ namespace NMib::NWeb
 					}
 				;
 
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_READFUNCTION>(pCurl, (curl_read_callback)fReadCallback));
 			}
 			else
 			{
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_INFILESIZE_LARGE, Request.m_Data.f_GetLen()));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_INFILESIZE_LARGE>(pCurl, Request.m_Data.f_GetLen()));
 
 				auto fReadCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 					{
@@ -667,13 +692,13 @@ namespace NMib::NWeb
 					}
 				;
 
-				co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_READFUNCTION, (curl_read_callback)fReadCallback));
+				co_await fCheckResult(fg_CurlSetOpt<CURLOPT_READFUNCTION>(pCurl, (curl_read_callback)fReadCallback));
 			}
 		}
 		else if (_Request.m_Method == EMethod_DELETE)
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CUSTOMREQUEST>(pCurl, "DELETE"));
 		else if (_Request.m_Method == EMethod_HEAD)
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_NOBODY, 1));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_NOBODY>(pCurl, 1));
 
 		NHTTP::CURL Url(_Request.m_URL);
 		CStr UrlHost = Url.f_GetHost();
@@ -681,25 +706,25 @@ namespace NMib::NWeb
 		{
 			auto UnixPath = UrlHost.f_RemovePrefix("UNIX:");
 			Url.f_SetHost("localhost");
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_UNIX_SOCKET_PATH, UnixPath.f_GetStr()));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_UNIX_SOCKET_PATH>(pCurl, UnixPath.f_GetStr()));
 			auto NewURL = Url.f_Encode();
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, NewURL.f_GetStr()));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_URL>(pCurl, NewURL.f_GetStr()));
 		}
 		else
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_URL, _Request.m_URL.f_GetStr()));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_URL>(pCurl, _Request.m_URL.f_GetStr()));
 
 		for (auto &Header : _Request.m_Headers.f_Entries())
 		{
 			CStr HeaderStr(fg_Format("{}: {}", Header.f_Key(), Header.f_Value()));
 			pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
 		}
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pHeaders));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_HTTPHEADER>(pCurl, pHeaders));
 
 		CleanupHeaders.f_Clear();
 		if (pHeaders)
 			Request.m_pHeaders = fg_Explicit(pHeaders);
 
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERDATA, &Request));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_HEADERDATA>(pCurl, &Request));
 		auto fWriteHeaderCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 			{
 				mint nBytes = _Size * _nItems;
@@ -714,9 +739,9 @@ namespace NMib::NWeb
 				return _Size * _nItems;
 			}
 		;
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_HEADERFUNCTION, (curl_write_callback)fWriteHeaderCallback));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_HEADERFUNCTION>(pCurl, (curl_write_callback)fWriteHeaderCallback));
 
-		co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEDATA, &Request));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_WRITEDATA>(pCurl, &Request));
 		if (Request.m_fWriteData)
 		{
 			auto fWriteBodyCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
@@ -760,7 +785,7 @@ namespace NMib::NWeb
 					return CURL_WRITEFUNC_PAUSE;
 				}
 			;
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_WRITEFUNCTION>(pCurl, (curl_write_callback)fWriteBodyCallback));
 		}
 		else
 		{
@@ -773,7 +798,7 @@ namespace NMib::NWeb
 					return _Size * _nItems;
 				}
 			;
-			co_await fCheckResult(curl_easy_setopt(pCurl, CURLOPT_WRITEFUNCTION, (curl_write_callback)fWriteBodyCallback));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_WRITEFUNCTION>(pCurl, (curl_write_callback)fWriteBodyCallback));
 		}
 
 		auto *pActorHolder = fp_GetActorHolder();
