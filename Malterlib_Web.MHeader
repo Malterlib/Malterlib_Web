@@ -36,7 +36,7 @@ Import "Apps/*/*.MHeader"
 Property
 {
 	CurlEnableSMTP: bool = false
-	Pcre2IncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*")
+	Pcre2IncludePath: [string] = ["../../External/pcre2/src"->MakeAbsolute(), GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*") / "interface"]
 	CurlIncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:CURL.Target:Lib_CURL_libcurl_static.Import:*")
 }
 
@@ -46,6 +46,12 @@ Property
 	Import.CMake_Variables =+ ["PCRE2_STATIC_RUNTIME=ON"]
 	{
 		!!PlatformFamily "Windows"
+	}
+
+	Compile
+	{
+		!!CompileDialect "C"
+		SearchPath += "../../External/pcre2"->MakeAbsolute()
 	}
 
 	Compile.Warnings "Off"
@@ -79,6 +85,7 @@ Import "../../External/nginx/nginx.MTarget"
 		, "BUILD_STATIC_CURL=ON"
 		, "USE_LIBIDN2=OFF"
 		, "CURL_ZSTD=ON"
+		, "CURL_BROTLI=OFF"
 		, "ENABLE_UNIX_SOCKETS=ON"
 		, "CURL_DEFAULT_SSL_BACKEND=openssl"
 		, "CURL_USE_LIBSSH2=OFF"
@@ -153,6 +160,16 @@ Import "../../External/nginx/nginx.MTarget"
 			!DocumentationEnabled true
 
 			Dependency.Indirect true
+		}
+		%Dependency "iphlpapi.lib"
+		{
+			!!PlatformFamily "Windows"
+
+			Dependency
+			{
+				Type "Library"
+				Indirect true
+			}
 		}
 		%Dependency "SystemConfiguration"
 		{

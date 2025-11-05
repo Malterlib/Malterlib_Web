@@ -34,25 +34,33 @@ namespace NMib::NWeb
 
 	namespace
 	{
-		struct CDeleterHelper
+		struct CDeleterHelperMulti
 		{
 			void operator()(CURLM *_pObject)
 			{
 				curl_multi_cleanup(_pObject);
 			}
+		};
 
-			void operator()(Curl_easy *_pObject)
+		struct CDeleterHelperEasy
+		{
+			void operator()(CURL *_pObject)
 			{
 				curl_easy_cleanup(_pObject);
 			}
+		};
 
+		struct CDeleterHelperSList
+		{
 			void operator()(curl_slist *_pObject)
 			{
 				curl_slist_free_all(_pObject);
 			}
 		};
 
-		using CCurlDeleter = NMemory::TCAllocator_FunctorDeleter<CDeleterHelper>;
+		using CCurlDeleterMulti = NMemory::TCAllocator_FunctorDeleter<CDeleterHelperMulti>;
+		using CCurlDeleterEasy = NMemory::TCAllocator_FunctorDeleter<CDeleterHelperEasy>;
+		using CCurlDeleterSList = NMemory::TCAllocator_FunctorDeleter<CDeleterHelperSList>;
 
 		template <CURLoption tf_Option, typename tf_CValue>
 		CURLcode fg_CurlSetOpt(CURL *_pCurl, tf_CValue _Value)
@@ -98,7 +106,7 @@ namespace NMib::NWeb
 
 	struct CCurlActor::CActorHolder::CInternal
 	{
-		TCUniquePointer<CURLM, CCurlDeleter> m_pMulti;
+		TCUniquePointer<CURLM, CCurlDeleterMulti> m_pMulti;
 		NThread::CEvent m_ActorCreatedEvent;
 		NThread::CEvent m_ProcessingStartedEvent;
 	};
@@ -127,8 +135,8 @@ namespace NMib::NWeb
 
 			CCurlActor *m_pActor = nullptr;
 			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
-			TCUniquePointer<Curl_easy, CCurlDeleter> m_pCurl;
-			TCUniquePointer<curl_slist , CCurlDeleter> m_pHeaders;
+			TCUniquePointer<CURL, CCurlDeleterEasy> m_pCurl;
+			TCUniquePointer<curl_slist, CCurlDeleterSList> m_pHeaders;
 			CState m_State;
 			NContainer::CByteVector m_Data;
 			NContainer::CByteVector::CIteratorConst m_iData;
@@ -255,7 +263,7 @@ namespace NMib::NWeb
 
 								if (pMessage->msg == CURLMSG_DONE)
 								{
-									Curl_easy *pEasyHandle = pMessage->easy_handle;
+									CURL *pEasyHandle = pMessage->easy_handle;
 
 									void *pRawRequest = nullptr;
 									curl_easy_getinfo(pEasyHandle, CURLINFO_PRIVATE, &pRawRequest);
@@ -519,7 +527,7 @@ namespace NMib::NWeb
 		if (!Request.m_pCurl)
 			co_return DMibErrorInstance("libcurl was not initialised");
 
-		Curl_easy *pCurl = Request.m_pCurl.f_Get();
+		CURL *pCurl = Request.m_pCurl.f_Get();
 
 		auto fCheckResult = [&](CURLcode _Result) -> TCFuture<void>
 			{
