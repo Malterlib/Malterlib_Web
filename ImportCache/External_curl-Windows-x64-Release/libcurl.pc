@@ -24,18 +24,18 @@
 
 prefix=C:/Program Files (x86)/CURL
 exec_prefix=${prefix}
-libdir=C:/Program Files (x86)/CURL/lib
+libdir=${exec_prefix}/lib
 includedir=${prefix}/include
-supported_protocols="HTTP HTTPS IPFS IPNS"
-supported_features="alt-svc AsynchDNS HSTS HTTPS-proxy IPv6 Largefile NTLM SSL threadsafe UnixSockets zstd"
+supported_protocols="HTTP HTTPS IPFS IPNS WS WSS"
+supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile NTLM SSL threadsafe UnixSockets zstd"
 
 Name: libcurl
 URL: https://curl.se/
-Description: Library to transfer files with ftp, http, etc.
-Version: 8.10.1-DEV
+Description: Library to transfer files with HTTP, FTP, etc.
+Version: 8.16.0-DEV
 Requires: openssl,libzstd
 Requires.private: openssl,libzstd
-Libs: -L${libdir} -lcurl -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib -ladvapi32 -lcrypt32
-Libs.private: -lws2_32 -lbcrypt c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.42.34433/lib/x64/delayimp.lib -ladvapi32 -lcrypt32
+Libs: -L${libdir} -lcurl c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
+Libs.private:  c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
 Cflags: -I${includedir} -DCURL_STATICLIB
 Cflags.private: -DCURL_STATICLIB

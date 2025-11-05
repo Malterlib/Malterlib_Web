@@ -1,0 +1,15 @@
+# This is a generated file.  Do not edit.
+buildinfo.configure.tool: cmake
+buildinfo.configure.command: ../../../../Binaries/Malterlib/macOS/arm64/MToolCMake
+buildinfo.configure.version: 3.30.3-g7207d4f
+buildinfo.configure.args:
+buildinfo.configure.generator: Ninja
+buildinfo.configure.make: ../../../../Binaries/Malterlib/macOS/arm64/ninja
+buildinfo.host.cpu: arm64
+buildinfo.host.os: Darwin
+buildinfo.target.cpu: x86_64
+buildinfo.target.os: Darwin
+buildinfo.target.flags: APPLE UNIX CROSS
+buildinfo.compiler: Clang
+buildinfo.compiler.version: 20.1.5
+buildinfo.sysroot: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk

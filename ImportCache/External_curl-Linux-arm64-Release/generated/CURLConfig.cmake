@@ -47,30 +47,55 @@ endmacro()
 
 ####################################################################################
 
-if(NOT DEFINED CURL_USE_PKGCONFIG)
-  if(UNIX OR (MSVC AND VCPKG_TOOLCHAIN))  # Keep in sync with root CMakeLists.txt
-    set(CURL_USE_PKGCONFIG ON)
+include(CMakeFindDependencyMacro)
+if("ON")
+  if("")
+    find_dependency(OpenSSL "")
   else()
-    set(CURL_USE_PKGCONFIG OFF)
+    find_dependency(OpenSSL)
   endif()
 endif()
-
-include(CMakeFindDependencyMacro)
-if(ON)
-  find_dependency(OpenSSL )
-endif()
-if(ON)
-  find_dependency(ZLIB 1)
+if("ON")
+  find_dependency(ZLIB "1")
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/CURLTargets.cmake")
-check_required_components("CURL")
 
 # Alias for either shared or static library
 if(NOT TARGET CURL::libcurl)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.11 AND CMAKE_VERSION VERSION_LESS 3.18)
+    set_target_properties(CURL::libcurl_static PROPERTIES IMPORTED_GLOBAL TRUE)
+  endif()
   add_library(CURL::libcurl ALIAS CURL::libcurl_static)
 endif()
 
 # For compatibility with CMake's FindCURL.cmake
+set(CURL_VERSION_STRING "8.16.0-DEV")
 set(CURL_LIBRARIES CURL::libcurl)
 set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
+
+set(CURL_SUPPORTED_PROTOCOLS "HTTP;HTTPS;IPFS;IPNS;WS;WSS")
+set(CURL_SUPPORTED_FEATURES "alt-svc;AsynchDNS;HSTS;IPv6;Largefile;libz;NTLM;SSL;threadsafe;UnixSockets;zstd")
+
+foreach(_item IN LISTS CURL_SUPPORTED_PROTOCOLS CURL_SUPPORTED_FEATURES)
+  set(CURL_SUPPORTS_${_item} TRUE)
+endforeach()
+
+set(_missing_req "")
+foreach(_item IN LISTS CURL_FIND_COMPONENTS)
+  if(CURL_SUPPORTS_${_item})
+    set(CURL_${_item}_FOUND TRUE)
+  elseif(CURL_FIND_REQUIRED_${_item})
+    list(APPEND _missing_req ${_item})
+  endif()
+endforeach()
+
+if(_missing_req)
+  string(REPLACE ";" " " _missing_req "${_missing_req}")
+  if(CURL_FIND_REQUIRED)
+    message(FATAL_ERROR "CURL: missing required components: ${_missing_req}")
+  endif()
+  unset(_missing_req)
+endif()
+
+check_required_components("CURL")

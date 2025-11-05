@@ -21,4 +21,4 @@
 # SPDX-License-Identifier: curl
 #
 ###########################################################################
-NGHTTPX: nghttpx
+NGHTTPX: 

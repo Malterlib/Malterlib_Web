@@ -25,13 +25,12 @@
 
 # shellcheck disable=SC2006
 
-prefix="/usr/local"
-# Used in /usr/local/lib
+prefix='/usr/local'
+# Used in 'libdir'
 # shellcheck disable=SC2034
-exec_prefix=${prefix}
+exec_prefix="${prefix}"
 # shellcheck disable=SC2034
-includedir=${prefix}/include
-cppflag_curl_staticlib=-DCURL_STATICLIB
+includedir="${prefix}/include"
 
 usage()
 {
@@ -40,7 +39,7 @@ Usage: curl-config [OPTION]
 
 Available values for OPTION include:
 
-  --built-shared says 'yes' if libcurl was built shared
+  --built-shared        says 'yes' if libcurl was built shared
   --ca                  CA bundle install path
   --cc                  compiler
   --cflags              preprocessor and compiler flags
@@ -83,36 +82,36 @@ while test "$#" -gt 0; do
     ;;
 
   --feature|--features)
-    for feature in alt-svc AsynchDNS HSTS HTTPS-proxy IPv6 Largefile libz NTLM SSL threadsafe UnixSockets zstd ""; do
+    for feature in alt-svc AsynchDNS HSTS IPv6 Largefile libz NTLM SSL threadsafe UnixSockets zstd ''; do
       test -n "$feature" && echo "$feature"
     done
     ;;
 
   --protocols)
     # shellcheck disable=SC2043
-    for protocol in HTTP HTTPS IPFS IPNS; do
+    for protocol in HTTP HTTPS IPFS IPNS WS WSS; do
       echo "$protocol"
     done
     ;;
 
   --version)
-    echo 'libcurl 8.10.1-DEV'
+    echo 'libcurl 8.16.0-DEV'
     exit 0
     ;;
 
   --checkfor)
-    checkfor=$2
+    checkfor="$2"
     cmajor=`echo "$checkfor" | cut -d. -f1`
     cminor=`echo "$checkfor" | cut -d. -f2`
     # when extracting the patch part we strip off everything after a
     # dash as that's used for things like version 1.2.3-pre1
     cpatch=`echo "$checkfor" | cut -d. -f3 | cut -d- -f1`
 
-    vmajor=`echo '8.10.1-DEV' | cut -d. -f1`
-    vminor=`echo '8.10.1-DEV' | cut -d. -f2`
+    vmajor=`echo '8.16.0-DEV' | cut -d. -f1`
+    vminor=`echo '8.16.0-DEV' | cut -d. -f2`
     # when extracting the patch part we strip off everything after a
     # dash as that's used for things like version 1.2.3-pre1
-    vpatch=`echo '8.10.1-DEV' | cut -d. -f3 | cut -d- -f1`
+    vpatch=`echo '8.16.0-DEV' | cut -d. -f3 | cut -d- -f1`
 
     if test "$vmajor" -gt "$cmajor"; then
       exit 0
@@ -128,12 +127,12 @@ while test "$#" -gt 0; do
       fi
     fi
 
-    echo "requested version $checkfor is newer than existing 8.10.1-DEV"
+    echo "requested version $checkfor is newer than existing 8.16.0-DEV"
     exit 1
     ;;
 
   --vernum)
-    echo '080a01'
+    echo '081000'
     exit 0
     ;;
 
@@ -142,38 +141,33 @@ while test "$#" -gt 0; do
     ;;
 
   --cflags)
-    if test "X$cppflag_curl_staticlib" = "X-DCURL_STATICLIB"; then
-      CPPFLAG_CURL_STATICLIB="-DCURL_STATICLIB "
+    if test "${prefix}/include" = '/usr/include'; then
+      echo '-DCURL_STATICLIB'
     else
-      CPPFLAG_CURL_STATICLIB=""
-    fi
-    if test "X${prefix}/include" = "X/usr/include"; then
-      echo "${CPPFLAG_CURL_STATICLIB}"
-    else
-      echo "${CPPFLAG_CURL_STATICLIB}-I${prefix}/include"
+      echo "-DCURL_STATICLIB -I${prefix}/include"
     fi
     ;;
 
   --libs)
-    if test "X/usr/local/lib" != "X/usr/lib" -a "X/usr/local/lib" != "X/usr/lib64"; then
-      CURLLIBDIR="-L/usr/local/lib "
+    if test "${exec_prefix}/lib" != '/usr/lib' -a "${exec_prefix}/lib" != '/usr/lib64'; then
+      curllibdir="-L${exec_prefix}/lib "
     else
-      CURLLIBDIR=""
+      curllibdir=''
     fi
-    if test "Xno" = "Xno"; then
-      echo "${CURLLIBDIR}-lcurl -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem"
+    if test 'no' = 'no'; then
+      echo "${curllibdir}-lcurl -lSystem -lSystem -lstdc++ -lz -lSystem"
     else
-      echo "${CURLLIBDIR}-lcurl"
+      echo "${curllibdir}-lcurl"
     fi
     ;;
 
   --ssl-backends)
-    echo 'OpenSSL'
+    echo 'BoringSSL'
     ;;
 
   --static-libs)
-    if test "Xyes" != "Xno" ; then
-      echo "/usr/local/lib/libcurl.a" -stdlib=libc++ -Wno-unused-command-line-argument -fuse-ld=lld -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lz -lSystem
+    if test 'yes' != 'no'; then
+      echo "${exec_prefix}/lib/libcurl.a -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lstdc++ -lz -lSystem"
     else
       echo 'curl was built with static libraries disabled' >&2
       exit 1

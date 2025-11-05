@@ -5,14 +5,18 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 	{
 		!!Compile.Type "C"
 		SearchPath += [
-			`@('.'->MakeAbsolute())`->MakeAbsolute(),
-			`@('../../../../External/pcre2'->MakeAbsolute())`->MakeAbsolute(),
+			`@('.'->MakeAbsolute())/interface`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@('.'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
 			`@('../../../../External/pcre2'->MakeAbsolute())/src`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"HAVE_CONFIG_H",
 			"PCRE2_CODE_UNIT_WIDTH=8",
-			"PCRE2_STATIC"
+			"PCRE2_DEBUG",
+			"PCRE2_STATIC",
+			"_GNU_SOURCE"
 		]
 	}
 	Property.MalterlibTargetNameType "Normal"
@@ -30,17 +34,19 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 		{
 			%Group `@(FullConfiguration)`
 			{
-				%File `@('.'->MakeAbsolute())/pcre2.h`
+				%Group "interface"
 				{
-					Compile.Disabled true
+					%File `@('.'->MakeAbsolute())/interface/pcre2.h`
+					{
+						Compile.Disabled true
+					}
 				}
-				%File `@('.'->MakeAbsolute())/pcre2_chartables.c`
+				%Group "src"
 				{
-					Compile.Type "C"
-				}
-				%File `@('.'->MakeAbsolute())/config.h`
-				{
-					Compile.Disabled true
+					%File `@('.'->MakeAbsolute())/src/pcre2_chartables.c`
+					{
+						Compile.Type "C"
+					}
 				}
 			}
 		}
@@ -56,6 +62,14 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_compile.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_compile_cgroup.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_compile_class.c`
 		{
 			Compile.Type "C"
 		}
@@ -100,6 +114,10 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_match_data.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2_match_next.c`
 		{
 			Compile.Type "C"
 		}
@@ -163,14 +181,18 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 	{
 		!!Compile.Type "C"
 		SearchPath += [
-			`@('.'->MakeAbsolute())`->MakeAbsolute(),
-			`@('../../../../External/pcre2'->MakeAbsolute())`->MakeAbsolute(),
+			`@('.'->MakeAbsolute())/interface`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@('.'->MakeAbsolute())/src`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
 			`@('../../../../External/pcre2'->MakeAbsolute())/src`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"HAVE_CONFIG_H",
 			"PCRE2_CODE_UNIT_WIDTH=8",
-			"PCRE2_STATIC"
+			"PCRE2_DEBUG",
+			"PCRE2_STATIC",
+			"_GNU_SOURCE"
 		]
 	}
 	Property.MalterlibTargetNameType "Normal"
@@ -182,12 +204,24 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 	Target.Type "StaticLibrary"
 	Target.BaseName "PCRE2_pcre2-posix-static"
 	Target.BaseFileName "pcre2-posix-static"
+	%Group "Linux"
+	{
+		%Group "x86"
+		{
+			%Group `@(FullConfiguration)`
+			{
+				%Group "interface"
+				{
+					%File `@('.'->MakeAbsolute())/interface/pcre2posix.h`
+					{
+						Compile.Disabled true
+					}
+				}
+			}
+		}
+	}
 	%Group "src"
 	{
-		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2posix.h`
-		{
-			Compile.Disabled true
-		}
 		%File `@('../../../../External/pcre2'->MakeAbsolute())/src/pcre2posix.c`
 		{
 			Compile.Type "C"

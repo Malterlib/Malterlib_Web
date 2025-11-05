@@ -21,92 +21,39 @@
 # SPDX-License-Identifier: curl
 #
 ###########################################################################
+# Shared between CMakeLists.txt and Makefile.am
 
-set(noinst_PROGRAMS getpart resolve rtspd sockfilt sws tftpd    
- socksd disabled mqttd)
+set(BUNDLE servers)
 
-set(CURLX_SRCS 
- ../../lib/mprintf.c 
- ../../lib/nonblock.c 
- ../../lib/strtoofft.c 
- ../../lib/warnless.c 
- ../../lib/timediff.c 
- ../../lib/dynbuf.c 
- ../../lib/strdup.c 
- ../../lib/strcase.c 
- ../../lib/curl_multibyte.c)
+# Files referenced from the bundle source
+set(FIRST_C first.c)
+set(FIRST_H first.h)
 
-set(CURLX_HDRS 
- ../../lib/curlx.h 
- ../../lib/nonblock.h 
- ../../lib/strtoofft.h 
- ../../lib/warnless.h 
- ../../lib/timediff.h 
- ../../lib/curl_ctype.h 
- ../../lib/dynbuf.h 
- ../../lib/strdup.h 
- ../../lib/curl_multibyte.h)
+# Common files used by test programs
+set(UTILS_C memptr.c getpart.c util.c)
+set(UTILS_H )
 
-set(USEFUL 
- getpart.c 
- getpart.h 
- server_setup.h 
- ../../lib/base64.c 
- ../../lib/curl_base64.h 
- ../../lib/memdebug.c 
- ../../lib/memdebug.h)
+set(CURLX_C 
+  ../../lib/curlx/base64.c 
+  ../../lib/curlx/inet_pton.c 
+  ../../lib/curlx/inet_ntop.c 
+  ../../lib/curlx/multibyte.c 
+  ../../lib/curlx/nonblock.c 
+  ../../lib/curlx/strparse.c 
+  ../../lib/curlx/timediff.c 
+  ../../lib/curlx/timeval.c 
+  ../../lib/curlx/version_win32.c 
+  ../../lib/curlx/wait.c 
+  ../../lib/curlx/warnless.c 
+  ../../lib/curlx/winapi.c)
 
-set(UTIL 
- util.c 
- util.h)
-
-set(getpart_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} 
- testpart.c)
-set(getpart_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(getpart_CFLAGS ${AM_CFLAGS})
-
-set(resolve_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- resolve.c)
-set(resolve_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(resolve_CFLAGS ${AM_CFLAGS})
-
-set(rtspd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h 
- rtspd.c)
-set(rtspd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(rtspd_CFLAGS ${AM_CFLAGS})
-
-set(sockfilt_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h 
- sockfilt.c 
- ../../lib/inet_pton.c)
-set(sockfilt_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(sockfilt_CFLAGS ${AM_CFLAGS})
-
-set(socksd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h socksd.c 
- ../../lib/inet_pton.c)
-set(socksd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(socksd_CFLAGS ${AM_CFLAGS})
-
-set(mqttd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h mqttd.c 
- ../../lib/inet_pton.c)
-set(mqttd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(mqttd_CFLAGS ${AM_CFLAGS})
-
-set(sws_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h 
- sws.c 
- ../../lib/inet_pton.c)
-set(sws_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(sws_CFLAGS ${AM_CFLAGS})
-
-set(tftpd_SOURCES ${CURLX_SRCS} ${CURLX_HDRS} ${USEFUL} ${UTIL} 
- server_sockaddr.h 
- tftpd.c 
- tftp.h)
-set(tftpd_LDADD ${CURL_NETWORK_AND_TIME_LIBS})
-set(tftpd_CFLAGS ${AM_CFLAGS})
-
-set(disabled_SOURCES disabled.c)
+# All test servers
+set(TESTS_C 
+  dnsd.c 
+  mqttd.c 
+  resolve.c 
+  rtspd.c 
+  sockfilt.c 
+  socksd.c 
+  sws.c 
+  tftpd.c)

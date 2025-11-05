@@ -7,7 +7,7 @@ if(CMAKE_VERSION VERSION_LESS "2.8.3")
    message(FATAL_ERROR "CMake >= 2.8.3 required")
 endif()
 cmake_policy(PUSH)
-cmake_policy(VERSION 2.8.3...3.26)
+cmake_policy(VERSION 2.8.3...3.28)
 #----------------------------------------------------------------
 # Generated CMake target import file.
 #----------------------------------------------------------------
@@ -52,7 +52,8 @@ add_library(CURL::libcurl_static STATIC IMPORTED)
 set_target_properties(CURL::libcurl_static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB"
   INTERFACE_INCLUDE_DIRECTORIES "../../../../External/curl/include"
-  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:-lpthread>;\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:ZLIB::ZLIB>;../../../../Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so"
+  INTERFACE_LINK_DIRECTORIES ""
+  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:stdc++>;\$<LINK_ONLY:ZLIB::ZLIB>;../../../../Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so"
 )
 
 # Import target "CURL::libcurl_static" for configuration "Debug"

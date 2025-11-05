@@ -1,0 +1,15 @@
+# This is a generated file.  Do not edit.
+buildinfo.configure.tool: cmake
+buildinfo.configure.command: ../../../../BuildSystem/SafeMib/Binaries/MToolCMake.exe
+buildinfo.configure.version: 3.30.3-ga2c2755-dirty
+buildinfo.configure.args:
+buildinfo.configure.generator: Ninja
+buildinfo.configure.make: ../../../../BuildSystem/SafeMib/Binaries/ninja.exe
+buildinfo.host.cpu: AMD64
+buildinfo.host.os: Windows
+buildinfo.target.cpu: arm64
+buildinfo.target.os: Windows
+buildinfo.target.flags: WIN32 MSVC-1950 CROSS
+buildinfo.compiler: MSVC
+buildinfo.compiler.version: 19.50.35717.0
+buildinfo.sysroot: 
