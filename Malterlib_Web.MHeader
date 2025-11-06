@@ -29,6 +29,7 @@ Import "Apps/*/*.MHeader"
 	Repository
 	{
 		Type "External"
+		DefaultUpstreamBranch "main"
 		Remotes =+ {Name: "upstream", URL: "https://github.com/PCRE2Project/pcre2.git"}
 	}
 }
