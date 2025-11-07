@@ -9,7 +9,7 @@ buildinfo.host.cpu: arm64
 buildinfo.host.os: Darwin
 buildinfo.target.cpu: arm64
 buildinfo.target.os: Linux
-buildinfo.target.flags: UNIX CROSS
+buildinfo.target.flags: UNIX LLVM-CLANG CROSS
 buildinfo.compiler: Clang
 buildinfo.compiler.version: 20.1.5
 buildinfo.sysroot: ../../../../Binaries/MalterlibSDK/Linux/arm64/Linux.sdk

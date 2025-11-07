@@ -148,7 +148,7 @@
 /* disables SMTP */
 #define CURL_DISABLE_SMTP 1
 
-/* disabled WebSockets */
+/* disabled WebSocket */
 /* #undef CURL_DISABLE_WEBSOCKETS */
 
 /* disables use of socketpair for curl_multi_poll */
@@ -315,14 +315,11 @@
 /* if you have the gssapi libraries */
 /* #undef HAVE_GSSAPI */
 
-/* Define to 1 if you have the <gssapi/gssapi_generic.h> header file. */
-/* #undef HAVE_GSSAPI_GSSAPI_GENERIC_H */
-
-/* Define to 1 if you have the <gssapi/gssapi.h> header file. */
-/* #undef HAVE_GSSAPI_GSSAPI_H */
-
 /* if you have the GNU gssapi libraries */
 /* #undef HAVE_GSSGNU */
+
+/* MIT Kerberos version */
+/* #undef CURL_KRB5_VERSION */
 
 /* Define to 1 if you have the <ifaddrs.h> header file. */
 /* #undef HAVE_IFADDRS_H */
@@ -420,9 +417,6 @@
 
 /* Define to 1 if you have the <net/if.h> header file. */
 /* #undef HAVE_NET_IF_H */
-
-/* if you have an old MIT gssapi library, lacking GSS_C_NT_HOSTBASED_SERVICE */
-/* #undef HAVE_OLD_GSSMIT */
 
 /* Define to 1 if you have the `pipe' function. */
 /* #undef HAVE_PIPE */
@@ -679,6 +673,9 @@
 /* if mbedTLS is enabled */
 /* #undef USE_MBEDTLS */
 
+/* if mbedTLS <4 has the mbedtls_des_crypt_ecb function. */
+/* #undef HAVE_MBEDTLS_DES_CRYPT_ECB */
+
 /* if Rustls is enabled */
 /* #undef USE_RUSTLS */
 
@@ -705,9 +702,6 @@
 
 /* if libssh2 is in use */
 /* #undef USE_LIBSSH2 */
-
-/* if wolfssh is in use */
-/* #undef USE_WOLFSSH */
 
 /* if libpsl is in use */
 /* #undef USE_LIBPSL */
@@ -791,6 +785,9 @@
 /* to enable Apple IDN */
 /* #undef USE_APPLE_IDN */
 
+/* to enable Apple OS-native certificate verification */
+/* #undef USE_APPLE_SECTRUST */
+
 /* Define to 1 if OpenSSL has the SSL_CTX_set_srp_username function. */
 /* #undef HAVE_OPENSSL_SRP */
 
@@ -811,3 +808,6 @@
 
 /* Define to 1 if you have the SSL_set1_ech_config_list function. */
 /* #undef HAVE_SSL_SET1_ECH_CONFIG_LIST */
+
+/* Define to 1 if OpenSSL has the DES_ecb_encrypt function. */
+/* #undef HAVE_DES_ECB_ENCRYPT */

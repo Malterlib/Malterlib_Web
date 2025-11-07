@@ -32,7 +32,7 @@ supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile NTLM SSL threadsafe Un
 Name: libcurl
 URL: https://curl.se/
 Description: Library to transfer files with HTTP, FTP, etc.
-Version: 8.16.0-DEV
+Version: 8.17.0-DEV
 Requires: openssl,libzstd
 Requires.private: openssl,libzstd
 Libs: -L${libdir} -lcurl c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi

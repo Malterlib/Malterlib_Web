@@ -9,7 +9,7 @@ buildinfo.host.cpu: arm64
 buildinfo.host.os: Darwin
 buildinfo.target.cpu: arm64e
 buildinfo.target.os: Darwin
-buildinfo.target.flags: APPLE UNIX CROSS
+buildinfo.target.flags: APPLE UNIX APPLE-CLANG CROSS
 buildinfo.compiler: AppleClang
 buildinfo.compiler.version: 17.0.0.17000404
 buildinfo.sysroot: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk

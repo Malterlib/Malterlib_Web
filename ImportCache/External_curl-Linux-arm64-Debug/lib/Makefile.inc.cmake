@@ -26,10 +26,12 @@
 set(LIB_CURLX_CFILES 
   curlx/base64.c   
   curlx/dynbuf.c   
+  curlx/fopen.c    
   curlx/inet_ntop.c 
   curlx/inet_pton.c 
   curlx/multibyte.c 
   curlx/nonblock.c 
+  curlx/strerr.c   
   curlx/strparse.c 
   curlx/timediff.c 
   curlx/timeval.c  
@@ -43,10 +45,12 @@ set(LIB_CURLX_HFILES
   curlx/base64.h   
   curlx/curlx.h    
   curlx/dynbuf.h   
+  curlx/fopen.h    
   curlx/inet_ntop.h 
   curlx/inet_pton.h 
   curlx/multibyte.h 
   curlx/nonblock.h 
+  curlx/strerr.h   
   curlx/strparse.h 
   curlx/timediff.h 
   curlx/timeval.h  
@@ -75,6 +79,7 @@ set(LIB_VAUTH_HFILES
   vauth/vauth.h)
 
 set(LIB_VTLS_CFILES 
+  vtls/apple.c              
   vtls/cipher_suite.c       
   vtls/gtls.c               
   vtls/hostcheck.c          
@@ -92,6 +97,7 @@ set(LIB_VTLS_CFILES
   vtls/x509asn1.c)
 
 set(LIB_VTLS_HFILES 
+  vtls/apple.h              
   vtls/cipher_suite.h       
   vtls/gtls.h               
   vtls/hostcheck.h          
@@ -127,8 +133,7 @@ set(LIB_VQUIC_HFILES
 set(LIB_VSSH_CFILES 
   vssh/libssh.c    
   vssh/libssh2.c   
-  vssh/curl_path.c 
-  vssh/wolfssh.c)
+  vssh/curl_path.c)
 
 set(LIB_VSSH_HFILES 
   vssh/curl_path.h   
@@ -155,9 +160,9 @@ set(LIB_CFILES
   cookie.c           
   cshutdn.c          
   curl_addrinfo.c    
-  curl_des.c         
   curl_endian.c      
   curl_fnmatch.c     
+  curl_fopen.c       
   curl_get_line.c    
   curl_gethostname.c 
   curl_gssapi.c      
@@ -182,7 +187,6 @@ set(LIB_CFILES
   fake_addrinfo.c    
   file.c             
   fileinfo.c         
-  fopen.c            
   formdata.c         
   ftp.c              
   ftplistparser.c    
@@ -209,7 +213,6 @@ set(LIB_CFILES
   idn.c              
   if2ip.c            
   imap.c             
-  krb5.c             
   ldap.c             
   llist.c            
   macos.c            
@@ -221,6 +224,7 @@ set(LIB_CFILES
   mqtt.c             
   multi.c            
   multi_ev.c         
+  multi_ntfy.c       
   netrc.c            
   noproxy.c          
   openldap.c         
@@ -285,14 +289,13 @@ set(LIB_HFILES
   cookie.h           
   curl_addrinfo.h    
   curl_ctype.h       
-  curl_des.h         
   curl_endian.h      
   curl_fnmatch.h     
+  curl_fopen.h       
   curl_get_line.h    
   curl_gethostname.h 
   curl_gssapi.h      
   curl_hmac.h        
-  curl_krb5.h        
   curl_ldap.h        
   curl_md4.h         
   curl_md5.h         
@@ -323,7 +326,6 @@ set(LIB_HFILES
   fake_addrinfo.h    
   file.h             
   fileinfo.h         
-  fopen.h            
   formdata.h         
   ftp.h              
   ftplistparser.h    
@@ -354,6 +356,7 @@ set(LIB_HFILES
   mqtt.h             
   multihandle.h      
   multi_ev.h         
+  multi_ntfy.h       
   multiif.h          
   netrc.h            
   noproxy.h          

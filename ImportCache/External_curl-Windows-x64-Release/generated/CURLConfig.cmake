@@ -70,7 +70,7 @@ if(NOT TARGET CURL::libcurl)
 endif()
 
 # For compatibility with CMake's FindCURL.cmake
-set(CURL_VERSION_STRING "8.16.0-DEV")
+set(CURL_VERSION_STRING "8.17.0-DEV")
 set(CURL_LIBRARIES CURL::libcurl)
 set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
 

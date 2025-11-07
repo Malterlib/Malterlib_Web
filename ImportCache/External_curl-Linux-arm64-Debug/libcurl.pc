@@ -27,12 +27,12 @@ exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 supported_protocols="HTTP HTTPS IPFS IPNS WS WSS"
-supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile libz NTLM SSL threadsafe UnixSockets zstd"
+supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile libz SSL threadsafe UnixSockets zstd"
 
 Name: libcurl
 URL: https://curl.se/
 Description: Library to transfer files with HTTP, FTP, etc.
-Version: 8.16.0-DEV
+Version: 8.17.0-DEV
 Requires: openssl,zlib,libzstd
 Requires.private: openssl,zlib,libzstd
 Libs: -L${libdir} -lcurl -lc -lc -lstdc++ -lz -lc

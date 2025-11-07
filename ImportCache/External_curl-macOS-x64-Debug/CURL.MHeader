@@ -462,15 +462,15 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Disabled true
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_des.h`
-		{
-			Compile.Disabled true
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_endian.h`
 		{
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fnmatch.h`
+		{
+			Compile.Disabled true
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fopen.h`
 		{
 			Compile.Disabled true
 		}
@@ -487,10 +487,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_hmac.h`
-		{
-			Compile.Disabled true
-		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_krb5.h`
 		{
 			Compile.Disabled true
 		}
@@ -614,10 +610,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Disabled true
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fopen.h`
-		{
-			Compile.Disabled true
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/formdata.h`
 		{
 			Compile.Disabled true
@@ -735,6 +727,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ev.h`
+		{
+			Compile.Disabled true
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ntfy.h`
 		{
 			Compile.Disabled true
 		}
@@ -975,6 +971,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		}
 		%Group "vtls"
 		{
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/apple.h`
+			{
+				Compile.Disabled true
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/cipher_suite.h`
 			{
 				Compile.Disabled true
@@ -1038,6 +1038,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/x509asn1.h`
 			{
 				Compile.Disabled true
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/apple.c`
+			{
+				Compile.Type "C"
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/cipher_suite.c`
 			{
@@ -1169,10 +1173,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Type "C"
 			}
-			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vssh/wolfssh.c`
-			{
-				Compile.Type "C"
-			}
 		}
 		%Group "curlx"
 		{
@@ -1192,6 +1192,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Disabled true
 			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.h`
+			{
+				Compile.Disabled true
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.h`
 			{
 				Compile.Disabled true
@@ -1205,6 +1209,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 				Compile.Disabled true
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.h`
+			{
+				Compile.Disabled true
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.h`
 			{
 				Compile.Disabled true
 			}
@@ -1244,6 +1252,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Type "C"
 			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.c`
+			{
+				Compile.Type "C"
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.c`
 			{
 				Compile.Type "C"
@@ -1257,6 +1269,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 				Compile.Type "C"
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.c`
 			{
 				Compile.Type "C"
 			}
@@ -1369,15 +1385,15 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Type "C"
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_des.c`
-		{
-			Compile.Type "C"
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_endian.c`
 		{
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fnmatch.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fopen.c`
 		{
 			Compile.Type "C"
 		}
@@ -1474,10 +1490,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fileinfo.c`
-		{
-			Compile.Type "C"
-		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fopen.c`
 		{
 			Compile.Type "C"
 		}
@@ -1585,10 +1597,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Type "C"
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/krb5.c`
-		{
-			Compile.Type "C"
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/ldap.c`
 		{
 			Compile.Type "C"
@@ -1630,6 +1638,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ev.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ntfy.c`
 		{
 			Compile.Type "C"
 		}
@@ -1848,7 +1860,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 						Compile
 						{
 							Type "Custom"
-							Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/extract-unit-protos`->MakeAbsolute()->EscapeHost()) altsvc.c amigaos.c asyn-ares.c asyn-base.c asyn-thrdd.c bufq.c bufref.c cf-h1-proxy.c cf-h2-proxy.c cf-haproxy.c cf-https-connect.c cf-ip-happy.c cf-socket.c cfilters.c conncache.c connect.c content_encoding.c cookie.c cshutdn.c curl_addrinfo.c curl_des.c curl_endian.c curl_fnmatch.c curl_get_line.c curl_gethostname.c curl_gssapi.c curl_memrchr.c curl_ntlm_core.c curl_range.c curl_rtmp.c curl_sasl.c curl_sha512_256.c curl_sspi.c curl_threads.c curl_trc.c cw-out.c cw-pause.c dict.c doh.c dynhds.c easy.c easygetopt.c easyoptions.c escape.c fake_addrinfo.c file.c fileinfo.c fopen.c formdata.c ftp.c ftplistparser.c getenv.c getinfo.c gopher.c hash.c headers.c hmac.c hostip.c hostip4.c hostip6.c hsts.c http.c http1.c http2.c http_aws_sigv4.c http_chunks.c http_digest.c http_negotiate.c http_ntlm.c http_proxy.c httpsrr.c idn.c if2ip.c imap.c krb5.c ldap.c llist.c macos.c md4.c md5.c memdebug.c mime.c mprintf.c mqtt.c multi.c multi_ev.c netrc.c noproxy.c openldap.c parsedate.c pingpong.c pop3.c progress.c psl.c rand.c rename.c request.c rtsp.c select.c sendf.c setopt.c sha256.c share.c slist.c smb.c smtp.c socketpair.c socks.c socks_gssapi.c socks_sspi.c speedcheck.c splay.c strcase.c strdup.c strequal.c strerror.c system_win32.c telnet.c tftp.c transfer.c uint-bset.c uint-hash.c uint-spbset.c uint-table.c url.c urlapi.c version.c ws.c vauth/cleartext.c vauth/cram.c vauth/digest.c vauth/digest_sspi.c vauth/gsasl.c vauth/krb5_gssapi.c vauth/krb5_sspi.c vauth/ntlm.c vauth/ntlm_sspi.c vauth/oauth2.c vauth/spnego_gssapi.c vauth/spnego_sspi.c vauth/vauth.c vtls/cipher_suite.c vtls/gtls.c vtls/hostcheck.c vtls/keylog.c vtls/mbedtls.c vtls/mbedtls_threadlock.c vtls/openssl.c vtls/rustls.c vtls/schannel.c vtls/schannel_verify.c vtls/vtls.c vtls/vtls_scache.c vtls/vtls_spack.c vtls/wolfssl.c vtls/x509asn1.c vquic/curl_ngtcp2.c vquic/curl_osslq.c vquic/curl_quiche.c vquic/vquic.c vquic/vquic-tls.c vssh/libssh.c vssh/libssh2.c vssh/curl_path.c vssh/wolfssh.c curlx/base64.c curlx/dynbuf.c curlx/inet_ntop.c curlx/inet_pton.c curlx/multibyte.c curlx/nonblock.c curlx/strparse.c curlx/timediff.c curlx/timeval.c curlx/version_win32.c curlx/wait.c curlx/warnless.c curlx/winapi.c > @(`@(CMakeIntermediateDirectory)/External_curl/lib/unitprotos.h`->MakeAbsolute()->EscapeHost())`
+							Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/extract-unit-protos`->MakeAbsolute()->EscapeHost()) altsvc.c amigaos.c asyn-ares.c asyn-base.c asyn-thrdd.c bufq.c bufref.c cf-h1-proxy.c cf-h2-proxy.c cf-haproxy.c cf-https-connect.c cf-ip-happy.c cf-socket.c cfilters.c conncache.c connect.c content_encoding.c cookie.c cshutdn.c curl_addrinfo.c curl_endian.c curl_fnmatch.c curl_fopen.c curl_get_line.c curl_gethostname.c curl_gssapi.c curl_memrchr.c curl_ntlm_core.c curl_range.c curl_rtmp.c curl_sasl.c curl_sha512_256.c curl_sspi.c curl_threads.c curl_trc.c cw-out.c cw-pause.c dict.c doh.c dynhds.c easy.c easygetopt.c easyoptions.c escape.c fake_addrinfo.c file.c fileinfo.c formdata.c ftp.c ftplistparser.c getenv.c getinfo.c gopher.c hash.c headers.c hmac.c hostip.c hostip4.c hostip6.c hsts.c http.c http1.c http2.c http_aws_sigv4.c http_chunks.c http_digest.c http_negotiate.c http_ntlm.c http_proxy.c httpsrr.c idn.c if2ip.c imap.c ldap.c llist.c macos.c md4.c md5.c memdebug.c mime.c mprintf.c mqtt.c multi.c multi_ev.c multi_ntfy.c netrc.c noproxy.c openldap.c parsedate.c pingpong.c pop3.c progress.c psl.c rand.c rename.c request.c rtsp.c select.c sendf.c setopt.c sha256.c share.c slist.c smb.c smtp.c socketpair.c socks.c socks_gssapi.c socks_sspi.c speedcheck.c splay.c strcase.c strdup.c strequal.c strerror.c system_win32.c telnet.c tftp.c transfer.c uint-bset.c uint-hash.c uint-spbset.c uint-table.c url.c urlapi.c version.c ws.c vauth/cleartext.c vauth/cram.c vauth/digest.c vauth/digest_sspi.c vauth/gsasl.c vauth/krb5_gssapi.c vauth/krb5_sspi.c vauth/ntlm.c vauth/ntlm_sspi.c vauth/oauth2.c vauth/spnego_gssapi.c vauth/spnego_sspi.c vauth/vauth.c vtls/apple.c vtls/cipher_suite.c vtls/gtls.c vtls/hostcheck.c vtls/keylog.c vtls/mbedtls.c vtls/mbedtls_threadlock.c vtls/openssl.c vtls/rustls.c vtls/schannel.c vtls/schannel_verify.c vtls/vtls.c vtls/vtls_scache.c vtls/vtls_spack.c vtls/wolfssl.c vtls/x509asn1.c vquic/curl_ngtcp2.c vquic/curl_osslq.c vquic/curl_quiche.c vquic/vquic.c vquic/vquic-tls.c vssh/libssh.c vssh/libssh2.c vssh/curl_path.c curlx/base64.c curlx/dynbuf.c curlx/fopen.c curlx/inet_ntop.c curlx/inet_pton.c curlx/multibyte.c curlx/nonblock.c curlx/strerr.c curlx/strparse.c curlx/timediff.c curlx/timeval.c curlx/version_win32.c curlx/wait.c curlx/warnless.c curlx/winapi.c > @(`@(CMakeIntermediateDirectory)/External_curl/lib/unitprotos.h`->MakeAbsolute()->EscapeHost())`
 							AllowNonExisting true
 							Disabled false
 							Custom_WorkingDirectory `@('../../../../External/curl'->MakeAbsolute())/lib`->MakeAbsolute()
@@ -1877,9 +1889,9 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/cookie.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/cshutdn.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_addrinfo.c`->MakeAbsolute(),
-								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_des.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_endian.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_fnmatch.c`->MakeAbsolute(),
+								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_fopen.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_get_line.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_gethostname.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curl_gssapi.c`->MakeAbsolute(),
@@ -1904,7 +1916,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/fake_addrinfo.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/file.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/fileinfo.c`->MakeAbsolute(),
-								`@('../../../../External/curl'->MakeAbsolute())/lib/fopen.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/formdata.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/ftp.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/ftplistparser.c`->MakeAbsolute(),
@@ -1931,7 +1942,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/idn.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/if2ip.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/imap.c`->MakeAbsolute(),
-								`@('../../../../External/curl'->MakeAbsolute())/lib/krb5.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/ldap.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/llist.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/macos.c`->MakeAbsolute(),
@@ -1943,6 +1953,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/mqtt.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/multi.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/multi_ev.c`->MakeAbsolute(),
+								`@('../../../../External/curl'->MakeAbsolute())/lib/multi_ntfy.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/netrc.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/noproxy.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/openldap.c`->MakeAbsolute(),
@@ -1998,6 +2009,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vauth/spnego_gssapi.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vauth/spnego_sspi.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vauth/vauth.c`->MakeAbsolute(),
+								`@('../../../../External/curl'->MakeAbsolute())/lib/vtls/apple.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vtls/cipher_suite.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vtls/gtls.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vtls/hostcheck.c`->MakeAbsolute(),
@@ -2021,13 +2033,14 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vssh/libssh.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vssh/libssh2.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/vssh/curl_path.c`->MakeAbsolute(),
-								`@('../../../../External/curl'->MakeAbsolute())/lib/vssh/wolfssh.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/base64.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/dynbuf.c`->MakeAbsolute(),
+								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_pton.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/multibyte.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.c`->MakeAbsolute(),
+								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strparse.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/timediff.c`->MakeAbsolute(),
 								`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/timeval.c`->MakeAbsolute(),
@@ -2152,15 +2165,15 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Disabled true
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_des.h`
-		{
-			Compile.Disabled true
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_endian.h`
 		{
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fnmatch.h`
+		{
+			Compile.Disabled true
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fopen.h`
 		{
 			Compile.Disabled true
 		}
@@ -2177,10 +2190,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_hmac.h`
-		{
-			Compile.Disabled true
-		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_krb5.h`
 		{
 			Compile.Disabled true
 		}
@@ -2304,10 +2313,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Disabled true
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fopen.h`
-		{
-			Compile.Disabled true
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/formdata.h`
 		{
 			Compile.Disabled true
@@ -2425,6 +2430,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Disabled true
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ev.h`
+		{
+			Compile.Disabled true
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ntfy.h`
 		{
 			Compile.Disabled true
 		}
@@ -2665,6 +2674,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		}
 		%Group "vtls"
 		{
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/apple.h`
+			{
+				Compile.Disabled true
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/cipher_suite.h`
 			{
 				Compile.Disabled true
@@ -2728,6 +2741,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/x509asn1.h`
 			{
 				Compile.Disabled true
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/apple.c`
+			{
+				Compile.Type "C"
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vtls/cipher_suite.c`
 			{
@@ -2859,10 +2876,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Type "C"
 			}
-			%File `@('../../../../External/curl'->MakeAbsolute())/lib/vssh/wolfssh.c`
-			{
-				Compile.Type "C"
-			}
 		}
 		%Group "curlx"
 		{
@@ -2882,6 +2895,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Disabled true
 			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.h`
+			{
+				Compile.Disabled true
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.h`
 			{
 				Compile.Disabled true
@@ -2895,6 +2912,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 				Compile.Disabled true
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.h`
+			{
+				Compile.Disabled true
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.h`
 			{
 				Compile.Disabled true
 			}
@@ -2934,6 +2955,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Type "C"
 			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.c`
+			{
+				Compile.Type "C"
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.c`
 			{
 				Compile.Type "C"
@@ -2947,6 +2972,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 				Compile.Type "C"
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.c`
 			{
 				Compile.Type "C"
 			}
@@ -3059,15 +3088,15 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Type "C"
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_des.c`
-		{
-			Compile.Type "C"
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_endian.c`
 		{
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fnmatch.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/curl_fopen.c`
 		{
 			Compile.Type "C"
 		}
@@ -3164,10 +3193,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fileinfo.c`
-		{
-			Compile.Type "C"
-		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/fopen.c`
 		{
 			Compile.Type "C"
 		}
@@ -3275,10 +3300,6 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		{
 			Compile.Type "C"
 		}
-		%File `@('../../../../External/curl'->MakeAbsolute())/lib/krb5.c`
-		{
-			Compile.Type "C"
-		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/ldap.c`
 		{
 			Compile.Type "C"
@@ -3320,6 +3341,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			Compile.Type "C"
 		}
 		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ev.c`
+		{
+			Compile.Type "C"
+		}
+		%File `@('../../../../External/curl'->MakeAbsolute())/lib/multi_ntfy.c`
 		{
 			Compile.Type "C"
 		}
@@ -4345,6 +4370,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	{
 		Dependency.Link false
 	}
+	%Dependency "Com_CURL_curl-example-cacertinmem"
+	{
+		Dependency.Link false
+	}
 	%Dependency "Com_CURL_curl-example-certinfo"
 	{
 		Dependency.Link false
@@ -4561,6 +4590,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	{
 		Dependency.Link false
 	}
+	%Dependency "Com_CURL_curl-example-log_failed_transfers"
+	{
+		Dependency.Link false
+	}
 	%Dependency "Com_CURL_curl-example-maxconnects"
 	{
 		Dependency.Link false
@@ -4590,6 +4623,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		Dependency.Link false
 	}
 	%Dependency "Com_CURL_curl-example-multi-single"
+	{
+		Dependency.Link false
+	}
+	%Dependency "Com_CURL_curl-example-multithread"
 	{
 		Dependency.Link false
 	}
@@ -4753,6 +4790,14 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	{
 		Dependency.Link false
 	}
+	%Dependency "Com_CURL_curl-example-synctime"
+	{
+		Dependency.Link false
+	}
+	%Dependency "Com_CURL_curl-example-threaded-ssl"
+	{
+		Dependency.Link false
+	}
 	%Dependency "Com_CURL_curl-example-unixsocket"
 	{
 		Dependency.Link false
@@ -4762,6 +4807,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		Dependency.Link false
 	}
 	%Dependency "Com_CURL_curl-example-urlapi"
+	{
+		Dependency.Link false
+	}
+	%Dependency "Com_CURL_curl-example-usercertinmem"
 	{
 		Dependency.Link false
 	}
@@ -4777,6 +4826,142 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	{
 		Dependency.Link false
 	}
+}
+%Target "Com_CURL_curl-example-cacertinmem"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-cacertinmem"
+	Target.BaseFileName "curl-example-cacertinmem"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/cacertinmem.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
+}
+%Target "Com_CURL_curl-example-multithread"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-multithread"
+	Target.BaseFileName "curl-example-multithread"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/multithread.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
+}
+%Target "Com_CURL_curl-example-threaded-ssl"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-threaded-ssl"
+	Target.BaseFileName "curl-example-threaded-ssl"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/threaded-ssl.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
+}
+%Target "Com_CURL_curl-example-usercertinmem"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-usercertinmem"
+	Target.BaseFileName "curl-example-usercertinmem"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/usercertinmem.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
 }
 %Target "Com_CURL_curl-example-10-at-a-time"
 {
@@ -6725,6 +6910,39 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	}
 	%Dependency "Lib_CURL_libcurl_static"
 }
+%Target "Com_CURL_curl-example-log_failed_transfers"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-log_failed_transfers"
+	Target.BaseFileName "curl-example-log_failed_transfers"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/log_failed_transfers.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
+}
 %Target "Com_CURL_curl-example-maxconnects"
 {
 	Compile
@@ -8309,6 +8527,39 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	}
 	%Dependency "Lib_CURL_libcurl_static"
 }
+%Target "Com_CURL_curl-example-synctime"
+{
+	Compile
+	{
+		!!Compile.Type "C"
+		SearchPath += [
+			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute()
+		]
+		PreprocessorDefines += [
+			"CURL_NO_OLDIES",
+			"CURL_STATICLIB",
+			"HAVE_CONFIG_H"
+		]
+	}
+	Property.MalterlibTargetNameType "Normal"
+	Compile.AllowNonExisting true
+	Target.Group "External/CURL"
+	{
+		!!Target.Group undefined
+	}
+	Target.Type "ConsoleExecutable"
+	Target.BaseName "CURL_curl-example-synctime"
+	Target.BaseFileName "curl-example-synctime"
+	%Group "docs"
+	{
+		%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/synctime.c`
+		{
+			Compile.Type "C"
+		}
+	}
+	%Dependency "Lib_CURL_libcurl_static"
+}
 %Target "Com_CURL_curl-example-unixsocket"
 {
 	Compile
@@ -8514,7 +8765,8 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		!!Compile.Type "C"
 		SearchPath += [
 			`@('../../../../External/curl'->MakeAbsolute())/include`->MakeAbsolute(),
-			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute()
+			`@('../../../..'->MakeAbsolute())/External/zstd/lib`->MakeAbsolute(),
+			`@('../../../..'->MakeAbsolute())/External/boringssl/include`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
 			"CURL_NO_OLDIES",
@@ -8536,6 +8788,22 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 	{
 		%Group "examples"
 		{
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/cacertinmem.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/multithread.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/threaded-ssl.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/usercertinmem.c`
+			{
+				Compile.Type "C"
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/10-at-a-time.c`
 			{
 				Compile.Type "C"
@@ -8772,6 +9040,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 			{
 				Compile.Type "C"
 			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/log_failed_transfers.c`
+			{
+				Compile.Type "C"
+			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/maxconnects.c`
 			{
 				Compile.Type "C"
@@ -8961,6 +9233,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 				Compile.Type "C"
 			}
 			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/sslbackend.c`
+			{
+				Compile.Type "C"
+			}
+			%File `@('../../../../External/curl'->MakeAbsolute())/docs/examples/synctime.c`
 			{
 				Compile.Type "C"
 			}
@@ -9483,6 +9759,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								Custom_Outputs []
 								Custom_Inputs [
 									`@('.'->MakeAbsolute())/src/curl`->MakeAbsolute(),
+									`@('.'->MakeAbsolute())/src/curlinfo`->MakeAbsolute(),
 									`@('.'->MakeAbsolute())/tests/libtest/libtests`->MakeAbsolute()
 								]
 							}
@@ -9493,6 +9770,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		}
 	}
 	%Dependency "Com_CURL_curl"
+	{
+		Dependency.Link false
+	}
+	%Dependency "Com_CURL_curlinfo"
 	{
 		Dependency.Link false
 	}
@@ -9535,6 +9816,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 								Custom_Outputs []
 								Custom_Inputs [
 									`@('.'->MakeAbsolute())/src/curl`->MakeAbsolute(),
+									`@('.'->MakeAbsolute())/src/curlinfo`->MakeAbsolute(),
 									`@('.'->MakeAbsolute())/tests/libtest/libtests`->MakeAbsolute()
 								]
 							}
@@ -9545,6 +9827,10 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 		}
 	}
 	%Dependency "Com_CURL_curl"
+	{
+		Dependency.Link false
+	}
+	%Dependency "Com_CURL_curlinfo"
 	{
 		Dependency.Link false
 	}
@@ -9599,7 +9885,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 							Compile
 							{
 								Type "Custom"
-								Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/mk-unity.pl`->MakeAbsolute()->EscapeHost()) --include memptr.c getpart.c util.c ../../lib/curlx/base64.c ../../lib/curlx/inet_pton.c ../../lib/curlx/inet_ntop.c ../../lib/curlx/multibyte.c ../../lib/curlx/nonblock.c ../../lib/curlx/strparse.c ../../lib/curlx/timediff.c ../../lib/curlx/timeval.c ../../lib/curlx/version_win32.c ../../lib/curlx/wait.c ../../lib/curlx/warnless.c ../../lib/curlx/winapi.c --test dnsd.c mqttd.c resolve.c rtspd.c sockfilt.c socksd.c sws.c tftpd.c > servers.c`
+								Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/mk-unity.pl`->MakeAbsolute()->EscapeHost()) --include getpart.c util.c ../../lib/curlx/base64.c ../../lib/curlx/fopen.c ../../lib/curlx/inet_ntop.c ../../lib/curlx/inet_pton.c ../../lib/curlx/multibyte.c ../../lib/curlx/nonblock.c ../../lib/curlx/strerr.c ../../lib/curlx/strparse.c ../../lib/curlx/timediff.c ../../lib/curlx/timeval.c ../../lib/curlx/version_win32.c ../../lib/curlx/wait.c ../../lib/curlx/warnless.c ../../lib/curlx/winapi.c --test dnsd.c mqttd.c resolve.c rtspd.c sockfilt.c socksd.c sws.c tftpd.c > servers.c`
 								AllowNonExisting true
 								Custom_WorkingDirectory `@('.'->MakeAbsolute())/tests/server`->MakeAbsolute()
 								Custom_Outputs [
@@ -9609,14 +9895,15 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 									`@('../../../../External/curl'->MakeAbsolute())/scripts/mk-unity.pl`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/server/Makefile.inc`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/server/first.c`->MakeAbsolute(),
-									`@('../../../../External/curl'->MakeAbsolute())/tests/server/memptr.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/server/getpart.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/server/util.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/base64.c`->MakeAbsolute(),
-									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_pton.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/fopen.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_ntop.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/inet_pton.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/multibyte.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/nonblock.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strerr.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/strparse.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/timediff.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/lib/curlx/timeval.c`->MakeAbsolute(),
@@ -9689,7 +9976,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 							Compile
 							{
 								Type "Custom"
-								Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/mk-unity.pl`->MakeAbsolute()->EscapeHost()) --include memptr.c testutil.c testtrace.c --test cli_h2_pausing.c cli_h2_serverpush.c cli_h2_upgrade_extreme.c cli_hx_download.c cli_hx_upload.c cli_tls_session_reuse.c cli_upload_pausing.c cli_ws_data.c cli_ws_pingpong.c lib500.c lib501.c lib502.c lib503.c lib504.c lib505.c lib506.c lib507.c lib508.c lib509.c lib510.c lib511.c lib512.c lib513.c lib514.c lib515.c lib516.c lib517.c lib518.c lib519.c lib520.c lib521.c lib523.c lib524.c lib525.c lib526.c lib530.c lib533.c lib536.c lib537.c lib539.c lib540.c lib541.c lib542.c lib543.c lib544.c lib547.c lib549.c lib552.c lib553.c lib554.c lib555.c lib556.c lib557.c lib558.c lib559.c lib560.c lib562.c lib564.c lib566.c lib567.c lib568.c lib569.c lib570.c lib571.c lib572.c lib573.c lib574.c lib575.c lib576.c lib578.c lib579.c lib582.c lib583.c lib586.c lib589.c lib590.c lib591.c lib597.c lib598.c lib599.c lib643.c lib650.c lib651.c lib652.c lib653.c lib654.c lib655.c lib658.c lib659.c lib661.c lib666.c lib667.c lib668.c lib670.c lib674.c lib676.c lib677.c lib678.c lib694.c lib695.c lib751.c lib753.c lib758.c lib757.c lib1156.c lib1301.c lib1308.c lib1485.c lib1500.c lib1501.c lib1502.c lib1506.c lib1507.c lib1508.c lib1509.c lib1510.c lib1511.c lib1512.c lib1513.c lib1514.c lib1515.c lib1517.c lib1518.c lib1520.c lib1522.c lib1523.c lib1525.c lib1526.c lib1527.c lib1528.c lib1529.c lib1530.c lib1531.c lib1532.c lib1533.c lib1534.c lib1535.c lib1536.c lib1537.c lib1538.c lib1540.c lib1541.c lib1542.c lib1545.c lib1549.c lib1550.c lib1551.c lib1552.c lib1553.c lib1554.c lib1555.c lib1556.c lib1557.c lib1558.c lib1559.c lib1560.c lib1564.c lib1565.c lib1567.c lib1568.c lib1569.c lib1571.c lib1576.c lib1591.c lib1592.c lib1593.c lib1594.c lib1597.c lib1598.c lib1599.c lib1662.c lib1900.c lib1901.c lib1903.c lib1905.c lib1906.c lib1907.c lib1908.c lib1910.c lib1911.c lib1912.c lib1913.c lib1915.c lib1916.c lib1918.c lib1919.c lib1933.c lib1934.c lib1935.c lib1936.c lib1937.c lib1938.c lib1939.c lib1940.c lib1945.c lib1947.c lib1948.c lib1955.c lib1956.c lib1957.c lib1958.c lib1959.c lib1960.c lib1964.c lib1970.c lib1971.c lib1972.c lib1973.c lib1974.c lib1975.c lib1977.c lib1978.c lib2023.c lib2032.c lib2082.c lib2301.c lib2302.c lib2304.c lib2306.c lib2308.c lib2309.c lib2402.c lib2404.c lib2405.c lib2502.c lib2700.c lib3010.c lib3025.c lib3026.c lib3027.c lib3033.c lib3034.c lib3100.c lib3101.c lib3102.c lib3103.c lib3104.c lib3105.c lib3207.c lib3208.c lib1521.c > libtests.c`
+								Custom_CommandLine `perl @(`@('../../../../External/curl'->MakeAbsolute())/scripts/mk-unity.pl`->MakeAbsolute()->EscapeHost()) --include memptr.c testutil.c testtrace.c --test cli_h2_pausing.c cli_h2_serverpush.c cli_h2_upgrade_extreme.c cli_hx_download.c cli_hx_upload.c cli_tls_session_reuse.c cli_upload_pausing.c cli_ws_data.c cli_ws_pingpong.c lib500.c lib501.c lib502.c lib503.c lib504.c lib505.c lib506.c lib507.c lib508.c lib509.c lib510.c lib511.c lib512.c lib513.c lib514.c lib515.c lib516.c lib517.c lib518.c lib519.c lib520.c lib521.c lib523.c lib524.c lib525.c lib526.c lib530.c lib533.c lib536.c lib537.c lib539.c lib540.c lib541.c lib542.c lib543.c lib544.c lib547.c lib549.c lib552.c lib553.c lib554.c lib555.c lib556.c lib557.c lib558.c lib559.c lib560.c lib562.c lib564.c lib566.c lib567.c lib568.c lib569.c lib570.c lib571.c lib572.c lib573.c lib574.c lib575.c lib576.c lib578.c lib579.c lib582.c lib583.c lib586.c lib589.c lib590.c lib591.c lib597.c lib598.c lib599.c lib643.c lib650.c lib651.c lib652.c lib653.c lib654.c lib655.c lib658.c lib659.c lib661.c lib666.c lib667.c lib668.c lib670.c lib674.c lib676.c lib677.c lib678.c lib694.c lib695.c lib751.c lib753.c lib758.c lib757.c lib766.c lib1156.c lib1301.c lib1308.c lib1485.c lib1500.c lib1501.c lib1502.c lib1506.c lib1507.c lib1508.c lib1509.c lib1510.c lib1511.c lib1512.c lib1513.c lib1514.c lib1515.c lib1517.c lib1518.c lib1520.c lib1522.c lib1523.c lib1525.c lib1526.c lib1527.c lib1528.c lib1529.c lib1530.c lib1531.c lib1532.c lib1533.c lib1534.c lib1535.c lib1536.c lib1537.c lib1538.c lib1540.c lib1541.c lib1542.c lib1545.c lib1549.c lib1550.c lib1551.c lib1552.c lib1553.c lib1554.c lib1555.c lib1556.c lib1557.c lib1558.c lib1559.c lib1560.c lib1564.c lib1565.c lib1567.c lib1568.c lib1569.c lib1571.c lib1576.c lib1582.c lib1591.c lib1592.c lib1593.c lib1594.c lib1597.c lib1598.c lib1599.c lib1662.c lib1900.c lib1901.c lib1902.c lib1903.c lib1905.c lib1906.c lib1907.c lib1908.c lib1910.c lib1911.c lib1912.c lib1913.c lib1915.c lib1916.c lib1918.c lib1919.c lib1933.c lib1934.c lib1935.c lib1936.c lib1937.c lib1938.c lib1939.c lib1940.c lib1945.c lib1947.c lib1948.c lib1955.c lib1956.c lib1957.c lib1958.c lib1959.c lib1960.c lib1964.c lib1970.c lib1971.c lib1972.c lib1973.c lib1974.c lib1975.c lib1977.c lib1978.c lib2023.c lib2032.c lib2082.c lib2301.c lib2302.c lib2304.c lib2306.c lib2308.c lib2309.c lib2402.c lib2404.c lib2405.c lib2502.c lib2700.c lib3010.c lib3025.c lib3026.c lib3027.c lib3033.c lib3034.c lib3100.c lib3101.c lib3102.c lib3103.c lib3104.c lib3105.c lib3207.c lib3208.c lib1521.c > libtests.c`
 								AllowNonExisting true
 								Custom_WorkingDirectory `@('.'->MakeAbsolute())/tests/libtest`->MakeAbsolute()
 								Custom_Outputs [
@@ -9806,6 +10093,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib753.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib758.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib757.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib766.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1156.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1301.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1308.c`->MakeAbsolute(),
@@ -9865,6 +10153,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1569.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1571.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1576.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1582.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1591.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1592.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1593.c`->MakeAbsolute(),
@@ -9875,6 +10164,7 @@ Property.CMakeOutputPath_CURL: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1662.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1900.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1901.c`->MakeAbsolute(),
+									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1902.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1903.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1905.c`->MakeAbsolute(),
 									`@('../../../../External/curl'->MakeAbsolute())/tests/libtest/lib1906.c`->MakeAbsolute(),
