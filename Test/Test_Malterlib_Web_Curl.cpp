@@ -399,9 +399,23 @@ public:
 					DMibExpectException
 						(
 							CurlResult.f_Access()
-							, DMibErrorInstance("libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate problem: unable to get local issuer certificate")
+							, DMibErrorInstance
+							(
+								"libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate OpenSSL verify result: unable to get local issuer certificate (20)"
+							)
 						)
 					;
+				}
+				co_await fg_Move(CurlActor).f_Destroy();
+			}
+			{
+				NHTTP::CURL HttpsUrl("https://www.google.com/");
+				DMibTestPath("Public Certificate");
+				TCActor<CCurlActor> CurlActor(fg_Construct(), "Curl");
+				{
+					DMibTestPath("HTTPS");
+					auto CurlResult = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
+					DMibExpectNoException(CurlResult.f_Access());
 				}
 				co_await fg_Move(CurlActor).f_Destroy();
 			}
