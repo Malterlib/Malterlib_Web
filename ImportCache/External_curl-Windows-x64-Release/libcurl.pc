@@ -35,7 +35,7 @@ Description: Library to transfer files with HTTP, FTP, etc.
 Version: 8.17.0-DEV
 Requires: openssl,libzstd
 Requires.private: openssl,libzstd
-Libs: -L${libdir} -lcurl c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
-Libs.private:  c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
+Libs: -L${libdir} -lcurl c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
+Libs.private:  c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
 Cflags: -I${includedir} -DCURL_STATICLIB
 Cflags.private: -DCURL_STATICLIB

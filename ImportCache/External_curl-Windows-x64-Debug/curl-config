@@ -74,7 +74,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo 'C:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/cl.exe'
+    echo 'C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe'
     ;;
 
   --prefix)
@@ -155,7 +155,7 @@ while test "$#" -gt 0; do
       curllibdir=''
     fi
     if test 'no' = 'no'; then
-      echo "${curllibdir}-lcurl c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi"
+      echo "${curllibdir}-lcurl c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi"
     else
       echo "${curllibdir}-lcurl"
     fi
@@ -167,7 +167,7 @@ while test "$#" -gt 0; do
 
   --static-libs)
     if test 'yes' != 'no'; then
-      echo "${exec_prefix}/lib/libcurl.lib  c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Insiders/VC/Tools/MSVC/14.50.35717/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi"
+      echo "${exec_prefix}/lib/libcurl.lib  c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/x64/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi"
     else
       echo 'curl was built with static libraries disabled' >&2
       exit 1

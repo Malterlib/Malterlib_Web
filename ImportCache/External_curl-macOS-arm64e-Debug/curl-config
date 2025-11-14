@@ -74,7 +74,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchaincc'
+    echo 'cc'
     ;;
 
   --prefix)
