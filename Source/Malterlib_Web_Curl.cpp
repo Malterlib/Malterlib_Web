@@ -513,7 +513,7 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
-		auto RequestID = NCryptography::fg_RandomID(Internal.m_Requests);
+		auto RequestID = NCryptography::fg_FastRandomID(Internal.m_Requests);
 		auto &Request = Internal.m_Requests[RequestID];
 		Request.m_pActor = this;
 		Request.m_pCurl = fg_Explicit(curl_easy_init());
