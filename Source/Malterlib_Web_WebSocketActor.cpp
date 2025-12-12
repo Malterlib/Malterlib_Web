@@ -1865,7 +1865,7 @@ namespace NMib::NWeb
 									Reply["websocket"] = true;
 									Reply["origins"].f_Array().f_Insert("*:*");
 									Reply["cookie_needed"] = false;
-									Reply["entropy"] = NMisc::fg_GetRandomUnsigned();
+									Reply["entropy"] = NMisc::fg_GetSecureRandomUnsigned();
 									NStr::CStr ReplyText = Reply.f_ToString(nullptr);
 
 									NHTTP::CResponseHeader ResponseHeader;
