@@ -223,6 +223,10 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		Dependency.Indirect true
 	}
+	%Dependency "Lib_Malterlib_XML"
+	{
+		Dependency.Indirect true
+	}
 	%Dependency "Lib_CURL_libcurl_static"
 	{
 		!DocumentationEnabled true

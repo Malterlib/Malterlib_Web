@@ -191,9 +191,18 @@ namespace NMib::NWeb
 			auto pErrorRoot = ErrorReturn.f_GetChildNode(ErrorReturn.f_GetRootNode(), "ErrorResponse");
 
 			if (!pErrorRoot)
+				pErrorRoot = ErrorReturn.f_GetChildNode(ErrorReturn.f_GetRootNode(), "Response");
+
+			if (!pErrorRoot)
 				pErrorRoot = ErrorReturn.f_GetRootNode();
 
 			auto pErrorNode = ErrorReturn.f_GetChildNode(pErrorRoot, "Error");
+
+			if (!pErrorNode)
+			{
+				if (auto pErrorsNode = ErrorReturn.f_GetChildNode(pErrorRoot, "Errors"))
+					pErrorNode = ErrorReturn.f_GetChildNode(pErrorsNode, "Error");
+			}
 
 			if (!pErrorNode)
 				break;
