@@ -16,6 +16,7 @@ namespace NMib::NWeb
 		NStr::CStr m_RequestedURI;
 		NStr::CStr m_Method;
 		NStr::CStr m_ClientIP;
+		NContainer::CByteVector m_Body;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Variables;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
 

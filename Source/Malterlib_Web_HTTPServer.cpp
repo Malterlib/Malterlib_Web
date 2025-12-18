@@ -120,7 +120,7 @@ namespace NMib::NWeb
 				DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't send header twice
 
-				NStr::CStr HeaderStr = mp_Header.f_Generate();
+				NStr::CStr HeaderStr = _Header.f_Generate();
 				mp_bSentAsyncHeader = true;
 
 				return mp_pRequest->f_SendAsyncStdOutput(fg_Move(HeaderStr));
@@ -143,6 +143,9 @@ namespace NMib::NWeb
 
 			void fp_ParseVariables(char const* _pData, mint _Len)
 			{
+				if (!_Len)
+					return;
+
 				char const* pCurPos = _pData;
 				char const *pEntryEndPos, *pEqualsPos;
 				char const* pEnd = _pData + _Len;
@@ -208,17 +211,16 @@ namespace NMib::NWeb
 				{
 
 				}
-				else if (fg_StrCmpNoCase(*pMethod, "POST") == 0)
+				else if (fg_StrCmpNoCase(*pMethod, "POST") == 0 || fg_StrCmpNoCase(*pMethod, "PUT") == 0 || fg_StrCmpNoCase(*pMethod, "PATCH") == 0)
 				{
-					NStr::CStr ContentLengthField;// = mg_get_header(_pConnection, "CONTENT_LENGTH");
 					auto* pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
 					if (!pContentLength)
 					{
-						fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for POST"));
+						fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for {}", pMethod->f_GetStr()));
 						return Promise <<= g_Void;
 					}
 
-					int nPostBytes = ContentLengthField.f_ToInt();
+					int nPostBytes = pContentLength->f_ToInt();
 					NStorage::TCSharedPointer<NContainer::CByteVector> pData = fg_Construct();
 
 					mp_pRequest->f_OnStdInputRaw
@@ -234,7 +236,9 @@ namespace NMib::NWeb
 										fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
 									else
 									{
-										_pThis->fp_ParseVariables((ch8 const*)pData->f_GetArray(), pData->f_GetLen());
+										// Store raw body in request
+										_pThis->mp_pHTTPRequest->m_Body = fg_Move(*pData);
+										_pThis->fp_ParseVariables((ch8 const*)_pThis->mp_pHTTPRequest->m_Body.f_GetArray(), _pThis->mp_pHTTPRequest->m_Body.f_GetLen());
 										co_await _pThis->f_HandleRequest();
 									}
 								}
@@ -342,7 +346,7 @@ namespace NMib::NWeb
 
 					return Promise.f_Future();
 				}
-				
+
 				try
 				{
 					for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
@@ -610,11 +614,20 @@ namespace NMib::NWeb
 			case 200:
 				Response = "HTTP/1.1 200 OK";
 				break;
+			case 201:
+				Response = "HTTP/1.1 201 Created";
+				break;
+			case 204:
+				Response = "HTTP/1.1 204 No Content";
+				break;
 			case 304:
 				Response = "HTTP/1.1 304 Not Modified";
 				break;
 			case 400:
 				Response = "HTTP/1.1 400 Bad Request";
+				break;
+			case 401:
+				Response = "HTTP/1.1 401 Unauthorized";
 				break;
 			case 403:
 				Response = "HTTP/1.1 403 Forbidden";
@@ -622,11 +635,29 @@ namespace NMib::NWeb
 			case 404:
 				Response = "HTTP/1.1 404 Not Found";
 				break;
+			case 405:
+				Response = "HTTP/1.1 405 Method Not Allowed";
+				break;
+			case 409:
+				Response = "HTTP/1.1 409 Conflict";
+				break;
+			case 422:
+				Response = "HTTP/1.1 422 Unprocessable Entity";
+				break;
+			case 429:
+				Response = "HTTP/1.1 429 Too Many Requests";
+				break;
 			case 500:
 				Response = "HTTP/1.1 500 Internal Server Error";
 				break;
+			case 502:
+				Response = "HTTP/1.1 502 Bad Gateway";
+				break;
 			case 503:
 				Response = "HTTP/1.1 503 Service Unavailable";
+				break;
+			case 504:
+				Response = "HTTP/1.1 504 Gateway Timeout";
 				break;
 			default:
 				Response = NStr::CStr::CFormat("HTTP/1.1 {} Unknown") << Status;
