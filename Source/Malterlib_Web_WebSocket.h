@@ -1,4 +1,4 @@
- // Copyright © 2015 Hansoft AB 
+ // Copyright © 2015 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #pragma once
@@ -207,7 +207,10 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, NStr::CStr _Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime);
 
+#if DMibConfig_Tests_Enable
 		NConcurrency::TCFuture<void> f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _Flags);
+		NConcurrency::TCFuture<void> f_DebugSetMaxWriteOps(aint _nMaxWriteOps); // -1 = unlimited, >=0 = remaining write ops allowed (decrements each op)
+#endif
 		NConcurrency::TCFuture<CDebugStats> f_DebugGetStats();
 
 		static bool fs_IsValidCloseStatus(EWebSocketStatus _Status);
@@ -450,7 +453,9 @@ namespace NMib::NWeb
 		void f_SetDefaultFragmentationSize(mint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
+#if DMibConfig_Tests_Enable
 		void f_Debug_SetBroken(bool _bBroken);
+#endif
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;

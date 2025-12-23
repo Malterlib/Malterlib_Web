@@ -26,7 +26,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 		void fp_BuildCommandLine(CDistributedAppCommandLineSpecification &o_CommandLine) override;
 
-		TCFuture<void> fp_StartApp(CEJsonSorted const &_Params) override;
+		TCFuture<void> fp_StartApp(CEJsonSorted const _Params) override;
 		TCFuture<void> fp_StopApp() override;
 
 		TCActor<CWebSocketServerActor> m_WebsocketServer;

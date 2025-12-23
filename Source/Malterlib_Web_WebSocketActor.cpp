@@ -279,7 +279,7 @@ namespace NMib::NWeb
 
 		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData, uint32 _Priority);
 		COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
-		void f_WriteQueuedMessages(EOpcode _UntilPriority = EOpcode_ContinuationFrame);
+		void f_WriteQueuedMessages(bool _bFlushAll);
 		static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
 
 		NConcurrency::CActorSubscription f_SetCallbacks(CCallbacks &&_Callbacks);
@@ -334,17 +334,24 @@ namespace NMib::NWeb
 
 		mint m_bPendingMessage:1 = false;
 		mint m_bClient:1 = false;
-		mint m_bDebugNoProcessing:1 = false;
-		mint m_bDebugNoProcessingReceive:1 = false;
-		mint m_bDebugNoProcessingSend:1 = false;
-		mint m_bDebugFailSends:1 = false;
-		mint m_bDelayClose:1 = false;
+
 		mint m_bOnCloseCalled:1 = false;
 		mint m_bOnFinishDone:1 = false;
 		mint m_bWantStopDefer:1 = false;
 		mint m_bShutdownCalled:1 = false;
 
 		mint m_bFinishCalled:1 = false;
+
+#if DMibConfig_Tests_Enable
+		mint m_bDebugNoProcessing:1 = false;
+		mint m_bDebugNoProcessingReceive:1 = false;
+		mint m_bDebugNoProcessingSend:1 = false;
+		mint m_bDebugNoWriteQueuedMessages:1 = false;
+		mint m_bDebugFailSends:1 = false;
+		mint m_bDebugDelayClose:1 = false;
+
+		aint m_nDebugRemainingWriteOps = -1; // -1 = unlimited, >=0 = remaining write ops allowed (decrements each op)
+#endif
 
 #if DMibEnableSafeCheck > 0
 		mint m_bDestroyed = false;
@@ -405,7 +412,7 @@ namespace NMib::NWeb
 		return *pLastMessage;
 	}
 
-	void CWebSocketActor::CInternal::f_WriteQueuedMessages(EOpcode _UntilPriority)
+	void CWebSocketActor::CInternal::f_WriteQueuedMessages(bool _bFlushAll)
 	{
 		if (m_PendingMessages.f_IsEmpty())
 			return;
@@ -413,7 +420,7 @@ namespace NMib::NWeb
 		mint OutgoingData = m_OutgoingData.f_GetLen();
 		mint TargetData = 0;
 
-		if (_UntilPriority == EOpcode_ContinuationFrame)
+		if (!_bFlushAll)
 		{
 			TargetData = m_OutgoingData.f_GetFirstPageSpace();
 			if (TargetData < EOutgoingPageSize)
@@ -424,6 +431,7 @@ namespace NMib::NWeb
 		}
 
 		auto pList = m_pLastPendingMessagesList;
+		auto pFragmentingList = m_pLastPendingMessagesList;  // Save the fragmenting list
 
 		if (!pList)
 		{
@@ -432,13 +440,16 @@ namespace NMib::NWeb
 		}
 		else
 		{
+			// Fragmentation is in progress - must continue with current list
+			// EXCEPTION: Ping/Pong can interleave per RFC 6455 (they use max uint32 priority)
 			auto *pHighestPrioList = m_PendingMessages.f_FindLargest();
-			if (m_PendingMessages.fs_GetKey(*pList) >= EOpcode_ConnectionClose)
+			if (pHighestPrioList != pList && m_PendingMessages.fs_GetKey(*pHighestPrioList) == TCLimitsInt<uint32>::mc_Max)
+			{
+				// Ping/Pong queued - allow them to interleave
 				pList = pHighestPrioList;
+			}
+			// Otherwise: stay on fragmenting list (data frames cannot interleave)
 		}
-
-		if (m_PendingMessages.fs_GetKey(*pList) < _UntilPriority)
-			return;
 
 		DMibCheck(!pList->f_IsEmpty());
 
@@ -446,11 +457,22 @@ namespace NMib::NWeb
 
 		bool bFinished = false;
 
-		while (OutgoingData < TargetData || _UntilPriority > EOpcode_ContinuationFrame)
+		while (OutgoingData < TargetData || _bFlushAll)
 		{
+#if DMibConfig_Tests_Enable
+			if (m_nDebugRemainingWriteOps == 0)
+				break;
+#endif
+
 			bFinished = pPending->m_bFinished;
 
 			f_SendMessage(pPending->m_Opcode, pPending->m_pData->f_GetArray(), pPending->m_pData->f_GetLen(), bFinished);
+
+#if DMibConfig_Tests_Enable
+			if (m_nDebugRemainingWriteOps > 0)
+				--m_nDebugRemainingWriteOps;
+#endif
+
 			OutgoingData = m_OutgoingData.f_GetLen();
 
 			if (pPending->m_pPromise)
@@ -464,25 +486,35 @@ namespace NMib::NWeb
 			pList->f_Remove(*pPending);
 			if (pList->f_IsEmpty())
 			{
+				if (pList == pFragmentingList)
+					pFragmentingList = nullptr;
+
 				m_PendingMessages.f_Remove(pList);
-				pList = m_PendingMessages.f_FindLargest();
-				if (!pList)
+
+				if (pFragmentingList)
+					pList = pFragmentingList;
+				else
 				{
-					pPending = nullptr;
-					break;
+					pList = m_PendingMessages.f_FindLargest();
+					if (!pList)
+					{
+						pPending = nullptr;
+						break;
+					}
 				}
-				if (m_PendingMessages.fs_GetKey(*pList) < _UntilPriority)
-					break;
 			}
 			pPending = &pList->f_GetFirst();
 		}
 
-		if (bFinished)
+		if (pFragmentingList)
+			m_pLastPendingMessagesList = pFragmentingList;
+		else if (bFinished)
 			m_pLastPendingMessagesList = nullptr;
 		else
 			m_pLastPendingMessagesList = pList;
 	}
 
+#if DMibConfig_Tests_Enable
 	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _DebugFlags)
 	{
 		if (f_IsDestroyed())
@@ -493,8 +525,9 @@ namespace NMib::NWeb
 		Internal.m_bDebugNoProcessing = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessing) != NNetwork::ESocketDebugFlag_None;
 		Internal.m_bDebugNoProcessingReceive = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessingReceive) != NNetwork::ESocketDebugFlag_None;
 		Internal.m_bDebugNoProcessingSend = (_DebugFlags & NNetwork::ESocketDebugFlag_StopProcessingSend) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDebugNoWriteQueuedMessages = (_DebugFlags & NNetwork::ESocketDebugFlag_StopWriteQueuedMessages) != NNetwork::ESocketDebugFlag_None;
 		Internal.m_bDebugFailSends = (_DebugFlags & NNetwork::ESocketDebugFlag_FailSends) != NNetwork::ESocketDebugFlag_None;
-		Internal.m_bDelayClose = (_DebugFlags & NNetwork::ESocketDebugFlag_DelayClose) != NNetwork::ESocketDebugFlag_None;
+		Internal.m_bDebugDelayClose = (_DebugFlags & NNetwork::ESocketDebugFlag_DelayClose) != NNetwork::ESocketDebugFlag_None;
 
 		if (_Timeout != fp64::fs_Inf())
 		{
@@ -506,6 +539,20 @@ namespace NMib::NWeb
 
 		co_return {};
 	}
+
+	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugSetMaxWriteOps(aint _nMaxWriteOps)
+	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying socket");
+
+		auto &Internal = *mp_pInternal;
+		Internal.m_nDebugRemainingWriteOps = _nMaxWriteOps; // -1 = unlimited, >=0 = remaining ops
+
+		fp_UpdateSend();
+
+		co_return {};
+	}
+#endif
 
 	auto CWebSocketActor::f_DebugGetStats() -> NConcurrency::TCFuture<CDebugStats>
 	{
@@ -610,8 +657,10 @@ namespace NMib::NWeb
 				co_return fg_Move(CloseInfo);
 			}
 
-			if (Internal.m_bDelayClose)
+#if DMibConfig_Tests_Enable
+			if (Internal.m_bDebugDelayClose)
 				co_await NConcurrency::fg_Timeout(0.05);
+#endif
 		}
 
 		auto ProcessingActor = NConcurrency::fg_ThisConcurrentActor();
@@ -707,8 +756,10 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+#if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugFailSends)
 			co_return DMibErrorInstance("Debug fail send");
+#endif
 
 		DMibLog(DebugVerbose3, " ++++ {} {} f_SendBinary", fg_ThisActor(this), !Internal.m_bClient);
 
@@ -752,8 +803,10 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+#if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugFailSends)
 			co_return DMibErrorInstance("Debug fail send");
+#endif
 
 		NStr::CStr Data = _Data;
 
@@ -781,8 +834,10 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+#if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugFailSends)
 			co_return DMibErrorInstance("Debug fail send");
+#endif
 
 		auto &Message = *_pMessage;
 
@@ -810,8 +865,10 @@ namespace NMib::NWeb
 
 		auto &Internal = *mp_pInternal;
 
+#if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugFailSends)
 			co_return DMibErrorInstance("Debug fail send");
+#endif
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
@@ -1049,8 +1106,7 @@ namespace NMib::NWeb
 						DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 9 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 						Internal.m_State = EState_Disconnected;
 						Internal.f_StopTimeout();
-						auto *pHighestPrioMessages = Internal.m_PendingMessages.f_FindLargest();
-						if ((!pHighestPrioMessages || Internal.m_PendingMessages.fs_GetKey(*pHighestPrioMessages) < EOpcode_ConnectionClose) && Internal.m_OutgoingData.f_IsEmpty())
+						if (Internal.m_PendingMessages.f_IsEmpty() && Internal.m_OutgoingData.f_IsEmpty())
 						{
 							DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 1 {}", fg_ThisActor(this), !Internal.m_bClient);
 							fp_Shutdown();
@@ -1153,13 +1209,20 @@ namespace NMib::NWeb
 		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 			return;
 
-		if (Internal.m_State == EState_Connected)
-			Internal.f_WriteQueuedMessages();
-		else if (Internal.m_State == EState_Disconnecting)
-			Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
+#if DMibConfig_Tests_Enable
+		if (Internal.m_bDebugNoWriteQueuedMessages)
+			return;
+#endif
 
+		if (Internal.m_State == EState_Connected)
+			Internal.f_WriteQueuedMessages(false);
+		else if (Internal.m_State == EState_Disconnecting)
+			Internal.f_WriteQueuedMessages(true);
+
+#if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingSend)
 			return;
+#endif
 
 		bool bDidSend = false;
 		while (!Internal.m_OutgoingData.f_IsEmpty() && Internal.m_pSocket->f_IsValid())
@@ -1231,9 +1294,9 @@ namespace NMib::NWeb
 			if (bStuffed)
 				break;
 			if (Internal.m_State == EState_Connected)
-				Internal.f_WriteQueuedMessages();
+				Internal.f_WriteQueuedMessages(false);
 			else if (Internal.m_State == EState_Disconnecting)
-				Internal.f_WriteQueuedMessages(EOpcode_ConnectionClose);
+				Internal.f_WriteQueuedMessages(true);
 		}
 
 		if (!bDidSend && Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
@@ -2179,7 +2242,13 @@ namespace NMib::NWeb
 			return;
 		}
 
-		if ((_StateAdded & NNetwork::ENetTCPState_Read) && !(Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive))
+		if
+		(
+			(_StateAdded & NNetwork::ENetTCPState_Read)
+#if DMibConfig_Tests_Enable
+			&& !(Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive)
+#endif
+		)
 		{
 			DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_Read", fg_ThisActor(this), !Internal.m_bClient);
 

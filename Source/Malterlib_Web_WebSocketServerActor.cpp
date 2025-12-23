@@ -41,10 +41,12 @@ namespace NMib::NWeb
 		mp_pInternal->m_DefaultSettings.m_Timeout = _Timeout;
 	}
 
+#if DMibConfig_Tests_Enable
 	void CWebSocketServerActor::f_Debug_SetBroken(bool _bBroken)
 	{
 		mp_pInternal->m_bBroken = _bBroken;
 	}
+#endif
 
 	void CWebSocketServerActor::CInternal::f_Clear()
 	{

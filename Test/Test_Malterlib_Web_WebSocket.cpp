@@ -1072,6 +1072,785 @@ public:
 		}
 	}
 
+	// State structure for priority fragmentation tests with message order tracking
+	struct CPriorityState
+	{
+		struct CServerConnection
+		{
+			~CServerConnection()
+			{
+				m_pDeleted->f_Store(true);
+			}
+
+			TCActor<CWebSocketActor> m_Actor;
+			CActorSubscription m_CallbacksReference;
+			TCSharedPointer<TCAtomic<bool>> m_pDeleted = fg_Construct(false);
+		};
+
+		CIntrusiveRefCount m_RefCount;
+
+		CMutual m_Lock;
+		CEventAutoReset m_Event;
+
+		TCActor<CWebSocketServerActor> m_ServerActor;
+		CActorSubscription m_ListenCallbackReference;
+		uint16 m_ListenPort = 0;
+
+		TCLinkedList<CServerConnection> m_ServerConnections;
+
+		CStr m_AcceptError;
+		bool m_bAcceptError = false;
+		CStr m_ListenError;
+
+		TCActor<CActor> m_ProcessingActor{fg_Construct()};
+
+		TCActor<CWebSocketClientActor> m_ClientActor;
+
+		TCActor<CWebSocketActor> m_ClientSocket;
+		CActorSubscription m_ClientActorCallbacksReference;
+
+		CStr m_ClientConnectionError;
+		bool m_bClientConnectionResult = false;
+
+		EWebSocketCloseOrigin m_ClientConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
+		EWebSocketCloseOrigin m_ServerConnectionCloseOrigin = EWebSocketCloseOrigin_Local;
+		EWebSocketStatus m_ClientConnectionCloseStatus = EWebSocketStatus_None;
+		EWebSocketStatus m_ServerConnectionCloseStatus = EWebSocketStatus_None;
+		CStr m_ClientConnectionCloseMessage;
+		CStr m_ServerConnectionCloseMessage;
+
+		// Extended tracking for priority tests
+		TCVector<CStr> m_Messages;  // Messages in receive order
+		TCVector<mint> m_PongReceived;  // Track pong receipts
+		bool m_bProtocolError = false;
+
+		bool m_bCleared = false;
+
+		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
+		{
+			DMibLock(m_Lock);
+			m_bCleared = true;
+			m_ClientActorCallbacksReference.f_Clear();
+			m_ClientSocket.f_Clear();
+			m_ClientActor.f_Clear();
+			m_ListenCallbackReference.f_Clear();
+			m_ServerConnections.f_Clear();
+			if (m_ServerActor)
+			{
+				auto ServerActor = m_ServerActor;
+				{
+					DMibUnlock(m_Lock);
+					ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop());
+				}
+				m_ServerActor.f_Clear();
+			}
+		}
+
+		uint16 f_StartListen(CNetAddress _ListenAddress, mint _FragmentationSize)
+		{
+			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+			m_ServerActor
+				(
+					&CWebSocketServerActor::f_StartListenAddress
+					, fg_CreateVector(_ListenAddress)
+					, ENetFlag_None
+					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
+					{
+						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
+						DMibLock(pState->m_Lock);
+
+						CPriorityState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
+
+						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								// Echo back with same priority (0) - the test is about client->server fragmentation
+								for (auto &Connection : pState->m_ServerConnections)
+									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
+
+								co_return {};
+							}
+						;
+
+						ConnectionInfo.m_fOnReceivePing = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+							(TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+							{
+								// Automatically respond with pong
+								DMibLock(pState->m_Lock);
+								if (!*pDeleted && !pState->m_ServerConnections.f_IsEmpty())
+									pServerConnection->m_Actor(&CWebSocketActor::f_SendPong, _ApplicationData).f_DiscardResult();
+
+								co_return {};
+							}
+						;
+
+						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+							(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								if (pState->m_bCleared)
+									co_return {};
+
+								pState->m_ServerConnectionCloseMessage = _Message;
+								pState->m_ServerConnectionCloseStatus = _Status;
+								pState->m_ServerConnectionCloseOrigin = _Origin;
+
+								// Check for protocol error
+								if (_Status == EWebSocketStatus_ProtocolError)
+									pState->m_bProtocolError = true;
+
+								if (!*pDeleted)
+									pState->m_ServerConnections.f_Remove(*pServerConnection);
+								pState->m_Event.f_Signal();
+
+								co_return {};
+							}
+						;
+
+						CStr Protocol;
+						if (!ConnectionInfo.m_Protocols.f_IsEmpty())
+							Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
+
+						pServerConnection->m_Actor = ConnectionInfo.f_Accept
+							(
+								Protocol
+								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+								(TCAsyncResult<CActorSubscription> &&_Callback)
+								{
+									DMibLock(pState->m_Lock);
+									if (_Callback && !*pDeleted)
+										pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
+								}
+							)
+						;
+
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_bAcceptError = true;
+						pState->m_AcceptError = _ConnectionInfo.m_Error;
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+					, FVirtualSocketFactory()
+				)
+				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
+				{
+					DMibLock(pState->m_Lock);
+					if (_Result)
+					{
+						pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+						pState->m_ListenPort = _Result->m_ListenPorts[0];
+					}
+					else
+						pState->m_ListenError = _Result.f_GetExceptionStr();
+					pState->m_Event.f_Signal();
+				}
+			;
+			bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
+			DMibAssert(pState->m_ListenError, ==, "");
+			DMibAssertFalse(bTimedOutListenStart);
+			DMibAssertTrue(pState->m_ListenCallbackReference);
+
+			return pState->m_ListenPort;
+		}
+
+		void f_Connect(uint16 _Port, mint _FragmentationSize)
+		{
+			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+			m_ClientActor
+				(
+					&CWebSocketClientActor::f_Connect
+					, "localhost"
+					, ""
+					, ENetAddressType_None
+					, _Port
+					, "/Test"
+					, "http://localhost"
+					, fg_CreateVector<CStr>("Test")
+					, NHTTP::CRequest()
+					, FVirtualSocketFactory()
+				)
+				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+				{
+					DMibLock(pState->m_Lock);
+					if (_Result)
+					{
+						auto &Result = *_Result;
+
+						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								pState->m_ClientConnectionCloseMessage = _Message;
+								pState->m_ClientConnectionCloseStatus = _Status;
+								pState->m_ClientConnectionCloseOrigin = _Origin;
+
+								// Check for protocol error
+								if (_Status == EWebSocketStatus_ProtocolError)
+									pState->m_bProtocolError = true;
+
+								pState->m_Event.f_Signal();
+
+								co_return {};
+							}
+						;
+
+						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								pState->m_Messages.f_Insert(_Message);
+								pState->m_Event.f_Signal();
+
+								co_return {};
+							}
+						;
+
+						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								pState->m_PongReceived.f_Insert(pState->m_Messages.f_GetLen()); // Record how many messages before pong
+								pState->m_Event.f_Signal();
+
+								co_return {};
+							}
+						;
+
+						pState->m_ClientSocket = Result.f_Accept
+							(
+								pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
+								{
+									DMibLock(pState->m_Lock);
+									if (_Callback)
+										pState->m_ClientActorCallbacksReference = fg_Move(*_Callback);
+								}
+							)
+						;
+					}
+					else
+						pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
+
+					pState->m_bClientConnectionResult = true;
+					pState->m_Event.f_Signal();
+				}
+			;
+		}
+	};
+
+	bool fp_WaitForPriorityConnect(TCSharedPointer<CPriorityState> const &_pState)
+	{
+		DMibTestPath("Connect");
+
+		auto pState = _pState;
+
+		bool bTimedOut = false;
+
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
+					break;
+				if (pState->m_bClientConnectionResult)
+				{
+					if (!pState->m_ClientSocket && (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || !pState->m_ClientConnectionError.f_IsEmpty()))
+						break;
+					if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
+						break;
+				}
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bAcceptError));
+		DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
+		DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+		DMibAssertTrue(pState->m_ClientSocket);
+		return true;
+	}
+
+	void fp_TestPriorityFragmentationBugDetection(mint _FragmentationSize)
+	{
+		using namespace NStr;
+
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		TCSharedPointer<CPriorityState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CNetAddressTCPv4 ListenAddress;
+		ListenAddress.f_SetLocalhost();
+		ListenAddress.m_Port = 0;
+
+		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->f_Connect(ListenPort, _FragmentationSize);
+
+		if (!fp_WaitForPriorityConnect(pState))
+			return;
+
+		// Test 1: Low priority fragmenting, high priority queued
+		{
+			DMibTestPath("Low priority fragmenting, high priority queued");
+			CStr LargeMessage;
+			for (mint i = 0; i < _FragmentationSize * 4; ++i)
+				LargeMessage += "X";
+
+			CStr SmallMessage = "Small";
+
+			TCFutureVector<void> Results;
+
+			// Send large message at low priority (10)
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(10)) > Results;
+
+			// Immediately send small message at high priority (200)
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(200)) > Results;
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
+
+			pState->m_Messages.f_Clear();
+		}
+
+		// Test 2: High priority fragmenting, low priority queued
+		{
+			DMibTestPath("High priority fragmenting, low priority queued");
+
+			CStr LargeMessage;
+			for (mint i = 0; i < _FragmentationSize * 4; ++i)
+				LargeMessage += "Y";
+
+			CStr SmallMessage = "Tiny";
+
+			TCFutureVector<void> Results;
+
+			// Send large message at high priority (200)
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(200)) > Results;
+
+			// Immediately send small message at low priority (10)
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(10)) > Results;
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
+
+			pState->m_Messages.f_Clear();
+		}
+
+		// Test 3: Multiple priorities with fragmentation
+		{
+			DMibTestPath("Multiple priorities with fragmentation");
+
+			TCFutureVector<void> Results;
+
+			// Queue multiple large messages at different priorities
+			for (uint32 Priority : {uint32(50), uint32(100), uint32(150), uint32(200)})
+			{
+				CStr Message;
+				for (mint i = 0; i < _FragmentationSize * 3; ++i)
+					Message += ch8('A' + (Priority / 50));
+
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
+			}
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= 4 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_Messages.f_GetLen(), >=, 4);
+
+			pState->m_Messages.f_Clear();
+		}
+
+		// Test 4: Rapid priority switching with smaller fragmentation
+		{
+			DMibTestPath("Rapid priority switching with smaller fragmentation");
+
+			TCFutureVector<void> Results;
+
+			mint nMessages = 16;
+			for (mint i = 0; i < nMessages; ++i)
+			{
+				CStr Message;
+				mint MessageLen = (i % 8) * _FragmentationSize + 1;
+				for (mint j = 0; j < MessageLen; ++j)
+					Message += ch8('0' + (i % 10));
+
+				uint32 Priority = uint32((i * 17) % 256); // Pseudo-random priorities
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
+			}
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= nMessages || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_Messages.f_GetLen(), >=, nMessages);
+		}
+	}
+
+	void fp_TestPriorityFragmentationBehavior(mint _FragmentationSize)
+	{
+		using namespace NStr;
+
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		TCSharedPointer<CPriorityState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CNetAddressTCPv4 ListenAddress;
+		ListenAddress.f_SetLocalhost();
+		ListenAddress.m_Port = 0;
+
+		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->f_Connect(ListenPort, _FragmentationSize);
+
+		if (!fp_WaitForPriorityConnect(pState))
+			return;
+
+		// Test 1: Priority ordering with same-size messages
+		{
+			DMibTestPath("Priority ordering");
+
+			// Stop send processing so messages queue up
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			TCFutureVector<void> Results;
+
+			// Send messages at different priorities - all same size (no fragmentation)
+			// These should be received in priority order (highest first)
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Low"), uint32(50)) > Results;
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Med"), uint32(100)) > Results;
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("High"), uint32(200)) > Results;
+
+			// Re-enable send processing - now prioritization will take effect
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= 3 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_Messages.f_GetLen(), ==, 3);
+
+			// Verify priority ordering - highest priority (200) should arrive first
+			DMibExpect(pState->m_Messages[0], ==, "HighReply");
+			DMibExpect(pState->m_Messages[1], ==, "MedReply");
+			DMibExpect(pState->m_Messages[2], ==, "LowReply");
+		}
+
+		// Clear for next test
+		{
+			DMibLock(pState->m_Lock);
+			pState->m_Messages.f_Clear();
+			pState->m_bProtocolError = false;
+		}
+
+		// Test 2: Fragmentation completes before priority switch
+		// This tests the bug scenario: large message starts fragmenting, some fragments sent,
+		// then high priority message is queued. The fragmentation should complete before
+		// switching to the high priority message.
+		{
+			// Create a large message that will definitely fragment into multiple pieces
+			CStr LargeMessage;
+			for (mint i = 0; i < _FragmentationSize * 5; ++i)
+				LargeMessage += "L";
+
+			// Limit to only writing 1 fragment per f_WriteQueuedMessages call (simulates stuffed connection)
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			TCFutureVector<void> Results;
+
+			// Queue large fragmenting message at medium priority - will only write 1 fragment due to limit
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
+
+			// Now queue high priority message while fragmentation is in progress
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("HighPrio"), uint32(200)) > Results;
+
+			// Remove the write limit and let everything complete
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTestPath("Fragmentation completes first");
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
+
+			// The large message should complete first (fragmentation not interrupted)
+			// then the high priority message should arrive
+			DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
+			DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
+		}
+
+		// Clear for next test
+		{
+			DMibLock(pState->m_Lock);
+			pState->m_Messages.f_Clear();
+			pState->m_bProtocolError = false;
+		}
+
+		// Test 3: Control frame interleaving allowed
+		{
+			// Create a large message that will fragment
+			CStr LargeMessage;
+			for (mint i = 0; i < _FragmentationSize * 6; ++i)
+				LargeMessage += "Z";
+
+			// Stop send processing so messages queue up
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopProcessingSend).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			TCFutureVector<void> Results;
+
+			// Send large fragmenting message
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
+
+			// Send a ping - control frames should be able to interleave
+			TCSharedPointer<CIOByteVector> pPingData = fg_Construct();
+			pPingData->f_Insert(reinterpret_cast<uint8 const *>("ping"), 4);
+			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
+
+			// Re-enable send processing
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					// Wait for both the message and the pong
+					if ((pState->m_Messages.f_GetLen() >= 1 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTestPath("Control frame interleaving");
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_Messages.f_GetLen(), ==, 1);
+			DMibTest(!DMibExpr(pState->m_PongReceived.f_IsEmpty()));
+
+			// Verify the message was received correctly
+			DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
+		}
+	}
+
+	// Test that specifically targets the bug at line 514 of WebSocketActor.cpp:
+	// When a fragmented message has only its final fragment remaining (m_bFinished = true)
+	// and a ping interleaves, the condition "!pFragmentingList->f_GetFirst().m_bFinished"
+	// incorrectly evaluates to false, causing us to fall through and potentially lose
+	// track of the fragmenting list.
+	void fp_TestFinalFragmentPingInterleave(mint _FragmentationSize)
+	{
+		using namespace NStr;
+
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		TCSharedPointer<CPriorityState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CNetAddressTCPv4 ListenAddress;
+		ListenAddress.f_SetLocalhost();
+		ListenAddress.m_Port = 0;
+
+		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->f_Connect(ListenPort, _FragmentationSize);
+
+		if (!fp_WaitForPriorityConnect(pState))
+			return;
+
+		// Bug scenario:
+		// 1. Send a message that fragments into exactly 5 pieces
+		// 2. Use DebugSetMaxWriteOps to send only 4 fragments (leaving final fragment with m_bFinished=true)
+		// 3. Queue a ping (max priority, will interleave)
+		// 4. The ping sends, and due to the bug at line 514:
+		//    - pFragmentingList exists with the final fragment
+		//    - !pFragmentingList->f_GetFirst().m_bFinished is FALSE (it IS the final fragment)
+		//    - bFinished is TRUE (from the ping we just sent)
+		//    - So we set m_pLastPendingMessagesList = nullptr, losing track of the final fragment!
+		// 5. Queue a higher priority data message
+		// 6. The new message starts sending before the fragmented one completes -> protocol error
+
+		{
+			DMibTestPath("Final fragment lost after ping interleave");
+
+			// Create a message that's exactly 5 fragments
+			CStr FragmentedMessage;
+			for (mint i = 0; i < _FragmentationSize * 5; ++i)
+				FragmentedMessage += "F";
+
+			// Limit writes to 4 fragments - this leaves only the final fragment (m_bFinished = true)
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(4)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			TCFutureVector<void> Results;
+
+			// Send the fragmenting message at medium priority
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, FragmentedMessage, uint32(100)) > Results;
+
+			// Now queue a ping - this will interleave (max priority)
+			TCSharedPointer<CIOByteVector> pPingData = fg_Construct();
+			pPingData->f_Insert(reinterpret_cast<uint8 const *>("test"), 4);
+			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
+
+			// Queue another data message at HIGHER priority than the fragmenting one
+			// If the bug exists, when we remove the write limit, this message will try to
+			// send before the final fragment of the first message, causing a protocol error
+			CStr HighPrioMessage = "HighPrio";
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, HighPrioMessage, uint32(200)) > Results;
+
+			// Remove the write limit - now everything should complete
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					// Wait for both messages and the pong
+					if ((pState->m_Messages.f_GetLen() >= 2 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+
+			// The key assertion: there should be NO protocol error
+			// If the bug exists, we'll get a protocol error because the high priority message
+			// starts before the fragmented message completes
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
+
+			// Verify we got both messages correctly
+			DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
+
+			// The fragmented message should complete first (we can't interrupt fragmentation for data frames)
+			// Then the high priority message
+			DMibExpect(pState->m_Messages[0], ==, FragmentedMessage + "Reply")(ETestFlag_NoValues);
+			DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
+		}
+	}
+
 	void f_DoTests()
 	{
 		DMibTestCategory("Tests")
@@ -1093,17 +1872,55 @@ public:
 			}
 		};
 
+		DMibTestCategory("Priority Fragmentation")
+		{
+			// Bug detection tests - verify no protocol errors with priority mixing
+			for (mint i = 4; i <= 16; i *= 2)
+			{
+				DMibTestSuite("Bug Detection {}"_f << i)
+				{
+					fp_TestPriorityFragmentationBugDetection(i);
+				};
+			}
+
+			// Behavior tests - verify correct priority ordering
+			DMibTestSuite("Behavior 8")
+			{
+				fp_TestPriorityFragmentationBehavior(8);
+			};
+
+			DMibTestSuite("Behavior 16")
+			{
+				fp_TestPriorityFragmentationBehavior(16);
+			};
+
+			// Bug: Final fragment tracking lost after ping interleave
+			// Tests the specific scenario where only the final fragment remains
+			// (m_bFinished=true) when a ping interleaves
+			for (mint i = 4; i <= 16; i *= 2)
+			{
+				DMibTestSuite("Final Fragment Ping Interleave {}"_f << i)
+				{
+					fp_TestFinalFragmentPingInterleave(i);
+				};
+			}
+		};
+
 		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
 		{
 			/* https://github.com/crossbario/autobahn-testsuite
 
-			Install test suite
+			Install test suite (x64 macOS)
 
 				rm -rf ~/wstest
 				rm -rf ~/Library/Caches/pip
 				export BREW_HOME=`brew --prefix`
 				brew install pyenv
 				brew install openssl@1.1 --force
+				brew install zlib
+				export LDFLAGS="-L/usr/local/opt/zlib/lib"
+				export CPPFLAGS="-I/usr/local/opt/zlib/include"
+				export PKG_CONFIG_PATH="/usr/local/opt/zlib/lib/pkgconfig"
 				pyenv install 2.7.18 -f
 				pyenv global 2.7.18
 				PATH="$(pyenv root)/shims:$PATH"
@@ -1163,7 +1980,7 @@ public:
 
 			TCSharedPointer<CState> pState = fg_Construct();
 
-			auto fOpenConnection = [](TCSharedPointer<CState> _pState, CStr _Path, TCActorFunctor<TCFuture<void> (CStr _Text)> _fOnMessage = {}) -> TCUnsafeFuture<TCFuture<void>>
+			auto fOpenConnection = [](TCSharedPointer<CState> _pState, CStr _Path, TCActorFunctor<TCFuture<void> (CStr _Text)> _fOnMessage = {}) -> TCFuture<TCFuture<void>>
 				{
 					auto SocketID = _pState->m_SocketID++;
 
@@ -1257,7 +2074,7 @@ public:
 					TCPromise<void> AcceptedPromise;
 					auto WebSocket = NewConnection.f_Accept
 						(
-							_pState->m_ProcessingActor / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
+							fg_CurrentActor() / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
 							{
 								if (!_Subscription)
 								{
@@ -1288,9 +2105,10 @@ public:
 			;
 
 			mint nCases = 0;
-			co_await co_await fOpenConnection
+			co_await co_await fg_CallSafe
 				(
-					pState
+					fOpenConnection
+					, pState
 					, "/getCaseCount"
 					, g_ActorFunctor / [&](CStr _Message) -> TCFuture<void>
 					{
@@ -1303,9 +2121,9 @@ public:
 			;
 
 			for (mint i = 0; i < nCases; ++i)
-				co_await co_await fOpenConnection(pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (i + 1));
+				co_await co_await fg_CallSafe(fOpenConnection, pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (i + 1), fg_Default());
 
-			co_await co_await fOpenConnection(pState, "/updateReports?agent=MalterlibWebSocket");
+			co_await co_await fg_CallSafe(fOpenConnection, pState, "/updateReports?agent=MalterlibWebSocket", fg_Default());
 
 			co_return {};
 		};

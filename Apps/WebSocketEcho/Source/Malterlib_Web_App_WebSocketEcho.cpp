@@ -16,7 +16,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 	CWebSocketEchoActor::~CWebSocketEchoActor() = default;
 
-	TCFuture<void> CWebSocketEchoActor::fp_StartApp(CEJsonSorted const &_Params)
+	TCFuture<void> CWebSocketEchoActor::fp_StartApp(CEJsonSorted const _Params)
 	{
 		auto OnResume = co_await fg_OnResume
 			(
@@ -36,14 +36,14 @@ namespace NMib::NWeb::NWebSocketEcho
 				, 9001
 				, 1
 				, ENetFlag_None
-				, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection &&_Connection) -> TCFuture<void>
+				, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _Connection) -> TCFuture<void>
 				{
 					DMibLog(Info, "New connection '{}': {vs}", _Connection.m_Info.m_PeerAddress, _Connection.m_Protocols);
 
 					auto SocketID = m_iSocketId++;
 					auto Address = _Connection.m_Info.m_PeerAddress;
 
-					_Connection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_pMessage) -> TCFuture<void>
+					_Connection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CIOByteVector> _pMessage) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetLen());
 							auto *pClient = m_Clients.f_FindEqual(SocketID);
@@ -53,7 +53,7 @@ namespace NMib::NWeb::NWebSocketEcho
 							co_return {};
 						}
 					;
-					_Connection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [this, SocketID, Address](CStr const &_Message) -> TCFuture<void>
+					_Connection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [this, SocketID, Address](CStr _Message) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
 							auto *pClient = m_Clients.f_FindEqual(SocketID);
@@ -63,7 +63,7 @@ namespace NMib::NWeb::NWebSocketEcho
 							co_return {};
 						}
 					;
-					_Connection.m_fOnReceivePing = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+					_Connection.m_fOnReceivePing = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							auto *pClient = m_Clients.f_FindEqual(SocketID);
@@ -73,28 +73,28 @@ namespace NMib::NWeb::NWebSocketEcho
 							co_return {};
 						}
 					;
-					_Connection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CSecureByteVector> const &_ApplicationData) -> TCFuture<void>
+					_Connection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							co_return {};
 						}
 					;
-					_Connection.m_fOnClose = g_ActorFunctorWeak / [this, SocketID, Address](EWebSocketStatus _Reason, CStr const &_Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					_Connection.m_fOnClose = g_ActorFunctorWeak / [this, SocketID, Address](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
 							auto *pClient = m_Clients.f_FindEqual(SocketID);
 							if (pClient)
 							{
-								TCActorResultVector<void> Destroys;
+								TCFutureVector<void> Destroys;
 
 								if (pClient->m_Subscription)
-									pClient->m_Subscription->f_Destroy() > Destroys.f_AddResult();
+									pClient->m_Subscription->f_Destroy() > Destroys;
 
-								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys.f_AddResult();
+								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys;
 
 								m_Clients.f_Remove(pClient);
 
-								co_await Destroys.f_GetResults();
+								co_await fg_AllDone(Destroys);
 							}
 
 							co_return {};
@@ -115,6 +115,7 @@ namespace NMib::NWeb::NWebSocketEcho
 									m_Clients.f_Remove(SocketID);
 									return;
 								}
+
 								auto *pClient = m_Clients.f_FindEqual(SocketID);
 								if (pClient)
 								{
@@ -128,7 +129,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 					co_return {};
 				}
-				, g_ActorFunctorWeak / [](CWebSocketActor::CConnectionInfo &&_ConnectionInfo) -> TCFuture<void>
+				, g_ActorFunctorWeak / [](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
 				{
 					DMibLog(Info, "Failed connection '{}': {}", _ConnectionInfo.m_PeerAddress, _ConnectionInfo.m_Error);
 
@@ -144,9 +145,9 @@ namespace NMib::NWeb::NWebSocketEcho
 
 	TCFuture<void> CWebSocketEchoActor::fp_StopApp()
 	{
-		TCActorResultVector<void> Destroys;
+		TCFutureVector<void> Destroys;
 
-		co_await Destroys.f_GetResults();
+		co_await fg_AllDone(Destroys);
 
 		co_return {};
 	}
