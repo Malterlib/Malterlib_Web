@@ -41,7 +41,7 @@ namespace NMib::NWeb
 		};
 
 		struct CState;
-		 
+
 		struct CCertificateConfig
 		{
 			NContainer::CByteVector m_ClientCertificate;
@@ -78,15 +78,15 @@ namespace NMib::NWeb
 		struct CResult
 		{
 			CResult(CState const &_State);
-			
+
 			uint32 m_StatusCode = 0;
 			NStr::CStr m_StatusMessage;
 			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
-			
+
 			NEncoding::CEJsonSorted f_ToJson() const;
 		};
-		
+
 		NConcurrency::TCFuture<CResult> f_Request
 			(
 				EMethod _Method

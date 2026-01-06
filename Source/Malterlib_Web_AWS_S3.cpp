@@ -77,7 +77,7 @@ namespace NMib::NWeb
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
 		TCPromiseFuturePair<CAwsS3Actor::CListBucket> Promise;
-		
+
 		auto fDoRequest = [=, Promise = fg_Move(Promise.m_Promise), this]
 			(
 #if !defined(DCompiler_Workaround_Apple_clang) && !defined(DCompiler_MSVC_Workaround)

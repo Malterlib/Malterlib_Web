@@ -126,23 +126,23 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CFastCGIServer::fp_Destroy()
 	{
 		NConcurrency::CLogError LogError("FastCGIServer");
-		
+
 		auto &Internal = *mp_pInternal;
-		
+
 		{
 			auto pCanDestroy = fg_Move(Internal.mp_pCanDestroyTracker);
 			auto CanDestroyFuture = fg_Exchange(pCanDestroy, nullptr)->f_Future();
-			
+
 			co_await fg_Move(CanDestroyFuture).f_Wrap() > LogError.f_Warning("Failed to destroy can destroy tracker");
 		}
-		
+
 		NConcurrency::TCFutureVector<void> DestroyResults;
-		
+
 		for (auto& ListenSocket : Internal.mp_ListenSockets)
 		fg_Move(ListenSocket).f_Destroy() > DestroyResults;
-		
+
 		Internal.mp_ListenSockets.f_Clear();
-		
+
 		Internal.mp_Connections.f_ExtractAll
 			(
 				[&](auto &&_Handle)

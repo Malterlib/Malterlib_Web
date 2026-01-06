@@ -79,7 +79,7 @@ namespace NMib::NWeb
 		CStr HashTag = Hash.f_GetDigest().f_GetString();
 
 		NConcurrency::TCFutureQueue<void> QueuedWrites(16);
-		
+
 		auto fWriteHeader = [&](CMibFilePos _nBytes) -> TCUnsafeFuture<bool>
 			{
 				CHTTPResponseHeader ResponseHeader;
@@ -116,7 +116,7 @@ namespace NMib::NWeb
 
 				while (QueuedWrites)
 					co_await QueuedWrites.f_PopFirst();
-				
+
 				co_return true;
 			}
 
@@ -131,7 +131,7 @@ namespace NMib::NWeb
 			{
 				while (QueuedWrites)
 					co_await QueuedWrites.f_PopFirst();
-				
+
 				co_return true;
 			}
 
@@ -151,7 +151,7 @@ namespace NMib::NWeb
 
 			while (QueuedWrites)
 				co_await QueuedWrites.f_PopFirst();
-			
+
 		}
 
 		co_return true;

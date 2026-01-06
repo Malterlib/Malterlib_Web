@@ -342,7 +342,7 @@ namespace NMib::NWeb
 
 					return Promise.f_Future();
 				}
-				
+
 				try
 				{
 					for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
