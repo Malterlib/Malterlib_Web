@@ -176,7 +176,7 @@ namespace NMib::NWeb
 		aint nParsed;
 		(void)
 			(
-				NMib::NStr::CStrPtr::CParse("HTTP/{} {} {}")
+				NMib::NStr::CStr::CParse("HTTP/{} {} {}")
 				>> HttpVersion
 				>> m_StatusCode
 				>> m_StatusMessage
