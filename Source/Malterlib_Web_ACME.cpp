@@ -4,7 +4,7 @@
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Cryptography/Certificate>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 #include <Mib/XML/XML>
 
 #include "Malterlib_Web_ACME.h"
@@ -300,9 +300,9 @@ namespace NMib::NWeb
 		auto fGet = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
-						CCurlActor::EMethod_GET
+						CHttpClientActor::EMethod_GET
 						, _Path
 						, TCMap<CStr, CStr>{}
 						, CByteVector{}
@@ -316,9 +316,9 @@ namespace NMib::NWeb
 		auto fHead = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
-						CCurlActor::EMethod_HEAD
+						CHttpClientActor::EMethod_HEAD
 						, _Path
 						, TCMap<CStr, CStr>{}
 						, CByteVector{}
@@ -336,9 +336,9 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
-						CCurlActor::EMethod_POST
+						CHttpClientActor::EMethod_POST
 						, _Path
 						, fg_Move(Headers)
 						, fg_FlattenedJwsEncode(_Path, fg_Move(_Payload), *pState)
@@ -353,9 +353,9 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_CurlActor.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
-						CCurlActor::EMethod_POST
+						CHttpClientActor::EMethod_POST
 						, _Path
 						, fg_Move(Headers)
 						, fg_FlattenedJwsEncode(_Path, {}, *pState)
@@ -366,7 +366,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fUpdateNonce = [pState](CCurlActor::CResult const &_Result) -> TCUnsafeFuture<void>
+		auto fUpdateNonce = [pState](CHttpClientActor::CResult const &_Result) -> TCUnsafeFuture<void>
 			{
 				CStr Nonce;
 
@@ -410,7 +410,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto fGetError = [fGetErrorFromJson](CCurlActor::CResult const &_Result, CStr const &_Context)
+		auto fGetError = [fGetErrorFromJson](CHttpClientActor::CResult const &_Result, CStr const &_Context)
 			{
 				CStr ErrorMessage = "{}: {} {}"_f << _Context << _Result.m_StatusCode << _Result.m_StatusMessage;
 

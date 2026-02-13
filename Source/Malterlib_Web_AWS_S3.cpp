@@ -3,7 +3,7 @@
 
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 #include <Mib/XML/XML>
 
 #include "Malterlib_Web_AWS_S3.h"
@@ -13,18 +13,18 @@ namespace NMib::NWeb
 {
 	struct CAwsS3Actor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-			: m_CurlActor{_CurlActor}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+			: m_HttpClientActor{_HttpClientActor}
 			, m_Credentials{_Credentials}
 		{
 		}
 
 		CAwsCredentials m_Credentials;
-		TCActor<CCurlActor> m_CurlActor;
+		TCActor<CHttpClientActor> m_HttpClientActor;
 	};
 
-	CAwsS3Actor::CAwsS3Actor(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-		: mp_pInternal{fg_Construct(_CurlActor, _Credentials)}
+	CAwsS3Actor::CAwsS3Actor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}
 	{
 	}
 
@@ -35,7 +35,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		auto Headers = co_await fg_DoAWSRequestHEAD("Get metadata", Internal.m_CurlActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
+		auto Headers = co_await fg_DoAWSRequestHEAD("Get metadata", Internal.m_HttpClientActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
 
 		CAwsS3Actor::CObjectInfoMetadata Metadata;
 
@@ -96,8 +96,8 @@ namespace NMib::NWeb
 				if (_ContinuationToken)
 					NewURL.f_AddQueryEntry({"continuation-token", _ContinuationToken});
 
-				fg_DoAWSRequestXML("List bucket", Internal.m_CurlActor, 200, NewURL, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "s3")
-					> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult> &&_Result)
+				fg_DoAWSRequestXML("List bucket", Internal.m_HttpClientActor, 200, NewURL, {}, CHttpClientActor::EMethod_GET, Internal.m_Credentials, {}, "s3")
+					> Promise / [=](NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult> &&_Result)
 					{
 						auto &[Results, CurlResult] = _Result;
 
@@ -255,7 +255,7 @@ namespace NMib::NWeb
 		auto Digest = NCryptography::CHash_MD5::fs_DigestFromData(_Data);
 		AWSHeaders["Content-MD5"] = NEncoding::fg_Base64Encode(CByteVector(Digest.f_GetData(), Digest.mc_Size));
 
-		co_await fg_DoAWSRequestXML("Put object", Internal.m_CurlActor, 200, AWSUrl, _Data, CCurlActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3");
+		co_await fg_DoAWSRequestXML("Put object", Internal.m_HttpClientActor, 200, AWSUrl, _Data, CHttpClientActor::EMethod_PUT, Internal.m_Credentials, fg_GetPutHeaders(_Info), "s3");
 
 		co_return {};
 	}
@@ -277,7 +277,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
-		co_await fg_DoAWSRequestXML("Delete object", Internal.m_CurlActor, 204, AWSUrl, {}, CCurlActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3");
+		co_await fg_DoAWSRequestXML("Delete object", Internal.m_HttpClientActor, 204, AWSUrl, {}, CHttpClientActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3");
 
 		co_return {};
 	}

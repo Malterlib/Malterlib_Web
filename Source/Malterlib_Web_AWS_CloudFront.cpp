@@ -11,19 +11,19 @@ namespace NMib::NWeb
 {
 	struct CAwsCloudFrontActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-			: m_CurlActor{_CurlActor}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+			: m_HttpClientActor{_HttpClientActor}
 			, m_Credentials{_Credentials}
 		{
 			m_Credentials.m_Region = "us-east-1";
 		}
 
 		CAwsCredentials m_Credentials;
-		TCActor<CCurlActor> m_CurlActor;
+		TCActor<CHttpClientActor> m_HttpClientActor;
 	};
 
-	CAwsCloudFrontActor::CAwsCloudFrontActor(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-		: mp_pInternal{fg_Construct(_CurlActor, _Credentials)}
+	CAwsCloudFrontActor::CAwsCloudFrontActor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}
 	{
 	}
 
@@ -56,11 +56,11 @@ namespace NMib::NWeb
 		auto Result = co_await fg_DoAWSRequestXML
 			(
 				"Create invalidation"
-				, Internal.m_CurlActor
+				, Internal.m_HttpClientActor
 				, 201
 				, AWSUrl
 				, fg_Move(PostDocument)
-				, CCurlActor::EMethod_POST
+				, CHttpClientActor::EMethod_POST
 				, Internal.m_Credentials
 				, {}
 				, "cloudfront"
@@ -99,7 +99,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2020-05-31/distribution/{}/config"_f << _DistributionID};
 
-		auto Result = co_await fg_DoAWSRequestXML("Get distribution", Internal.m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront");
+		auto Result = co_await fg_DoAWSRequestXML("Get distribution", Internal.m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront");
 
 		auto &Results = fg_Get<0>(Result);
 		auto &CurlResult = fg_Get<1>(Result);
@@ -221,7 +221,7 @@ namespace NMib::NWeb
 		if (auto pHeader = CurlResult.m_Headers.f_FindEqual("etag"))
 			Headers["If-Match"] = *pHeader;
 
-		co_await fg_DoAWSRequestXML("Update distribution", Internal.m_CurlActor, 200, AWSUrl, fg_Move(Results), CCurlActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront");
+		co_await fg_DoAWSRequestXML("Update distribution", Internal.m_HttpClientActor, 200, AWSUrl, fg_Move(Results), CHttpClientActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront");
 
 		co_return {};
 	}

@@ -13,11 +13,11 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor;
+	struct CHttpClientActor;
 
 	struct CAwsLambdaActor : public NConcurrency::CActor
 	{
-		CAwsLambdaActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
+		CAwsLambdaActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 		~CAwsLambdaActor();
 
 		struct CFunctionConfiguration

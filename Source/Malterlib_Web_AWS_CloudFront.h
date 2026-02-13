@@ -13,7 +13,7 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor;
+	struct CHttpClientActor;
 
 	struct CAwsCloudFrontActor : public NConcurrency::CActor
 	{
@@ -33,7 +33,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		CAwsCloudFrontActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
+		CAwsCloudFrontActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 		~CAwsCloudFrontActor();
 
 	private:

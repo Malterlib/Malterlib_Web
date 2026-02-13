@@ -5,7 +5,7 @@
 
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 #include <Mib/Cryptography/MessageAuthentication>
 #include <Mib/XML/XML>
 
@@ -13,16 +13,16 @@ namespace NMib::NWeb
 {
 	DMibImpErrorClassImplement(CExceptionAws);
 
-	ch8 const *fg_MethodToStr(CCurlActor::EMethod _Method)
+	ch8 const *fg_MethodToStr(CHttpClientActor::EMethod _Method)
 	{
 		switch (_Method)
 		{
-			case CCurlActor::EMethod_GET: return "GET";
-			case CCurlActor::EMethod_HEAD: return "HEAD";
-			case CCurlActor::EMethod_POST: return "POST";
-			case CCurlActor::EMethod_PUT: return "PUT";
-			case CCurlActor::EMethod_DELETE: return "DELETE";
-			case CCurlActor::EMethod_PATCH: return "PATCH";
+			case CHttpClientActor::EMethod_GET: return "GET";
+			case CHttpClientActor::EMethod_HEAD: return "HEAD";
+			case CHttpClientActor::EMethod_POST: return "POST";
+			case CHttpClientActor::EMethod_PUT: return "PUT";
+			case CHttpClientActor::EMethod_DELETE: return "DELETE";
+			case CHttpClientActor::EMethod_PATCH: return "PATCH";
 		}
 
 		return "";
@@ -32,7 +32,7 @@ namespace NMib::NWeb
 		(
 			NHTTP::CURL const &_URL
 			, CByteVector const &_Contents
-			, CCurlActor::EMethod _Method
+			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials const &_Credentials
 			, TCMap<CStr, CStr> const &_AWSHeaders
 			, CStr const &_Service // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
@@ -180,7 +180,7 @@ namespace NMib::NWeb
 		return Headers;
 	}
 
-	NException::CExceptionPointer fg_ReportAWSErrorXML(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
+	NException::CExceptionPointer fg_ReportAWSErrorXML(CHttpClientActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
 		NXML::CXMLDocument ErrorReturn;
 		do
@@ -217,14 +217,14 @@ namespace NMib::NWeb
 		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
-	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CCurlActor::CResult>> fg_DoAWSRequestXML
+	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult>> fg_DoAWSRequestXML
 		(
 			CStr _Description
-			, TCActor<CCurlActor> _CurlActor
+			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL _URL
 			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> _Contents
-			, CCurlActor::EMethod _Method
+			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders
 			, CStr _Service
@@ -243,7 +243,7 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
+		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorXML(Result, _Description);
 
@@ -260,7 +260,7 @@ namespace NMib::NWeb
 		co_return fg_Tuple(fg_Move(Results), fg_Move(Result));
 	}
 
-	NException::CExceptionPointer fg_ReportAWSErrorJson(CCurlActor::CResult &_Result, ch8 const *_pRequestDescription)
+	NException::CExceptionPointer fg_ReportAWSErrorJson(CHttpClientActor::CResult &_Result, ch8 const *_pRequestDescription)
 	{
 		CJsonSorted ErrorReturn;
 		do
@@ -308,11 +308,11 @@ namespace NMib::NWeb
 	TCFuture<NEncoding::CJsonSorted> fg_DoAWSRequestJson
 		(
 			CStr _Description
-			, TCActor<CCurlActor> _CurlActor
+			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL _URL
 			, NStorage::TCVariant<void, CByteVector, NEncoding::CJsonSorted> _Contents
-			, CCurlActor::EMethod _Method
+			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders
 			, CStr _Service
@@ -339,7 +339,7 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _CurlActor(&CCurlActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
+		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorJson(Result, _Description);
@@ -361,7 +361,7 @@ namespace NMib::NWeb
 	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
 		(
 			CStr _Description
-			, TCActor<CCurlActor> _CurlActor
+			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
 			, NHTTP::CURL _URL
 			, CAwsCredentials _Credentials
@@ -371,12 +371,12 @@ namespace NMib::NWeb
 		)
 	{
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
-		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CCurlActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
+		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CHttpClientActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _CurlActor
+		auto Result = co_await _HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_HEAD
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_HEAD
 				, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
 				, Headers
 				, NContainer::CByteVector{}

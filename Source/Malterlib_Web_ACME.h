@@ -12,7 +12,7 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor;
+	struct CHttpClientActor;
 
 	struct CAcmeClientActor : public NConcurrency::CActor
 	{
@@ -33,7 +33,7 @@ namespace NMib::NWeb
 		{
 			CDependencies(EDefaultDirectory _Directory, NStr::CStr const &_CustomDirectory = {});
 
-			NConcurrency::TCActor<CCurlActor> m_CurlActor;
+			NConcurrency::TCActor<CHttpClientActor> m_HttpClientActor;
 			NHTTP::CURL m_DirectoryURL;
 
 			CAccountInfo m_AccountInfo;

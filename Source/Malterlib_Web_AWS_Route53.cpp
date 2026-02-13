@@ -3,7 +3,7 @@
 
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 #include <Mib/XML/XML>
 
 #include "Malterlib_Web_AWS_Route53.h"
@@ -16,19 +16,19 @@ namespace NMib::NWeb
 
 	struct CAwsRoute53Actor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-			: m_CurlActor{_CurlActor}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+			: m_HttpClientActor{_HttpClientActor}
 			, m_Credentials{_Credentials}
 		{
 			m_Credentials.m_Region = "us-east-1";
 		}
 
 		CAwsCredentials m_Credentials;
-		TCActor<CCurlActor> m_CurlActor;
+		TCActor<CHttpClientActor> m_HttpClientActor;
 	};
 
-	CAwsRoute53Actor::CAwsRoute53Actor(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-		: mp_pInternal{fg_Construct(_CurlActor, _Credentials)}
+	CAwsRoute53Actor::CAwsRoute53Actor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}
 	{
 	}
 
@@ -108,11 +108,11 @@ namespace NMib::NWeb
 			auto Results = co_await fg_DoAWSRequestXML
 				(
 					"List resource record sets"
-					, Internal.m_CurlActor
+					, Internal.m_HttpClientActor
 					, 200
 					, CurrentURL
 					, {}
-					, CCurlActor::EMethod_GET
+					, CHttpClientActor::EMethod_GET
 					, Internal.m_Credentials
 					, {}
 					, "route53"
@@ -271,11 +271,11 @@ namespace NMib::NWeb
 			auto Results = co_await fg_DoAWSRequestXML
 				(
 					"List hosted zones by name"
-					, Internal.m_CurlActor
+					, Internal.m_HttpClientActor
 					, 200
 					, CurrentURL
 					, {}
-					, CCurlActor::EMethod_GET
+					, CHttpClientActor::EMethod_GET
 					, Internal.m_Credentials
 					, {}
 					, "route53"
@@ -463,11 +463,11 @@ namespace NMib::NWeb
 		auto Results = co_await fg_DoAWSRequestXML
 			(
 				"Change resource record sets"
-				, Internal.m_CurlActor
+				, Internal.m_HttpClientActor
 				, 200
 				, AWSUrl
 				, fg_Move(PostDocument)
-				, CCurlActor::EMethod_POST
+				, CHttpClientActor::EMethod_POST
 				, Internal.m_Credentials
 				, {}
 				, "route53"
@@ -513,11 +513,11 @@ namespace NMib::NWeb
 			auto Results = co_await fg_DoAWSRequestXML
 				(
 					"Get change status"
-					, Internal.m_CurlActor
+					, Internal.m_HttpClientActor
 					, 200
 					, AWSUrl
 					, {}
-					, CCurlActor::EMethod_GET
+					, CHttpClientActor::EMethod_GET
 					, Internal.m_Credentials
 					, {}
 					, "route53"

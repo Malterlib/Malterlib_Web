@@ -11,7 +11,7 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor;
+	struct CHttpClientActor;
 
 	struct CSlackActor : public NConcurrency::CActor
 	{
@@ -127,7 +127,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<NStr::CStr> f_UpdateMessage(NStr::CStr _Token, NStr::CStr _Timestamp, CMessage _Message);
 		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL _IncomingWebhook, CMessage _Message);
 
-		CSlackActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor);
+		CSlackActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor);
 		~CSlackActor();
 
 	private:

@@ -20,11 +20,15 @@ extern "C"
 
 namespace NMib::NWeb
 {
+	DMibImpErrorClassImplement(CHttpClientRequestException);
+
+	// For compatibilty with actor protocol
+	DMibImpErrorSpecificClassParentDefine(CWebRequestException, CHttpClientRequestException, CHttpClientRequestExceptionData);
 	DMibImpErrorClassImplement(CWebRequestException);
 
-	CWebRequestExceptionData CWebRequestExceptionData::fs_FromResult(CCurlActor::CResult const &_Result)
+	CHttpClientRequestExceptionData CHttpClientRequestExceptionData::fs_FromResult(CHttpClientActor::CResult const &_Result)
 	{
-		return CWebRequestExceptionData{.m_StatusCode = _Result.m_StatusCode, .m_StatusMessage = _Result.m_StatusMessage};
+		return CHttpClientRequestExceptionData{.m_StatusCode = _Result.m_StatusCode, .m_StatusMessage = _Result.m_StatusMessage};
 	}
 
 	using namespace NConcurrency;
@@ -104,20 +108,20 @@ namespace NMib::NWeb
 		constinit NStorage::TCAggregate<CCurlInit, 129> g_CurlInit = {DAggregateInit};
 	}
 
-	struct CCurlActor::CActorHolder::CInternal
+	struct CHttpClientActor::CActorHolder::CInternal
 	{
 		TCUniquePointer<CURLM, CCurlDeleterMulti> m_pMulti;
 		NThread::CEvent m_ActorCreatedEvent;
 		NThread::CEvent m_ProcessingStartedEvent;
 	};
 
-	struct CCurlActor::CState
+	struct CHttpClientActor::CState
 	{
 		CByteVector m_Headers;
 		CByteVector m_Body;
 	};
 
-	struct CCurlActor::CInternal
+	struct CHttpClientActor::CInternal
 	{
 		CInternal(CCertificateConfig const &_CertificateConfig)
 			: m_CertificateConfig(_CertificateConfig)
@@ -133,7 +137,7 @@ namespace NMib::NWeb
 				return TCMap<CStr, CRequest>::fs_GetKey(*this);
 			}
 
-			CCurlActor *m_pActor = nullptr;
+			CHttpClientActor *m_pActor = nullptr;
 			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 			TCUniquePointer<CURL, CCurlDeleterEasy> m_pCurl;
 			TCUniquePointer<curl_slist, CCurlDeleterSList> m_pHeaders;
@@ -142,7 +146,7 @@ namespace NMib::NWeb
 			NContainer::CByteVector::CIteratorConst m_iData;
 			CStr m_CurlErrorBuffer;
 			CStr m_CookieStr;
-			TCPromise<CCurlActor::CResult> m_FinishedPromise;
+			TCPromise<CHttpClientActor::CResult> m_FinishedPromise;
 			uint64 m_ReadDataSize = 0;
 			TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> m_fReadData;
 			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
@@ -159,7 +163,7 @@ namespace NMib::NWeb
 		TCMap<CStr, CRequest> m_Requests;
 	};
 
-	CCurlActor::CResult::CResult(CState const &_State)
+	CHttpClientActor::CResult::CResult(CState const &_State)
 		: m_Body(CStr((ch8 const *)_State.m_Body.f_GetArray(), _State.m_Body.f_GetLen()))
 	{
 		CStr HeaderStr((ch8 const *)_State.m_Headers.f_GetArray(), _State.m_Headers.f_GetLen());
@@ -187,12 +191,12 @@ namespace NMib::NWeb
 		}
 	}
 
-	NEncoding::CEJsonSorted CCurlActor::CResult::f_ToJson() const
+	NEncoding::CEJsonSorted CHttpClientActor::CResult::f_ToJson() const
 	{
 		return NEncoding::CEJsonSorted::fs_FromString(m_Body);
 	}
 
-	CCurlActor::CActorHolder::CActorHolder
+	CHttpClientActor::CActorHolder::CActorHolder
 		(
 			CConcurrencyManager *_pConcurrencyManager
 			, bool _bImmediateDelete
@@ -205,9 +209,9 @@ namespace NMib::NWeb
 	{
 	}
 
-	CCurlActor::CActorHolder::~CActorHolder() = default;
+	CHttpClientActor::CActorHolder::~CActorHolder() = default;
 
-	void CCurlActor::fp_Construct()
+	void CHttpClientActor::fp_Construct()
 	{
 		auto pActorHolder = fp_GetActorHolder();
 		auto &HolderInternal = *pActorHolder->m_pInternal;
@@ -215,7 +219,7 @@ namespace NMib::NWeb
 		HolderInternal.m_ProcessingStartedEvent.f_Wait();
 	}
 
-	void CCurlActor::CActorHolder::fp_StartQueueProcessing()
+	void CHttpClientActor::CActorHolder::fp_StartQueueProcessing()
 	{
 		*g_CurlInit;
 
@@ -233,16 +237,16 @@ namespace NMib::NWeb
 					auto &Internal = *m_pInternal;
 					auto *pMultiHandle = Internal.m_pMulti.f_Get();
 
-					CCurlActor *pCurlActor = nullptr;
+					CHttpClientActor *pHttpClientActor = nullptr;
 					Internal.m_ActorCreatedEvent.f_Wait();
 					{
 						DMibLock(mp_ThreadLock);
-						pCurlActor = static_cast<CCurlActor *>(fp_GetActorRelaxed());
+						pHttpClientActor = static_cast<CHttpClientActor *>(fp_GetActorRelaxed());
 					}
 
 					auto &ThreadLocal = fg_ConcurrencyThreadLocal();
 
-					DMibFastCheck(pCurlActor);
+					DMibFastCheck(pHttpClientActor);
 					CCurrentActorScope CurrentActorScope(ThreadLocal, this);
 
 					Internal.m_ProcessingStartedEvent.f_SetSignaled();
@@ -268,7 +272,7 @@ namespace NMib::NWeb
 									void *pRawRequest = nullptr;
 									curl_easy_getinfo(pEasyHandle, CURLINFO_PRIVATE, &pRawRequest);
 
-									CCurlActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
+									CHttpClientActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
 
 									NException::CExceptionPointer pError;
 									if (pRequest->m_pWriteError && pRequest->m_pReadError)
@@ -285,7 +289,7 @@ namespace NMib::NWeb
 									else if (pRequest->m_pReadError)
 										pError = fg_Move(pRequest->m_pReadError);
 
-									fg_ThisActor(pCurlActor).f_Bind<&CCurlActor::fp_RequestFinished>(pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)).f_DiscardResult();
+									fg_ThisActor(pHttpClientActor).f_Bind<&CHttpClientActor::fp_RequestFinished>(pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)).f_DiscardResult();
 								}
 							}
 						}
@@ -300,13 +304,13 @@ namespace NMib::NWeb
 		;
 	}
 
-	void CCurlActor::CActorHolder::fp_Wakeup()
+	void CHttpClientActor::CActorHolder::fp_Wakeup()
 	{
 		auto &Internal = *m_pInternal;
 		curl_multi_wakeup(Internal.m_pMulti.f_Get());
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueJob(FActorQueueDispatchNoAlloc &&_ToQueue, CConcurrencyThreadLocal &_ThreadLocal)
+	void CHttpClientActor::CActorHolder::fp_QueueJob(FActorQueueDispatchNoAlloc &&_ToQueue, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		auto pQueueEntry = CConcurrentRunQueueNonVirtualNoAlloc::fs_QueueEntry(fg_Move(_ToQueue));
 
@@ -325,7 +329,7 @@ namespace NMib::NWeb
 			fp_Wakeup();
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
+	void CHttpClientActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		// Make sure the memory isn't deallocated
 		TCActorHolderWeakPointer<CActorHolder> pStayAlive = fg_Explicit(this);
@@ -348,7 +352,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueRunProcess(CConcurrencyThreadLocal &_ThreadLocal)
+	void CHttpClientActor::CActorHolder::fp_QueueRunProcess(CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
 		fp_QueueJob
@@ -363,7 +367,7 @@ namespace NMib::NWeb
 		;
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
+	void CHttpClientActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
 		{
@@ -381,7 +385,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CCurlActor::CActorHolder::fp_QueueProcessEntry(CConcurrentRunQueueEntryHolder &&_Entry, CConcurrencyThreadLocal &_ThreadLocal)
+	void CHttpClientActor::CActorHolder::fp_QueueProcessEntry(CConcurrentRunQueueEntryHolder &&_Entry, CConcurrencyThreadLocal &_ThreadLocal)
 	{
 		if (fp_AddToQueue(fg_Move(_Entry), _ThreadLocal))
 		{
@@ -399,7 +403,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CCurlActor::CActorHolder::fp_DestroyThreaded()
+	void CHttpClientActor::CActorHolder::fp_DestroyThreaded()
 	{
 		{
 			DMibLock(mp_ThreadLock);
@@ -418,7 +422,7 @@ namespace NMib::NWeb
 		CDefaultActorHolder::fp_DestroyThreaded();
 	}
 
-	CCurlActor::CInternal::CRequest::~CRequest()
+	CHttpClientActor::CInternal::CRequest::~CRequest()
 	{
 		*m_pDeleted = true;
 
@@ -430,19 +434,19 @@ namespace NMib::NWeb
 		}
 	}
 
-	CCurlActor::CCurlActor(CCertificateConfig const &_CertificateConfig)
+	CHttpClientActor::CHttpClientActor(CCertificateConfig const &_CertificateConfig)
 		: mp_pInternal(fg_Construct(_CertificateConfig))
 	{
 	}
 
-	CCurlActor::~CCurlActor() = default;
+	CHttpClientActor::~CHttpClientActor() = default;
 
-	auto CCurlActor::fp_GetActorHolder() -> CActorHolder *
+	auto CHttpClientActor::fp_GetActorHolder() -> CActorHolder *
 	{
 		return static_cast<CActorHolder *>(self.m_pThis.f_Get());
 	}
 
-	TCFuture<void> CCurlActor::fp_Destroy()
+	TCFuture<void> CHttpClientActor::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
 		for (auto &Request : Internal.m_Requests)
@@ -458,7 +462,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	TCFuture<void> CCurlActor::fp_RequestFinished(CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException)
+	TCFuture<void> CHttpClientActor::fp_RequestFinished(CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException)
 	{
 		auto &Internal = *mp_pInternal;
 		CURLcode ResultCode = (CURLcode)_ResultCode;
@@ -484,7 +488,7 @@ namespace NMib::NWeb
 				Request.m_FinishedPromise.f_SetException(DMibErrorInstance(fg_Format("libcurl failed ({}): {}", ResultCode, FullError)));
 			}
 			else
-				Request.m_FinishedPromise.f_SetResult(CCurlActor::CResult(Request.m_State));
+				Request.m_FinishedPromise.f_SetResult(CHttpClientActor::CResult(Request.m_State));
 		}
 
 		Internal.m_Requests.f_Remove(pRequest);
@@ -492,7 +496,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	TCFuture<CCurlActor::CResult> CCurlActor::f_Request
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Request
 		(
 			EMethod _Method
 			, NStr::CStr _URL
@@ -504,10 +508,10 @@ namespace NMib::NWeb
 		return f_ExecuteRequest(CRequest{.m_URL = fg_Move(_URL), .m_Method = _Method, .m_Headers = fg_Move(_Headers), .m_Data = fg_Move(_Data), .m_Cookies = fg_Move(_Cookies)});
 	}
 
-	TCFuture<CCurlActor::CResult> CCurlActor::f_ExecuteRequest(CRequest _Request)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_ExecuteRequest(CRequest _Request)
 	{
 		if (f_IsDestroyed())
-			co_return DMibErrorInstance("Curl actor shutting down");
+			co_return DMibErrorInstance("HTTP client actor shutting down");
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 

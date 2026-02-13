@@ -4,7 +4,7 @@
 #include <Mib/Core/Core>
 #include <Mib/Test/Test>
 #include <Mib/Test/Exception>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 #include <Mib/Web/HTTP/URL>
 #include <Mib/File/ExeFS>
 #include <Mib/File/VirtualFSs/MalterlibFS>
@@ -34,7 +34,7 @@ namespace
 	CUniversallyUniqueIdentifier g_SocketPathRootUUID("20D5CFF1-4CD7-4F1A-8B53-3C0252ED5817", EUniversallyUniqueIdentifierFormat_Bare);
 }
 
-class CCurl_Tests : public NMib::NTest::CTest
+class CHttpClient_Tests : public NMib::NTest::CTest
 {
 public:
 	struct CWebServerResults
@@ -51,7 +51,7 @@ public:
 		}
 
 		TCActor<CProcessLaunchActor> m_WebServerLaunch;
-		CCurlActor::CCertificateConfig m_CertificateConfig;
+		CHttpClientActor::CCertificateConfig m_CertificateConfig;
 		CActorSubscription m_Subscription;
 	};
 
@@ -293,7 +293,7 @@ public:
 		DMibTestSuite("General") -> TCFuture<void>
 		{
 			DMibTestPath("Path1");
-			CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebCurlGeneral";
+			CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebHttpClientGeneral";
 			fg_TestAddCleanupPath(TestDirectory);
 
 			auto WebServerResults = co_await f_SetupWebServer(TestDirectory);
@@ -308,32 +308,32 @@ public:
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
 				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
 				DMibTestPath("Simple Request");
-				TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 				{
 					DMibTestPath("HTTP");
-					auto Result = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies);
+					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies);
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
 				{
 					DMibTestPath("HTTPS");
-					auto Result = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies);
+					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies);
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
 
-				co_await fg_Move(CurlActor).f_Destroy();
+				co_await fg_Move(HttpClientActor).f_Destroy();
 			}
 			{
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
 				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
 				DMibTestPath("Multiple Requests");
-				TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
+				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 
 				CStr ExpectedResultsText;
 
-				TCFutureVector<CCurlActor::CResult> AsyncResults;
+				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
 				for (mint i = 0; i < 100; ++i)
 				{
-					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
+					HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
 				}
 
@@ -349,7 +349,7 @@ public:
 						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
 				}
 
-				co_await fg_Move(CurlActor).f_Destroy();
+				co_await fg_Move(HttpClientActor).f_Destroy();
 
 				DMibExpect(ExceptionText, ==, "");
 				DMibExpect(ResultsText, ==, ExpectedResultsText);
@@ -358,17 +358,17 @@ public:
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
 				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
 				DMibTestPath("Multiple Actors");
-				TCVector<TCActor<CCurlActor>> CurlActors;
+				TCVector<TCActor<CHttpClientActor>> HttpClientActors;
 
 				CStr ExpectedResultsText;
 
-				TCFutureVector<CCurlActor::CResult> AsyncResults;
+				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
 				for (mint i = 0; i < 100; ++i)
 				{
-					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
+					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
+					HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
-					CurlActors.f_Insert(fg_Move(CurlActor));
+					HttpClientActors.f_Insert(fg_Move(HttpClientActor));
 				}
 
 				CStr ExceptionText;
@@ -383,7 +383,7 @@ public:
 						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
 				}
 
-				for (auto &Actor : CurlActors)
+				for (auto &Actor : HttpClientActors)
 					co_await fg_Move(Actor).f_Destroy();
 
 				DMibExpect(ExceptionText, ==, "");
@@ -392,13 +392,13 @@ public:
 			{
 				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
 				DMibTestPath("Untrusted Certificate");
-				TCActor<CCurlActor> CurlActor(fg_Construct(), "Curl");
+				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(), "HTTP Client");
 				{
 					DMibTestPath("HTTPS");
-					auto CurlResult = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
+					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
 					DMibExpectException
 						(
-							CurlResult.f_Access()
+							HttpClientResult.f_Access()
 							, DMibErrorInstance
 							(
 								"libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate OpenSSL verify result: unable to get local issuer certificate (20)"
@@ -406,18 +406,18 @@ public:
 						)
 					;
 				}
-				co_await fg_Move(CurlActor).f_Destroy();
+				co_await fg_Move(HttpClientActor).f_Destroy();
 			}
 			{
 				NHTTP::CURL HttpsUrl("https://www.google.com/");
 				DMibTestPath("Public Certificate");
-				TCActor<CCurlActor> CurlActor(fg_Construct(), "Curl");
+				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(), "HTTP Client");
 				{
 					DMibTestPath("HTTPS");
-					auto CurlResult = co_await CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
-					DMibExpectNoException(CurlResult.f_Access());
+					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
+					DMibExpectNoException(HttpClientResult.f_Access());
 				}
-				co_await fg_Move(CurlActor).f_Destroy();
+				co_await fg_Move(HttpClientActor).f_Destroy();
 			}
 			{
 				DMibTestPath("Abort Request");
@@ -428,10 +428,10 @@ public:
 
 				{
 					DMibTestPath("HTTP");
-					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					TCFuture<CCurlActor::CResult> RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Call();
+					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
+					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Call();
 					CClock Clock{true};
-					co_await fg_Move(CurlActor).f_Destroy();
+					co_await fg_Move(HttpClientActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
@@ -440,10 +440,10 @@ public:
 				}
 				{
 					DMibTestPath("HTTPS");
-					TCActor<CCurlActor> CurlActor(fg_Construct(WebServerResults.m_CertificateConfig), "Curl");
-					TCFuture<CCurlActor::CResult> RequestFuture = CurlActor(&CCurlActor::f_Request, CCurlActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Call();
+					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
+					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Call();
 					CClock Clock{true};
-					co_await fg_Move(CurlActor).f_Destroy();
+					co_await fg_Move(HttpClientActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
@@ -461,4 +461,4 @@ public:
 	}
 };
 
-DMibTestRegister(CCurl_Tests, Malterlib::Web);
+DMibTestRegister(CHttpClient_Tests, Malterlib::Web);

@@ -4,7 +4,7 @@
 #include "Malterlib_Web_Slack.h"
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NWeb
 {
@@ -15,16 +15,16 @@ namespace NMib::NWeb
 
 	struct CSlackActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(NConcurrency::TCActor<CCurlActor> const &_CurlActor)
-			: m_CurlActor{_CurlActor}
+		CInternal(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor)
+			: m_HttpClientActor{_HttpClientActor}
 		{
 		}
 
-		NConcurrency::TCActor<CCurlActor> m_CurlActor;
+		NConcurrency::TCActor<CHttpClientActor> m_HttpClientActor;
 	};
 
-	CSlackActor::CSlackActor(NConcurrency::TCActor<CCurlActor> const &_CurlActor)
-		: mp_pInternal{fg_Construct(_CurlActor)}
+	CSlackActor::CSlackActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor)
+		: mp_pInternal{fg_Construct(_HttpClientActor)}
 	{
 	}
 
@@ -181,10 +181,10 @@ namespace NMib::NWeb
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
 		Headers["Content-Type"] = "application/json";
 
-		auto Result = co_await Internal.m_CurlActor
+		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				,CCurlActor::EMethod_POST
+				&CHttpClientActor::f_Request
+				,CHttpClientActor::EMethod_POST
 				, "https://slack.com/api/chat.postMessage"
 				, fg_Move(Headers)
 				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
@@ -223,10 +223,10 @@ namespace NMib::NWeb
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
 		Headers["Content-Type"] = "application/json";
 
-		auto Result = co_await Internal.m_CurlActor
+		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				,CCurlActor::EMethod_POST
+				&CHttpClientActor::f_Request
+				,CHttpClientActor::EMethod_POST
 				, "https://slack.com/api/chat.update"
 				, fg_Move(Headers)
 				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
@@ -258,10 +258,10 @@ namespace NMib::NWeb
 		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 
 		auto SlackMessageString = SlackMessage.f_ToString();
-		auto Result = co_await Internal.m_CurlActor
+		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				,CCurlActor::EMethod_POST
+				&CHttpClientActor::f_Request
+				,CHttpClientActor::EMethod_POST
 				, _IncomingWebhook.f_Encode()
 				, TCMap<CStr, CStr>{}
 				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())

@@ -192,14 +192,14 @@ namespace NMib::NWeb
 	struct CAwsLambdaActor::CInternal : public NConcurrency::CActorInternal
 	{
 
-		CInternal(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-			: m_CurlActor{_CurlActor}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+			: m_HttpClientActor{_HttpClientActor}
 			, m_Credentials{_Credentials}
 		{
 		}
 
 		CAwsCredentials m_Credentials;
-		TCActor<CCurlActor> m_CurlActor;
+		TCActor<CHttpClientActor> m_HttpClientActor;
 
 		static void fs_CheckZipError(int _Error, CStr const &_File)
 		{
@@ -279,7 +279,7 @@ namespace NMib::NWeb
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 			AWSUrl.f_AppendPath({_FunctionName});
-			return fg_DoAWSRequestJson("Get function", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
+			return fg_DoAWSRequestJson("Get function", m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
 		static CStr fsp_TracingConfigToString(CFunctionConfiguration::ETracingMode _Mode)
@@ -440,7 +440,7 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			auto Results = co_await fg_DoAWSRequestJson("Create function", m_CurlActor, 201, AWSUrl, Request, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
+			auto Results = co_await fg_DoAWSRequestJson("Create function", m_HttpClientActor, 201, AWSUrl, Request, CHttpClientActor::EMethod_POST, m_Credentials, {}, "lambda");
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
 			FunctionInfo.m_Arn = "{}:{}"_f << Results.f_GetMemberValue("FunctionArn", "").f_String() << FunctionInfo.m_Version;
@@ -466,7 +466,7 @@ namespace NMib::NWeb
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function configuration", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function configuration", m_HttpClientActor, 200, AWSUrl, Request, CHttpClientActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Arn = Results.f_GetMemberValue("FunctionArn", "").f_String();
@@ -490,7 +490,7 @@ namespace NMib::NWeb
 			if (_Config.m_bPublish)
 				Request["Publish"] = *_Config.m_bPublish;
 
-			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function code", m_CurlActor, 200, AWSUrl, Request, CCurlActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function code", m_HttpClientActor, 200, AWSUrl, Request, CHttpClientActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -509,13 +509,13 @@ namespace NMib::NWeb
 		TCFuture<CJsonSorted> f_GetFunctionVersions(CStr const &_FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
-			return fg_DoAWSRequestJson("Get function versions", m_CurlActor, 200, AWSUrl, {}, CCurlActor::EMethod_GET, m_Credentials, {}, "lambda");
+			return fg_DoAWSRequestJson("Get function versions", m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
 		TCFuture<CFunctionInfo> f_PublishVersion(CStr _FunctionName)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
-			CJsonSorted Results = co_await fg_DoAWSRequestJson("Publish function", m_CurlActor, 201, AWSUrl, {}, CCurlActor::EMethod_POST, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson("Publish function", m_HttpClientActor, 201, AWSUrl, {}, CHttpClientActor::EMethod_POST, m_Credentials, {}, "lambda");
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Version = Results.f_GetMemberValue("Version", "").f_String();
@@ -582,8 +582,8 @@ namespace NMib::NWeb
 		}
 	};
 
-	CAwsLambdaActor::CAwsLambdaActor(TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials)
-		: mp_pInternal{fg_Construct(_CurlActor, _Credentials)}
+	CAwsLambdaActor::CAwsLambdaActor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}
 	{
 	}
 

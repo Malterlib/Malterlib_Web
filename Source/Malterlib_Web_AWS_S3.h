@@ -13,7 +13,7 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor;
+	struct CHttpClientActor;
 
 	struct CAwsS3Actor : public NConcurrency::CActor
 	{
@@ -90,7 +90,7 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_DeleteObject(NStr::CStr _BucketName, NStr::CStr _Key);
 
-		CAwsS3Actor(NConcurrency::TCActor<CCurlActor> const &_CurlActor, CAwsCredentials const &_Credentials);
+		CAwsS3Actor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 		~CAwsS3Actor();
 
 	private:

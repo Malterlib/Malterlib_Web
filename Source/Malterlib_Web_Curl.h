@@ -10,7 +10,7 @@
 
 namespace NMib::NWeb
 {
-	struct CCurlActor : public NConcurrency::CActor
+	struct CHttpClientActor : public NConcurrency::CActor
 	{
 		struct CActorHolder : public NConcurrency::CSeparateThreadActorHolder
 		{
@@ -49,8 +49,8 @@ namespace NMib::NWeb
 			NContainer::CByteVector m_CertificateAuthorities;
 		};
 
-		CCurlActor(CCertificateConfig const &_CertificateConfig = {});
-		~CCurlActor();
+		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {});
+		~CHttpClientActor();
 
 		enum EMethod
 		{
@@ -111,21 +111,21 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 
-	struct CWebRequestExceptionData
+	struct CHttpClientRequestExceptionData
 	{
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
-		static CWebRequestExceptionData fs_FromResult(CCurlActor::CResult const &_Result);
+		static CHttpClientRequestExceptionData fs_FromResult(CHttpClientActor::CResult const &_Result);
 
 		uint32 m_StatusCode = 0;
 		NStr::CStr m_StatusMessage;
 	};
 
-	DMibImpErrorSpecificClassDefine(CWebRequestException, NMib::NException::CException, CWebRequestExceptionData);
+	DMibImpErrorSpecificClassDefine(CHttpClientRequestException, NMib::NException::CException, CHttpClientRequestExceptionData);
 
-#	define DMibErrorWebRequest(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CWebRequestException, d_Description, d_Specific)
-#	define DMibErrorInstanceWebRequest(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CWebRequestException, d_Description, d_Specific)
+#	define DMibErrorWebRequest(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CHttpClientRequestException, d_Description, d_Specific)
+#	define DMibErrorInstanceWebRequest(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CHttpClientRequestException, d_Description, d_Specific)
 }
 
 #ifndef DMibPNoShortCuts

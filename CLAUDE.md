@@ -36,20 +36,20 @@ public:
 };
 ```
 
-#### HTTP Client (`CCurlActor`)
+#### HTTP Client (`CHttpClientActor`)
 Actor-based HTTP client using libcurl for making HTTP requests.
 
 ```cpp
 // Create curl actor for HTTP requests
-TCActor<CCurlActor> CurlActor = fg_ConstructActor<CCurlActor>(CCurlActor::CCertificateConfig{});
+TCActor<CHttpClientActor> HttpClientActor = fg_ConstructActor<CHttpClientActor>(CHttpClientActor::CCertificateConfig{});
 
 // Make an HTTP GET request
-CCurlActor::CRequest Request;
+CHttpClientActor::CRequest Request;
 Request.m_URL = "https://api.example.com/data";
-Request.m_Method = CCurlActor::EMethod_GET;
+Request.m_Method = CHttpClientActor::EMethod_GET;
 Request.m_Headers["Authorization"] = "Bearer token123";
 
-CCurlActor::CResult Result = co_await CurlActor(&CCurlActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
 
 if (Result.m_StatusCode == 200)
 {
@@ -196,7 +196,7 @@ Credentials.m_AccessKeyID = "AKIAIOSFODNN7EXAMPLE";
 Credentials.m_SecretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 Credentials.m_Region = "us-west-2";
 
-TCActor<CAwsS3Actor> S3Actor = fg_ConstructActor<CAwsS3Actor>(CurlActor, Credentials);
+TCActor<CAwsS3Actor> S3Actor = fg_ConstructActor<CAwsS3Actor>(HttpClientActor, Credentials);
 
 // Upload object to S3
 CAwsS3Actor::CPutObjectInfo Info;
@@ -226,7 +226,7 @@ Provides AWS CloudFront CDN invalidation and management.
 
 ```cpp
 // Create CloudFront actor
-TCActor<CAwsCloudFrontActor> CloudFrontActor = fg_ConstructActor<CAwsCloudFrontActor>(CurlActor, Credentials);
+TCActor<CAwsCloudFrontActor> CloudFrontActor = fg_ConstructActor<CAwsCloudFrontActor>(HttpClientActor, Credentials);
 
 // Create invalidation
 TCVector<CStr> Paths = {"/images/*", "/api/v1/*"};
@@ -244,7 +244,7 @@ Provides AWS Lambda function invocation.
 
 ```cpp
 // Create Lambda actor
-TCActor<CAwsLambdaActor> LambdaActor = fg_ConstructActor<CAwsLambdaActor>(CurlActor, Credentials);
+TCActor<CAwsLambdaActor> LambdaActor = fg_ConstructActor<CAwsLambdaActor>(HttpClientActor, Credentials);
 
 // Invoke Lambda function
 CEJsonSorted Payload;
@@ -350,10 +350,10 @@ void fp_Test
 ### Error Handling
 Use exception types for error handling:
 ```cpp
-CCurlActor::CResult Result = co_await CurlActor(&CCurlActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
 if (Result.m_StatusCode != 200)
 {
-	DMibErrorWebRequest("Request failed", CWebRequestExceptionData::fs_FromResult(Result));
+	DMibErrorWebRequest("Request failed", CHttpClientRequestExceptionData::fs_FromResult(Result));
 }
 ```
 
@@ -361,12 +361,12 @@ if (Result.m_StatusCode != 200)
 Use coroutines for async operations:
 ```cpp
 // Direct co_await for simple cases
-CCurlActor::CResult Result = co_await CurlActor(&CCurlActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
 
 // Or store future if you need to do other work first
-TCFuture<CCurlActor::CResult> Future = CurlActor(&CCurlActor::f_ExecuteRequest, Request);
+TCFuture<CHttpClientActor::CResult> Future = HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
 // Do other work here...
-CCurlActor::CResult Result = co_await fg_Move(Future);
+CHttpClientActor::CResult Result = co_await fg_Move(Future);
 ```
 
 ## Important Notes
