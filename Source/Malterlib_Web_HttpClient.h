@@ -132,4 +132,4 @@ namespace NMib::NWeb
 	using namespace NMib::NWeb;
 #endif
 
-#include "Malterlib_Web_Curl.hpp"
+#include "Malterlib_Web_HttpClient.hpp"

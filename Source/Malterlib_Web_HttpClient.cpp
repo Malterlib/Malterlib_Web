@@ -1,7 +1,8 @@
 // Copyright © 2017 Hansoft AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
-#include "Malterlib_Web_Curl.h"
+#include "Malterlib_Web_HttpClient.h"
+
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Cryptography/RandomID>
 #include <Mib/Web/HTTP/URL>
