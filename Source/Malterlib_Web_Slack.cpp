@@ -175,20 +175,16 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
-		auto SlackMessageString = SlackMessage.f_ToString();
 
 		TCMap<CStr, CStr> Headers;
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
-		Headers["Content-Type"] = "application/json";
 
 		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				,CHttpClientActor::EMethod_POST
+				&CHttpClientActor::f_Post
 				, "https://slack.com/api/chat.postMessage"
 				, fg_Move(Headers)
-				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
-				, TCMap<CStr, CStr>{}
+				, fg_Move(SlackMessage)
 			)
 		;
 
@@ -217,20 +213,15 @@ namespace NMib::NWeb
 		SlackMessage["ts"] = _Timestamp;
 		SlackMessage["as_user"] = true;
 
-		auto SlackMessageString = SlackMessage.f_ToString();
-
 		TCMap<CStr, CStr> Headers;
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
-		Headers["Content-Type"] = "application/json";
 
 		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				,CHttpClientActor::EMethod_POST
+				&CHttpClientActor::f_Post
 				, "https://slack.com/api/chat.update"
 				, fg_Move(Headers)
-				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
-				, TCMap<CStr, CStr>{}
+				, fg_Move(SlackMessage)
 			)
 		;
 
@@ -257,15 +248,12 @@ namespace NMib::NWeb
 
 		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 
-		auto SlackMessageString = SlackMessage.f_ToString();
 		auto Result = co_await Internal.m_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				,CHttpClientActor::EMethod_POST
+				&CHttpClientActor::f_Post
 				, _IncomingWebhook.f_Encode()
 				, TCMap<CStr, CStr>{}
-				, CByteVector((uint8 const *)SlackMessageString.f_GetStr(), SlackMessageString.f_GetLen())
-				, TCMap<CStr, CStr>{}
+				, fg_Move(SlackMessage)
 			)
 		;
 

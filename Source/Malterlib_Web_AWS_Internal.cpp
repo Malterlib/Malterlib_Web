@@ -243,7 +243,19 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, _AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
+		auto Result = co_await _HttpClientActor
+			(
+				&CHttpClientActor::f_SendRequest
+				, CHttpClientActor::CRequest
+				{
+					.m_URL = _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
+					, .m_Headers = fg_Move(Headers)
+					, .m_SendData = fg_Move(Contents)
+					, .m_Method = _Method
+				}
+			)
+		;
+
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorXML(Result, _Description);
 
@@ -339,7 +351,18 @@ namespace NMib::NWeb
 
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, Contents, _Method, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Request, _Method, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers, Contents, TCMap<CStr, CStr>{});
+		auto Result = co_await _HttpClientActor
+			(
+				&CHttpClientActor::f_SendRequest
+				, CHttpClientActor::CRequest
+				{
+					.m_URL = _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
+					, .m_Headers = fg_Move(Headers)
+					, .m_SendData = fg_Move(Contents)
+					, .m_Method = _Method
+				}
+			)
+		;
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorJson(Result, _Description);
@@ -375,12 +398,9 @@ namespace NMib::NWeb
 
 		auto Result = co_await _HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_HEAD
+				&CHttpClientActor::f_Head
 				, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
 				, Headers
-				, NContainer::CByteVector{}
-				, TCMap<CStr, CStr>{}
 			)
 		;
 

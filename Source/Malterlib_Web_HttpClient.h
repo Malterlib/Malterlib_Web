@@ -49,10 +49,7 @@ namespace NMib::NWeb
 			NContainer::CByteVector m_CertificateAuthorities;
 		};
 
-		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {});
-		~CHttpClientActor();
-
-		enum EMethod
+		enum EMethod : uint8
 		{
 			EMethod_GET
 			, EMethod_HEAD
@@ -62,42 +59,98 @@ namespace NMib::NWeb
 			, EMethod_DELETE
 		};
 
+		struct CAsyncReadData
+		{
+			int64 m_Size = -1;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fRead;
+		};
+
+		struct CAsyncWriteData
+		{
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data)> m_fWrite;
+		};
+
 		struct CRequest
 		{
+			CAsyncReadData &f_AsyncSend();
+			CAsyncWriteData &f_AsyncReceive();
+
 			NStr::CStr m_URL;
-			EMethod m_Method = EMethod_GET;
-			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
-			NContainer::CByteVector m_Data;
+
+			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Cookies;
-			uint64 m_ReadDataSize = 0;
+
+			NStorage::TCVariant<void, NContainer::CByteVector, CAsyncReadData> m_SendData;
+			NStorage::TCVariant<void, CAsyncWriteData> m_ReceiveData;
+
+			EMethod m_Method = EMethod_GET;
 			bool m_bFollowRedirects = false;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fReadData;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data)> m_fWriteData;
+			bool m_bSetDefaultHeaders = true;
 		};
 
 		struct CResult
 		{
 			CResult(CState const &_State);
 
-			uint32 m_StatusCode = 0;
+			NEncoding::CEJsonSorted f_ToJson() const;
+
 			NStr::CStr m_StatusMessage;
 			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
-
-			NEncoding::CEJsonSorted f_ToJson() const;
+			uint32 m_StatusCode = 0;
 		};
 
-		NConcurrency::TCFuture<CResult> f_Request
+		using CRequestData = NStorage::TCVariant<NContainer::CByteVector, NStr::CStr, NEncoding::CEJsonSorted, NEncoding::CEJsonOrdered, NEncoding::CJsonSorted, NEncoding::CJsonOrdered>;
+
+		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {});
+		~CHttpClientActor();
+
+		NConcurrency::TCFuture<CResult> f_Get
 			(
-				EMethod _Method
-				, NStr::CStr _URL
+				NStr::CStr _URL
 				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-				, NContainer::CByteVector _Data
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Cookies
 			)
 		;
 
-		NConcurrency::TCFuture<CResult> f_ExecuteRequest(CRequest _Request);
+		NConcurrency::TCFuture<CResult> f_Head
+			(
+				NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			)
+		;
+
+		NConcurrency::TCFuture<CResult> f_Post
+			(
+				NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+				, CRequestData _Data
+			)
+		;
+
+		NConcurrency::TCFuture<CResult> f_Patch
+			(
+				NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+				, CRequestData _Data
+			)
+		;
+
+		NConcurrency::TCFuture<CResult> f_Put
+			(
+				NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+				, CRequestData _Data
+			)
+		;
+
+		NConcurrency::TCFuture<CResult> f_Delete
+			(
+				NStr::CStr _URL
+				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			)
+		;
+
+		NConcurrency::TCFuture<CResult> f_SendRequest(CRequest _Request);
 
 	private:
 		struct CInternal;

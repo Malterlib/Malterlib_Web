@@ -301,8 +301,6 @@ public:
 			NHTTP::CURL HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
 			NHTTP::CURL HttpsUrlTemplate = CStr("https://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "https.sock"));
 			TCMap<CStr, CStr> Headers;
-			TCMap<CStr, CStr> Cookies;
-			CByteVector Data;
 
 			{
 				NHTTP::CURL HttpUrl = HttpUrlTemplate;
@@ -311,12 +309,12 @@ public:
 				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 				{
 					DMibTestPath("HTTP");
-					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies);
+					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers);
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
 				{
 					DMibTestPath("HTTPS");
-					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies);
+					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers);
 					DMibExpect(Result.m_Body, ==, "Root Reply");
 				}
 
@@ -333,7 +331,7 @@ public:
 				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
 				for (mint i = 0; i < 100; ++i)
 				{
-					HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
+					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
 				}
 
@@ -366,7 +364,7 @@ public:
 				for (mint i = 0; i < 100; ++i)
 				{
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
-					HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies) > AsyncResults;
+					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
 					HttpClientActors.f_Insert(fg_Move(HttpClientActor));
 				}
@@ -395,7 +393,7 @@ public:
 				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(), "HTTP Client");
 				{
 					DMibTestPath("HTTPS");
-					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
+					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
 					DMibExpectException
 						(
 							HttpClientResult.f_Access()
@@ -414,7 +412,7 @@ public:
 				TCActor<CHttpClientActor> HttpClientActor(fg_Construct(), "HTTP Client");
 				{
 					DMibTestPath("HTTPS");
-					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Wrap();
+					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
 					DMibExpectNoException(HttpClientResult.f_Access());
 				}
 				co_await fg_Move(HttpClientActor).f_Destroy();
@@ -429,7 +427,7 @@ public:
 				{
 					DMibTestPath("HTTP");
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
-					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpUrl.f_Encode(), Headers, Data, Cookies).f_Call();
+					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers).f_Call();
 					CClock Clock{true};
 					co_await fg_Move(HttpClientActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);
@@ -441,7 +439,7 @@ public:
 				{
 					DMibTestPath("HTTPS");
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
-					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Request, CHttpClientActor::EMethod_GET, HttpsUrl.f_Encode(), Headers, Data, Cookies).f_Call();
+					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Call();
 					CClock Clock{true};
 					co_await fg_Move(HttpClientActor).f_Destroy();
 					DMibExpect(Clock.f_GetTime(), <, 1.0);

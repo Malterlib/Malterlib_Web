@@ -49,7 +49,7 @@ Request.m_URL = "https://api.example.com/data";
 Request.m_Method = CHttpClientActor::EMethod_GET;
 Request.m_Headers["Authorization"] = "Bearer token123";
 
-CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_SendRequest, Request);
 
 if (Result.m_StatusCode == 200)
 {
@@ -350,7 +350,7 @@ void fp_Test
 ### Error Handling
 Use exception types for error handling:
 ```cpp
-CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_SendRequest, Request);
 if (Result.m_StatusCode != 200)
 {
 	DMibErrorWebRequest("Request failed", CHttpClientRequestExceptionData::fs_FromResult(Result));
@@ -361,10 +361,10 @@ if (Result.m_StatusCode != 200)
 Use coroutines for async operations:
 ```cpp
 // Direct co_await for simple cases
-CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
+CHttpClientActor::CResult Result = co_await HttpClientActor(&CHttpClientActor::f_SendRequest, Request);
 
 // Or store future if you need to do other work first
-TCFuture<CHttpClientActor::CResult> Future = HttpClientActor(&CHttpClientActor::f_ExecuteRequest, Request);
+TCFuture<CHttpClientActor::CResult> Future = HttpClientActor(&CHttpClientActor::f_SendRequest, Request);
 // Do other work here...
 CHttpClientActor::CResult Result = co_await fg_Move(Future);
 ```

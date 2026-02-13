@@ -300,13 +300,10 @@ namespace NMib::NWeb
 		auto fGet = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Get, EVirtualCall::mc_NotVirtual>
 					(
-						CHttpClientActor::EMethod_GET
-						, _Path
-						, TCMap<CStr, CStr>{}
-						, CByteVector{}
-						, TCMap<CStr, CStr>{}
+						_Path
+						, fg_Default()
 					)
 					.f_Call()
 				;
@@ -316,13 +313,10 @@ namespace NMib::NWeb
 		auto fHead = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Head, EVirtualCall::mc_NotVirtual>
 					(
-						CHttpClientActor::EMethod_HEAD
-						, _Path
-						, TCMap<CStr, CStr>{}
-						, CByteVector{}
-						, TCMap<CStr, CStr>{}
+						_Path
+						, fg_Default()
 					)
 					.f_Call()
 				;
@@ -336,13 +330,11 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
 					(
-						CHttpClientActor::EMethod_POST
-						, _Path
+						_Path
 						, fg_Move(Headers)
 						, fg_FlattenedJwsEncode(_Path, fg_Move(_Payload), *pState)
-						, TCMap<CStr, CStr>{}
 					)
 					.f_Call()
 				;
@@ -353,13 +345,11 @@ namespace NMib::NWeb
 				auto &Internal = *mp_pInternal;
 				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
 
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Request, EVirtualCall::mc_NotVirtual>
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
 					(
-						CHttpClientActor::EMethod_POST
-						, _Path
+						_Path
 						, fg_Move(Headers)
 						, fg_FlattenedJwsEncode(_Path, {}, *pState)
-						, TCMap<CStr, CStr>{}
 					)
 					.f_Call()
 				;

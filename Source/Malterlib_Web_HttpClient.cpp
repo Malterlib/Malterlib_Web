@@ -148,7 +148,7 @@ namespace NMib::NWeb
 			CStr m_CurlErrorBuffer;
 			CStr m_CookieStr;
 			TCPromise<CHttpClientActor::CResult> m_FinishedPromise;
-			uint64 m_ReadDataSize = 0;
+			int64 m_ReadDataSize = -1;
 			TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> m_fReadData;
 			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
 			NException::CExceptionPointer m_pWriteError;
@@ -195,6 +195,16 @@ namespace NMib::NWeb
 	NEncoding::CEJsonSorted CHttpClientActor::CResult::f_ToJson() const
 	{
 		return NEncoding::CEJsonSorted::fs_FromString(m_Body);
+	}
+
+	auto CHttpClientActor::CRequest::f_AsyncSend() -> CAsyncReadData &
+	{
+		return m_SendData.f_SetAsType<CAsyncReadData>();
+	}
+
+	auto CHttpClientActor::CRequest::f_AsyncReceive() -> CAsyncWriteData &
+	{
+		return m_ReceiveData.f_SetAsType<CAsyncWriteData>();
 	}
 
 	CHttpClientActor::CActorHolder::CActorHolder
@@ -497,19 +507,133 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Request
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Get
 		(
-			EMethod _Method
-			, NStr::CStr _URL
+			NStr::CStr _URL
 			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			, NContainer::CByteVector _Data
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Cookies
 		)
 	{
-		return f_ExecuteRequest(CRequest{.m_URL = fg_Move(_URL), .m_Method = _Method, .m_Headers = fg_Move(_Headers), .m_Data = fg_Move(_Data), .m_Cookies = fg_Move(_Cookies)});
+		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_GET});
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_ExecuteRequest(CRequest _Request)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Head
+		(
+			NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+		)
+	{
+		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_HEAD});
+	}
+
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Post
+		(
+			NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			, CRequestData _Data
+		)
+	{
+		CRequest Request;
+		Request.m_URL = fg_Move(_URL);
+		Request.m_Headers = fg_Move(_Headers);
+		Request.m_Method = EMethod_POST;
+		_Data.f_Visit
+			(
+				[&]<typename tf_CType>(tf_CType &&_Value)
+				{
+					using CType = NTraits::TCRemoveReferenceAndQualifiers<tf_CType>;
+
+					if constexpr (NTraits::cIsSame<CType, NContainer::CByteVector>)
+						Request.m_SendData = fg_Move(_Value);
+					else if constexpr (NTraits::cIsSame<CType, NStr::CStr>)
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value);
+					else
+					{
+						if (!Request.m_Headers.f_FindEqual("Content-Type"))
+							Request.m_Headers["Content-Type"] = "application/json";
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value.f_ToString(nullptr));
+					}
+				}
+			)
+		;
+		return f_SendRequest(fg_Move(Request));
+	}
+
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Patch
+		(
+			NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			, CRequestData _Data
+		)
+	{
+		CRequest Request;
+		Request.m_URL = fg_Move(_URL);
+		Request.m_Headers = fg_Move(_Headers);
+		Request.m_Method = EMethod_PATCH;
+		_Data.f_Visit
+			(
+				[&]<typename tf_CType>(tf_CType &&_Value)
+				{
+					using CType = NTraits::TCRemoveReferenceAndQualifiers<tf_CType>;
+
+					if constexpr (NTraits::cIsSame<CType, NContainer::CByteVector>)
+						Request.m_SendData = fg_Move(_Value);
+					else if constexpr (NTraits::cIsSame<CType, NStr::CStr>)
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value);
+					else
+					{
+						if (!Request.m_Headers.f_FindEqual("Content-Type"))
+							Request.m_Headers["Content-Type"] = "application/json";
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value.f_ToString(nullptr));
+					}
+				}
+			)
+		;
+		return f_SendRequest(fg_Move(Request));
+	}
+
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Put
+		(
+			NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+			, CRequestData _Data
+		)
+	{
+		CRequest Request;
+		Request.m_URL = fg_Move(_URL);
+		Request.m_Headers = fg_Move(_Headers);
+		Request.m_Method = EMethod_PUT;
+		_Data.f_Visit
+			(
+				[&]<typename tf_CType>(tf_CType &&_Value)
+				{
+					using CType = NTraits::TCRemoveReferenceAndQualifiers<tf_CType>;
+
+					if constexpr (NTraits::cIsSame<CType, NContainer::CByteVector>)
+						Request.m_SendData = fg_Move(_Value);
+					else if constexpr (NTraits::cIsSame<CType, NStr::CStr>)
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value);
+					else
+					{
+						if (!Request.m_Headers.f_FindEqual("Content-Type"))
+							Request.m_Headers["Content-Type"] = "application/json";
+						Request.m_SendData = NContainer::CByteVector::fs_FromString(_Value.f_ToString(nullptr));
+					}
+				}
+			)
+		;
+		return f_SendRequest(fg_Move(Request));
+	}
+
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Delete
+		(
+			NStr::CStr _URL
+			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
+		)
+	{
+		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_DELETE});
+	}
+
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_SendRequest(CRequest _Request)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("HTTP client actor shutting down");
@@ -522,12 +646,30 @@ namespace NMib::NWeb
 		auto &Request = Internal.m_Requests[RequestID];
 		Request.m_pActor = this;
 		Request.m_pCurl = fg_Explicit(curl_easy_init());
-		Request.m_Data = fg_Move(_Request.m_Data);
+		_Request.m_SendData.f_Visit
+			(
+				[&]<typename tf_CData>(tf_CData &&_Data)
+				{
+					using CType = NTraits::TCRemoveReferenceAndQualifiers<tf_CData>;
+
+					if constexpr (NTraits::cIsSame<CType, NContainer::CByteVector>)
+						Request.m_Data = fg_Move(_Data);
+					else if constexpr (NTraits::cIsSame<CType, CAsyncReadData>)
+					{
+						Request.m_ReadDataSize = fg_Move(_Data.m_Size);
+						Request.m_fReadData = fg_Move(_Data.m_fRead);
+					}
+					else if constexpr (NTraits::cIsSame<CType, CVoidTag>)
+						;
+					else
+						static_assert(false, "Internal Error");
+				}
+			)
+		;
 		Request.m_iData = fg_Const(Request.m_Data).f_GetIterator();
 		Request.m_CurlErrorBuffer.f_CreateWritableBuffer(CURL_ERROR_SIZE, true);
-		Request.m_ReadDataSize = _Request.m_ReadDataSize;
-		Request.m_fReadData = fg_Move(_Request.m_fReadData);
-		Request.m_fWriteData = fg_Move(_Request.m_fWriteData);
+		if (_Request.m_ReceiveData.f_IsOfType<CAsyncWriteData>())
+			Request.m_fWriteData = fg_Move(_Request.m_ReceiveData.f_GetAsType<CAsyncWriteData>().m_fWrite);
 
 		if (!Request.m_pCurl)
 			co_return DMibErrorInstance("libcurl was not initialised");
@@ -567,16 +709,24 @@ namespace NMib::NWeb
 		for (auto &Cookie : _Request.m_Cookies.f_Entries())
 			Request.m_CookieStr += "{}={}; "_f << Cookie.f_Key() << Cookie.f_Value();
 
+		if (auto *pCookieHeader = _Request.m_Headers.f_FindEqual("Cookie"))
+		{
+			if (Request.m_CookieStr)
+				Request.m_CookieStr += *pCookieHeader;
+			else
+				Request.m_CookieStr = *pCookieHeader;
+		}
+
 		if (Request.m_CookieStr)
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_COOKIE>(pCurl, Request.m_CookieStr.f_GetStr()));
 
-		if (!_Request.m_Headers.f_FindEqual("Accept"))
+		if (_Request.m_bSetDefaultHeaders && !_Request.m_Headers.f_FindEqual("Accept"))
 			pHeaders = curl_slist_append(pHeaders, "Accept: application/json");
 
-		if (!_Request.m_Headers.f_FindEqual("Content-Type"))
+		if (_Request.m_bSetDefaultHeaders && !_Request.m_Headers.f_FindEqual("Content-Type"))
 			pHeaders = curl_slist_append(pHeaders, "Content-Type: application/json");
 
-		if (!_Request.m_Headers.f_FindEqual("Expect"))
+		if (_Request.m_bSetDefaultHeaders && !_Request.m_Headers.f_FindEqual("Expect"))
 			pHeaders = curl_slist_append(pHeaders, "Expect:");
 
 		if (!Internal.m_CertificateConfig.m_ClientCertificate.f_IsEmpty())
@@ -728,6 +878,9 @@ namespace NMib::NWeb
 
 		for (auto &Header : _Request.m_Headers.f_Entries())
 		{
+			if (Header.f_Key().f_CmpNoCase(gc_Str<"Cookie">.m_Str) == 0)
+				continue;
+
 			CStr HeaderStr(fg_Format("{}: {}", Header.f_Key(), Header.f_Value()));
 			pHeaders = curl_slist_append(pHeaders, HeaderStr.f_GetStr());
 		}
