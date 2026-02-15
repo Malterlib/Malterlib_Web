@@ -251,7 +251,7 @@ public:
 				if (_OutputType != EProcessLaunchOutputType_StdOut)
 				{
 					if (!_Output.f_StartsWith("Process terminated due to signal"))
-						DMibConErrOut2("{}", _Output);
+						DMibConErrOut("{}", _Output);
 					return;
 				}
 

@@ -538,7 +538,7 @@ namespace NMib::NWeb
 							fp_Disconnect("Unsupported fast CGI version");
 							return;
 						}
-						//DMibTrace("Received header ({}) with content: {}  RequestID: {} \n", mp_CurrentHeader.m_Type << mp_CurrentHeader.m_ContentLength << mp_CurrentHeader.m_RequestID);
+						//DMibTrace("Received header ({}) with content: {}  RequestID: {} \n", mp_CurrentHeader.m_Type, mp_CurrentHeader.m_ContentLength, mp_CurrentHeader.m_RequestID);
 					}
 					else
 						break;
