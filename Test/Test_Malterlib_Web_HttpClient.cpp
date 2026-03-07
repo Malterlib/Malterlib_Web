@@ -428,9 +428,9 @@ public:
 					DMibTestPath("HTTP");
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers).f_Call();
-					CClock Clock{true};
+					CStopwatch Stopwatch{true};
 					co_await fg_Move(HttpClientActor).f_Destroy();
-					DMibExpect(Clock.f_GetTime(), <, 1.0);
+					DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
 					DMibExpectTrue(!RequestResult);
@@ -440,9 +440,9 @@ public:
 					DMibTestPath("HTTPS");
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Call();
-					CClock Clock{true};
+					CStopwatch Stopwatch{true};
 					co_await fg_Move(HttpClientActor).f_Destroy();
-					DMibExpect(Clock.f_GetTime(), <, 1.0);
+					DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
 
 					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
 					DMibExpectTrue(!RequestResult);

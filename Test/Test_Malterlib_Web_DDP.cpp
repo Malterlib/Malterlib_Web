@@ -431,12 +431,12 @@ public:
 				).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 			;
 
-			CClock Timeout;
-			Timeout.f_Start();
+			CStopwatch Stopwatch;
+			Stopwatch.f_Start();
 
 			while (!pState->m_nReady.f_Load())
 			{
-				if (Timeout.f_GetTime() >= g_Timeout / 2)
+				if (Stopwatch.f_GetTime() >= g_Timeout / 2)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -530,10 +530,10 @@ public:
 
 			DMibExpect(pState->m_nChanged, ==, 0);
 			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
-			Timeout.f_Start();
+			Stopwatch.f_Start();
 			while (!pState->m_nChanged.f_Load())
 			{
-				if (Timeout.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -544,10 +544,10 @@ public:
 
 			DMibExpect(pState->m_nRemoved, ==, 0);
 			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
-			Timeout.f_Start();
+			Stopwatch.f_Start();
 			while (!pState->m_nRemoved.f_Load())
 			{
-				if (Timeout.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -559,12 +559,12 @@ public:
 			DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 0);
 		}
 		{
-			CClock Timeout;
-			Timeout.f_Start();
+			CStopwatch Stopwatch;
+			Stopwatch.f_Start();
 
 			while (ServerInternal.m_nUnsubscribe.f_Load() == 0)
 			{
-				if (Timeout.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
 					break;
 				ServerInternal.m_Event.f_WaitTimeout(1.0);
 			}

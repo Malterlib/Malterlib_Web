@@ -533,7 +533,7 @@ namespace NMib::NWeb
 
 		TCFuture<void> f_WaitForFunctionActive(CStr _FunctionName)
 		{
-			NTime::CClock Clock(true);
+			NTime::CStopwatch Stopwatch(true);
 			while (true)
 			{
 				CJsonSorted FunctionInfo = co_await f_GetFunction(_FunctionName);
@@ -572,7 +572,7 @@ namespace NMib::NWeb
 						co_return {};
 				}
 
-				if (Clock.f_GetTime() > 60.0)
+				if (Stopwatch.f_GetTime() > 60.0)
 					co_return DMibErrorInstance("Timed out waiting for function to become active. State: {}"_f << State);
 
 				co_await fg_Timeout(1.0);

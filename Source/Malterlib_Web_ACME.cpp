@@ -427,7 +427,7 @@ namespace NMib::NWeb
 			{
 				return self / [=, Timeout = _RequestCertificate.m_Timeout]() -> TCFuture<CEJsonSorted>
 					{
-						CClock Clock{true};
+						CStopwatch Stopwatch{true};
 
 						while (true)
 						{
@@ -459,7 +459,7 @@ namespace NMib::NWeb
 								co_return DMibErrorInstance("{cc} is invalid"_f << _Message);
 							}
 
-							if (Clock.f_GetTime() > Timeout)
+							if (Stopwatch.f_GetTime() > Timeout)
 								co_return DMibErrorInstance("Timed out waiting for {} to turn valid. Status is: '{}'"_f << _Message << ResponseJson);
 
 							co_await fg_Timeout(3.0);

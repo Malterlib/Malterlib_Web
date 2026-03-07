@@ -321,8 +321,8 @@ namespace NMib::NWeb
 		void f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo);
 
 		NConcurrency::CActorSubscription m_TimeoutTimerSubscription;
-		NTime::CClock m_TimeoutReceivedData;
-		NTime::CClock m_TimeoutSentData;
+		NTime::CStopwatch m_TimeoutReceivedData;
+		NTime::CStopwatch m_TimeoutSentData;
 		NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pTimeoutPingMessage;
 		CWebsocketSettings m_Settings;
 		mint m_TimeoutTimerSubscriptionSequence = 0;
