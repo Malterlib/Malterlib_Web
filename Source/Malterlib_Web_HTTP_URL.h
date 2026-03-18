@@ -48,7 +48,7 @@ namespace NMib::NWeb::NHTTP
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
-			auto operator <=> (CQueryEntry const &_Right) const = default;
+			auto operator <=> (CQueryEntry const &_Right) const noexcept = default;
 
 			template <typename tf_CStream>
 			void f_Stream(tf_CStream &_Stream);
@@ -88,7 +88,7 @@ namespace NMib::NWeb::NHTTP
 		CURL &operator =(CURL const &_ToCopy);
 		CURL &operator =(CURL &&_ToMove);
 
-		auto operator <=> (CURL const &_Right) const = default;
+		auto operator <=> (CURL const &_Right) const noexcept = default;
 
 		EURLFlag f_GetFlags() const;
 
