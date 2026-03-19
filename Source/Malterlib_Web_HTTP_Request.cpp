@@ -366,7 +366,7 @@ namespace NMib::NWeb::NHTTP
 		// So we use that to detect if we have a complete header available.
 		static uint8 const s_CrLfCrLf[] = { '\r', '\n', '\r', '\n'};
 		NStr::CStr RequestText;
-		mint iEnd;
+		umint iEnd;
 		if
 		(
 			_Data.f_ReadFrontUntil
@@ -374,7 +374,7 @@ namespace NMib::NWeb::NHTTP
 				 s_CrLfCrLf
 				, sizeof(s_CrLfCrLf)
 				, iEnd
-				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
+				, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes, umint _nTotalBytes)
 				{
 					RequestText.f_AddStr((ch8 const *)_pPtr, _nBytes);
 					return true;
@@ -540,17 +540,17 @@ namespace NMib::NWeb::NHTTP
 		if (!mp_EntityFields.f_HasField(EEntityField_ContentLength))
 			return EParse_Invalid;
 
-		mint ContentLength = mp_EntityFields.f_GetContentLength();
+		umint ContentLength = mp_EntityFields.f_GetContentLength();
 
 		if (_Data.f_GetLen() >= ContentLength)
 		{
 			mp_Content.f_SetLen(ContentLength);
-			mint iCurPos = 0;
+			umint iCurPos = 0;
 
 			_Data.f_ReadFront
 				(
 					ContentLength
-					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
 					{
 						NMemory::fg_MemCopy(mp_Content.f_GetArray() + iCurPos, _pPtr, _nBytes);
 						iCurPos += _nBytes;
@@ -574,8 +574,8 @@ namespace NMib::NWeb::NHTTP
 
 		static uint8 const CRLF[] = { '\r', '\n' };
 		NStr::CStr ChunkHeaderLine;
-		mint ChunkSize;
-		mint iPos;
+		umint ChunkSize;
+		umint iPos;
 
 		while(1)
 		{
@@ -623,7 +623,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_ReadFront
 				(
 					ChunkSize
-					, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
 					{
 						mp_Content.f_Insert(_pPtr, _nBytes);
 						return true;
@@ -656,7 +656,7 @@ namespace NMib::NWeb::NHTTP
 		{
 
 			NStr::CStr TrailerLine;
-			mint iPos;
+			umint iPos;
 
 			while (fg_PeekLine(_Data, iPos, TrailerLine))
 			{

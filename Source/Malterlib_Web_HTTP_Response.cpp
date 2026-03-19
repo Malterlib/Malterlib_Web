@@ -174,7 +174,7 @@ namespace NMib::NWeb::NHTTP
 		// So we use that to detect if we have a complete header available.
 		static uint8 const s_CrLfCrLf[] = { '\r', '\n', '\r', '\n'};
 		NStr::CStr RequestText;
-		mint iEnd;
+		umint iEnd;
 		if
 		(
 			_Data.f_ReadFrontUntil
@@ -182,7 +182,7 @@ namespace NMib::NWeb::NHTTP
 				 s_CrLfCrLf
 				, sizeof(s_CrLfCrLf)
 				, iEnd
-				, [&](mint _iStart, uint8 const* _pPtr, mint _nBytes, mint _nTotalBytes)
+				, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes, umint _nTotalBytes)
 				{
 					RequestText.f_AddStr((ch8 const *)_pPtr, _nBytes);
 					return true;
@@ -396,7 +396,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 
-	void CResponseContent::f_SendData(uint8 const *_pData, mint _nBytes)
+	void CResponseContent::f_SendData(uint8 const *_pData, umint _nBytes)
 	{
 		mp_pD->m_OutputMethod(_pData, _nBytes);
 	}

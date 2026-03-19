@@ -81,12 +81,12 @@ namespace NMib::NWeb
 
 	struct CWebsocketSettings
 	{
-		static constexpr mint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
-		static constexpr mint mc_DefaultFragmentationSize = 32 * 1024;
+		static constexpr umint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
+		static constexpr umint mc_DefaultFragmentationSize = 32 * 1024;
 		static constexpr pfp64 mc_DefaultTimeout = 60.0;
 
-		mint m_MaxMessageSize = mc_DefaultMaxMessageSize;
-		mint m_FragmentationSize = mc_DefaultFragmentationSize;
+		umint m_MaxMessageSize = mc_DefaultMaxMessageSize;
+		umint m_FragmentationSize = mc_DefaultFragmentationSize;
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
 	};
@@ -157,7 +157,7 @@ namespace NMib::NWeb
 
 			using NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>::operator =;
 
-			mint f_GetLen() const
+			umint f_GetLen() const
 			{
 				if (this->f_GetTypeID() == 0)
 					return this->f_Get<0>().f_GetLen();
@@ -177,7 +177,7 @@ namespace NMib::NWeb
 		struct CMessageBuffers
 		{
 			CMaybeSecureByteVector m_Data = NContainer::CByteVector{};
-			NContainer::TCVector<mint> m_Markers;
+			NContainer::TCVector<umint> m_Markers;
 		};
 
 		struct CDebugStats
@@ -215,7 +215,7 @@ namespace NMib::NWeb
 
 		static bool fs_IsValidCloseStatus(EWebSocketStatus _Status);
 
-		constexpr static mint mc_MaxCloseMessageLength = 125 - 2;
+		constexpr static umint mc_MaxCloseMessageLength = 125 - 2;
 
 	private:
 		friend class NWebSocket::CListenActor;
@@ -380,8 +380,8 @@ namespace NMib::NWeb
 		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
 		~CWebSocketClientActor();
 
-		void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
-		void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
+		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect
@@ -449,8 +449,8 @@ namespace NMib::NWeb
 			)
 		;
 
-		void f_SetDefaultMaxMessageSize(mint _MaxMessageSize);
-		void f_SetDefaultFragmentationSize(mint _FragmentationSize);
+		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
+		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
 #if DMibConfig_Tests_Enable

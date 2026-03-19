@@ -116,13 +116,13 @@ namespace NMib::NWeb::NHTTP
 		mp_Flags = _Flags;
 
 		NStr::CStr const &URL = _URL;
-		mint URLLength = URL.f_GetLen();
+		umint URLLength = URL.f_GetLen();
 
 		// Find all the various split points for the main components:
 
 		aint iColonSlashSlash = URL.f_Find("://");
 
-		auto fParseHost = [&](mint _iStart, ch8 _EndChar, mint _MaxLen) -> aint
+		auto fParseHost = [&](umint _iStart, ch8 _EndChar, umint _MaxLen) -> aint
 			{
 				ch8 const *pParse = URL.f_GetStr() + _iStart;
 				ch8 const *pMaxLen = pParse + _MaxLen;
@@ -205,8 +205,8 @@ namespace NMib::NWeb::NHTTP
 				mp_Host = URL.f_Extract(iHostStart, iPathStartSlash - iHostStart);
 			else
 			{
-				mint iHostStartTrimmed = iHostStart;
-				mint iHostEndTrimmed = iPathStartSlash;
+				umint iHostStartTrimmed = iHostStart;
+				umint iHostEndTrimmed = iPathStartSlash;
 				aint iPortColonMark = fParseHost(iHostStart, ':', iPathStartSlash - iHostStart);
 				if (iPortColonMark >= 0)
 				{ // Has port
@@ -703,7 +703,7 @@ namespace NMib::NWeb::NHTTP
 	// _End can range from 0 -> Len or be -1 which == Len
 	bool fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
-		mint StrLen = _Str.f_GetLen();
+		umint StrLen = _Str.f_GetLen();
 
 		if (_End < 0)
 			_End = StrLen;
@@ -711,10 +711,10 @@ namespace NMib::NWeb::NHTTP
 		if (_Start < 0 || _End < 0)
 			return false;
 
-		if (mint(_Start) > StrLen)
+		if (umint(_Start) > StrLen)
 			_Start = StrLen;
 
-		if (mint(_End) > StrLen)
+		if (umint(_End) > StrLen)
 			_End = StrLen;
 
 		if (_Start >= _End)
@@ -788,7 +788,7 @@ namespace NMib::NWeb::NHTTP
 	// _End can range from 0 -> Len or be -1 which == Len
 	bool CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
-		mint StrLen = _Str.f_GetLen();
+		umint StrLen = _Str.f_GetLen();
 
 		if (_End < 0)
 			_End = StrLen;
@@ -796,10 +796,10 @@ namespace NMib::NWeb::NHTTP
 		if (_Start < 0 || _End < 0)
 			return false;
 
-		if (mint(_Start) > StrLen)
+		if (umint(_Start) > StrLen)
 			_Start = StrLen;
 
-		if (mint(_End) > StrLen)
+		if (umint(_End) > StrLen)
 			_End = StrLen;
 
 		if (_Start >= _End)

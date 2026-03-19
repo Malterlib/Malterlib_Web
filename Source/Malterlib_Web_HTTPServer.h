@@ -54,7 +54,7 @@ namespace NMib::NWeb
 		virtual ~CHTTPConnection() {}
 
 		virtual void f_WriteStr(NStr::CStr _Str) = 0;
-		virtual void f_WriteBinary(const uint8* _pData, mint _nBytes) = 0;
+		virtual void f_WriteBinary(const uint8* _pData, umint _nBytes) = 0;
 		virtual void f_WriteHeader(CHTTPResponseHeader const& _Header) = 0;
 
 		virtual NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) = 0;
@@ -91,7 +91,7 @@ namespace NMib::NWeb
 		CHTTPCachedConnection& operator= (CHTTPCachedConnection && _ToMove);
 
 		void f_WriteStr(NStr::CStr _Str) override;
-		void f_WriteBinary(uint8 const* _pData, mint _nBytes) override;
+		void f_WriteBinary(uint8 const* _pData, umint _nBytes) override;
 		void f_WriteHeader(CHTTPResponseHeader const& _Header) override;
 
 		NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) override;
@@ -280,7 +280,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CState> m_pState;
 			NConcurrency::TCPromise<void> m_Promise;
 			NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> m_fWriteBlock;
-			mint m_iBlock = 0;
+			umint m_iBlock = 0;
 		};
 
 		static void fsp_AsyncWrite(NStorage::TCSharedPointer<CAsyncWriteState> const &_pState);

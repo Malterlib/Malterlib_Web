@@ -42,7 +42,7 @@ namespace NMib::NWeb::NHTTP
 			case EEntityField_ContentLength:
 				{
 					aint nParsed;
-					mint ContentLength;
+					umint ContentLength;
 					(NStr::CStr::CParse("{}") >> ContentLength).f_Parse(_Value, nParsed);
 					if (nParsed != 1)
 						return EParse_Invalid;
@@ -89,7 +89,7 @@ namespace NMib::NWeb::NHTTP
 			return NStr::CStr();
 	}
 
-	mint CEntityFields::f_GetContentLength() const
+	umint CEntityFields::f_GetContentLength() const
 	{
 		auto pContentLength = mp_Fields.f_FindEqual(EEntityField_ContentLength);
 		if (pContentLength)
@@ -171,7 +171,7 @@ namespace NMib::NWeb::NHTTP
 		mp_Fields[EEntityField_ContentLanguage] = _Value;
 	}
 
-	void CEntityFields::f_SetContentLength(mint _Value)
+	void CEntityFields::f_SetContentLength(umint _Value)
 	{
 		mp_Fields[EEntityField_ContentLength] = _Value;
 	}

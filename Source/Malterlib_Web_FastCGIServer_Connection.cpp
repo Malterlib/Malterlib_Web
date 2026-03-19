@@ -93,14 +93,14 @@ namespace NMib::NWeb
 		}
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessManagementRecord(CHeader const& _Header, uint8 const* _pData, mint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessManagementRecord(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
 	{
 		DMibTrace("Management record\n", 0);
 
 		return true;
 	}
 
-	void CFastCGIConnectionActor::fp_SendData(uint8 const* _pData, mint _Len)
+	void CFastCGIConnectionActor::fp_SendData(uint8 const* _pData, umint _Len)
 	{
 		mp_OutgoingData.f_Insert(_pData, _Len);
 		fp_UpdateSend();
@@ -114,17 +114,17 @@ namespace NMib::NWeb
 	void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::CIOByteVector const& _Data, ERequestType _Type)
 	{
 		auto *pData = _Data.f_GetArray();
-		mint ToSend = _Data.f_GetLen();
+		umint ToSend = _Data.f_GetLen();
 		uint8 Padding[8] = {};
 		uint8 HeaderData[8] = {};
 
 		while (ToSend)
 		{
-			mint ThisTime = fg_Min(ToSend, 64*1024 - (sizeof(CHeader)));
+			umint ThisTime = fg_Min(ToSend, 64*1024 - (sizeof(CHeader)));
 			NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 			Stream.f_OpenReadWrite(HeaderData, 8, 0);
 
-			mint PaddingSize = 0;
+			umint PaddingSize = 0;
 			if (ThisTime & 7)
 				PaddingSize = 8 - (ThisTime & 7);
 
@@ -232,7 +232,7 @@ namespace NMib::NWeb
 
 	}
 
-	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, mint _Len)
+	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, umint _Len)
 	{
 		if (mp_fOnStdInputRaw)
 			mp_fOnStdInputRaw.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
@@ -244,7 +244,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, mint _Len)
+	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, umint _Len)
 	{
 		if (mp_fOnData)
 			mp_fOnData.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
@@ -263,7 +263,7 @@ namespace NMib::NWeb
 			mp_fOnAbort.f_CallDiscard();
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const& _Header, uint8 const* _pData, mint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
 	{
 		if (_DataLen != sizeof(CBeginRequestBody))
 		{
@@ -306,7 +306,7 @@ namespace NMib::NWeb
 		return true;
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessStreamData(CHeader const& _Header, uint8 const* _pData, mint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessStreamData(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
 	{
 		// DMibTrace("Stream data\n", _Header.m_);
 
@@ -439,12 +439,12 @@ namespace NMib::NWeb
 	{
 		if (!mp_Socket.f_IsValid())
 			return;
-		mint ToSend = mp_OutgoingData.f_GetLen() - mp_OutgoingPosition;
+		umint ToSend = mp_OutgoingData.f_GetLen() - mp_OutgoingPosition;
 		if (ToSend)
 		{
 			try
 			{
-				mint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray() + mp_OutgoingPosition, ToSend);
+				umint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray() + mp_OutgoingPosition, ToSend);
 				mp_OutgoingPosition += Sent;
 			}
 			catch (NCryptography::CExceptionCryptography const& _Exception)
@@ -501,8 +501,8 @@ namespace NMib::NWeb
 			{
 				while (true)
 				{
-					mint Size = 4096;
-					mint Received = mp_Socket.f_Receive(Data, Size);
+					umint Size = 4096;
+					umint Received = mp_Socket.f_Receive(Data, Size);
 					if (Received == 0)
 						break;
 					mp_IncomingData.f_Insert(Data, Received);
@@ -523,7 +523,7 @@ namespace NMib::NWeb
 			{
 				if (mp_NeededData == 0)
 				{
-					mint Available = mp_IncomingData.f_GetLen() - mp_IncomingPosition;
+					umint Available = mp_IncomingData.f_GetLen() - mp_IncomingPosition;
 					if (Available >= 8)
 					{
 						// We have enough for header
@@ -543,7 +543,7 @@ namespace NMib::NWeb
 					else
 						break;
 				}
-				mint Available = mp_IncomingData.f_GetLen() - mp_IncomingPosition;
+				umint Available = mp_IncomingData.f_GetLen() - mp_IncomingPosition;
 				if (Available >= mp_NeededData)
 				{
 					if (mp_CurrentHeader.m_RequestID == 0)

@@ -72,7 +72,7 @@ namespace NMib::NWeb::NHTTP
 		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> _pD);
 		~CResponseContent();
 
-		void f_SendData(uint8 const *_pData, mint _nBytes);
+		void f_SendData(uint8 const *_pData, umint _nBytes);
 		void f_SendString(NStr::CStr const &_String);
 
 		CResponseTrailer f_Complete();

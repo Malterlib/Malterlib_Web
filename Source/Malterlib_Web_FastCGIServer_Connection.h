@@ -47,17 +47,17 @@ namespace NMib::NWeb
 
 		void fp_ClearState();
 
-		void fp_SendData(uint8 const* _pData, mint _Len);
+		void fp_SendData(uint8 const* _pData, umint _Len);
 		void fp_SendData(NContainer::CIOByteVector const& _Data);
 
 		void fp_SendStdOutput(NContainer::CIOByteVector const& _Data, NFastCGI::ERequestType _Type);
 
-		bool fp_ProcessManagementRecord(NFastCGI::CHeader const& _Header, uint8 const* _pData, mint _DataLen);
-		bool fp_ProcessBeginRequest(NFastCGI::CHeader const& _Header, uint8 const* _pData, mint _DataLen);
-		bool fp_ProcessStreamData(NFastCGI::CHeader const& _Header, uint8 const* _pData, mint _DataLen);
+		bool fp_ProcessManagementRecord(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
+		bool fp_ProcessBeginRequest(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
+		bool fp_ProcessStreamData(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
 
-		void fp_OnStdIn(uint8 const* _pData, mint _Len);
-		void fp_OnStdData(uint8 const* _pData, mint _Len);
+		void fp_OnStdIn(uint8 const* _pData, umint _Len);
+		void fp_OnStdData(uint8 const* _pData, umint _Len);
 		void fp_OnParams(NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params);
 		void fp_OnParams();
 		void fp_OnAbort();
@@ -81,14 +81,14 @@ namespace NMib::NWeb
 		NNetwork::CSocket mp_Socket;
 
 		NContainer::CIOByteVector mp_IncomingData;
-		mint mp_IncomingPosition;
-		mint mp_NeededData;
+		umint mp_IncomingPosition;
+		umint mp_NeededData;
 		NFastCGI::CHeader mp_CurrentHeader;
 		CRecordInfo mp_RecordInfo;
 		NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> mp_pParams = fg_Construct();
 
 		NContainer::CIOByteVector mp_OutgoingData;
-		mint mp_OutgoingPosition;
+		umint mp_OutgoingPosition;
 
 		NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;
 

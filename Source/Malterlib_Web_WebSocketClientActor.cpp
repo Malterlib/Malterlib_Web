@@ -20,12 +20,12 @@ namespace NMib::NWeb
 	{
 	}
 
-	void CWebSocketClientActor::f_SetDefaultMaxMessageSize(mint _MaxMessageSize)
+	void CWebSocketClientActor::f_SetDefaultMaxMessageSize(umint _MaxMessageSize)
 	{
 		mp_DefaultSettings.m_MaxMessageSize = _MaxMessageSize;
 	}
 
-	void CWebSocketClientActor::f_SetDefaultFragmentationSize(mint _FragmentationSize)
+	void CWebSocketClientActor::f_SetDefaultFragmentationSize(umint _FragmentationSize)
 	{
 		mp_DefaultSettings.m_FragmentationSize = _FragmentationSize;
 	}

@@ -202,12 +202,12 @@ namespace NMib::NWeb
 	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetRandomDocumentIterator() const
 	{
 		auto iDoc = mp_pCollection->m_Documents.f_GetIterator();
-		mint nDocuments = mp_pCollection->m_Documents.f_GetLen();
+		umint nDocuments = mp_pCollection->m_Documents.f_GetLen();
 		if (nDocuments <= 1)
 			return iDoc;
 
-		mint iIndex = NMisc::fg_Random().f_GetValue(nDocuments);
-		for (mint i = 0; i < iIndex; ++i)
+		umint iIndex = NMisc::fg_Random().f_GetValue(nDocuments);
+		for (umint i = 0; i < iIndex; ++i)
 			++iDoc;
 
 		return iDoc;

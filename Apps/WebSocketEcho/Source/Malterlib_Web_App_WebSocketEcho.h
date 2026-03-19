@@ -31,7 +31,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
 		CActorSubscription m_ListenSubscription;
-		mint m_iSocketId = 0;
-		TCMap<mint, CClientConnection> m_Clients;
+		umint m_iSocketId = 0;
+		TCMap<umint, CClientConnection> m_Clients;
 	};
 }

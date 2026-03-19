@@ -62,7 +62,7 @@ namespace NMib::NWeb
 		struct CAsyncReadData
 		{
 			int64 m_Size = -1;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fRead;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (umint _nBytes)> m_fRead;
 		};
 
 		struct CAsyncWriteData

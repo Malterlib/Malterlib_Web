@@ -57,7 +57,7 @@ public:
 
 	NStr::CStr f_GetLocalSocketFileName(NStr::CStr const &_Path) const
 	{
-		mint MaxLength = NSys::NNetwork::fg_GetMaxUnixSocketNameLength();
+		umint MaxLength = NSys::NNetwork::fg_GetMaxUnixSocketNameLength();
 		if (_Path.f_GetLen() <= aint(MaxLength))
 			return _Path;
 
@@ -329,7 +329,7 @@ public:
 				CStr ExpectedResultsText;
 
 				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (mint i = 0; i < 100; ++i)
+				for (umint i = 0; i < 100; ++i)
 				{
 					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
@@ -361,7 +361,7 @@ public:
 				CStr ExpectedResultsText;
 
 				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (mint i = 0; i < 100; ++i)
+				for (umint i = 0; i < 100; ++i)
 				{
 					TCActor<CHttpClientActor> HttpClientActor(fg_Construct(WebServerResults.m_CertificateConfig), "HTTP Client");
 					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;

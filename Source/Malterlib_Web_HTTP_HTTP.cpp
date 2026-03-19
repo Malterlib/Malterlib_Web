@@ -184,7 +184,7 @@ namespace NMib::NWeb::NHTTP
 	//
 
 
-	template<typename t_EnumType = mint>
+	template<typename t_EnumType = umint>
 	static t_EnumType fg_FindInStringList(NStr::CStr const& _FindThis, char const** _pInHere, t_EnumType _ReturnIfNotFound)
 	{
 		for (	char const** pCur = _pInHere
@@ -198,7 +198,7 @@ namespace NMib::NWeb::NHTTP
 		return _ReturnIfNotFound;
 	}
 
-	template<typename t_EnumType = mint>
+	template<typename t_EnumType = umint>
 	static t_EnumType fg_FindInStringListNoCase(NStr::CStr const& _FindThis, char const** _pInHere, t_EnumType _ReturnIfNotFound)
 	{
 		for (	char const** pCur = _pInHere

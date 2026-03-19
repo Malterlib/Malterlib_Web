@@ -797,8 +797,8 @@ namespace NMib::NWeb
 
 					if (Certificates.f_GetLen() >= 3)
 					{
-						mint nChains = Certificates.f_GetLen();
-						for (mint i = 2; i < nChains; ++i)
+						umint nChains = Certificates.f_GetLen();
+						for (umint i = 2; i < nChains; ++i)
 							Chain.m_Other.f_Insert(Certificates[i]);
 					}
 

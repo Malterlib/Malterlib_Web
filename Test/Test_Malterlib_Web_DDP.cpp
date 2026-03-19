@@ -38,7 +38,7 @@ public:
 		{
 			auto &Collection = m_Data["testCollection"];
 
-			for (mint i = 0; i < 10; ++i)
+			for (umint i = 0; i < 10; ++i)
 			{
 				CStr DocumentID = fg_Format("id{}", i);
 				auto &Document = Collection[DocumentID];
@@ -77,7 +77,7 @@ public:
 
 		TCMap<CStr, TCMap<CStr, CEJsonSorted>> m_Data;
 
-		TCAtomic<mint> m_nUnsubscribe;
+		TCAtomic<umint> m_nUnsubscribe;
 
 		CStr f_GetError() const
 		{
@@ -373,11 +373,11 @@ public:
 		struct CState
 		{
 			CEventAutoReset m_Event;
-			TCAtomic<mint> m_nReady{0};
-			TCAtomic<mint> m_nError{0};
-			TCAtomic<mint> m_nAdded{0};
-			TCAtomic<mint> m_nChanged{0};
-			TCAtomic<mint> m_nRemoved{0};
+			TCAtomic<umint> m_nReady{0};
+			TCAtomic<umint> m_nError{0};
+			TCAtomic<umint> m_nAdded{0};
+			TCAtomic<umint> m_nChanged{0};
+			TCAtomic<umint> m_nRemoved{0};
 		};
 
 		TCSharedPointer<CState> pState = fg_Construct();

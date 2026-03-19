@@ -79,7 +79,7 @@ namespace NMib::NWeb
 			}
 			uint64 m_Length = 0;
 			NContainer::CIOByteVector m_Data;
-			mint m_Position = 0;
+			umint m_Position = 0;
 			uint8 m_Mask[4];
 			CHeader m_Header;
 			bool m_bHeaderFinished = false;
@@ -275,12 +275,12 @@ namespace NMib::NWeb
 
 		void f_HandleControlMessage(CMessage &_Message);
 		void f_HandleDataMessage(CMessage &_Message);
-		void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, bool _bFinished);
+		void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished);
 
 		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData, uint32 _Priority);
-		COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority);
+		COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, uint32 _Priority);
 		void f_WriteQueuedMessages(bool _bFlushAll);
-		static void fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask);
+		static void fs_ApplyMask(uint8 *_pData, umint _iDataStart, umint _nBytes, uint8 const *_pMask);
 
 		NConcurrency::CActorSubscription f_SetCallbacks(CCallbacks &&_Callbacks);
 
@@ -325,36 +325,36 @@ namespace NMib::NWeb
 		NTime::CStopwatch m_TimeoutSentData;
 		NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pTimeoutPingMessage;
 		CWebsocketSettings m_Settings;
-		mint m_TimeoutTimerSubscriptionSequence = 0;
+		umint m_TimeoutTimerSubscriptionSequence = 0;
 		uint64 m_nSentBytes = 0;
 		uint64 m_nReceivedBytes = 0;
 
-		mint m_bPendingPing:1 = false;
-		mint m_bSentPing:1 = false;
+		umint m_bPendingPing:1 = false;
+		umint m_bSentPing:1 = false;
 
-		mint m_bPendingMessage:1 = false;
-		mint m_bClient:1 = false;
+		umint m_bPendingMessage:1 = false;
+		umint m_bClient:1 = false;
 
-		mint m_bOnCloseCalled:1 = false;
-		mint m_bOnFinishDone:1 = false;
-		mint m_bWantStopDefer:1 = false;
-		mint m_bShutdownCalled:1 = false;
+		umint m_bOnCloseCalled:1 = false;
+		umint m_bOnFinishDone:1 = false;
+		umint m_bWantStopDefer:1 = false;
+		umint m_bShutdownCalled:1 = false;
 
-		mint m_bFinishCalled:1 = false;
+		umint m_bFinishCalled:1 = false;
 
 #if DMibConfig_Tests_Enable
-		mint m_bDebugNoProcessing:1 = false;
-		mint m_bDebugNoProcessingReceive:1 = false;
-		mint m_bDebugNoProcessingSend:1 = false;
-		mint m_bDebugNoWriteQueuedMessages:1 = false;
-		mint m_bDebugFailSends:1 = false;
-		mint m_bDebugDelayClose:1 = false;
+		umint m_bDebugNoProcessing:1 = false;
+		umint m_bDebugNoProcessingReceive:1 = false;
+		umint m_bDebugNoProcessingSend:1 = false;
+		umint m_bDebugNoWriteQueuedMessages:1 = false;
+		umint m_bDebugFailSends:1 = false;
+		umint m_bDebugDelayClose:1 = false;
 
 		aint m_nDebugRemainingWriteOps = -1; // -1 = unlimited, >=0 = remaining write ops allowed (decrements each op)
 #endif
 
 #if DMibEnableSafeCheck > 0
-		mint m_bDestroyed = false;
+		umint m_bDestroyed = false;
 #endif
 	};
 
@@ -387,15 +387,15 @@ namespace NMib::NWeb
 
 	}
 
-	COutgoingMessage &CWebSocketActor::CInternal::f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, uint32 _Priority)
+	COutgoingMessage &CWebSocketActor::CInternal::f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, uint32 _Priority)
 	{
 		COutgoingMessage *pLastMessage = nullptr;
 		uint8 const *pBytes = _pData;
-		mint nBytes = _nBytes;
+		umint nBytes = _nBytes;
 		EOpcode Opcode = _Opcode;
 		while (true)
 		{
-			mint ThisTime = fg_Min(nBytes, m_Settings.m_FragmentationSize);
+			umint ThisTime = fg_Min(nBytes, m_Settings.m_FragmentationSize);
 			NContainer::CIOByteVector VectorData;
 			VectorData.f_Insert(pBytes, ThisTime);
 			nBytes -= ThisTime;
@@ -417,8 +417,8 @@ namespace NMib::NWeb
 		if (m_PendingMessages.f_IsEmpty())
 			return;
 
-		mint OutgoingData = m_OutgoingData.f_GetLen();
-		mint TargetData = 0;
+		umint OutgoingData = m_OutgoingData.f_GetLen();
+		umint TargetData = 0;
 
 		if (!_bFlushAll)
 		{
@@ -764,7 +764,7 @@ namespace NMib::NWeb
 		DMibLog(DebugVerbose3, " ++++ {} {} f_SendBinary", fg_ThisActor(this), !Internal.m_bClient);
 
 		auto &Massage = *_pMessage;
-		mint nBytes = Massage.f_GetLen();
+		umint nBytes = Massage.f_GetLen();
 
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
@@ -810,7 +810,7 @@ namespace NMib::NWeb
 
 		NStr::CStr Data = _Data;
 
-		mint nBytes = Data.f_GetLen();
+		umint nBytes = Data.f_GetLen();
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
@@ -841,7 +841,7 @@ namespace NMib::NWeb
 
 		auto &Message = *_pMessage;
 
-		mint nBytes = Message.f_GetLen();
+		umint nBytes = Message.f_GetLen();
 
 		if (_Priority == TCLimitsInt<uint32>::mc_Max)
 			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
@@ -877,19 +877,19 @@ namespace NMib::NWeb
 
 		auto &MessageMarkers = MessageBuffers.m_Markers;
 		auto &Message = MessageBuffers.m_Data;
-		mint const *pMessageMarkersArray = MessageMarkers.f_GetArray();
-		mint nMessages = MessageMarkers.f_GetLen();
+		umint const *pMessageMarkersArray = MessageMarkers.f_GetArray();
+		umint nMessages = MessageMarkers.f_GetLen();
 		if (!nMessages)
 			co_return {};
 
-		mint MessageLength = Message.f_GetLen();
+		umint MessageLength = Message.f_GetLen();
 		uint8 const *pMessageArray = Message.f_GetArray();
 
-		for (mint iMessage = 0; iMessage < nMessages; ++iMessage)
+		for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
 		{
-			mint iStart = pMessageMarkersArray[iMessage];
-			mint iEnd = iMessage == (nMessages - 1) ? MessageLength : pMessageMarkersArray[iMessage + 1];
-			mint nBytes = iEnd - iStart;
+			umint iStart = pMessageMarkersArray[iMessage];
+			umint iEnd = iMessage == (nMessages - 1) ? MessageLength : pMessageMarkersArray[iMessage + 1];
+			umint nBytes = iEnd - iStart;
 
 			if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 				co_return DMibErrorInstance("Message is bigger than max message size");
@@ -897,13 +897,13 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> Future;
 
-		for (mint iMessage = 0; iMessage < nMessages; ++iMessage)
+		for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
 		{
 			bool bIsLastMessage = iMessage == (nMessages - 1);
 
-			mint iStart = pMessageMarkersArray[iMessage];
+			umint iStart = pMessageMarkersArray[iMessage];
 
-			mint nBytes;
+			umint nBytes;
 			if (bIsLastMessage)
 				nBytes = MessageLength - iStart;
 			else
@@ -932,7 +932,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		mint nBytes = _ApplicationData->f_GetLen();
+		umint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
@@ -952,7 +952,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		mint nBytes = _ApplicationData->f_GetLen();
+		umint nBytes = _ApplicationData->f_GetLen();
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
@@ -966,7 +966,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	void CWebSocketActor::CInternal::f_SendMessage(EOpcode _Opcode, uint8 const *_pData, mint _nBytes, bool _bFinished)
+	void CWebSocketActor::CInternal::f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished)
 	{
 		CBinaryStreamPagedByteVector Stream(m_OutgoingData);
 
@@ -1008,7 +1008,7 @@ namespace NMib::NWeb
 		if (_nBytes == 0)
 			return;
 
-		mint StartPos = m_OutgoingData.f_GetLen();
+		umint StartPos = m_OutgoingData.f_GetLen();
 		m_OutgoingData.f_InsertBack(_pData, _nBytes);
 
 		if (bMask)
@@ -1017,7 +1017,7 @@ namespace NMib::NWeb
 				(
 					StartPos
 					, _nBytes
-					, [&](mint _iStart, uint8 * _pPtr, mint _nBytes) -> bool
+					, [&](umint _iStart, uint8 * _pPtr, umint _nBytes) -> bool
 					{
 						fs_ApplyMask(_pPtr, _iStart - StartPos, _nBytes, Mask);
 						return true;
@@ -1063,7 +1063,7 @@ namespace NMib::NWeb
 						DMibLog(Warning, "Cut off Websocket close reason:\n   {}\n   {}", _Reason, Reason);
 					}
 
-					mint ReasonLen = Reason.f_GetLen();
+					umint ReasonLen = Reason.f_GetLen();
 					if (ReasonLen != 0)
 						Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
 
@@ -1227,13 +1227,13 @@ namespace NMib::NWeb
 		bool bDidSend = false;
 		while (!Internal.m_OutgoingData.f_IsEmpty() && Internal.m_pSocket->f_IsValid())
 		{
-			mint SentBytes = 0;
+			umint SentBytes = 0;
 			bool bStuffed = false;
 			bool bDisconnected = false;
 			NNetwork::CSocketOperationResult CombinedResults;
 			Internal.m_OutgoingData.f_ReadFront
 				(
-					[&](mint _iStart, uint8 const* _pPtr, mint _nBytes) -> bool
+					[&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
 					{
 						try
 						{
@@ -1336,7 +1336,7 @@ namespace NMib::NWeb
 	+---------------------------------------------------------------+
  */
 
-	void CWebSocketActor::CInternal::fs_ApplyMask(uint8 *_pData, mint _iDataStart, mint _nBytes, uint8 const *_pMask)
+	void CWebSocketActor::CInternal::fs_ApplyMask(uint8 *_pData, umint _iDataStart, umint _nBytes, uint8 const *_pMask)
 	{
 		uint8 DoubleMask[8];
 		NMemory::fg_MemCopy(DoubleMask, _pMask, 4);
@@ -1346,10 +1346,10 @@ namespace NMib::NWeb
 		uint8 *pEnd = _pData + _nBytes;
 		uint8 *pAlignedEnd = fg_AlignDown(pEnd, 4);
 		uint8 *pAlignedStart = fg_AlignUp(_pData, 4);
-		mint MaskOffset = (_iDataStart + (pAlignedStart - _pData)) % 4;
+		umint MaskOffset = (_iDataStart + (pAlignedStart - _pData)) % 4;
 		pAlignedStart = fg_Min(pAlignedStart, pAlignedEnd);
 
-		for (mint i = _iDataStart % 4; pCurrent < pAlignedStart; pCurrent += 1)
+		for (umint i = _iDataStart % 4; pCurrent < pAlignedStart; pCurrent += 1)
 		{
 			*pCurrent ^= DoubleMask[i];
 			++i;
@@ -1374,7 +1374,7 @@ namespace NMib::NWeb
 			*((uint32 *)pCurrent) ^= AlignedMask;
 
 		MaskOffset = (_iDataStart + (pCurrent - _pData)) % 4;
-		for (mint i = 0; pCurrent < pEnd; pCurrent += 1)
+		for (umint i = 0; pCurrent < pEnd; pCurrent += 1)
 		{
 			*pCurrent ^= DoubleMask[MaskOffset + i];
 			++i;
@@ -1393,8 +1393,8 @@ namespace NMib::NWeb
 
 		if (!Message.m_bHeaderFinished)
 		{
-			mint ThisPosition = 0;
-			mint &Position = Message.m_Position;
+			umint ThisPosition = 0;
+			umint &Position = Message.m_Position;
 			{
 				ThisPosition += 2;
 				if (Position < ThisPosition)
@@ -1406,7 +1406,7 @@ namespace NMib::NWeb
 						(
 							Position
 							, 2
-							, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 							{
 								NMemory::fg_MemCopy((uint8 *)Data + (_iStart - Position), _pData, _nBytes);
 
@@ -1455,7 +1455,7 @@ namespace NMib::NWeb
 						(
 							Position
 							, 2
-							, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 							{
 								NMemory::fg_MemCopy((uint8 *)&Data + (_iStart - Position), _pData, _nBytes);
 								return (_iStart + _nBytes) < (Position + 2);
@@ -1482,7 +1482,7 @@ namespace NMib::NWeb
 						(
 							Position
 							, 8
-							, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 							{
 								NMemory::fg_MemCopy((uint8 *)&Data + (_iStart - Position), _pData, _nBytes);
 								return (_iStart + _nBytes) < (Position + 8);
@@ -1522,7 +1522,7 @@ namespace NMib::NWeb
 						(
 							Position
 							, 4
-							, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 							{
 								NMemory::fg_MemCopy(Mask + (_iStart - Position), _pData, _nBytes);
 								return (_iStart + _nBytes) < (Position + 4);
@@ -1546,7 +1546,7 @@ namespace NMib::NWeb
 			Message.m_bHeaderFinished = true;
 		}
 
-		mint nBytesAvailable = Internal.m_IncomingData.f_GetLen();
+		umint nBytesAvailable = Internal.m_IncomingData.f_GetLen();
 
 		if (nBytesAvailable < Length)
 			return false; // Message not finished
@@ -1596,7 +1596,7 @@ namespace NMib::NWeb
 		uint8 *pMaskStart;
 		if (Internal.m_bPendingMessage && !bControlMessage)
 		{
-			mint iStart = Internal.m_PendingMessage.m_Data.f_GetLen();
+			umint iStart = Internal.m_PendingMessage.m_Data.f_GetLen();
 			if (iStart + Length > uint64(Internal.m_Settings.m_MaxMessageSize))
 			{
 				fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
@@ -1606,7 +1606,7 @@ namespace NMib::NWeb
 			Internal.m_IncomingData.f_ReadFront
 				(
 					Length
-					, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 					{
 						Internal.m_PendingMessage.m_Data.f_Insert(_pData, _nBytes);
 						return _iStart + _nBytes < Length;
@@ -1621,7 +1621,7 @@ namespace NMib::NWeb
 			Internal.m_IncomingData.f_ReadFront
 				(
 					Length
-					, [&](mint _iStart, uint8 const *_pData, mint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 					{
 						Message.m_Data.f_Insert(_pData, _nBytes);
 						return _iStart + _nBytes < Length;
@@ -1685,7 +1685,7 @@ namespace NMib::NWeb
 					Stream >> ErrorCode;
 					Status = (EWebSocketStatus)ErrorCode;
 
-					mint Len = Stream.f_GetLength() - 2;
+					umint Len = Stream.f_GetLength() - 2;
 					ch8 *pData = Reason.f_GetStr(Len);
 					if (Len != 0)
 						Stream.f_ConsumeBytes(pData, Len);
@@ -2147,7 +2147,7 @@ namespace NMib::NWeb
 
 		Response.f_SetOutputMethod
 			(
-				[&](uint8 const *_pData, mint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes)
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
 				}
@@ -2198,7 +2198,7 @@ namespace NMib::NWeb
 
 		Response.f_SetOutputMethod
 			(
-				[&](uint8 const *_pData, mint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes)
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
 				}
@@ -2258,7 +2258,7 @@ namespace NMib::NWeb
 			{
 				while (true)
 				{
-					mint Size = 16384;
+					umint Size = 16384;
 					NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Data, Size);
 					CombinedResults += Result;
 					if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
@@ -2430,7 +2430,7 @@ namespace NMib::NWeb
 
 		_RequestHeader.f_WriteHeaders
 			(
-				[&](uint8 const *_pData, mint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes)
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
 				}
@@ -2494,7 +2494,7 @@ namespace NMib::NWeb
 		m_TimeoutSentData.f_Start();
 
 		m_pTimeoutPingMessage = fg_Construct();
-		mint MessageSize = NStr::fg_StrLen(gs_PingMessageData);
+		umint MessageSize = NStr::fg_StrLen(gs_PingMessageData);
 		m_pTimeoutPingMessage->f_SetLen(MessageSize); // TCVector has 16 as min size
 		NMemory::fg_MemCopy(m_pTimeoutPingMessage->f_GetArray(), gs_PingMessageData, MessageSize);
 

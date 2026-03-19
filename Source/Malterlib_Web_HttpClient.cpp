@@ -149,7 +149,7 @@ namespace NMib::NWeb
 			CStr m_CookieStr;
 			TCPromise<CHttpClientActor::CResult> m_FinishedPromise;
 			int64 m_ReadDataSize = -1;
-			TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> m_fReadData;
+			TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> m_fReadData;
 			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
 			NException::CExceptionPointer m_pWriteError;
 			NException::CExceptionPointer m_pReadError;
@@ -335,7 +335,7 @@ namespace NMib::NWeb
 		}
 		mp_JobQueue.f_AddToQueue(fg_Move(pQueueEntry));
 
-		mint Value = mp_JobQueueWorking.f_FetchAdd(1);
+		umint Value = mp_JobQueueWorking.f_FetchAdd(1);
 		if (Value == 0)
 			fp_Wakeup();
 	}
@@ -893,7 +893,7 @@ namespace NMib::NWeb
 		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_HEADERDATA>(pCurl, &Request));
 		auto fWriteHeaderCallback = [](char *_pBuffer, size_t _Size, size_t _nItems, void *_pData) -> size_t
 			{
-				mint nBytes = _Size * _nItems;
+				umint nBytes = _Size * _nItems;
 
 				CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
 

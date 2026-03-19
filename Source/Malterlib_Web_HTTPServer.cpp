@@ -83,7 +83,7 @@ namespace NMib::NWeb
 				mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
 			}
 
-			void f_WriteBinary(uint8 const* _pData, mint _nBytes) override
+			void f_WriteBinary(uint8 const* _pData, umint _nBytes) override
 			{
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
 				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
@@ -141,7 +141,7 @@ namespace NMib::NWeb
 				mp_pRequest->f_FinishRequest();
 			}
 
-			void fp_ParseVariables(char const* _pData, mint _Len)
+			void fp_ParseVariables(char const* _pData, umint _Len)
 			{
 				if (!_Len)
 					return;
@@ -267,7 +267,7 @@ namespace NMib::NWeb
 					struct CHandlers
 					{
 						NContainer::TCVector<NStorage::TCVariant<NStorage::TCSharedPointer<FActorRequestHandler>, NConcurrency::TCActor<CHTTPRequestHandlerActor>>> m_Handlers;
-						mint m_iHandler = 0;
+						umint m_iHandler = 0;
 
 						NFunction::TCFunction
 							<
@@ -373,10 +373,10 @@ namespace NMib::NWeb
 			}
 		};
 
-		static mint fs_URLDecode(ch8 const* _pSrc, mint _SrcLen, ch8 *_pDst, mint _DstLen, bool _bFormURL)
+		static umint fs_URLDecode(ch8 const* _pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
 		{
-			mint j = 0;
-			for (mint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
+			umint j = 0;
+			for (umint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
 			{
 				if
 					(
@@ -1081,7 +1081,7 @@ namespace NMib::NWeb
 		mp_Present |= EPresent_Content;
 	}
 
-	void CHTTPCachedConnection::f_WriteBinary(uint8 const* _pData, mint _nBytes)
+	void CHTTPCachedConnection::f_WriteBinary(uint8 const* _pData, umint _nBytes)
 	{
 		mp_ContentStream.f_FeedBytes((void const*)_pData, _nBytes);
 		mp_Present |= EPresent_Content;
@@ -1166,7 +1166,7 @@ namespace NMib::NWeb
 		auto &WriteState = *_pState;
 		auto &State = *WriteState.m_pState;
 
-		mint nBlocks = State.m_Blocks.f_GetLen();
+		umint nBlocks = State.m_Blocks.f_GetLen();
 
 		if (WriteState.m_iBlock == nBlocks)
 		{

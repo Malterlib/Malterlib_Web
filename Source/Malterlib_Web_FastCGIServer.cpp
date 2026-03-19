@@ -108,7 +108,7 @@ namespace NMib::NWeb
 		f_SendStdError((uint8 const*)_Output.f_GetStr(), _Output.f_GetLen());
 	}
 
-	void CFastCGIRequest::f_SendStdOutput(uint8 const* _pOutput, mint _Len)
+	void CFastCGIRequest::f_SendStdOutput(uint8 const* _pOutput, umint _Len)
 	{
 		DMibRequire(!mp_bFinished);
 		NContainer::CByteVector Data;
@@ -117,7 +117,7 @@ namespace NMib::NWeb
 		mp_ConnectionActor.f_Bind<&CFastCGIConnectionActor::f_SendStdOutput>(Data).f_DiscardResult();
 	}
 
-	void CFastCGIRequest::f_SendStdError(uint8 const* _pOutput, mint _Len)
+	void CFastCGIRequest::f_SendStdError(uint8 const* _pOutput, umint _Len)
 	{
 		DMibRequire(!mp_bFinished);
 		NContainer::CByteVector Data;

@@ -23,13 +23,13 @@ namespace NMib::NWeb
 	{
 	}
 
-	void CWebSocketServerActor::f_SetDefaultMaxMessageSize(mint _MaxMessageSize)
+	void CWebSocketServerActor::f_SetDefaultMaxMessageSize(umint _MaxMessageSize)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
 		mp_pInternal->m_DefaultSettings.m_MaxMessageSize = _MaxMessageSize;
 	}
 
-	void CWebSocketServerActor::f_SetDefaultFragmentationSize(mint _FragmentationSize)
+	void CWebSocketServerActor::f_SetDefaultFragmentationSize(umint _FragmentationSize)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
 		mp_pInternal->m_DefaultSettings.m_FragmentationSize = _FragmentationSize;
@@ -104,11 +104,11 @@ namespace NMib::NWeb
 		NConcurrency::TCFutureVector<void> SetSocketResults;
 		{
 
-			mint nListenTo = _AddressesToListenTo.f_GetLen();
+			umint nListenTo = _AddressesToListenTo.f_GetLen();
 
 			mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
 
-			for (mint i = 0; i < nListenTo; ++i)
+			for (umint i = 0; i < nListenTo; ++i)
 			{
 				NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
 
@@ -164,7 +164,7 @@ namespace NMib::NWeb
 		-> NConcurrency::TCFuture<CListenResult>
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> AddressesToListenTo;
-		for (mint i = 0; i < _nListen; ++i)
+		for (umint i = 0; i < _nListen; ++i)
 		{
 			NNetwork::CNetAddressTCPv4 AnyAddress;
 			AnyAddress.m_Port = _StartListen + i;

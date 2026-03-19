@@ -15,7 +15,7 @@ namespace NMib::NWeb::NHTTP
 			EState_Connected,
 		};
 
-		static constexpr mint mc_ReadBufferSize = 2048;
+		static constexpr umint mc_ReadBufferSize = 2048;
 
 		EState mp_State;
 
@@ -116,15 +116,15 @@ namespace NMib::NWeb::NHTTP
 		{
 			DMibTraceRaw("CConnection: Read Set\n");
 
-			mint nTotalBytesRead = 0;
+			umint nTotalBytesRead = 0;
 
 			// Read as much as we can from the socket into the incoming buffer.
 			{
 				uint8 ReadBuffer[mc_ReadBufferSize];
 
-				mint nBytesRead = 0;
+				umint nBytesRead = 0;
 
-				mint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mc_ReadBufferSize;
+				umint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mc_ReadBufferSize;
 				DMibTrace("nInitialBytesToRead: {}\n", nBytesToRead );
 
 				while ( (nBytesRead = mp_pSocket->f_Receive(ReadBuffer, nBytesToRead) ) == nBytesToRead)

@@ -32,7 +32,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Already started");
 		mp_pOnRequest = fg_Construct(fg_Move(_fOnRequest));
 
-		mint nThreads = _Addresses.f_GetLen();
+		umint nThreads = _Addresses.f_GetLen();
 
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> ListenSockets;
 		ListenSockets.f_SetLen(nThreads);
@@ -46,7 +46,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		for (mint i = 0; i < nThreads; ++i)
+		for (umint i = 0; i < nThreads; ++i)
 		{
 			NNetwork::CNetAddress Address = _Addresses[i];
 
@@ -91,10 +91,10 @@ namespace NMib::NWeb
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> Addresses;
 
-		mint nThreads = _nListen;
+		umint nThreads = _nListen;
 		uint16 StartListen = _FastCGIListenStartPort;
 
-		for (mint i = 0; i < nThreads; ++i)
+		for (umint i = 0; i < nThreads; ++i)
 		{
 			NNetwork::CNetAddress Address = _BindAddress;
 			Address.f_SetPort(StartListen + i);

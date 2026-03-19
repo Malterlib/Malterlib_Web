@@ -52,7 +52,7 @@ public:
 			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
 			, CStr const &_AcceptError
 			, CStr const &_ConnectError
-			, mint _FragmentationSize
+			, umint _FragmentationSize
 			, bool _bTestTimeout = false
 			, bool _bTestTooLongCloseMessage = false
 		)
@@ -456,7 +456,7 @@ public:
 
 					TCFutureVector<void> Results;
 
-					mint nMessages = 0;
+					umint nMessages = 0;
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0) > Results;
 					++nMessages;
 
@@ -472,7 +472,7 @@ public:
 					nMessages += 2;
 
 					CStr BigText;
-					for (mint i = 0; i < 1024 * 8 * 2; ++i) // 2 MiB
+					for (umint i = 0; i < 1024 * 8 * 2; ++i) // 2 MiB
 						BigText += gc_Str<"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF">.m_Str;
 
 					BigText = BigText.f_Left(m_CurrentFragmentationSize * 128);
@@ -480,7 +480,7 @@ public:
 					pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0) > Results;
 					++nMessages;
 
-					for (mint i = 0; i < 32; ++i)
+					for (umint i = 0; i < 32; ++i)
 					{
 						CStr Message = BigText.f_Left(i % 32);
 						pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0) > Results;
@@ -508,7 +508,7 @@ public:
 					DMibExpect(pState->m_Messages[3], ==, "BuffReply");
 					DMibExpect(pState->m_Messages[4], ==, BigText + "Reply")(ETestFlag_NoValues);
 
-					for (mint i = 0; i < 32; ++i)
+					for (umint i = 0; i < 32; ++i)
 					{
 						DMibTestPath("Length {}"_f << i);
 						CStr Message = BigText.f_Left(i % 32);
@@ -599,7 +599,7 @@ public:
 		};
 	}
 
-	void fp_TestProtocols(mint _FragmentationSize)
+	void fp_TestProtocols(umint _FragmentationSize)
 	{
 		m_CurrentFragmentationSize = _FragmentationSize;
 		{
@@ -1121,7 +1121,7 @@ public:
 
 		// Extended tracking for priority tests
 		TCVector<CStr> m_Messages;  // Messages in receive order
-		TCVector<mint> m_PongReceived;  // Track pong receipts
+		TCVector<umint> m_PongReceived;  // Track pong receipts
 		bool m_bProtocolError = false;
 
 		bool m_bCleared = false;
@@ -1146,7 +1146,7 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, mint _FragmentationSize)
+		uint16 f_StartListen(CNetAddress _ListenAddress, umint _FragmentationSize)
 		{
 			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
 			m_ServerActor
@@ -1260,7 +1260,7 @@ public:
 			return pState->m_ListenPort;
 		}
 
-		void f_Connect(uint16 _Port, mint _FragmentationSize)
+		void f_Connect(uint16 _Port, umint _FragmentationSize)
 		{
 			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
 			m_ClientActor
@@ -1375,7 +1375,7 @@ public:
 		return true;
 	}
 
-	void fp_TestPriorityFragmentationBugDetection(mint _FragmentationSize)
+	void fp_TestPriorityFragmentationBugDetection(umint _FragmentationSize)
 	{
 		using namespace NStr;
 
@@ -1407,7 +1407,7 @@ public:
 		{
 			DMibTestPath("Low priority fragmenting, high priority queued");
 			CStr LargeMessage;
-			for (mint i = 0; i < _FragmentationSize * 4; ++i)
+			for (umint i = 0; i < _FragmentationSize * 4; ++i)
 				LargeMessage += "X";
 
 			CStr SmallMessage = "Small";
@@ -1447,7 +1447,7 @@ public:
 			DMibTestPath("High priority fragmenting, low priority queued");
 
 			CStr LargeMessage;
-			for (mint i = 0; i < _FragmentationSize * 4; ++i)
+			for (umint i = 0; i < _FragmentationSize * 4; ++i)
 				LargeMessage += "Y";
 
 			CStr SmallMessage = "Tiny";
@@ -1492,7 +1492,7 @@ public:
 			for (uint32 Priority : {uint32(50), uint32(100), uint32(150), uint32(200)})
 			{
 				CStr Message;
-				for (mint i = 0; i < _FragmentationSize * 3; ++i)
+				for (umint i = 0; i < _FragmentationSize * 3; ++i)
 					Message += ch8('A' + (Priority / 50));
 
 				pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
@@ -1526,12 +1526,12 @@ public:
 
 			TCFutureVector<void> Results;
 
-			mint nMessages = 16;
-			for (mint i = 0; i < nMessages; ++i)
+			umint nMessages = 16;
+			for (umint i = 0; i < nMessages; ++i)
 			{
 				CStr Message;
-				mint MessageLen = (i % 8) * _FragmentationSize + 1;
-				for (mint j = 0; j < MessageLen; ++j)
+				umint MessageLen = (i % 8) * _FragmentationSize + 1;
+				for (umint j = 0; j < MessageLen; ++j)
 					Message += ch8('0' + (i % 10));
 
 				uint32 Priority = uint32((i * 17) % 256); // Pseudo-random priorities
@@ -1559,7 +1559,7 @@ public:
 		}
 	}
 
-	void fp_TestPriorityFragmentationBehavior(mint _FragmentationSize)
+	void fp_TestPriorityFragmentationBehavior(umint _FragmentationSize)
 	{
 		using namespace NStr;
 
@@ -1643,7 +1643,7 @@ public:
 		{
 			// Create a large message that will definitely fragment into multiple pieces
 			CStr LargeMessage;
-			for (mint i = 0; i < _FragmentationSize * 5; ++i)
+			for (umint i = 0; i < _FragmentationSize * 5; ++i)
 				LargeMessage += "L";
 
 			// Limit to only writing 1 fragment per f_WriteQueuedMessages call (simulates stuffed connection)
@@ -1696,7 +1696,7 @@ public:
 		{
 			// Create a large message that will fragment
 			CStr LargeMessage;
-			for (mint i = 0; i < _FragmentationSize * 6; ++i)
+			for (umint i = 0; i < _FragmentationSize * 6; ++i)
 				LargeMessage += "Z";
 
 			// Stop send processing so messages queue up
@@ -1747,7 +1747,7 @@ public:
 	// and a ping interleaves, the condition "!pFragmentingList->f_GetFirst().m_bFinished"
 	// incorrectly evaluates to false, causing us to fall through and potentially lose
 	// track of the fragmenting list.
-	void fp_TestFinalFragmentPingInterleave(mint _FragmentationSize)
+	void fp_TestFinalFragmentPingInterleave(umint _FragmentationSize)
 	{
 		using namespace NStr;
 
@@ -1792,7 +1792,7 @@ public:
 
 			// Create a message that's exactly 5 fragments
 			CStr FragmentedMessage;
-			for (mint i = 0; i < _FragmentationSize * 5; ++i)
+			for (umint i = 0; i < _FragmentationSize * 5; ++i)
 				FragmentedMessage += "F";
 
 			// Limit writes to 4 fragments - this leaves only the final fragment (m_bFinished = true)
@@ -1855,7 +1855,7 @@ public:
 	{
 		DMibTestCategory("Tests")
 		{
-			for (mint i = 1; i < 16; ++i)
+			for (umint i = 1; i < 16; ++i)
 			{
 				DMibTestSuite("Fragmentation {}"_f << i)
 				{
@@ -1863,7 +1863,7 @@ public:
 				};
 			}
 
-			for (mint i = 32; i < CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
+			for (umint i = 32; i < CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
 			{
 				DMibTestSuite("Fragmentation {}"_f << i)
 				{
@@ -1875,7 +1875,7 @@ public:
 		DMibTestCategory("Priority Fragmentation")
 		{
 			// Bug detection tests - verify no protocol errors with priority mixing
-			for (mint i = 4; i <= 16; i *= 2)
+			for (umint i = 4; i <= 16; i *= 2)
 			{
 				DMibTestSuite("Bug Detection {}"_f << i)
 				{
@@ -1897,7 +1897,7 @@ public:
 			// Bug: Final fragment tracking lost after ping interleave
 			// Tests the specific scenario where only the final fragment remains
 			// (m_bFinished=true) when a ping interleaves
-			for (mint i = 4; i <= 16; i *= 2)
+			for (umint i = 4; i <= 16; i *= 2)
 			{
 				DMibTestSuite("Final Fragment Ping Interleave {}"_f << i)
 				{
@@ -1974,8 +1974,8 @@ public:
 			{
 				TCActor<CActor> m_ProcessingActor{fg_Construct()};
 				TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
-				TCMap<mint, CConnection> m_Connections;
-				mint m_SocketID = 0;
+				TCMap<umint, CConnection> m_Connections;
+				umint m_SocketID = 0;
 			};
 
 			TCSharedPointer<CState> pState = fg_Construct();
@@ -2104,7 +2104,7 @@ public:
 				}
 			;
 
-			mint nCases = 0;
+			umint nCases = 0;
 			co_await co_await fg_CallSafe
 				(
 					fOpenConnection
@@ -2120,7 +2120,7 @@ public:
 				)
 			;
 
-			for (mint i = 0; i < nCases; ++i)
+			for (umint i = 0; i < nCases; ++i)
 				co_await co_await fg_CallSafe(fOpenConnection, pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (i + 1), fg_Default());
 
 			co_await co_await fg_CallSafe(fOpenConnection, pState, "/updateReports?agent=MalterlibWebSocket", fg_Default());
@@ -2129,7 +2129,7 @@ public:
 		};
 	}
 
-	mint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
+	umint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
 };
 
 DMibTestRegister(CWebsocket_Tests, Malterlib::Web);

@@ -41,7 +41,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template<>
-	void CFieldValueAsStringVisitor::operator()<mint>(mint const& _Value)
+	void CFieldValueAsStringVisitor::operator()<umint>(umint const& _Value)
 	{
 		mp_Result = CStringValue::fs_CreateDynamicString(NStr::fg_Format("{}", _Value));
 	}

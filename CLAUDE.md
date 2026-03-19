@@ -338,7 +338,7 @@ void fp_Test
 		TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
 		, CStr const &_AcceptError
 		, CStr const &_ConnectError
-		, mint _FragmentationSize
+		, umint _FragmentationSize
 	)
 {
 	// Test implementation with virtual sockets

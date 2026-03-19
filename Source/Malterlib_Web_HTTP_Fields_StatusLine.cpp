@@ -46,8 +46,8 @@ namespace NMib::NWeb::NHTTP
 		}
 
 		mp_Version = fg_HTTP_LookupVersion(lReqParts[0]);
-		mint Status = lReqParts[1].f_ToIntExact(TCLimitsInt<mint>::mc_Max);
-		if (Status == TCLimitsInt<mint>::mc_Max)
+		umint Status = lReqParts[1].f_ToIntExact(TCLimitsInt<umint>::mc_Max);
+		if (Status == TCLimitsInt<umint>::mc_Max)
 		{
 			_oErrors = "Status line was malformed. Expected a valid HTTP status code.";
 			return EParse_Invalid;

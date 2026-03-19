@@ -21,7 +21,7 @@ up a HTTP message header.
 
 namespace NMib::NWeb::NHTTP
 {
-	using COutputMethod = NFunction::TCFunction<void (uint8 const *_pBytes, mint _nBytes)>;
+	using COutputMethod = NFunction::TCFunction<void (uint8 const *_pBytes, umint _nBytes)>;
 
 	// Request line fields
 	struct CRequestLine
@@ -78,7 +78,7 @@ namespace NMib::NWeb::NHTTP
 	enum EFieldType
 	{
 		EFieldType_String				// CStr
-		, EFieldType_Mint				// mint
+		, EFieldType_Mint				// umint
 		, EFieldType_TransferEncoding	// ETransferEncoding
 		, EFieldType_ConnectionToken	// EConnectionToken
 	};
@@ -87,7 +87,7 @@ namespace NMib::NWeb::NHTTP
 		<
 			EFieldType
 			, NStorage::TCMember<NStr::CStr, EFieldType_String>
-			, NStorage::TCMember<mint, EFieldType_Mint>
+			, NStorage::TCMember<umint, EFieldType_Mint>
 			, NStorage::TCMember<ETransferEncoding, EFieldType_TransferEncoding>
 			, NStorage::TCMember<EConnectionToken, EFieldType_ConnectionToken>
 		>
@@ -261,7 +261,7 @@ namespace NMib::NWeb::NHTTP
 
 		NStr::CStr f_GetContentEncoding() const;
 		NStr::CStr f_GetContentLanguage() const;
-		mint f_GetContentLength() const;
+		umint f_GetContentLength() const;
 		NStr::CStr f_GetContentLocation() const;
 		NStr::CStr f_GetContentMD() const;
 		NStr::CStr f_GetContentRange() const;
@@ -274,7 +274,7 @@ namespace NMib::NWeb::NHTTP
 
 		void f_SetContentEncoding(NStr::CStr const& _Value);
 		void f_SetContentLanguage(NStr::CStr const& _Value);
-		void f_SetContentLength(mint _Value);
+		void f_SetContentLength(umint _Value);
 		void f_SetContentLocation(NStr::CStr const& _Value);
 		void f_SetContentMD(NStr::CStr const& _Value);
 		void f_SetContentRange(NStr::CStr const& _Value);
