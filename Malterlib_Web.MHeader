@@ -1,8 +1,17 @@
-// Copyright © 2015 Hansoft AB
-// Distributed under the MIT license, see license text in LICENSE.Malterlib
+// Copyright © Unbroken AB
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 Import "../Core/Lib_Malterlib.MTarget"
 Import "Apps/*/*.MHeader"
+
+Repository
+{
+	!!MalterlibRepoName "Malterlib_Web.git"
+
+	MalterlibRepoReusePaths =+ [
+		"Test/NodeWebServer/*.json"
+	]
+}
 
 %Repository "curl"
 {

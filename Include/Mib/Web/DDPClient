@@ -1,2 +1,4 @@
-﻿
+// Copyright © Unbroken AB
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 #include "../../../Source/Malterlib_Web_DDP_Client.h"
