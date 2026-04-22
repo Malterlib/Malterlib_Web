@@ -57,6 +57,10 @@ Property
 	{
 		!!PlatformFamily "Windows"
 	}
+	Import.CMake_Variables =+ ["PCRE2_SUPPORT_LIBBZ2=OFF"]
+	{
+		!!PlatformFamily "Linux"
+	}
 
 	Compile
 	{
