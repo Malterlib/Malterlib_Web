@@ -23,13 +23,13 @@
  ***************************************************************************/
 
 /* Location of default ca bundle */
-/* #undef CURL_CA_BUNDLE */
+#define CURL_CA_BUNDLE "/etc/ssl/certs/ca-certificates.crt"
 
 /* define "1" to use built-in ca store of TLS backend */
 /* #undef CURL_CA_FALLBACK */
 
 /* Location of default ca path */
-/* #undef CURL_CA_PATH */
+#define CURL_CA_PATH "/etc/ssl/certs"
 
 /* Default SSL backend */
 #define CURL_DEFAULT_SSL_BACKEND "openssl"
@@ -608,7 +608,7 @@
 #define HAVE_UTIME_H 1
 
 /* Define this symbol if your OS supports changing the contents of argv */
-/* #undef HAVE_WRITABLE_ARGV */
+#define HAVE_WRITABLE_ARGV 1
 
 /* Define this if time_t is unsigned */
 /* #undef HAVE_TIME_T_UNSIGNED */

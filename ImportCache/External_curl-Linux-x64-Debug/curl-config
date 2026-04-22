@@ -74,7 +74,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo '../../../../Binaries/MalterlibLLVM/macOS/arm64/bin/clang'
+    echo '../../../../Binaries/MalterlibLLVM/Linux/arm64/bin/clang'
     ;;
 
   --prefix)
@@ -167,7 +167,7 @@ while test "$#" -gt 0; do
 
   --static-libs)
     if test 'yes' != 'no'; then
-      echo "${exec_prefix}/lib/libcurl.a -L"../../../../Binaries/MalterlibLLVM/Linux/x64/lib/x86_64-unknown-linux-gnu" -lpthread -lc -lc -lstdc++ -lz -lc"
+      echo "${exec_prefix}/lib/libcurl.a -L"../../../../Binaries/MalterlibLLVM/Linux/x64/lib/x86_64-unknown-linux-gnu" -lc -lc -lstdc++ -lz -lc"
     else
       echo 'curl was built with static libraries disabled' >&2
       exit 1

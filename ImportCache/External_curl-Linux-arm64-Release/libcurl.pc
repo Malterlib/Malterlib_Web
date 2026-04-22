@@ -36,6 +36,6 @@ Version: 8.17.0-DEV
 Requires: openssl,zlib,libzstd
 Requires.private: openssl,zlib,libzstd
 Libs: -L${libdir} -lcurl -lc -lc -lstdc++ -lz -lc
-Libs.private: -L"../../../../Binaries/MalterlibLLVM/Linux/arm64/lib/aarch64-unknown-linux-gnu" -lpthread -lc -lc -lstdc++ -lz -lc
+Libs.private: -L"../../../../Binaries/MalterlibLLVM/Linux/arm64/lib/aarch64-unknown-linux-gnu" -lc -lc -lstdc++ -lz -lc
 Cflags: -I${includedir} -DCURL_STATICLIB
 Cflags.private: -DCURL_STATICLIB

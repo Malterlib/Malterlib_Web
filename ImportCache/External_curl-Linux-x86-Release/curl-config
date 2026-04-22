@@ -74,7 +74,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo '../../../../Binaries/MalterlibLLVM/macOS/arm64/bin/clang'
+    echo '../../../../Binaries/MalterlibLLVM/Linux/arm64/bin/clang'
     ;;
 
   --prefix)

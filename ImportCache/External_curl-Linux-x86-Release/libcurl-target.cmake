@@ -53,7 +53,7 @@ set_target_properties(CURL::libcurl_static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB"
   INTERFACE_INCLUDE_DIRECTORIES "../../../../External/curl/include"
   INTERFACE_LINK_DIRECTORIES ""
-  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:stdc++>;\$<LINK_ONLY:ZLIB::ZLIB>;../../../../Binaries/MalterlibSDK/Linux/x86/Linux.sdk/lib/libc.so"
+  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:stdc++>;\$<LINK_ONLY:ZLIB::ZLIB>;../../../../Binaries/MalterlibSDK/Linux/Debian/x86/Linux.sdk/lib/libc.so"
 )
 
 # Import target "CURL::libcurl_static" for configuration "Release"
