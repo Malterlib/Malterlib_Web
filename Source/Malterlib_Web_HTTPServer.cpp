@@ -195,7 +195,10 @@ namespace NMib::NWeb
 
 				auto* pQuery = _Params.f_FindEqual("QUERY_STRING");
 				if (pQuery && !pQuery->f_IsEmpty())
+				{
+					mp_pHTTPRequest->m_QueryString = *pQuery;
 					fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
+				}
 
 				for (auto &Param : _Params)
 				{
@@ -205,6 +208,18 @@ namespace NMib::NWeb
 						continue;
 
 					mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase()] = Param;
+				}
+
+				if (auto *pContentType = _Params.f_FindEqual("CONTENT_TYPE"))
+				{
+					if (!pContentType->f_IsEmpty())
+						mp_pHTTPRequest->m_Headers["content-type"] = *pContentType;
+				}
+
+				if (auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH"))
+				{
+					if (!pContentLength->f_IsEmpty())
+						mp_pHTTPRequest->m_Headers["content-length"] = *pContentLength;
 				}
 
 				if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
@@ -620,8 +635,20 @@ namespace NMib::NWeb
 			case 204:
 				Response = "HTTP/1.1 204 No Content";
 				break;
+			case 302:
+				Response = "HTTP/1.1 302 Found";
+				break;
+			case 303:
+				Response = "HTTP/1.1 303 See Other";
+				break;
 			case 304:
 				Response = "HTTP/1.1 304 Not Modified";
+				break;
+			case 307:
+				Response = "HTTP/1.1 307 Temporary Redirect";
+				break;
+			case 308:
+				Response = "HTTP/1.1 308 Permanent Redirect";
 				break;
 			case 400:
 				Response = "HTTP/1.1 400 Bad Request";
@@ -706,6 +733,12 @@ namespace NMib::NWeb
 		Response += NStr::CStr::CFormat("\r\nAllow: {}") << m_AllowMethods;
 
 //		Response += "\r\nConnection: close";
+
+		for (auto &HeaderLine : m_AdditionalHeaderLines)
+		{
+			Response += "\r\n";
+			Response += HeaderLine;
+		}
 
 		Response += "\r\n\r\n";
 

@@ -14,6 +14,7 @@ namespace NMib::NWeb
 	struct CHTTPRequest
 	{
 		NStr::CStr m_RequestedURI;
+		NStr::CStr m_QueryString;
 		NStr::CStr m_Method;
 		NStr::CStr m_ClientIP;
 		NContainer::CByteVector m_Body;
@@ -36,6 +37,7 @@ namespace NMib::NWeb
 		NStr::CStr m_AllowMethods = "GET";		// List of one or more of GET, POST, HEAD, PUT separated by a comma and a space: e.g. "GET, HEAD"
 		NStr::CStr m_CacheControl;
 		NStr::CStr m_ETag;
+		NContainer::TCVector<NStr::CStr> m_AdditionalHeaderLines;	// Each entry is a complete "Key: Value" line. Useful for headers with multiple values (e.g. Set-Cookie) or arbitrary forwarded headers.
 
 		CHTTPResponseHeader();
 		CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy);
