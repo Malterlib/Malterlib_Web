@@ -19,7 +19,7 @@ namespace NMib::NWeb
 		NStr::CStr m_ClientIP;
 		NContainer::CByteVector m_Body;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Variables;
-		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Headers;
+		NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 
 		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
 

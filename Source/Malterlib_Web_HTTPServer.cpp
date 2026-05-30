@@ -207,7 +207,10 @@ namespace NMib::NWeb
 					if (!Key.f_StartsWith("HTTP_"))
 						continue;
 
-					mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase()] = Param;
+					// FastCGI encodes header names as HTTP_<NAME> with letters uppercased and '-' replaced by '_'.
+					// Reverse that to the conventional lowercase dash-cased header name (matching content-type /
+					// content-length below), so lookups use real header names like "x-csrf-token".
+					mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase().f_Replace("_", "-")] = Param;
 				}
 
 				if (auto *pContentType = _Params.f_FindEqual("CONTENT_TYPE"))

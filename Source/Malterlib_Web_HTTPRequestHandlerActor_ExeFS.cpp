@@ -90,7 +90,7 @@ namespace NMib::NWeb
 				ResponseHeader.m_CacheControl = "no-cache";
 				ResponseHeader.m_ETag = HashTag;
 
-				if (auto *pIfNoneMatch = Request.m_Headers.f_FindEqual("if_none_match"); pIfNoneMatch)
+				if (auto *pIfNoneMatch = Request.m_Headers.f_FindEqual("if-none-match"); pIfNoneMatch)
 				{
 					if (*pIfNoneMatch == HashTag)
 						ResponseHeader.m_Status = 304;
