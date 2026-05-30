@@ -148,14 +148,30 @@ namespace NMib::NWeb::NHTTP
 			}
 		;
 
-		aint iPathStartSlash = fParseHost((iColonSlashSlash >= 0) ? (iColonSlashSlash + 3) : 0, '/', URL.f_GetLen());
+		aint iAuthorityStart = (iColonSlashSlash >= 0) ? (iColonSlashSlash + 3) : 0;
+		aint iPathStartSlash = fParseHost(iAuthorityStart, '/', URL.f_GetLen());
 
-		if (iPathStartSlash < 0)
-			return false;
+		// Where the host/port stops. RFC 3986 allows an empty path (path-abempty) for an authority-form URI, i.e.
+		// no '/' after the authority - the authority then runs to the query, fragment, or end of the string.
+		aint iAuthorityEnd;
+		if (iPathStartSlash >= 0)
+			iAuthorityEnd = iPathStartSlash;
+		else if (iColonSlashSlash >= 0)
+		{
+			iAuthorityEnd = URLLength;
+			if (aint iQuery = URL.f_Find(iAuthorityStart, "?"); iQuery >= 0)
+				iAuthorityEnd = fg_Min(iAuthorityEnd, iQuery);
+			if (aint iFragment = URL.f_Find(iAuthorityStart, "#"); iFragment >= 0)
+				iAuthorityEnd = fg_Min(iAuthorityEnd, iFragment);
 
-		aint iQueryMark = URL.f_Find(iPathStartSlash + 1, "?");
+			iPathStartSlash = iAuthorityEnd;
+		}
+		else
+			return false; // No scheme and no path separator: keep the previous behavior for relative references.
 
-		aint iFragmentMark = URL.f_Find( fg_Max(iQueryMark + 1, iPathStartSlash + 1), "#");
+		aint iQueryMark = URL.f_Find(iAuthorityEnd, "?");
+
+		aint iFragmentMark = URL.f_Find( fg_Max(iQueryMark + 1, iAuthorityEnd), "#");
 
 		aint iPathEnd = (iQueryMark >= 0)
 							? iQueryMark
@@ -194,7 +210,7 @@ namespace NMib::NWeb::NHTTP
 					if (!fs_PercentDecode(mp_Username, URL, iUserPassHostStart, iUserPassAtMark))
 						return false;
 
-					mp_Flags |= EURLFlag_Password;
+					mp_Flags |= EURLFlag_Username;
 				}
 
 				iHostStart = iUserPassAtMark + 1;
@@ -802,7 +818,9 @@ namespace NMib::NWeb::NHTTP
 		if (umint(_End) > StrLen)
 			_End = StrLen;
 
-		if (_Start >= _End)
+		// An empty range is a valid empty component (e.g. an empty query value "a=", an empty path segment, or an
+		// empty fragment "#"); decode it to an empty string. Only an inverted range is an error.
+		if (_Start > _End)
 			return false;
 
 		char const* pStart = _Str.f_GetStr() + _Start;
