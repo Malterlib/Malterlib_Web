@@ -70,11 +70,11 @@ while test "$#" -gt 0; do
     ;;
 
   --ca)
-    echo '/etc/ssl/certs/ca-certificates.crt'
+    echo ''
     ;;
 
   --cc)
-    echo '../../../../Binaries/MalterlibLLVM/Linux/arm64/bin/clang'
+    echo '../../../../Binaries/MalterlibLLVM/Linux/x64/bin/clang'
     ;;
 
   --prefix)

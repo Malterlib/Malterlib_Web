@@ -1,0 +1,41 @@
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at https://curl.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+# SPDX-License-Identifier: curl
+#
+###########################################################################
+
+prefix=C:/Program Files (x86)/CURL
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+supported_protocols="HTTP HTTPS IPFS IPNS WS WSS"
+supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile NTLM SSL threadsafe UnixSockets zstd"
+
+Name: libcurl
+URL: https://curl.se/
+Description: Library to transfer files with HTTP, FTP, etc.
+Version: 8.17.0-DEV
+Requires: openssl,libzstd
+Requires.private: openssl,libzstd
+Libs: -L${libdir} -lcurl c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib -lstdc++ c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
+Libs.private:  c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib -lstdc++ c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/x86/delayimp.lib -lbcrypt -ladvapi32 -lcrypt32 -lws2_32 -liphlpapi
+Cflags: -I${includedir} -DCURL_STATICLIB
+Cflags.private: -DCURL_STATICLIB

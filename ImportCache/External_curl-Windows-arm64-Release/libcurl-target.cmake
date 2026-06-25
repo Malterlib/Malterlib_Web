@@ -53,7 +53,7 @@ set_target_properties(CURL::libcurl_static PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "CURL_STATICLIB"
   INTERFACE_INCLUDE_DIRECTORIES "../../../../External/curl/include"
   INTERFACE_LINK_DIRECTORIES ""
-  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;c:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/lib/arm64/delayimp.lib;\$<LINK_ONLY:bcrypt>;\$<LINK_ONLY:advapi32>;\$<LINK_ONLY:crypt32>;\$<LINK_ONLY:ws2_32>;\$<LINK_ONLY:iphlpapi>"
+  INTERFACE_LINK_LIBRARIES "\$<LINK_ONLY:OpenSSL::SSL>;\$<LINK_ONLY:OpenSSL::Crypto>;\$<LINK_ONLY:stdc++>;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;\$<LINK_ONLY:bcrypt>;\$<LINK_ONLY:advapi32>;\$<LINK_ONLY:crypt32>;\$<LINK_ONLY:ws2_32>;\$<LINK_ONLY:iphlpapi>"
 )
 
 # Import target "CURL::libcurl_static" for configuration "Release"

@@ -40,6 +40,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/Linux/arm64/bin/clang" -E  -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib';
+$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/Linux/x64/bin/clang" -E  -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib';
 
 1;

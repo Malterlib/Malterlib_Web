@@ -195,7 +195,7 @@
 /* #undef HAVE_ARPA_INET_H */
 
 /* Define to 1 if you have _Atomic support. */
-/* #undef HAVE_ATOMIC */
+#define HAVE_ATOMIC 1
 
 /* Define to 1 if you have the `accept4' function. */
 /* #undef HAVE_ACCEPT4 */
@@ -521,7 +521,7 @@
 /* #undef HAVE_SOCKETPAIR */
 
 /* Define to 1 if you have the <stdatomic.h> header file. */
-/* #undef HAVE_STDATOMIC_H */
+#define HAVE_STDATOMIC_H 1
 
 /* Define to 1 if you have the <stdbool.h> header file. */
 #define HAVE_STDBOOL_H 1
@@ -617,7 +617,7 @@
 /* #undef NEED_REENTRANT */
 
 /* cpu-machine-OS */
-#define CURL_OS "Windows"
+#define CURL_OS "arm64-windows-msvc"
 
 /*
  Note: SIZEOF_* variables are fetched with CMake through check_type_size().
@@ -650,7 +650,7 @@
 #define SIZEOF_SIZE_T 8
 
 /* The size of `time_t', as computed by sizeof. */
-#define SIZEOF_TIME_T 8
+/* #undef SIZEOF_TIME_T */
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
