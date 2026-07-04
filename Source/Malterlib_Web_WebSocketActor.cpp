@@ -537,6 +537,12 @@ namespace NMib::NWeb
 
 		fp_UpdateSend();
 
+		// Socket state edges dropped while a no-processing flag was set are not re-signaled by the
+		// socket, so re-drive processing now that the flags have changed. Always include Read: a
+		// previously consumed edge can leave data pending without any accumulated state
+		if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
+			fp_ProcessState(Internal.m_pSocket->f_GetState() | NNetwork::ENetTCPState_Read);
+
 		co_return {};
 	}
 
