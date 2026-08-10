@@ -5,6 +5,7 @@
 #include <Mib/Test/Test>
 #include <Mib/Web/WebSocket>
 #include <Mib/Network/Sockets/SSL>
+#include <Mib/Network/Sockets/AuthenticatedUnix>
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Concurrency/DistributedActorTestHelpers>
@@ -55,11 +56,14 @@ public:
 			, umint _FragmentationSize
 			, bool _bTestTimeout = false
 			, bool _bTestTooLongCloseMessage = false
+			, bool _bAllowUnmasked = false
+			, bool _bUnixOnly = false // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
 		)
 	{
+		if (!_bUnixOnly)
 		{
 			DMibTestPath("IP");
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout, _bTestTooLongCloseMessage);
+			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout, _bTestTooLongCloseMessage, _bAllowUnmasked);
 		}
 		{
 			DMibTestPath("Unix");
@@ -71,6 +75,7 @@ public:
 					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize)
 					, false
 					, _bTestTooLongCloseMessage
+					, _bAllowUnmasked
 				)
 			;
 		}
@@ -146,9 +151,25 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory)
+		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
+
+			CWebSocketListenSocketFactory ListenFactory;
+			if (_bAllowUnmasked)
+			{
+				ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
+					(
+						[ServerFactory = _ServerFactory](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+						{
+							return {ServerFactory, true};
+						}
+					)
+				;
+			}
+			else
+				ListenFactory = _ServerFactory;
+
 			m_ServerActor
 				(
 					&CWebSocketServerActor::f_StartListenAddress
@@ -233,7 +254,7 @@ public:
 
 						co_return {};
 					}
-					, fg_TempCopy(_ServerFactory)
+					, fg_Move(ListenFactory)
 				)
 				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
 				{
@@ -256,21 +277,23 @@ public:
 			return pState->m_ListenPort;
 		}
 
-		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port)
+		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port, bool _bAllowUnmasked)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
+
 			m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
-					, _Address
-					, ""
-					, ENetAddressType_None
-					, _Port
-					, "/Test"
-					, fg_Format("http://{}", _Address)
-					, fg_CreateVector<CStr>("Test")
-					, NHTTP::CRequest()
-					, fg_TempCopy(_ClientFactory)
+					, CWebSocketClientActor::CConnectSettings
+					{
+						.m_ConnectToAddress = _Address
+						, .m_Port = _Port
+						, .m_URI = "/Test"
+						, .m_Origin = fg_Format("http://{}", _Address)
+						, .m_Protocols = fg_CreateVector<CStr>("Test")
+						, .m_SocketFactory = _ClientFactory
+						, .m_bAllowUnmaskedFrames = _bAllowUnmasked
+					}
 				)
 				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
@@ -412,6 +435,7 @@ public:
 			, CStr const &_Address
 			, bool _bTestTimeout
 			, bool _bTestTooLongCloseMessage
+			, bool _bAllowUnmasked
 		)
 	{
 		{
@@ -443,11 +467,11 @@ public:
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
+				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				pState->f_Connect(_Address, ClientFactory, ListenPort);
+				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
@@ -555,12 +579,12 @@ public:
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory);
+				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				pState->f_Connect(_Address, ClientFactory, ListenPort);
+				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
@@ -650,9 +674,145 @@ public:
 			;
 		}
 
+		// Authenticated unix binds to the kernel peer process id, which only macOS and Linux provide;
+		// CAuthenticatedUnixContext throws in its constructor everywhere else, so skip these cases there
+		if (fg_IsAuthenticatedUnixSupported())
+		{
+			DMibTestPath("AuthenticatedUnix");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions Options;
+						Options.m_CommonName = "Malterlib test Self Signed";
+						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						Options.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+					, _FragmentationSize
+					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+					, false
+					, true // Authenticated unix is a confidential point to point transport, so exercise unmasked frames
+					, true // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
+				)
+			;
+		}
+
 		if (m_CurrentFragmentationSize != CWebsocketSettings::mc_DefaultFragmentationSize)
 			return;
 
+		if (fg_IsAuthenticatedUnixSupported())
+		{
+			DMibTestPath("AuthenticatedUnix Client Certificate");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CByteVector CertificateRequestData;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+					}
+					, ""
+					, ""
+					, _FragmentationSize
+					, false
+					, false
+					, true // Authenticated unix is a confidential point to point transport, so exercise unmasked frames
+					, true // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
+				)
+			;
+		}
+		if (fg_IsAuthenticatedUnixSupported())
+		{
+			DMibTestPath("AuthenticatedUnix Client Certificate Incorrect");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+						// The client certificate chains to a different CA than the one the server trusts
+						CByteVector OtherCACertificateData;
+						CSecureByteVector OtherCAPrivateKeyData;
+						CCertificateOptions OtherCAOptions;
+						OtherCAOptions.m_CommonName = "Other CA";
+						OtherCAOptions.m_KeySetting = gc_TestTestKeySetting;
+						CCertificate::fs_GenerateSelfSignedCertAndKey(OtherCAOptions, OtherCACertificateData, OtherCAPrivateKeyData);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+						CByteVector CertificateRequestData;
+
+						CCertificateOptions ClientOptions;
+						ClientOptions.m_CommonName = "Test Client";
+						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
+
+						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+						CCertificate::fs_SignClientCertificate(OtherCACertificateData, OtherCAPrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+					}
+					, "Socket closed: Peer certificate verification failed: unable to get local issuer certificate"
+					, ""
+					, _FragmentationSize
+					, false
+					, false
+					, false
+					, true // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
+				)
+			;
+		}
 		{
 			DMibTestPath("TCP Long Close");
 			fp_Test
@@ -1263,18 +1423,18 @@ public:
 		void f_Connect(uint16 _Port, umint _FragmentationSize)
 		{
 			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+
 			m_ClientActor
 				(
 					&CWebSocketClientActor::f_Connect
-					, "localhost"
-					, ""
-					, ENetAddressType_None
-					, _Port
-					, "/Test"
-					, "http://localhost"
-					, fg_CreateVector<CStr>("Test")
-					, NHTTP::CRequest()
-					, FVirtualSocketFactory()
+					, CWebSocketClientActor::CConnectSettings
+					{
+						.m_ConnectToAddress = "localhost"
+						, .m_Port = _Port
+						, .m_URI = "/Test"
+						, .m_Origin = "http://localhost"
+						, .m_Protocols = fg_CreateVector<CStr>("Test")
+					}
 				)
 				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
 				{
@@ -1863,7 +2023,7 @@ public:
 				};
 			}
 
-			for (umint i = 32; i < CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
+			for (umint i = 32; i <= CWebsocketSettings::mc_DefaultFragmentationSize; i = i * 2)
 			{
 				DMibTestSuite("Fragmentation {}"_f << i)
 				{
@@ -1986,18 +2146,18 @@ public:
 
 					NHTTP::CRequest Request;
 					Request.f_GetRequestFields().f_SetUserAgent("MalterlibWebSocket");
+
 					auto NewConnection = co_await _pState->m_WebSocketClient
 						(
 							&CWebSocketClientActor::f_Connect
-							, "127.0.0.1:9001"
-							, ""
-							, ENetAddressType_None
-							, 9001
-							, _Path
-							, "http://127.0.0.1/"
-							, fg_CreateVector<CStr>()
-							, fg_Move(Request)
-							, FVirtualSocketFactory()
+							, CWebSocketClientActor::CConnectSettings
+							{
+								.m_ConnectToAddress = "127.0.0.1:9001"
+								, .m_Port = 9001
+								, .m_URI = _Path
+								, .m_Origin = "http://127.0.0.1/"
+								, .m_Request = fg_Move(Request)
+							}
 						)
 					;
 

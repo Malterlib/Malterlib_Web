@@ -79,6 +79,34 @@ namespace NMib::NWeb
 	struct CWebSocketNewServerConnection;
 	struct CWebSocketNewClientConnection;
 
+	// Per-listen-address transport choice: the socket factory plus whether unmasked client frames
+	// are allowed on it. Both peers must agree on masking, so the caller that knows the transport
+	// is a confidential point to point link sets m_bAllowUnmaskedFrames here and on the client.
+	struct CWebSocketListenAddressConfig
+	{
+		NNetwork::FVirtualSocketFactory m_Factory;
+		bool m_bAllowUnmaskedFrames = false;
+	};
+
+	// Socket factory for listen addresses; constructs from a plain FVirtualSocketFactory or, via
+	// fs_PerAddress, from a selector that picks a config per listen address so mixed listens can
+	// use different transports (for example TLS on TCP and the authenticated-unix transport on unix sockets)
+	struct CWebSocketListenSocketFactory
+	{
+		CWebSocketListenSocketFactory() = default;
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory);
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory);
+
+		static CWebSocketListenSocketFactory fs_PerAddress(NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector);
+
+		bool f_HasSelector() const;
+
+		CWebSocketListenAddressConfig f_GetConfig(umint _iAddress, NMib::NNetwork::CNetAddress const &_Address) const;
+
+		NNetwork::FVirtualSocketFactory m_Factory;
+		NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> m_fSelector;
+	};
+
 	struct CWebsocketSettings
 	{
 		static constexpr umint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
@@ -89,6 +117,9 @@ namespace NMib::NWeb
 		umint m_FragmentationSize = mc_DefaultFragmentationSize;
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
+		// Permit sending (client) and accepting (server) unmasked frames. Both peers must set this
+		// consistently; only safe on a confidential point to point transport with no intermediaries
+		bool m_bAllowUnmaskedFrames = false;
 	};
 
 	class CWebSocketActor : public NConcurrency::CActor
@@ -384,19 +415,21 @@ namespace NMib::NWeb
 		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
-		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect
-			(
-				NStr::CStr _ConnectToAddress	// The server to connect to
-				, NStr::CStr _BindAddress	// The src address to bind to. Leave empty to not bind
-				, NMib::NNetwork::ENetAddressType _PreferAddress // The preferred type of address to connect to
-				, uint16 _Port	// The port to connect to
-				, NStr::CStr _URI // The server path: /chat
-				, NStr::CStr _Origin	// The server origin: http://example.com
-				, NContainer::TCVector<NStr::CStr> _Protocols	// The protocols to ask the server to talk with
-				, NHTTP::CRequest _Request // Can be used to specify additional fields you want to sent to server initial handshake request to the server. The request line is ignored
-				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
-			)
-		; // You will receive an exception if connection fails
+		struct CConnectSettings
+		{
+			NStr::CStr m_ConnectToAddress;	// The server to connect to
+			NStr::CStr m_BindAddress;	// The src address to bind to. Leave empty to not bind
+			NMib::NNetwork::ENetAddressType m_PreferAddress = NMib::NNetwork::ENetAddressType_None;	// The preferred type of address to connect to
+			uint16 m_Port = 0;	// The port to connect to. 0 keeps the port from the resolved address
+			NStr::CStr m_URI;	// The server path: /chat
+			NStr::CStr m_Origin;	// The server origin: http://example.com
+			NContainer::TCVector<NStr::CStr> m_Protocols;	// The protocols to ask the server to talk with
+			NHTTP::CRequest m_Request;	// Can be used to specify additional fields you want to send in the initial handshake request to the server. The request line is ignored
+			NNetwork::FVirtualSocketFactory m_SocketFactory;	// The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+			bool m_bAllowUnmaskedFrames = false;	// Send unmasked frames; the server must agree. Only safe on a confidential point to point transport with no intermediaries
+		};
+
+		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings); // You will receive an exception if connection fails
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
@@ -445,7 +478,7 @@ namespace NMib::NWeb
 				, NMib::NNetwork::ENetFlag _ListenFlags
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
-				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+				, CWebSocketListenSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty it will default to CSocket_TCP::fs_GetFactory()
 			)
 		;
 
