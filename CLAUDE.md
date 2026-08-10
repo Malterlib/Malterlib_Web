@@ -139,19 +139,19 @@ Provides WebSocket client functionality for connecting to WebSocket servers.
 // Create WebSocket client
 TCActor<CWebSocketClientActor> ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 
-// Connect to server
+// Connect to server (defaults: no bind address, no preferred address type, no protocols,
+// empty extra request fields, default TCP socket factory, masked frames)
+
 CWebSocketNewClientConnection Connection = co_await ClientActor
 	(
 		&CWebSocketClientActor::f_Connect
-		, "localhost"  // Server address
-		, CStr()  // Bind address (empty = don't bind)
-		, ENetAddressType_None  // Preferred address type
-		, 8080  // Port
-		, "/websocket"  // URI path
-		, "http://localhost"  // Origin
-		, TCVector<CStr>{}  // Protocols
-		, NHTTP::CRequest()  // Additional headers
-		, NNetwork::FVirtualSocketFactory{}  // Socket factory
+		, CWebSocketClientActor::CConnectSettings
+		{
+			.m_ConnectToAddress = "localhost"
+			, .m_Port = 8080
+			, .m_URI = "/websocket"
+			, .m_Origin = "http://localhost"
+		}
 	)
 ;
 

@@ -16,6 +16,43 @@ namespace NMib::NWeb
 	{
 	}
 
+
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory)
+		: m_Factory(fg_Move(_Factory))
+	{
+	}
+
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory)
+		: m_Factory(_Factory)
+	{
+	}
+
+	auto CWebSocketListenSocketFactory::fs_PerAddress
+		(
+			NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector
+		)
+		-> CWebSocketListenSocketFactory
+	{
+		CWebSocketListenSocketFactory Return;
+		Return.m_fSelector = fg_Move(_fSelector);
+
+		return Return;
+	}
+
+	bool CWebSocketListenSocketFactory::f_HasSelector() const
+	{
+		return bool(m_fSelector);
+	}
+
+	// For plain factories, invoke the retained callable directly; copying TCFunction would reset captured state per address.
+	CWebSocketListenAddressConfig CWebSocketListenSocketFactory::f_GetConfig(umint _iAddress, NMib::NNetwork::CNetAddress const &_Address) const
+	{
+		if (m_fSelector)
+			return m_fSelector(_iAddress, _Address);
+
+		return CWebSocketListenAddressConfig{.m_Factory = m_Factory};
+	}
+
 	///
 	/// Server connection
 	/// =================

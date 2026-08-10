@@ -79,6 +79,30 @@ namespace NMib::NWeb
 	struct CWebSocketNewServerConnection;
 	struct CWebSocketNewClientConnection;
 
+	// Both endpoints must agree on unmasked framing, which requires a confidential point-to-point transport.
+	struct CWebSocketListenAddressConfig
+	{
+		NNetwork::FVirtualSocketFactory m_Factory;
+		bool m_bAllowUnmaskedFrames = false;
+	};
+
+	// A selector can choose transport configuration per address; a plain factory retains one callable across addresses.
+	struct CWebSocketListenSocketFactory
+	{
+		CWebSocketListenSocketFactory() = default;
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory);
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory);
+
+		static CWebSocketListenSocketFactory fs_PerAddress(NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector);
+
+		bool f_HasSelector() const;
+
+		CWebSocketListenAddressConfig f_GetConfig(umint _iAddress, NMib::NNetwork::CNetAddress const &_Address) const;
+
+		NNetwork::FVirtualSocketFactory m_Factory;
+		NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> m_fSelector;
+	};
+
 	struct CWebsocketSettings
 	{
 		static constexpr umint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
@@ -89,6 +113,7 @@ namespace NMib::NWeb
 		umint m_FragmentationSize = mc_DefaultFragmentationSize;
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
+		bool m_bAllowUnmaskedFrames = false; // Both peers must agree; safe only on a confidential point-to-point transport without intermediaries.
 	};
 
 	class CWebSocketActor : public NConcurrency::CActor
@@ -384,19 +409,21 @@ namespace NMib::NWeb
 		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
-		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect
-			(
-				NStr::CStr _ConnectToAddress	// The server to connect to
-				, NStr::CStr _BindAddress	// The src address to bind to. Leave empty to not bind
-				, NMib::NNetwork::ENetAddressType _PreferAddress // The preferred type of address to connect to
-				, uint16 _Port	// The port to connect to
-				, NStr::CStr _URI // The server path: /chat
-				, NStr::CStr _Origin	// The server origin: http://example.com
-				, NContainer::TCVector<NStr::CStr> _Protocols	// The protocols to ask the server to talk with
-				, NHTTP::CRequest _Request // Can be used to specify additional fields you want to sent to server initial handshake request to the server. The request line is ignored
-				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
-			)
-		; // You will receive an exception if connection fails
+		struct CConnectSettings
+		{
+			NStr::CStr m_ConnectToAddress;
+			NStr::CStr m_BindAddress; // Empty leaves source address selection to the platform.
+			NMib::NNetwork::ENetAddressType m_PreferAddress = NMib::NNetwork::ENetAddressType_None;
+			uint16 m_Port = 0; // Zero preserves the resolved address's port.
+			NStr::CStr m_URI;
+			NStr::CStr m_Origin;
+			NContainer::TCVector<NStr::CStr> m_Protocols;
+			NHTTP::CRequest m_Request; // Additional handshake fields; the request line is ignored.
+			NNetwork::FVirtualSocketFactory m_SocketFactory; // Empty selects CSocket_TCP::fs_GetFactory().
+			bool m_bAllowUnmaskedFrames = false; // Both peers must agree; requires a confidential point-to-point transport.
+		};
+
+		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings);
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
@@ -445,7 +472,7 @@ namespace NMib::NWeb
 				, NMib::NNetwork::ENetFlag _ListenFlags
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
-				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+				, CWebSocketListenSocketFactory _SocketFactory
 			)
 		;
 

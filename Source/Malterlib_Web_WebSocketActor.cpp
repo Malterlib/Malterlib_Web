@@ -242,6 +242,9 @@ namespace NMib::NWeb
 			, m_Settings(_Settings)
 			, m_pLastPendingMessagesList(nullptr)
 		{
+			// Negotiation keeps masking on until both peers agree, even when settings otherwise permit unmasked frames.
+			m_bMaskFrames = !_Settings.m_bAllowUnmaskedFrames || _Settings.m_bNegotiateUnmaskedFrames;
+
 			if (_bClient)
 				m_ConnectionInfo.f_Set<2>();
 			else
@@ -334,6 +337,7 @@ namespace NMib::NWeb
 
 		umint m_bPendingMessage:1 = false;
 		umint m_bClient:1 = false;
+		umint m_bMaskFrames:1 = true;
 
 		umint m_bOnCloseCalled:1 = false;
 		umint m_bOnFinishDone:1 = false;
@@ -976,7 +980,7 @@ namespace NMib::NWeb
 	{
 		CBinaryStreamPagedByteVector Stream(m_OutgoingData);
 
-		bool bMask = m_bClient;
+		bool bMask = m_bClient && m_bMaskFrames;
 
 		uint8 Header0 = 0;
 		if (_bFinished)
@@ -1053,7 +1057,6 @@ namespace NMib::NWeb
 			auto WasState = Internal.m_State;
 			if (!_bFatal && Internal.m_State == EState_Connected)
 			{
-				// Send packet to other side
 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 2 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 
 				if (_Status != EWebSocketStatus_NoStatusReceived)
@@ -1542,7 +1545,7 @@ namespace NMib::NWeb
 					Position += 4;
 				}
 			}
-			else if (!Internal.m_bClient)
+			else if (!Internal.m_bClient && Internal.m_bMaskFrames)
 			{
 				fp_Disconnect(EWebSocketStatus_ProtocolError, "Client sent unmasked frame", false, EWebSocketCloseOrigin_Local);
 				return false;
@@ -1555,7 +1558,7 @@ namespace NMib::NWeb
 		umint nBytesAvailable = Internal.m_IncomingData.f_GetLen();
 
 		if (nBytesAvailable < Length)
-			return false; // Message not finished
+			return false;
 
 		bool bControlMessage = false;
 		switch (Header.m_Opcode)
@@ -2358,6 +2361,7 @@ namespace NMib::NWeb
 			catch (NNetwork::CExceptionNet const &)
 			{
 			}
+
 			State = Internal.m_pSocket->f_GetState();
 		}
 
