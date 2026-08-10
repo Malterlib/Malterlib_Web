@@ -3,6 +3,7 @@
 
 #include <Mib/Core/Core>
 #include <Mib/Network/Sockets/SSL>
+#include <Mib/Network/Sockets/AuthenticatedUnix>
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Cryptography/Hashes/SHA>
 #include <Mib/Cryptography/RandomID>
@@ -26,6 +27,16 @@ namespace NMib::NWeb
 			return _ID;
 		}
 	};
+
+	namespace
+	{
+		// Schemes preserve case so the comparison must not, or a mixed case scheme would silently
+		// fall back to raw TCP
+		bool fg_IsAuthenticatedUnixScheme(NStr::CStr const &_Scheme)
+		{
+			return NStr::fg_StrCmpNoCase(_Scheme, "wsa") == 0;
+		}
+	}
 
 	struct CDDPClient::CInternal : public NConcurrency::CActorInternal
 	{
@@ -105,10 +116,15 @@ namespace NMib::NWeb
 				m_SocketFactory = NNetwork::CSocket_SSL::fs_GetFactory(pClientContext);
 			}
 
+			// No default factory for wsa: the authenticated unix transport is unencrypted and does not
+			// verify the peer identity, so a caller must supply a factory whose context pins the
+			// server certificate. f_Connect rejects a wsa URL that reached here without one rather
+			// than fall back to the OS trust store or plaintext TCP.
+
 			if (_Origin.f_IsEmpty())
 			{
 				auto Origin = _ConnectTo;
-				if (_ConnectTo.f_GetScheme() == "wss")
+				if (_ConnectTo.f_GetScheme() == "wss" || fg_IsAuthenticatedUnixScheme(_ConnectTo.f_GetScheme()))
 					Origin.f_SetScheme("https");
 				else
 					Origin.f_SetScheme("http");
@@ -291,6 +307,28 @@ namespace NMib::NWeb
 		if (Internal.m_bConnectCalled)
 			co_return DMibErrorInstance("The DDP client can only be connected once");
 
+		if (fg_IsAuthenticatedUnixScheme(Internal.m_ConnectTo.f_GetScheme()))
+		{
+			// The scheme must fail closed on platforms without the kernel peer-process binding: the
+			// factory below is caller supplied, so nothing else would stop an arbitrary factory from
+			// running unmasked plaintext under wsa there
+			if (!NNetwork::fg_IsAuthenticatedUnixSupported())
+				co_return DMibErrorInstance("wsa requires kernel peer-process authentication (macOS/Linux); use the wss/TLS transport");
+
+			// The authenticated unix handshake does not encrypt, so only allow it where the kernel keeps
+			// the stream private
+			if (!NNetwork::fg_IsUnixSocketAddressString(Internal.m_ConnectTo.f_GetHost()))
+				co_return DMibErrorInstance("wsa connections require a unix socket address");
+
+			// Authenticated unix does not verify the peer identity, so the caller must pin the server
+			// certificate through an explicit socket factory rather than trust the OS store. The factory
+			// is a type-erased FVirtualSocketFactory, so only its presence is enforced here, not that it
+			// produces a CSocket_AuthenticatedUnix; supplying a factory backed by an authenticated unix
+			// context is the caller's contract (the address is already constrained to a unix socket above)
+			if (!Internal.m_SocketFactory)
+				co_return DMibErrorInstance("wsa connections require an explicit socket factory that pins the server certificate");
+		}
+
 		Internal.m_bConnectCalled = true;
 		Internal.m_UserName = _UserName;
 		Internal.m_Password = _Password;
@@ -301,15 +339,16 @@ namespace NMib::NWeb
 		auto ConnectResult = co_await Internal.m_ConnectionFactory
 			(
 				&CWebSocketClientActor::f_Connect
-				, Internal.m_ConnectTo.f_GetHost()
-				, Internal.m_BindTo
-				, NNetwork::ENetAddressType_None
-				, Internal.m_ConnectTo.f_GetPortFromScheme()
-				, Internal.m_ConnectTo.f_GetFullPath()
-				, Internal.m_Origin
-				, NContainer::fg_CreateVector<NStr::CStr>()
-				, NHTTP::CRequest()
-				, fg_TempCopy(Internal.m_SocketFactory)
+				, CWebSocketClientActor::CConnectSettings
+				{
+					.m_ConnectToAddress = Internal.m_ConnectTo.f_GetHost()
+					, .m_BindAddress = Internal.m_BindTo
+					, .m_Port = Internal.m_ConnectTo.f_GetPortFromScheme()
+					, .m_URI = Internal.m_ConnectTo.f_GetFullPath()
+					, .m_Origin = Internal.m_Origin
+					, .m_SocketFactory = Internal.m_SocketFactory
+					, .m_bAllowUnmaskedFrames = fg_IsAuthenticatedUnixScheme(Internal.m_ConnectTo.f_GetScheme()) // wsa unix connections are a confidential point to point link
+				}
 			)
 			.f_Wrap()
 		;

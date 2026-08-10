@@ -242,6 +242,11 @@ namespace NMib::NWeb
 			, m_Settings(_Settings)
 			, m_pLastPendingMessagesList(nullptr)
 		{
+			// Masking is a wire-format contract both peers agree on via their settings, not a
+			// property either side derives from the socket. Negotiating it means it stays on
+			// until the handshake has agreed, whatever the assume setting says
+			m_bMaskFrames = !_Settings.m_bAllowUnmaskedFrames || _Settings.m_bNegotiateUnmaskedFrames;
+
 			if (_bClient)
 				m_ConnectionInfo.f_Set<2>();
 			else
@@ -334,6 +339,7 @@ namespace NMib::NWeb
 
 		umint m_bPendingMessage:1 = false;
 		umint m_bClient:1 = false;
+		umint m_bMaskFrames:1 = true;
 
 		umint m_bOnCloseCalled:1 = false;
 		umint m_bOnFinishDone:1 = false;
@@ -976,7 +982,7 @@ namespace NMib::NWeb
 	{
 		CBinaryStreamPagedByteVector Stream(m_OutgoingData);
 
-		bool bMask = m_bClient;
+		bool bMask = m_bClient && m_bMaskFrames;
 
 		uint8 Header0 = 0;
 		if (_bFinished)
@@ -1542,7 +1548,7 @@ namespace NMib::NWeb
 					Position += 4;
 				}
 			}
-			else if (!Internal.m_bClient)
+			else if (!Internal.m_bClient && Internal.m_bMaskFrames)
 			{
 				fp_Disconnect(EWebSocketStatus_ProtocolError, "Client sent unmasked frame", false, EWebSocketCloseOrigin_Local);
 				return false;
@@ -2358,6 +2364,7 @@ namespace NMib::NWeb
 			catch (NNetwork::CExceptionNet const &)
 			{
 			}
+
 			State = Internal.m_pSocket->f_GetState();
 		}
 

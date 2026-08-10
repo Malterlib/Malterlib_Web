@@ -61,13 +61,11 @@ namespace NMib::NWeb
 			, NMib::NNetwork::ENetFlag _ListenFlags
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
-			, NNetwork::FVirtualSocketFactory _SocketFactory
+			, CWebSocketListenSocketFactory _SocketFactory
 		)
 		-> NConcurrency::TCFuture<CListenResult>
 	{
-		NNetwork::FVirtualSocketFactory SocketFactory = fg_Move(_SocketFactory);
-		if (!SocketFactory)
-			SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
+		CWebSocketListenSocketFactory SocketFactory = fg_Move(_SocketFactory);
 
 		if (!mp_pInternal->m_ListenSockets.f_IsEmpty())
 			co_return DMibErrorInstance("Socket server is already listening");
@@ -119,11 +117,33 @@ namespace NMib::NWeb
 				if (!mp_pInternal->m_DefaultSettings.m_bTimeoutForUnixSockets && Address.f_GetType() == NNetwork::ENetAddressType_Unix)
 					Settings.m_Timeout = 0.0;
 
+				NStorage::TCUniquePointer<NNetwork::ICSocket> pListenSocket;
+				if (SocketFactory.f_HasSelector())
+				{
+					NWeb::CWebSocketListenAddressConfig AddressConfig = SocketFactory.f_GetConfig(i, Address);
+
+					Settings.m_bAllowUnmaskedFrames = AddressConfig.m_bAllowUnmaskedFrames;
+
+					NNetwork::FVirtualSocketFactory fAddressFactory = fg_Move(AddressConfig.m_Factory);
+					if (!fAddressFactory)
+						fAddressFactory = NNetwork::CSocket_TCP::fs_GetFactory();
+
+					pListenSocket = fAddressFactory("");
+				}
+				else
+				{
+					// Invoke the caller's factory as the single retained instance for every address;
+					// copying a TCFunction duplicates its captured callable, which would reset a
+					// stateful factory back to its initial state per address
+					if (!SocketFactory.m_Factory)
+						SocketFactory.m_Factory = NNetwork::CSocket_TCP::fs_GetFactory();
+
+					pListenSocket = SocketFactory.m_Factory("");
+				}
+
 				ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), fg_Move(Settings));
 
 				NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
-
-				NStorage::TCUniquePointer<NNetwork::ICSocket> pListenSocket = SocketFactory("");
 				NException::CDisableExceptionTraceScope DisableExceptionTrace;
 				pListenSocket->f_Listen
 					(
