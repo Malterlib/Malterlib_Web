@@ -17,6 +17,44 @@ namespace NMib::NWeb
 	}
 
 	///
+	/// Listen socket factory
+	/// =====================
+
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory)
+		: m_Factory(fg_Move(_Factory))
+	{
+	}
+
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory)
+		: m_Factory(_Factory)
+	{
+	}
+
+	CWebSocketListenSocketFactory CWebSocketListenSocketFactory::fs_PerAddress(NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector)
+	{
+		CWebSocketListenSocketFactory Return;
+		Return.m_fSelector = fg_Move(_fSelector);
+
+		return Return;
+	}
+
+	bool CWebSocketListenSocketFactory::f_HasSelector() const
+	{
+		return bool(m_fSelector);
+	}
+
+	// Only meaningful for the per-address selector form. For the plain factory form callers must
+	// invoke m_Factory itself rather than the copy a config would carry: copying a TCFunction
+	// duplicates its captured callable, which would reset a stateful factory for every address
+	CWebSocketListenAddressConfig CWebSocketListenSocketFactory::f_GetConfig(umint _iAddress, NMib::NNetwork::CNetAddress const &_Address) const
+	{
+		if (m_fSelector)
+			return m_fSelector(_iAddress, _Address);
+
+		return CWebSocketListenAddressConfig{.m_Factory = m_Factory};
+	}
+
+	///
 	/// Server connection
 	/// =================
 

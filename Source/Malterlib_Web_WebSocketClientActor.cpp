@@ -46,23 +46,12 @@ namespace NMib::NWeb
 		*m_pDeleted = true;
 	}
 
-	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect
-		(
-			NStr::CStr _ConnectToAddress
-			, NStr::CStr _BindToAddress
-			, NMib::NNetwork::ENetAddressType _PreferAddress
-			, uint16 _Port
-			, NStr::CStr _URI
-			, NStr::CStr _Origin
-			, NContainer::TCVector<NStr::CStr> _Protocols
-			, NHTTP::CRequest _Request
-			, NNetwork::FVirtualSocketFactory _SocketFactory
-		)
+	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect(CConnectSettings _Settings)
 	{
-		if (!_SocketFactory)
-			_SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
+		if (!_Settings.m_SocketFactory)
+			_Settings.m_SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
-		if (_ConnectToAddress.f_IsEmpty())
+		if (_Settings.m_ConnectToAddress.f_IsEmpty())
 			co_return DMibErrorInstance("Connect to address cannot be empty");
 
 		if (!mp_AddressResolver)
@@ -70,25 +59,32 @@ namespace NMib::NWeb
 
 		auto [ConnectToAdress, BindToAddress] = co_await
 			(
-				mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _ConnectToAddress, _PreferAddress)
-				+ mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _BindToAddress, _PreferAddress)
+				mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _Settings.m_ConnectToAddress, _Settings.m_PreferAddress)
+				+ mp_AddressResolver(&NNetwork::CResolveActor::f_Resolve, _Settings.m_BindAddress, _Settings.m_PreferAddress)
 			)
 		;
 
-		if (_Port)
-			ConnectToAdress.f_SetPort(_Port);
+		if (_Settings.m_Port)
+			ConnectToAdress.f_SetPort(_Settings.m_Port);
 
 		auto Settings = mp_DefaultSettings;
 
+		Settings.m_bAllowUnmaskedFrames = _Settings.m_bAllowUnmaskedFrames;
+
 		if (!mp_DefaultSettings.m_bTimeoutForUnixSockets && ConnectToAdress.f_GetType() == NNetwork::ENetAddressType_Unix)
 			Settings.m_Timeout = 0.0;
+
+		NStr::CStr ConnectToAddress = _Settings.m_ConnectToAddress;
+		NStr::CStr URI = fg_Move(_Settings.m_URI);
+		NStr::CStr Origin = fg_Move(_Settings.m_Origin);
+		NContainer::TCVector<NStr::CStr> Protocols = fg_Move(_Settings.m_Protocols);
 
 		CPendingConnection *pPending;
 
 		{
 			CPendingConnection &Pending = mp_PendingConnects.f_Insert();
 			pPending = &Pending;
-			Pending.m_pSocket = _SocketFactory(_ConnectToAddress);
+			Pending.m_pSocket = _Settings.m_SocketFactory(ConnectToAddress);
 		}
 
 		auto CleanupPending = NConcurrency::g_OnScopeExitActor / [this, pPendingDeleted = pPending->m_pDeleted, pPending]
@@ -113,7 +109,7 @@ namespace NMib::NWeb
 					, pReplied = NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>>(fg_Construct(false))
 					, WeakThis = fg_ThisActor(this).f_Weak()
 					, CleanupPending = fg_Move(CleanupPending)
-					, pRequest = NStorage::TCSharedPointer<NHTTP::CRequest>(fg_Construct(fg_Move(_Request)))
+					, pRequest = NStorage::TCSharedPointer<NHTTP::CRequest>(fg_Construct(fg_Move(_Settings.m_Request)))
 					, Promise = fg_Move(Promise.m_Promise)
 				]
 				(::NMib::NNetwork::ENetTCPState _StateAdded) mutable
@@ -174,10 +170,10 @@ namespace NMib::NWeb
 								, CleanupPending = fg_Move(CleanupPending)
 								, Settings
 								, pRequest = fg_Move(pRequest)
-								, _ConnectToAddress
-								, _URI
-								, _Origin
-								, _Protocols
+								, ConnectToAddress
+								, URI
+								, Origin
+								, Protocols
 							]() mutable
 							{
 								if (pPendingDeleted->f_Load())
@@ -223,10 +219,10 @@ namespace NMib::NWeb
 													co_return {};
 												}
 												, fg_Move(*pRequest)
-												, _ConnectToAddress
-												, _URI
-												, _Origin
-												, _Protocols
+												, ConnectToAddress
+												, URI
+												, Origin
+												, Protocols
 											)
 											> [pPendingDeleted, pPending](NConcurrency::TCAsyncResult<NConcurrency::CActorSubscription> &&_Result)
 											{

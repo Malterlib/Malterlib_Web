@@ -496,6 +496,7 @@ namespace NMib::NWeb::NHTTP
 			{
 				{"ws", 80}
 				, {"wss", 443}
+				, {"wsa", 443} // WebSocket over the authenticated unix handshake
 				, {"http", 80}
 				, {"https", 443}
 			}
