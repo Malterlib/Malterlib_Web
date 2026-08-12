@@ -9,9 +9,15 @@
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
 #include <Mib/Network/Socket>
+#include <Mib/Stream/BinaryStorage>
 #include <Mib/Memory/Allocators/Secure>
 #include <Mib/Network/ResolveActor>
 #include <Mib/Network/DebugFlags>
+
+namespace NMib::NStream
+{
+	struct CBinaryStorage;
+}
 
 namespace NMib::NWeb
 {
@@ -86,6 +92,18 @@ namespace NMib::NWeb
 	{
 		NNetwork::FVirtualSocketFactory m_Factory;
 		bool m_bAllowUnmaskedFrames = false;
+		// Accept unmasked frames from a client that asked for it in the handshake, rather than
+		// assuming it. A peer that does not know the extension keeps masking, so this is safe to
+		// turn on against an existing deployment where m_bAllowUnmaskedFrames is not
+		bool m_bNegotiateUnmaskedFrames = false;
+		// Both 0 use the server's defaults. A local transport can afford large frames where a
+		// network listen on the same server still wants fragmentation to bound head of line
+		// blocking. The two uint32 fit in the padding the bool leaves
+		uint32 m_FragmentationSize = 0;
+		uint32 m_MaxFragmentSize = 0;
+		// Bytes a connection accepted here may have in flight on its sends; 0 uses the server's
+		// default
+		uint64 m_SendWindowBytes = 0;
 	};
 
 	// Socket factory for listen addresses; constructs from a plain FVirtualSocketFactory or, via
@@ -111,16 +129,43 @@ namespace NMib::NWeb
 	{
 		static constexpr umint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
 		static constexpr umint mc_DefaultFragmentationSize = 32 * 1024;
+		static constexpr umint mc_DefaultMaxFragmentSize = 128 * 1024;
 		static constexpr pfp64 mc_DefaultTimeout = 60.0;
+
+		// The ceiling for bytes in flight on the connection's sends: the configured window, or
+		// eight frames unconfigured
+		umint f_GetSendWindowBytes() const;
+
+		// The window a connection begins at whatever the ceiling says: one frame, which the
+		// path grows past only when its bandwidth-delay product asks
+		umint f_GetSendWindowStartBytes() const;
 
 		umint m_MaxMessageSize = mc_DefaultMaxMessageSize;
 		umint m_FragmentationSize = mc_DefaultFragmentationSize;
+		// Largest single incoming frame that is accepted. A peer that fragments at the same
+		// size never exceeds it, and it bounds how far the direct read path grows the message
+		// buffer from an advertised length alone. Raise it to talk to peers that send larger
+		// unfragmented frames
+		umint m_MaxFragmentSize = mc_DefaultMaxFragmentSize;
+		// Bytes the connection may have in flight on its sends — what the kernel holds for a
+		// buffered socket, what stays pinned for a zero copy one. 0 is eight frames
+		umint m_SendWindowBytes = 0;
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
 		// Permit sending (client) and accepting (server) unmasked frames. Both peers must set this
 		// consistently; only safe on a confidential point to point transport with no intermediaries
 		bool m_bAllowUnmaskedFrames = false;
+		// Ask for, or agree to, unmasked frames in the handshake instead of assuming them. Masking
+		// guards a transparent intermediary against chosen plaintext, which a confidential point to
+		// point transport has none of; negotiating means a peer that does not know the extension
+		// simply keeps masking, so this is safe where m_bAllowUnmaskedFrames is not
+		bool m_bNegotiateUnmaskedFrames = false;
 	};
+
+	// Private extension token for dropping the client to server mask. RFC 6455 requires masking
+	// without an override, so this is a deliberate deviation between endpoints that both asked for
+	// it, and is only offered on a transport with no intermediary to protect
+	constexpr ch8 const *gc_pUnmaskedFramesExtension = "x-malterlib-unmasked";
 
 	class CWebSocketActor : public NConcurrency::CActor
 	{
@@ -149,6 +194,11 @@ namespace NMib::NWeb
 			NStorage::TCUniquePointer<NNetwork::ICSocketConnectionInfo> m_pSocketInfo;
 			NMib::NNetwork::CNetAddress m_PeerAddress;
 			NStr::CStr m_Error;
+
+			// The frame sizes this end settled on: what it fragments its sends at, and the largest
+			// incoming frame it accepts. A protocol above the websocket can tell its peer
+			umint m_FragmentationSize = 0;
+			umint m_MaxFragmentSize = 0;
 			EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 		};
 
@@ -164,6 +214,10 @@ namespace NMib::NWeb
 			NStorage::TCUniquePointer<NNetwork::ICSocketConnectionInfo> m_pSocketInfo;
 			NMib::NNetwork::CNetAddress m_PeerAddress;
 			NStr::CStr m_Error;
+
+			// The frame sizes this end settled on, as in CConnectionInfo
+			umint m_FragmentationSize = 0;
+			umint m_MaxFragmentSize = 0;
 			EWebSocketStatus m_ErrorStatus = EWebSocketStatus_None;
 		};
 
@@ -220,6 +274,8 @@ namespace NMib::NWeb
 			fp64 m_SecondsSinceLastSend = 0.0;
 			fp64 m_SecondsSinceLastReceive = 0.0;
 			uint8 m_State = 0;
+			// Whether this end is masking what it sends, which the handshake can turn off
+			bool m_bMaskFrames = true;
 		};
 
 	public:
@@ -228,12 +284,14 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> f_SetTimeout(fp64 _Seconds);
 
-		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendBinaryStorage(NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendBinaryStorages(NContainer::TCVector<NStorage::TCSharedPointer<NStream::CBinaryStorage const>> _Messages, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendText(NStr::CStr _Data, uint32 _Priority);
-		NConcurrency::TCFuture<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> _pMessage, uint32 _Priority);
-		NConcurrency::TCFuture<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> _pMessageBuffers, uint32 _Priority);
-		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData);
-		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector const> _pMessage, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers const> _pMessageBuffers, uint32 _Priority);
+		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData);
 
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, NStr::CStr _Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime);
@@ -265,10 +323,10 @@ namespace NMib::NWeb
 
 		struct CCallbacks
 		{
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage)> m_fOnReceiveBinaryMessage;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePing;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePong;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePing;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePong;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		};
 
@@ -276,8 +334,25 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		void fp_StateAdded(NNetwork::ENetTCPState _StateAdded);
-		void fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin);
+		void fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin, bool _bRemoteTransportClosed = false);
 		void fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket);
+
+		// Edge triggered send flush: the send API schedules one flush behind whatever is already
+		// on the actor's queue instead of writing per call, so message bursts coalesce
+		void fp_ScheduleUpdateSend();
+		void fp_FlushSend();
+
+		// Completion transfers: once the connection is established on a socket whose loop can
+		// complete transfers in the kernel, receives and sends are submitted operations reported
+		// back through these, and the readiness paths stand down
+		void fp_TryActivateCompletionIo(bool _bSubmitReceive);
+		void fp_StartReceiveStream();
+		void fp_SubmitSendOp(bool _bContinue = false, umint _iInheritedReservation = ~umint(0));
+		void fp_DrainSocketOutput();
+		void fp_ReceiveSegment(NSys::CIoStreamSegment &&_Segment);
+		void fp_ReceiveWindowResume();
+		void fp_SendCompleted(NSys::CIoCompletion _Result, umint _iReservation);
+		void fp_SendBufferReleased(umint _iTransfer, umint _nBytes);
 		void fp_ProcessIncoming();
 		bool fp_ProcessIncomingMessage();
 		void fp_ProcessState(NNetwork::ENetTCPState _StateAdded);
@@ -327,7 +402,13 @@ namespace NMib::NWeb
 	struct CWebSocketNewConnection : public CWebSocketActor::CCallbacks
 	{
 		CWebSocketNewConnection(CWebSocketNewConnection &&_Other) = default;
-		CWebSocketNewConnection(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+		CWebSocketNewConnection(NConcurrency::TCActor<CWebSocketActor> const &_Connection, umint _FragmentationSize, umint _MaxFragmentSize);
+
+		// The frame sizes the connection settled on: what it fragments its sends at, and the
+		// largest incoming frame it accepts
+		umint m_FragmentationSize = 0;
+		umint m_MaxFragmentSize = 0;
+
 	protected:
 		NConcurrency::TCActor<CWebSocketActor> mp_Connection;
 	};
@@ -350,6 +431,8 @@ namespace NMib::NWeb
 				, NConcurrency::TCActor<CWebSocketActor> const &_Connection
 				, NStorage::TCUniquePointer<NNetwork::ICSocketConnectionInfo> &&_pSocketInfo
 				, NMib::NNetwork::CNetAddress const &_PeerAddress
+				, umint _FragmentationSize
+				, umint _MaxFragmentSize
 			)
 		;
 		~CWebSocketNewClientConnection();
@@ -408,11 +491,16 @@ namespace NMib::NWeb
 	class CWebSocketClientActor : public NConcurrency::CActor
 	{
 	public:
+		// Runs in the same priority class as the connection actors it creates, so the
+		// setup path keeps pace with established connections and its socket callbacks
+		// stay in the pool whose loops carry the sockets
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority;
+
 		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
 		~CWebSocketClientActor();
 
 		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
-		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
+		void f_SetDefaultFragmentationSize(umint _FragmentationSize, umint _MaxFragmentSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
 		struct CConnectSettings
@@ -427,6 +515,10 @@ namespace NMib::NWeb
 			NHTTP::CRequest m_Request;	// Can be used to specify additional fields you want to send in the initial handshake request to the server. The request line is ignored
 			NNetwork::FVirtualSocketFactory m_SocketFactory;	// The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			bool m_bAllowUnmaskedFrames = false;	// Send unmasked frames; the server must agree. Only safe on a confidential point to point transport with no intermediaries
+			bool m_bNegotiateUnmaskedFrames = false;	// Ask the server for unmasked frames in the handshake. A server that does not agree leaves masking on, so this is safe against an existing deployment
+			uint32 m_FragmentationSize = 0;	// Fragmentation size for this connection. 0 uses the connector's default. uint32 fits in the padding the trailing bool leaves
+			uint32 m_MaxFragmentSize = 0;	// Largest accepted incoming frame for this connection. 0 uses the connector's default. Must be at least what the server fragments at
+			uint64 m_SendWindowBytes = 0;	// Bytes in flight allowed on sends. 0 uses the connector's default
 		};
 
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings); // You will receive an exception if connection fails
@@ -441,6 +533,9 @@ namespace NMib::NWeb
 			NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
 			NConcurrency::CActorSubscription m_OnFinishConnectionSubscription;
 			NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> m_pDeleted = fg_Construct(false);
+			// Chosen before the socket is started so it registers with that thread's event loop,
+			// and remembered so the actor created for the connection is pinned to the same thread
+			NConcurrency::CIoLoopBinding m_IoBinding;
 		};
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
@@ -451,6 +546,10 @@ namespace NMib::NWeb
 	{
 		friend class NWebSocket::CListenActor;
 	public:
+		// Runs in the same priority class as the connection actors it creates, so the
+		// setup path keeps pace with established connections and its socket callbacks
+		// stay in the pool whose loops carry the sockets
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority;
 
 		CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings = {});
 		~CWebSocketServerActor();
@@ -483,7 +582,7 @@ namespace NMib::NWeb
 		;
 
 		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
-		void f_SetDefaultFragmentationSize(umint _FragmentationSize);
+		void f_SetDefaultFragmentationSize(umint _FragmentationSize, umint _MaxFragmentSize);
 		void f_SetDefaultTimeout(fp64 _Timeout);
 
 #if DMibConfig_Tests_Enable

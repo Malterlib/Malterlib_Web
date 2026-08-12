@@ -499,10 +499,13 @@ namespace NMib::NWeb
 			uint8 Data[4096];
 			try
 			{
+				// End of stream is handled through the disconnect state instead
+				bool bEndOfStream = false;
+
 				while (true)
 				{
 					umint Size = 4096;
-					umint Received = mp_Socket.f_Receive(Data, Size);
+					umint Received = mp_Socket.f_Receive(Data, Size, bEndOfStream);
 					if (Received == 0)
 						break;
 					mp_IncomingData.f_Insert(Data, Received);
