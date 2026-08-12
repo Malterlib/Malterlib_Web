@@ -29,10 +29,13 @@ namespace NMib::NWeb
 		mp_pInternal->m_DefaultSettings.m_MaxMessageSize = _MaxMessageSize;
 	}
 
-	void CWebSocketServerActor::f_SetDefaultFragmentationSize(umint _FragmentationSize)
+	// The maximum fragment size travels with the fragmentation size: it bounds the frames
+	// this peer accepts, so it has to be at least what the other end fragments at
+	void CWebSocketServerActor::f_SetDefaultFragmentationSize(umint _FragmentationSize, umint _MaxFragmentSize)
 	{
 		DMibRequire(mp_pInternal->m_ListenSockets.f_IsEmpty());
 		mp_pInternal->m_DefaultSettings.m_FragmentationSize = _FragmentationSize;
+		mp_pInternal->m_DefaultSettings.m_MaxFragmentSize = _MaxFragmentSize;
 	}
 
 	void CWebSocketServerActor::f_SetDefaultTimeout(fp64 _Timeout)
@@ -123,6 +126,11 @@ namespace NMib::NWeb
 					NWeb::CWebSocketListenAddressConfig AddressConfig = SocketFactory.f_GetConfig(i, Address);
 
 					Settings.m_bAllowUnmaskedFrames = AddressConfig.m_bAllowUnmaskedFrames;
+					Settings.m_bNegotiateUnmaskedFrames = AddressConfig.m_bNegotiateUnmaskedFrames;
+					if (AddressConfig.m_FragmentationSize)
+						Settings.m_FragmentationSize = AddressConfig.m_FragmentationSize;
+					if (AddressConfig.m_MaxFragmentSize)
+						Settings.m_MaxFragmentSize = AddressConfig.m_MaxFragmentSize;
 
 					NNetwork::FVirtualSocketFactory fAddressFactory = fg_Move(AddressConfig.m_Factory);
 					if (!fAddressFactory)
@@ -141,10 +149,20 @@ namespace NMib::NWeb
 					pListenSocket = SocketFactory.m_Factory("");
 				}
 
-				ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(this), fg_Move(Settings));
+				// The actor's own manager, so the listen actor's accept-path picks resolve to the
+				// same manager's loops
+				ListenActor = f_ConcurrencyManager().f_ConstructActor(fg_Construct<CListenActor>(fg_ThisActor(this), fg_Move(Settings)));
+
+				// The listen socket registers with a pool thread's event loop, so connection
+				// arrivals are reported there and the accept call stays on the local queue;
+				// the initial queue seed makes even the first accept run on that thread
+				auto Binding = f_ConcurrencyManager().f_PickIoLoopBinding(CWebSocketActor::mc_Priority);
+				if (Binding.m_pLoop)
+					ListenActor->f_SetInitialQueue(Binding.m_iQueue);
 
 				NConcurrency::TCWeakActor<CListenActor> WeakListenActor = ListenActor;
 				NException::CDisableExceptionTraceScope DisableExceptionTrace;
+				NConcurrency::CIoLoopCreateScope IoLoopScope(Binding);
 				pListenSocket->f_Listen
 					(
 						Address
