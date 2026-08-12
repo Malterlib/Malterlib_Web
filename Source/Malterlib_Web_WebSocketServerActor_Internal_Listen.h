@@ -13,6 +13,10 @@ namespace NMib::NWeb::NWebSocket
 	class CListenActor : public NConcurrency::CActor
 	{
 	public:
+		// Runs the accept path in the connection actors' priority class, so accepts keep
+		// pace with established connections and stay in the pool whose loops carry the sockets
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority;
+
 		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, CWebsocketSettings const &_Settings);
 		~CListenActor();
 
