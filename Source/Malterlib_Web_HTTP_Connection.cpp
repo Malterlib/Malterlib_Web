@@ -127,7 +127,10 @@ namespace NMib::NWeb::NHTTP
 				umint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mc_ReadBufferSize;
 				DMibTrace("nInitialBytesToRead: {}\n", nBytesToRead );
 
-				while ( (nBytesRead = mp_pSocket->f_Receive(ReadBuffer, nBytesToRead) ) == nBytesToRead)
+				// End of stream is handled through the disconnect state instead
+				bool bEndOfStream = false;
+
+				while ( (nBytesRead = mp_pSocket->f_Receive(ReadBuffer, nBytesToRead, bEndOfStream) ) == nBytesToRead)
 				{
 					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const*)ReadBuffer, nBytesRead) );
 

@@ -9,6 +9,7 @@
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Concurrency/ActorFunctorWeak>
 #include <Mib/Concurrency/DistributedActorTestHelpers>
+#include <Mib/Time/Timeout>
 
 /*
 URI invalid -> MUST fail
@@ -128,6 +129,12 @@ public:
 		CStr m_ServerConnectionCloseMessage;
 
 		TCVector<CStr> m_Messages;
+		TCVector<TCSharedPointer<NStream::CBinaryStorage const>> m_ServerBinaryMessages;
+
+		bool m_bLingerOnServerClose = false; // Close callback awaits linger completion and records its result.
+		bool m_bServerLingerDone = false;
+		CStr m_ServerLingerError;
+		EWebSocketStatus m_ServerLingerStatus = EWebSocketStatus_None;
 
 		bool m_bCleared = false;
 
@@ -151,18 +158,18 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked)
+		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
 
 			CWebSocketListenSocketFactory ListenFactory;
-			if (_bAllowUnmasked)
+			if (_bAllowUnmasked || _bNegotiateUnmasked)
 			{
 				ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
 					(
-						[ServerFactory = _ServerFactory](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+						[ServerFactory = _ServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
 						{
-							return {ServerFactory, true};
+							return {.m_Factory = ServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
 						}
 					)
 				;
@@ -206,6 +213,16 @@ public:
 							}
 						;
 
+						ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [pState](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
+							{
+								DMibLock(pState->m_Lock);
+								pState->m_ServerBinaryMessages.f_Insert(fg_Move(_pMessage));
+								pState->m_Event.f_Signal();
+
+								co_return {};
+							}
+						;
+
 						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
 							(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 							{
@@ -216,7 +233,22 @@ public:
 								pState->m_ServerConnectionCloseMessage = _Message;
 								pState->m_ServerConnectionCloseStatus = _Status;
 								pState->m_ServerConnectionCloseOrigin = _Origin;
-								if (!*pDeleted)
+								if (pState->m_bLingerOnServerClose && !*pDeleted)
+								{
+									pServerConnection->m_Actor(&CWebSocketActor::f_CloseWithLinger, EWebSocketStatus_NormalClosure, "Linger", 5.0)
+										> pState->m_ProcessingActor / [pState](TCAsyncResult<CWebSocketActor::CCloseInfo> &&_Result)
+										{
+											DMibLock(pState->m_Lock);
+											pState->m_bServerLingerDone = true;
+											if (_Result)
+												pState->m_ServerLingerStatus = _Result->m_Status;
+											else
+												pState->m_ServerLingerError = _Result.f_GetExceptionStr();
+											pState->m_Event.f_Signal();
+										}
+									;
+								}
+								else if (!*pDeleted)
 									pState->m_ServerConnections.f_Remove(*pServerConnection);
 								pState->m_Event.f_Signal();
 
@@ -277,7 +309,7 @@ public:
 			return pState->m_ListenPort;
 		}
 
-		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port, bool _bAllowUnmasked)
+		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
 
@@ -293,6 +325,7 @@ public:
 						, .m_Protocols = fg_CreateVector<CStr>("Test")
 						, .m_SocketFactory = _ClientFactory
 						, .m_bAllowUnmaskedFrames = _bAllowUnmasked
+						, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked
 					}
 				)
 				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
@@ -427,6 +460,69 @@ public:
 		return bTimedOut;
 	}
 
+	// Masking may stop only when both peers negotiate it; every mixed pairing must still exchange data.
+	void fp_TestUnmaskedNegotiation(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
+	{
+		DMibTestPath("Unmasked negotiation");
+
+		for (bool bServer : {false, true})
+		{
+			for (bool bClient : {false, true})
+			{
+				DMibTestPath(fg_Format("server {} client {}", bServer ? "new" : "old", bClient ? "new" : "old"));
+
+				CActorRunLoopTestHelper RunLoopHelper;
+
+				auto Factories = _fGetFactories();
+				auto ServerFactory = fg_Get<0>(Factories);
+				auto ClientFactory = fg_Get<1>(Factories);
+
+				CNetAddressTCPv4 Address;
+				Address.f_SetLocalhost();
+				Address.m_Port = 0;
+				CNetAddress ListenAddress = Address;
+
+				TCSharedPointer<CState> pState = fg_Construct();
+				auto Cleanup
+					= g_OnScopeExit / [&]
+					{
+						pState->f_Clear(RunLoopHelper.m_pRunLoop);
+					}
+				;
+
+				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, false, bServer);
+
+				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+				pState->f_Connect("localhost", ClientFactory, ListenPort, false, bClient);
+
+				if (!fp_TestConnect(pState, CStr(), CStr()))
+					continue;
+
+				bool bExpectMasking = !(bServer && bClient);
+
+				auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				DMibExpect(ClientStats.m_bMaskFrames, ==, bExpectMasking);
+
+				{
+					DMibLock(pState->m_Lock);
+					DMibExpect(pState->m_ServerConnections.f_IsEmpty(), ==, false);
+				}
+
+				TCFutureVector<void> Results;
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, "FromClient", 0) > Results;
+
+				{
+					DMibLock(pState->m_Lock);
+					for (auto &Connection : pState->m_ServerConnections)
+						Connection.m_Actor(&CWebSocketActor::f_SendText, "FromServer", 0) > Results;
+				}
+
+				fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			}
+		}
+	}
+
 	void fp_TestImp
 		(
 			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
@@ -466,11 +562,25 @@ public:
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ServerActor
+					(
+						&CWebSocketServerActor::f_SetDefaultFragmentationSize
+						, m_CurrentFragmentationSize
+						, CWebsocketSettings::mc_DefaultMaxFragmentSize
+					)
+					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+				;
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ClientActor
+					(
+						&CWebSocketClientActor::f_SetDefaultFragmentationSize
+						, m_CurrentFragmentationSize
+						, CWebsocketSettings::mc_DefaultMaxFragmentSize
+					)
+					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+				;
 				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
@@ -485,14 +595,14 @@ public:
 					++nMessages;
 
 					CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
-					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector> pMessage = fg_Construct(Buffer);
+					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector const> pMessage = fg_Construct(Buffer);
 					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0) > Results;
 					++nMessages;
 
 					TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
 					pMessageBuffers->m_Data = Buffer.f_ToSecure();
 					pMessageBuffers->m_Markers = {0, 4};
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers, 0) > Results;
+					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers.f_ShareAsConst(), 0) > Results;
 					nMessages += 2;
 
 					CStr BigText;
@@ -577,12 +687,26 @@ public:
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ServerActor
+					(
+						&CWebSocketServerActor::f_SetDefaultFragmentationSize
+						, m_CurrentFragmentationSize
+						, CWebsocketSettings::mc_DefaultMaxFragmentSize
+					)
+					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+				;
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ClientActor
+					(
+						&CWebSocketClientActor::f_SetDefaultFragmentationSize
+						, m_CurrentFragmentationSize
+						, CWebsocketSettings::mc_DefaultMaxFragmentSize
+					)
+					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+				;
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
 
@@ -1285,6 +1409,7 @@ public:
 
 		// Extended tracking for priority tests
 		TCVector<CStr> m_Messages;  // Messages in receive order
+		TCVector<CStr> m_ServerMessages;
 		TCVector<umint> m_PongReceived;  // Track pong receipts
 		bool m_bProtocolError = false;
 
@@ -1328,6 +1453,9 @@ public:
 						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
+								pState->m_ServerMessages.f_Insert(_Message);
+								pState->m_Event.f_Signal();
+
 								// Echo back with same priority (0) - the test is about client->server fragmentation
 								for (auto &Connection : pState->m_ServerConnections)
 									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
@@ -1337,7 +1465,7 @@ public:
 						;
 
 						ConnectionInfo.m_fOnReceivePing = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+							(TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
 							{
 								// Automatically respond with pong
 								DMibLock(pState->m_Lock);
@@ -1474,7 +1602,7 @@ public:
 							}
 						;
 
-						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_PongReceived.f_Insert(pState->m_Messages.f_GetLen()); // Record how many messages before pong
@@ -1557,11 +1685,25 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ServerActor
+			(
+				&CWebSocketServerActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ClientActor
+			(
+				&CWebSocketClientActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
 
 		if (!fp_WaitForPriorityConnect(pState))
@@ -1741,11 +1883,25 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ServerActor
+			(
+				&CWebSocketServerActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ClientActor
+			(
+				&CWebSocketClientActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
 
 		if (!fp_WaitForPriorityConnect(pState))
@@ -1818,6 +1974,10 @@ public:
 			// Queue large fragmenting message at medium priority - will only write 1 fragment due to limit
 			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
 
+			// Two actor round trips order first behind the send, then behind its deferred flush.
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
 			// Now queue high priority message while fragmentation is in progress
 			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("HighPrio"), uint32(200)) > Results;
 
@@ -1872,8 +2032,9 @@ public:
 			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
 
 			// Send a ping - control frames should be able to interleave
-			TCSharedPointer<CIOByteVector> pPingData = fg_Construct();
-			pPingData->f_Insert(reinterpret_cast<uint8 const *>("ping"), 4);
+			CIOByteVector PingData;
+			PingData.f_Insert(reinterpret_cast<uint8 const *>("ping"), 4);
+			TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
 			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
 
 			// Re-enable send processing
@@ -1906,11 +2067,161 @@ public:
 		}
 	}
 
-	// Test that specifically targets the bug at line 514 of WebSocketActor.cpp:
-	// When a fragmented message has only its final fragment remaining (m_bFinished = true)
-	// and a ping interleaves, the condition "!pFragmentingList->f_GetFirst().m_bFinished"
-	// incorrectly evaluates to false, causing us to fall through and potentially lose
-	// track of the fragmenting list.
+	void fp_TestSendThenClose(umint _FragmentationSize)
+	{
+		using namespace NStr;
+
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		TCSharedPointer<CPriorityState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CNetAddressTCPv4 ListenAddress;
+		ListenAddress.f_SetLocalhost();
+		ListenAddress.m_Port = 0;
+
+		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+		pState->m_ServerActor
+			(
+				&CWebSocketServerActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
+		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+		pState->m_ClientActor
+			(
+				&CWebSocketClientActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
+		pState->f_Connect(ListenPort, _FragmentationSize);
+
+		if (!fp_WaitForPriorityConnect(pState))
+			return;
+
+		{
+			DMibTestPath("Send then close keeps order");
+
+			CStr Message;
+			for (umint i = 0; i < _FragmentationSize * 3; ++i)
+				Message += "O";
+
+			// Leave send unawaited so close queues before its deferred flush.
+			TCFutureVector<void> Results;
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, uint32(100)) > Results;
+
+			auto CloseInfo = pState->m_ClientSocket(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, CStr("Closing behind send"))
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+			;
+
+			// Assert server receipt; its echo can race close handling independently of wire ordering.
+			bool bTimedOut = false;
+			while (!bTimedOut)
+			{
+				{
+					DMibLock(pState->m_Lock);
+					if (pState->m_ServerMessages.f_GetLen() >= 1 || pState->m_bProtocolError)
+						break;
+				}
+				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+			}
+
+			DMibTest(!DMibExpr(bTimedOut));
+			DMibLock(pState->m_Lock);
+			DMibTest(!DMibExpr(pState->m_bProtocolError));
+			DMibExpect(CloseInfo.m_Status, ==, EWebSocketStatus_NormalClosure);
+			DMibAssert(pState->m_ServerMessages.f_GetLen(), ==, 1);
+			DMibExpect(pState->m_ServerMessages[0], ==, Message)(ETestFlag_NoValues);
+		}
+	}
+
+	void fp_TestSendSettlesOnTeardown(umint _FragmentationSize)
+	{
+		using namespace NStr;
+
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		TCSharedPointer<CPriorityState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CNetAddressTCPv4 ListenAddress;
+		ListenAddress.f_SetLocalhost();
+		ListenAddress.m_Port = 0;
+
+		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+		pState->m_ServerActor
+			(
+				&CWebSocketServerActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
+		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+		pState->m_ClientActor
+			(
+				&CWebSocketClientActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
+		pState->f_Connect(ListenPort, _FragmentationSize);
+
+		if (!fp_WaitForPriorityConnect(pState))
+			return;
+
+		{
+			DMibTestPath("Send settles on teardown");
+
+			// Hold the flush so teardown encounters an accepted, unsent message.
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			TCFuture<void> SendFuture = pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Never leaves"), uint32(100));
+
+			// A round trip makes sure the send call has queued its message before the teardown
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+			{
+				TCActor<CWebSocketActor> ServerSocket;
+				{
+					DMibLock(pState->m_Lock);
+					DMibAssertTrue(!pState->m_ServerConnections.f_IsEmpty());
+					ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
+				}
+				fg_Move(ServerSocket).f_Destroy().f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			}
+
+			// Exclude timeout exceptions: only a settled rejection proves the pending send was cancelled.
+			bool bRejected = false;
+			try
+			{
+				fg_Move(SendFuture).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			}
+			catch (NMib::NException::CException const &_Exception)
+			{
+				bRejected = NStr::CStr(_Exception.f_GetErrorStr()).f_Find("Timed out waiting for synchronous actor call") < 0;
+			}
+			DMibExpectTrue(bRejected);
+		}
+	}
+
 	void fp_TestFinalFragmentPingInterleave(umint _FragmentationSize)
 	{
 		using namespace NStr;
@@ -1929,11 +2240,25 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ServerActor
+			(
+				&CWebSocketServerActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ClientActor
+			(
+				&CWebSocketClientActor::f_SetDefaultFragmentationSize
+				, _FragmentationSize
+				, CWebsocketSettings::mc_DefaultMaxFragmentSize
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
 
 		if (!fp_WaitForPriorityConnect(pState))
@@ -1967,9 +2292,14 @@ public:
 			// Send the fragmenting message at medium priority
 			pState->m_ClientSocket(&CWebSocketActor::f_SendText, FragmentedMessage, uint32(100)) > Results;
 
+			// Two actor round trips order first behind the send, then behind its deferred flush.
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
 			// Now queue a ping - this will interleave (max priority)
-			TCSharedPointer<CIOByteVector> pPingData = fg_Construct();
-			pPingData->f_Insert(reinterpret_cast<uint8 const *>("test"), 4);
+			CIOByteVector PingData;
+			PingData.f_Insert(reinterpret_cast<uint8 const *>("test"), 4);
+			TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
 			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
 
 			// Queue another data message at HIGHER priority than the fragmenting one
@@ -2015,6 +2345,505 @@ public:
 		}
 	}
 
+	// A synchronous raw peer controls frame boundaries while the server runs on actors.
+	struct CRawPeer
+	{
+		CSocket m_Socket;
+
+		bool f_SendAll(void const *_pData, umint _nBytes)
+		{
+			uint8 const *pData = (uint8 const *)_pData;
+			CTimeout Timeout(g_Timeout);
+			while (_nBytes && !Timeout.f_TimedOut())
+			{
+				umint nSent = m_Socket.f_Send(pData, _nBytes);
+				if (!nSent)
+				{
+					NSys::fg_Thread_Sleep(0.001);
+					continue;
+				}
+
+				pData += nSent;
+				_nBytes -= nSent;
+			}
+
+			return _nBytes == 0;
+		}
+
+		// Pause between pieces to prevent loopback coalescing from hiding short-delivery cases.
+		bool f_SendInPieces(void const *_pData, umint _nBytes, umint _nPieceBytes)
+		{
+			uint8 const *pData = (uint8 const *)_pData;
+			while (_nBytes)
+			{
+				umint nPiece = fg_Min(_nBytes, _nPieceBytes);
+				if (!f_SendAll(pData, nPiece))
+					return false;
+
+				pData += nPiece;
+				_nBytes -= nPiece;
+				NSys::fg_Thread_Sleep(0.001);
+			}
+
+			return true;
+		}
+
+		bool f_Connect(uint16 _Port, CStr &o_Error)
+		{
+			CNetAddressTCPv4 Address;
+			Address.f_SetLocalhost();
+			Address.m_Port = _Port;
+			m_Socket.f_Connect(CNetAddress(Address));
+			if (!m_Socket.f_IsValid())
+			{
+				o_Error = "Connect failed";
+				return false;
+			}
+
+			CStr Request =
+				"GET /Test HTTP/1.1\r\n"
+				"Host: localhost\r\n"
+				"Upgrade: websocket\r\n"
+				"Connection: Upgrade\r\n"
+				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+				"Sec-WebSocket-Version: 13\r\n"
+				"Sec-WebSocket-Protocol: Test\r\n"
+				"Sec-WebSocket-Extensions: x-malterlib-unmasked\r\n"
+				"Origin: http://localhost\r\n"
+				"\r\n"
+			;
+			if (!f_SendAll(Request.f_GetStr(), Request.f_GetLen()))
+			{
+				o_Error = "Request send timed out";
+				return false;
+			}
+
+			CStr Response;
+			CTimeout Timeout(g_Timeout);
+			while (Response.f_Find("\r\n\r\n") < 0)
+			{
+				if (Timeout.f_TimedOut())
+				{
+					o_Error = "Response timed out";
+					return false;
+				}
+
+				ch8 Buffer[1024];
+				bool bEndOfStream = false;
+				umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
+				if (bEndOfStream)
+				{
+					o_Error = "Connection closed during the handshake: " + Response;
+					return false;
+				}
+
+				if (!nBytes)
+				{
+					NSys::fg_Thread_Sleep(0.001);
+					continue;
+				}
+
+				Response += CStr(Buffer, nBytes);
+			}
+
+			if (!Response.f_StartsWith("HTTP/1.1 101") || Response.f_Find(gc_pUnmaskedFramesExtension) < 0)
+			{
+				o_Error = "Unexpected handshake response: " + Response;
+				return false;
+			}
+
+			// Allow the server to switch from handshake readiness to its receive stream.
+			NSys::fg_Thread_Sleep(0.1);
+
+			return true;
+		}
+
+		// Returns false if no hangup arrives; reports total binary payload and the last frame.
+		bool f_ReadUntilEnd(umint &o_nBinaryBytes, uint8 &o_LastOpcode, CByteVector &o_LastPayload)
+		{
+			o_nBinaryBytes = 0;
+			o_LastOpcode = 0xff;
+			o_LastPayload.f_Clear();
+
+			CByteVector Pending;
+			CTimeout Timeout(g_Timeout);
+			bool bEndOfStream = false;
+			while (!bEndOfStream && m_Socket.f_IsValid() && !Timeout.f_TimedOut())
+			{
+				uint8 Buffer[65536];
+				umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
+				if (!nBytes)
+				{
+					if (!bEndOfStream)
+						NSys::fg_Thread_Sleep(0.001);
+					continue;
+				}
+
+				Pending.f_Insert(Buffer, nBytes);
+
+				umint Offset = 0;
+				for (;;)
+				{
+					umint nLeft = Pending.f_GetLen() - Offset;
+					if (nLeft < 2)
+						break;
+
+					// A server never masks
+					if (Pending[Offset + 1] & 0x80)
+						return false;
+
+					uint8 Opcode = Pending[Offset] & 0x0f;
+					umint nPayload = Pending[Offset + 1] & 0x7f;
+					umint nHeader = 2;
+					if (nPayload == 126)
+					{
+						if (nLeft < 4)
+							break;
+
+						nPayload = (umint(Pending[Offset + 2]) << 8) | Pending[Offset + 3];
+						nHeader = 4;
+					}
+					else if (nPayload == 127)
+					{
+						if (nLeft < 10)
+							break;
+
+						nPayload = 0;
+						for (umint iByte = 0; iByte < 8; ++iByte)
+							nPayload = (nPayload << 8) | Pending[Offset + 2 + iByte];
+						nHeader = 10;
+					}
+					if (nLeft < nHeader + nPayload)
+						break;
+
+					if (Opcode == 0x2 || Opcode == 0x0)
+						o_nBinaryBytes += nPayload;
+					o_LastOpcode = Opcode;
+					o_LastPayload.f_Clear();
+					o_LastPayload.f_Insert(Pending.f_GetArray() + Offset + nHeader, nPayload);
+					Offset += nHeader + nPayload;
+				}
+				if (Offset)
+					Pending.f_Remove(0, Offset);
+			}
+
+			return bEndOfStream;
+		}
+
+		static CByteVector fs_FrameHeader(uint8 _Opcode, bool _bFinal, umint _nPayloadBytes)
+		{
+			CByteVector Header;
+			Header.f_Insert(uint8((_bFinal ? 0x80 : 0) | _Opcode));
+			if (_nPayloadBytes < 126)
+				Header.f_Insert(uint8(_nPayloadBytes));
+			else if (_nPayloadBytes <= 0xffff)
+			{
+				Header.f_Insert(uint8(126));
+				Header.f_Insert(uint8(_nPayloadBytes >> 8));
+				Header.f_Insert(uint8(_nPayloadBytes));
+			}
+			else
+			{
+				Header.f_Insert(uint8(127));
+				for (int iByte = 7; iByte >= 0; --iByte)
+					Header.f_Insert(uint8(uint64(_nPayloadBytes) >> (iByte * 8)));
+			}
+
+			return Header;
+		}
+	};
+
+	void fp_TestRawPeerFrames()
+	{
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		CNetAddressTCPv4 Address;
+		Address.f_SetLocalhost();
+		Address.m_Port = 0;
+		CNetAddress ListenAddress = Address;
+
+		auto fWaitFor = [&](TCSharedPointer<CState> const &_pState, auto const &_fDone, fp64 _Timeout = g_Timeout) -> bool
+			{
+				CTimeout Timeout(_Timeout);
+				for (;;)
+				{
+					{
+						DMibLock(_pState->m_Lock);
+						if (_fDone())
+							return true;
+					}
+
+					if (Timeout.f_TimedOut())
+						return false;
+
+					_pState->m_Event.f_WaitTimeout(0.1);
+				}
+			}
+		;
+
+		auto fConnectPeer = [&](TCSharedPointer<CState> const &_pState, CRawPeer &_Peer, CWebsocketSettings const &_Settings) -> bool
+			{
+				_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>(_Settings);
+				uint16 ListenPort = _pState->f_StartListen(ListenAddress, FVirtualSocketFactory(), false, true);
+
+				CStr Error;
+				bool bConnected = _Peer.f_Connect(ListenPort, Error);
+				DMibExpect(Error, ==, "");
+				if (!bConnected)
+					return false;
+
+				bool bAccepted = fWaitFor
+					(
+						_pState
+						, [&]
+						{
+							return !_pState->m_ServerConnections.f_IsEmpty();
+						}
+					)
+				;
+				DMibExpectTrue(bAccepted);
+
+				return bAccepted;
+			}
+		;
+
+		auto fWaitForClose = [&](TCSharedPointer<CState> const &_pState)
+			{
+				bool bClosed = fWaitFor
+					(
+						_pState
+						, [&]
+						{
+							return _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
+						}
+					)
+				;
+				DMibExpectTrue(bClosed);
+				DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_AbnormalClosure);
+				DMibExpect(_pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
+			}
+		;
+
+		auto fWaitForMessage = [&](TCSharedPointer<CState> const &_pState, CByteVector const &_Payload, fp64 _Timeout)
+			{
+				bool bReceived = fWaitFor
+					(
+						_pState
+						, [&]
+						{
+							return !_pState->m_ServerBinaryMessages.f_IsEmpty() || _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
+						}
+						, _Timeout
+					)
+				;
+				DMibExpectTrue(bReceived);
+				DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
+				DMibExpect(_pState->m_ServerBinaryMessages.f_GetLen(), ==, 1);
+				if (_pState->m_ServerBinaryMessages.f_GetLen() != 1)
+					return;
+
+				auto const &Message = *_pState->m_ServerBinaryMessages[0];
+				DMibExpect(Message.f_GetTotalLength(), ==, _Payload.f_GetLen());
+				if (Message.f_GetTotalLength() != _Payload.f_GetLen())
+					return;
+
+				CByteVector Received;
+				Received.f_SetLen(_Payload.f_GetLen());
+				Message.f_CopyTo(Received.f_GetArray(), 0, Received.f_GetLen());
+				DMibExpect(NMemory::fg_MemCmp(Received.f_GetArray(), _Payload.f_GetArray(), _Payload.f_GetLen()), ==, 0);
+			}
+		;
+
+		// Use a frame above the direct-read threshold, up to the server's accepted limit.
+		constexpr umint c_nFrameBytes = CWebsocketSettings::mc_DefaultMaxFragmentSize;
+
+		{
+			DMibTestPath("Close inside a frame");
+
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			CRawPeer Peer;
+			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+				return;
+
+			// Close after a quarter payload so direct-read assembly remains incomplete.
+			CByteVector Frame = CRawPeer::fs_FrameHeader(0x2, true, c_nFrameBytes);
+			for (umint iByte = 0; iByte < c_nFrameBytes / 4; ++iByte)
+				Frame.f_Insert(uint8(iByte));
+			DMibExpectTrue(Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen()));
+			Peer.m_Socket.f_Close();
+
+			fWaitForClose(pState);
+			DMibExpectTrue(pState->m_ServerBinaryMessages.f_IsEmpty());
+		}
+
+		{
+			DMibTestPath("Message in small pieces");
+
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			CRawPeer Peer;
+			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+				return;
+
+			// Keep delivery pieces smaller than receive buffers while retaining a whole fragmented message.
+			constexpr umint c_nFragments = 16;
+			CByteVector Payload;
+			Payload.f_SetLen(c_nFragments * c_nFrameBytes);
+			for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
+				Payload[iByte] = uint8(iByte * 31 + 7);
+
+			bool bSent = true;
+			for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
+			{
+				CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFrameBytes);
+				Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFrameBytes, c_nFrameBytes);
+				bSent = Peer.f_SendInPieces(Frame.f_GetArray(), Frame.f_GetLen(), 8192);
+			}
+			DMibExpectTrue(bSent);
+
+			fWaitForMessage(pState, Payload, g_Timeout);
+
+			Peer.m_Socket.f_Close();
+			fWaitForClose(pState);
+		}
+
+		{
+			DMibTestPath("Message padded with control frames");
+
+			// Pad payload fragments with control frames so retaining every buffer would exceed the window; the interleave budget must force copying.
+			CWebsocketSettings Settings;
+			Settings.m_MaxMessageSize = 8 << 20;
+
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			CRawPeer Peer;
+			if (!fConnectPeer(pState, Peer, Settings))
+				return;
+
+			constexpr umint c_nFragmentBytes = 96 * 1024;
+			constexpr umint c_nFragments = 80;
+			constexpr umint c_nPongBytes = 160 * 1024;
+
+			CByteVector Payload;
+			Payload.f_SetLen(c_nFragments * c_nFragmentBytes);
+			for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
+				Payload[iByte] = uint8(iByte * 13 + 5);
+
+			CByteVector Pongs;
+			while (Pongs.f_GetLen() < c_nPongBytes)
+			{
+				Pongs.f_Insert(uint8(0x8a));
+				Pongs.f_Insert(uint8(125));
+				for (umint iByte = 0; iByte < 125; ++iByte)
+					Pongs.f_Insert(uint8(iByte));
+			}
+
+			bool bSent = true;
+			for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
+			{
+				CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFragmentBytes);
+				Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFragmentBytes, c_nFragmentBytes);
+				bSent = Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen());
+				if (bSent && iFragment + 1 < c_nFragments)
+					bSent = Peer.f_SendAll(Pongs.f_GetArray(), Pongs.f_GetLen());
+			}
+			DMibExpectTrue(bSent);
+
+			fWaitForMessage(pState, Payload, g_Timeout);
+
+			Peer.m_Socket.f_Close();
+			fWaitForClose(pState);
+		}
+
+		{
+			DMibTestPath("Close reply behind queued sends");
+
+			// Queue output before peer close and let the peer read only afterwards; linger must drain the reply before destruction.
+			TCSharedPointer<CState> pState = fg_Construct();
+			pState->m_bLingerOnServerClose = true;
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			CRawPeer Peer;
+			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+				return;
+
+			constexpr umint c_nMessageBytes = 16 << 20;
+			CIOByteVector Message;
+			Message.f_SetLen(c_nMessageBytes);
+			for (umint iByte = 0; iByte < c_nMessageBytes; ++iByte)
+				Message[iByte] = uint8(iByte * 7 + 3);
+			TCSharedPointer<CIOByteVector const> pMessage = fg_Construct(fg_Move(Message));
+			{
+				DMibLock(pState->m_Lock);
+				for (auto &Connection : pState->m_ServerConnections)
+					Connection.m_Actor(&CWebSocketActor::f_SendBinary, pMessage, 0).f_DiscardResult();
+			}
+
+			// Time for the send to fill the socket buffers and stall with the rest queued
+			NSys::fg_Thread_Sleep(0.2);
+
+			CByteVector Close = CRawPeer::fs_FrameHeader(0x8, true, 5);
+			Close.f_Insert(uint8(0x03));
+			Close.f_Insert(uint8(0xe8));
+			Close.f_Insert((uint8 const *)"bye", 3);
+			DMibExpectTrue(Peer.f_SendAll(Close.f_GetArray(), Close.f_GetLen()));
+
+			umint nBinaryBytes = 0;
+			uint8 LastOpcode = 0;
+			CByteVector LastPayload;
+			bool bEnded = Peer.f_ReadUntilEnd(nBinaryBytes, LastOpcode, LastPayload);
+			DMibExpectTrue(bEnded);
+			DMibExpect(nBinaryBytes, ==, c_nMessageBytes);
+			DMibExpect(LastOpcode, ==, 0x8);
+			DMibExpect(LastPayload.f_GetLen(), ==, 5);
+			if (LastPayload.f_GetLen() == 5)
+				DMibExpect(NMemory::fg_MemCmp(LastPayload.f_GetArray(), Close.f_GetArray() + 2, 5), ==, 0);
+
+			Peer.m_Socket.f_Close();
+
+			bool bLingerDone = fWaitFor
+				(
+					pState
+					, [&]
+					{
+						return pState->m_bServerLingerDone;
+					}
+				)
+			;
+			DMibExpectTrue(bLingerDone);
+			DMibExpect(pState->m_ServerLingerError, ==, "");
+
+			// The queued linger can run after drain and hangup finish; already-closed is a valid outcome.
+			bool bLingerStatusExpected
+				= pState->m_ServerLingerStatus == EWebSocketStatus_NormalClosure
+				|| pState->m_ServerLingerStatus == EWebSocketStatus_AlreadyClosed
+			;
+			DMibExpectTrue(bLingerStatusExpected);
+			DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_NormalClosure);
+			DMibExpect(pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
+		}
+	}
+
 	void f_DoTests()
 	{
 		DMibTestCategory("Tests")
@@ -2034,6 +2863,22 @@ public:
 					fp_TestProtocols(i);
 				};
 			}
+		};
+
+		DMibTestCategory("Unmasked negotiation")
+		{
+			DMibTestSuite("TCP")
+			{
+				m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
+				fp_TestUnmaskedNegotiation
+					(
+						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+						{
+							return {nullptr, nullptr};
+						}
+					)
+				;
+			};
 		};
 
 		DMibTestCategory("Priority Fragmentation")
@@ -2058,6 +2903,19 @@ public:
 				fp_TestPriorityFragmentationBehavior(16);
 			};
 
+			for (umint i = 4; i <= 16; i *= 2)
+			{
+				DMibTestSuite("Send Then Close {}"_f << i)
+				{
+					fp_TestSendThenClose(i);
+				};
+			}
+
+			DMibTestSuite("Send Settles On Teardown")
+			{
+				fp_TestSendSettlesOnTeardown(8);
+			};
+
 			// Bug: Final fragment tracking lost after ping interleave
 			// Tests the specific scenario where only the final fragment remains
 			// (m_bFinished=true) when a ping interleaves
@@ -2068,6 +2926,11 @@ public:
 					fp_TestFinalFragmentPingInterleave(i);
 				};
 			}
+		};
+
+		DMibTestSuite("Raw Peer Frames")
+		{
+			fp_TestRawPeerFrames();
 		};
 
 		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
@@ -2167,12 +3030,12 @@ public:
 
 					auto Address = NewConnection.m_PeerAddress;
 
-					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector> _pMessage) -> TCFuture<void>
+					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
 						{
-							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetLen());
+							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetTotalLength());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
 							if (pClient)
-								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinary, _pMessage, 0);
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinaryStorage, _pMessage, 0);
 
 							co_return {};
 						}
@@ -2193,7 +3056,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
@@ -2203,7 +3066,7 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
 							co_return {};

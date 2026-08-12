@@ -3,6 +3,7 @@
 
 #include <Mib/Concurrency/ConcurrencyManager>
 
+
 #include "Malterlib_Web_WebSocket.h"
 #include "Malterlib_Web_WebSocketServerActor_Internal_Listen.h"
 
@@ -27,7 +28,24 @@ namespace NMib::NWeb::NWebSocket
 	NConcurrency::TCFuture<void> CListenActor::fp_Destroy()
 	{
 		if (mp_pSocket)
+		{
+			// Wait for asynchronous deregistration before listener destruction completes.
+			NConcurrency::TCPromise<void> ClosedPromise;
+			auto Closed = ClosedPromise.f_Future();
+
+			mp_pSocket->f_CloseAsync
+				(
+					[ClosedPromise = fg_Move(ClosedPromise)]() mutable
+					{
+						ClosedPromise.f_SetResult();
+					}
+				)
+			;
 			mp_pSocket.f_Clear();
+
+			co_await fg_Move(Closed);
+		}
+
 		co_return {};
 	}
 
@@ -45,9 +63,19 @@ namespace NMib::NWeb::NWebSocket
 		{
 			while (true)
 			{
-				NConcurrency::TCActor<CWebSocketActor> ConnectionActor = NConcurrency::fg_ConstructActor<CWebSocketActor>(false, mp_Settings);
+				NConcurrency::TCActor<CWebSocketActor> ConnectionActor = f_ConcurrencyManager().f_ConstructActor(fg_Construct<CWebSocketActor>(false, mp_Settings));
+
+				// Use the actor's manager so socket and loop lifetimes agree; queue seeding provides locality without pinning.
+				auto Binding = f_ConcurrencyManager().f_PickIoLoopBinding(CWebSocketActor::mc_Priority);
+
+				// Seed first-job placement on the bound loop queue without pinning later scheduling.
+				if (Binding.m_pLoop)
+					ConnectionActor->f_SetInitialQueue(Binding.m_iQueue);
+
 				try
 				{
+					NConcurrency::CIoLoopCreateScope IoLoopScope(Binding);
+
 					NStorage::TCUniquePointer<NNetwork::ICSocket> pAcceptedSocket = mp_pSocket->f_Accept
 						(
 							[WeakConnectionActor = ConnectionActor.f_Weak()](NNetwork::ENetTCPState _StateAdded)

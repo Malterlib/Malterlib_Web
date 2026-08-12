@@ -2,8 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/LogError>
 #include <Mib/Concurrency/ActorSubscription>
 #include <Mib/Container/PagedByteVector>
+#include <Mib/Container/BitArray>
+#include <Mib/Stream/BinaryStorage>
+#include <Mib/Concurrency/IoCompletionOpTracker>
+#include <Mib/Core/IoSubSystem>
 
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
@@ -54,12 +59,6 @@ namespace NMib::NWeb
 			, EOpcode_Pong = 10
 		};
 
-		enum
-		{
-			EOutgoingPageSize = 2048
-			, EIncomingPageSize = 2048
-		};
-
 		struct CHeader
 		{
 			uint8 m_bFinalFragment:1;
@@ -77,26 +76,82 @@ namespace NMib::NWeb
 			{
 				NMemory::fg_MemClear(m_Mask); // MSVC does not support inline initializing of array
 			}
+
+			// Flush only between frames; a direct-read masked frame still needs its positions in m_Data.
+			void f_FlushDataToStorage()
+			{
+				if (m_Data.f_IsEmpty())
+					return;
+
+				// Use shared segments so payload consumers can take retaining subviews.
+				m_Storage.f_AppendShared(NContainer::CSharedByteVector(fg_Move(m_Data)));
+				m_Data = NContainer::CIOByteVector();
+			}
+
 			uint64 m_Length = 0;
 			NContainer::CIOByteVector m_Data;
+			NStream::CBinaryStorage m_Storage; // Receive-buffer views interleaved with contiguous assembly in arrival order.
 			umint m_Position = 0;
+			umint m_nInterleavedBytes = 0; // Nonpayload bytes pin shared buffers too; excessive interleaving switches later payload to copying.
 			uint8 m_Mask[4];
 			CHeader m_Header;
 			bool m_bHeaderFinished = false;
+		};
+
+		// Retains payload storage until every referencing frame is sent.
+		struct CPayloadOwner
+		{
+			virtual ~CPayloadOwner() = default;
+		};
+
+		template <typename t_COwner>
+		struct TCPayloadOwner final : public CPayloadOwner
+		{
+			TCPayloadOwner(t_COwner &&_Owner)
+				: m_Owner(fg_Move(_Owner))
+			{
+			}
+
+			t_COwner m_Owner;
 		};
 
 		struct COutgoingMessage
 		{
 			~COutgoingMessage()
 			{
-				if (m_pPromise)
-					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+				if (m_Promise)
+					m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
-			NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pData;
+			NStorage::TCSharedPointer<NContainer::CIOByteVector const> m_pData;
+			NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<void>> m_Promise;
+
+			NStorage::TCSharedPointer<CPayloadOwner> m_pOwner; // Emit frames lazily; masking copies into the arena so shared payload remains immutable.
+			NContainer::TCVector<NSys::CIoSpan> m_Spans;
+			umint m_nTotalBytes = 0;
+			umint m_iPayloadSent = 0;
+			umint m_iSpan = 0;
+			umint m_iSpanOffset = 0;
+
 			EOpcode m_Opcode;
-			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
 			bool m_bFinished = false;
+			bool m_bView = false;
+		};
+
+		// Ordered output contains arena ranges and retaining payload views.
+		struct COutgoingSegment
+		{
+			enum class EKind : uint8
+			{
+				mc_Arena
+				, mc_View
+			};
+
+			EKind m_Kind = EKind::mc_Arena;
+			umint m_nBytes = 0;
+			umint m_iSent = 0; // partial send progress; only ever nonzero on a view at the head
+			uint8 const *m_pData = nullptr; // EKind::mc_View only
+			NStorage::TCSharedPointer<CPayloadOwner> m_pOwnerKeepAlive; // Retains payload until this segment is fully sent.
 		};
 
 		struct COutgoingDataPromise
@@ -106,13 +161,52 @@ namespace NMib::NWeb
 
 			~COutgoingDataPromise()
 			{
-				if (m_pPromise)
-					m_pPromise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+				if (m_Promise)
+					m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
 			}
 
 			uint64 m_Position = 0;
-			NStorage::TCUniquePointer<NConcurrency::TCPromise<void>> m_pPromise;
+			NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<void>> m_Promise;
 		};
+
+		constexpr static umint gc_OutgoingPageSize = 2048;
+		constexpr static umint gc_IncomingPageSize = 2048;
+
+		constexpr static umint gc_ReceiveChunkSize = 24576; // Must exceed one framed TLS record to avoid per-record holdover copies.
+
+		constexpr static umint gc_CopySmallMessageThreshold = 1024; // Copying below this size costs less than view bookkeeping.
+
+		constexpr static umint gc_DirectReadThreshold = 4 * gc_ReceiveChunkSize; // Below this size buffered prefix cost outweighs direct-read savings.
+
+		constexpr static umint gc_MaxInterleavedBytes = 64 * 1024; // Bound nonpayload gaps so control-frame padding cannot pin a buffer per tiny payload fragment.
+
+		// Avoid the vector's sixteen-entry minimum for a single span.
+		NContainer::TCVector<NSys::CIoSpan> fg_MakeSpanVector(uint8 const *_pData, umint _nBytes)
+		{
+			NContainer::TCVector<NSys::CIoSpan> Spans;
+			Spans.f_SetLen(1, true);
+			Spans.f_GetArray()[0] = NSys::CIoSpan{.m_pData = _pData, .m_nBytes = _nBytes};
+
+			return Spans;
+		}
+
+		// Compare extension tokens before optional semicolon parameters in the comma-separated header.
+		bool fg_ContainsExtension(NStr::CStr const &_Header, NStr::CStr const &_Token)
+		{
+			NStr::CStr ToParse = _Header;
+
+			while (!ToParse.f_IsEmpty())
+			{
+				NStr::CStr Entry = fg_GetStrSep(ToParse, ",");
+				NStr::CStr Name = fg_GetStrSep(Entry, ";");
+				Name.f_Trim();
+
+				if (Name == _Token)
+					return true;
+			}
+
+			return false;
+		}
 	}
 
 	template <typename t_CCallback>
@@ -227,6 +321,21 @@ namespace NMib::NWeb
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
+		struct CClientConnectionInput
+		{
+			NStr::CStr m_EncodedKey;
+			NContainer::TCSet<NStr::CStr> m_Protocols;
+		};
+
+		// Indexed send reservations permit out-of-order reports. Bounded window/gather sizes fit 32-bit fields; free entries form an index list.
+		struct CSendReservation
+		{
+			static constexpr uint32 mc_iNone = TCLimitsInt<uint32>::mc_Max;
+
+			uint32 m_nBytes = 0;
+			uint32 m_iNextFree = mc_iNone;
+		};
+
 		CInternal(CWebSocketActor *_pThis, bool _bClient, CWebsocketSettings const &_Settings)
 			: m_pThis(_pThis)
 			, m_fOnReceiveBinaryMessage(true)
@@ -236,14 +345,19 @@ namespace NMib::NWeb
 			, m_fOnClose(true)
 			, m_fOnFinishConnection(!_bClient)
 			, m_fOnFinishClientConnection(_bClient)
-			, m_IncomingData(EIncomingPageSize)
-			, m_OutgoingData(EOutgoingPageSize)
+			, m_IncomingData(gc_IncomingPageSize)
+			, m_OutgoingData(gc_OutgoingPageSize)
 			, m_bClient(_bClient)
 			, m_Settings(_Settings)
 			, m_pLastPendingMessagesList(nullptr)
 		{
 			// Negotiation keeps masking on until both peers agree, even when settings otherwise permit unmasked frames.
 			m_bMaskFrames = !_Settings.m_bAllowUnmaskedFrames || _Settings.m_bNegotiateUnmaskedFrames;
+
+			// Bounded so every gather size derived from it stays well inside umint,
+			// on 32 bit platforms included
+			m_Settings.m_FragmentationSize = fg_Min(m_Settings.m_FragmentationSize, umint(1) << 30);
+			f_SizeSendReservations();
 
 			if (_bClient)
 				m_ConnectionInfo.f_Set<2>();
@@ -256,15 +370,9 @@ namespace NMib::NWeb
 			DMibFastCheck(!m_bDestroyed || m_OutgoingDataPromises.empty());
 			DMibFastCheck(!m_bDestroyed || m_PendingMessages.f_IsEmpty());
 
-			if (m_pClosePromise)
-				m_pClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
+			if (m_ClosePromise)
+				m_ClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
 		}
-
-		struct CClientConnectionInput
-		{
-			NStr::CStr m_EncodedKey;
-			NContainer::TCSet<NStr::CStr> m_Protocols;
-		};
 
 		void f_OnReceivedData();
 		void f_OnSentData();
@@ -278,23 +386,75 @@ namespace NMib::NWeb
 
 		void f_HandleControlMessage(CMessage &_Message);
 		void f_HandleDataMessage(CMessage &_Message);
-		void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished);
+		void f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished) noexcept;
+		void f_SendMessageFrameSegmented(COutgoingMessage &_Message, umint _nFrameBytes) noexcept;
 
-		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData, uint32 _Priority);
-		COutgoingMessage &f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, uint32 _Priority);
+		NContainer::TCLinkedList<COutgoingMessage> &f_PickMessageQueue(uint32 _Priority);
+		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector const> const &_pData, uint32 _Priority);
+
+		COutgoingMessage &f_QueueViewMessage
+			(
+				EOpcode _Opcode
+				, NContainer::TCVector<NSys::CIoSpan> &&_Spans
+				, umint _nTotalBytes
+				, NStorage::TCSharedPointer<CPayloadOwner> &&_pOwner
+				, uint32 _Priority
+			)
+		;
+
+		umint f_GetCopyThreshold() const;
+
 		void f_WriteQueuedMessages(bool _bFlushAll);
+		void f_WriteCloseFrameWhenDrained();
 		static void fs_ApplyMask(uint8 *_pData, umint _iDataStart, umint _nBytes, uint8 const *_pMask);
+
+		void f_TrackArenaBytes(umint _nBytes) noexcept;
 
 		NConcurrency::CActorSubscription f_SetCallbacks(CCallbacks &&_Callbacks);
 
+		void f_FinishDirectReadFrame();
+
+		NNetwork::ICSocketCompletionIo *f_GetCompletionIo();
+		NNetwork::ICSocketCompletionIo *f_GetCompletionIoSend();
+		NNetwork::ICSocketCompletionIo *f_GetCompletionIoReceive();
+
+		auto f_GatherSendSpans
+			(
+				NSys::CIoSpan *o_pSpans
+				, umint &o_nSpans
+				, NContainer::TCVector<NStorage::TCSharedPointer<CPayloadOwner>> &o_KeepAlives
+				, NStorage::TCSharedPointer<NContainer::CIOByteVector> &o_pArenaCopy
+			)
+			-> umint
+		;
+		void f_ConsumeSentBytes(umint _nSentBytes);
+
+		void f_ReleaseReceiveState();
+		void f_ReleaseOutgoingState();
+		void f_TryReleaseDeferredReceiveState();
+
+		void f_FinishClientConnection(EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo);
+		void f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo);
+
+		umint f_SendWindowStartBytes() const;
+		void f_SizeSendReservations();
+		void f_ResetSendReservations();
+
 		CWebSocketActor *m_pThis = nullptr;
 		NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
+		NMib::NSys::CIoSubSystem *m_pIo = &NMib::NSys::fg_IoSubSystem();
+
 		NMib::NNetwork::CNetAddress m_PeerAddress;
 
 		EState m_State = EState_None;
+		uint32 m_iFreeSendReservation = CSendReservation::mc_iNone;
+		NNetwork::ENetTCPState m_DeferredCloseStates = NNetwork::ENetTCPState_None; // Defer close states until earlier stream data, including close frames, is delivered.
 
 		NContainer::CPagedByteVector m_IncomingData{4096};
 		NContainer::CPagedByteVector m_OutgoingData{4096};
+		NContainer::TCLinkedList<COutgoingSegment> m_OutgoingSegments;
+		COutgoingSegment *m_pLastOutgoingSegment = nullptr;
+		uint64 m_nOutgoingQueuedBytes = 0; // Logical bytes may exceed 32-bit allocation size when payloads are referenced repeatedly.
 		std::deque<COutgoingDataPromise> m_OutgoingDataPromises;
 
 		NStorage::TCVariant<void, CConnectionInfo, CClientConnectionInfo> m_ConnectionInfo;
@@ -306,31 +466,52 @@ namespace NMib::NWeb
 		CMessage m_PendingMessage;
 		CWebSocketActor::CCloseInfo m_CloseInfo;
 
+		uint64 m_nDirectReadRemaining = 0; // Read no further than this payload so the next header still enters the framing buffer.
+		NContainer::CIOByteVector *m_pDirectReadData = nullptr;
+		umint m_DirectReadFrameStart = 0;
+		NStorage::TCSharedPointer<NConcurrency::CIoCompletionOpTracker> m_pOpTracker;
+		NContainer::CByteVector m_ReceiveChunk;
+
 		NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 		NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
 
-		NStorage::TCUniquePointer<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_pClosePromise;
+		NContainer::CByteVector m_CloseFramePayload; // Emit after pending messages drain; framing the whole masked backlog at once would copy it all.
+		NContainer::TCLinkedList<COutgoingMessage> m_PostCloseMessages; // Do not admit post-close messages to the stream; teardown rejects their promises.
+
+		NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_ClosePromise;
 		NContainer::TCLinkedList<NFunction::TCFunctionMovable<void (NStr::CStr const &_Error)>> m_OnShutdown;
 
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage)> m_fOnReceiveBinaryMessage;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage)> m_fOnReceiveBinaryMessage;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePing;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)> m_fOnReceivePong;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePing;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePong;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> m_fOnFinishConnection;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> m_fOnFinishClientConnection;
 
-		void f_FinishClientConnection(EFinishConnectionResult _Result, CClientConnectionInfo &&_ConnectionInfo);
-		void f_FinishConnection(EFinishConnectionResult _Result, CConnectionInfo &&_ConnectionInfo);
-
 		NConcurrency::CActorSubscription m_TimeoutTimerSubscription;
 		NTime::CStopwatch m_TimeoutReceivedData;
 		NTime::CStopwatch m_TimeoutSentData;
-		NStorage::TCSharedPointer<NContainer::CIOByteVector> m_pTimeoutPingMessage;
+		NStorage::TCSharedPointer<NContainer::CIOByteVector const> m_pTimeoutPingMessage;
 		CWebsocketSettings m_Settings;
 		umint m_TimeoutTimerSubscriptionSequence = 0;
 		uint64 m_nSentBytes = 0;
 		uint64 m_nReceivedBytes = 0;
+
+		NNetwork::ICSocketCompletionIo *m_pCompletionIo = nullptr;
+
+		NStorage::TCSharedPointer<NSys::CIoStreamBackpressure> m_pReceiveBackpressure;
+
+		umint m_nSendOpsInFlight = 0;
+		umint m_nOutgoingSubmitted = 0; // Reserved bytes excluded from later gathers until completion.
+
+		// A continuation carries no reservation of its own
+		static constexpr umint mc_iNoReservation = umint(-1);
+
+		NContainer::TCVector<CSendReservation> m_SendReservations; // Preallocated for the window; indexed free list avoids per-send scanning or growth.
+		umint m_nSendReservationsInUse = 0;
+		umint m_nMaxSendReservations = 8;
+		umint m_nSendBytesUnreleased = 0; // Accepted bytes whose release callback has not run.
 
 		umint m_bPendingPing:1 = false;
 		umint m_bSentPing:1 = false;
@@ -338,6 +519,7 @@ namespace NMib::NWeb
 		umint m_bPendingMessage:1 = false;
 		umint m_bClient:1 = false;
 		umint m_bMaskFrames:1 = true;
+		umint m_bPeerOfferedUnmasked:1 = false;
 
 		umint m_bOnCloseCalled:1 = false;
 		umint m_bOnFinishDone:1 = false;
@@ -345,6 +527,16 @@ namespace NMib::NWeb
 		umint m_bShutdownCalled:1 = false;
 
 		umint m_bFinishCalled:1 = false;
+
+		umint m_bCompletionIo:1 = false;
+		umint m_bDirectReadToStorage:1 = false; // Unmasked binary payload appends retaining receive-buffer views.
+		umint m_bReceiveStreamShared:1 = false; // Shared segment resolution permits direct reads into retaining storage views.
+		umint m_bCloseFramePending:1 = false;
+		umint m_bReceiveStreamActive:1 = false; // Close states wait for the receive stream's one terminal segment.
+		umint m_bReceiveStreamEnded:1 = false;
+
+		umint m_bDeferredShutdownCleanup:1 = false;
+		umint m_bFlushSendScheduled:1 = false;
 
 #if DMibConfig_Tests_Enable
 		umint m_bDebugNoProcessing:1 = false;
@@ -373,16 +565,50 @@ namespace NMib::NWeb
 	{
 	}
 
+	// Resolve in-flight work through the interface cached at activation, even after new submits stop.
+	NNetwork::ICSocketCompletionIo *CWebSocketActor::CInternal::f_GetCompletionIo()
+	{
+		if (!m_bCompletionIo || !m_pSocket)
+			return nullptr;
+
+		return m_pCompletionIo;
+	}
+
+	// New submissions only; resolve existing operations through the cached interface.
+	NNetwork::ICSocketCompletionIo *CWebSocketActor::CInternal::f_GetCompletionIoSend()
+	{
+		auto *pCompletionIo = f_GetCompletionIo();
+
+		return pCompletionIo && pCompletionIo->f_SupportsCompletionSend() ? pCompletionIo : nullptr;
+	}
+
+	NNetwork::ICSocketCompletionIo *CWebSocketActor::CInternal::f_GetCompletionIoReceive()
+	{
+		auto *pCompletionIo = f_GetCompletionIo();
+
+		return pCompletionIo && pCompletionIo->f_SupportsCompletionReceive() ? pCompletionIo : nullptr;
+	}
+
+	NContainer::TCLinkedList<COutgoingMessage> &CWebSocketActor::CInternal::f_PickMessageQueue(uint32 _Priority)
+	{
+		// Nothing accepted after the close transition may enter the stream; see
+		// m_PostCloseMessages
+		if (m_State >= EState_Disconnecting)
+			return m_PostCloseMessages;
+
+		return m_PendingMessages[_Priority];
+	}
+
 	COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage
 		(
 			EOpcode _Opcode
-			, NStorage::TCSharedPointer<NContainer::CIOByteVector> const &_pData
+			, NStorage::TCSharedPointer<NContainer::CIOByteVector const> const &_pData
 			, uint32 _Priority
 		)
 	{
 		DMibFastCheck(!m_pThis->f_IsDestroyed());
 
-		auto &NewMessage = m_PendingMessages[_Priority].f_Insert();
+		auto &NewMessage = f_PickMessageQueue(_Priority).f_Insert();
 		NewMessage.m_pData = _pData;
 		NewMessage.m_Opcode = _Opcode;
 		NewMessage.m_bFinished = true;
@@ -391,29 +617,52 @@ namespace NMib::NWeb
 
 	}
 
-	COutgoingMessage &CWebSocketActor::CInternal::f_QueueFragmentedMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, uint32 _Priority)
+	// Frame views lazily; unmasked payload stays shared while masked payload is copied into the arena.
+	COutgoingMessage &CWebSocketActor::CInternal::f_QueueViewMessage
+		(
+			EOpcode _Opcode
+			, NContainer::TCVector<NSys::CIoSpan> &&_Spans
+			, umint _nTotalBytes
+			, NStorage::TCSharedPointer<CPayloadOwner> &&_pOwner
+			, uint32 _Priority
+		)
 	{
-		COutgoingMessage *pLastMessage = nullptr;
-		uint8 const *pBytes = _pData;
-		umint nBytes = _nBytes;
-		EOpcode Opcode = _Opcode;
-		while (true)
+		DMibFastCheck(!m_pThis->f_IsDestroyed());
+
+		auto &NewMessage = f_PickMessageQueue(_Priority).f_Insert();
+		NewMessage.m_Opcode = _Opcode;
+		NewMessage.m_bFinished = true;
+		NewMessage.m_bView = true;
+		NewMessage.m_pOwner = fg_Move(_pOwner);
+		NewMessage.m_Spans = fg_Move(_Spans);
+		NewMessage.m_nTotalBytes = _nTotalBytes;
+
+		return NewMessage;
+	}
+
+	// Copied messages cannot fragment; use views for payloads larger than one frame even below the copy threshold.
+	umint CWebSocketActor::CInternal::f_GetCopyThreshold() const
+	{
+		return fg_Min(umint(gc_CopySmallMessageThreshold), m_Settings.m_FragmentationSize);
+	}
+
+	void CWebSocketActor::CInternal::f_TrackArenaBytes(umint _nBytes) noexcept
+	{
+		if (!_nBytes)
+			return;
+
+		if (m_pLastOutgoingSegment && m_pLastOutgoingSegment->m_Kind == COutgoingSegment::EKind::mc_Arena)
 		{
-			umint ThisTime = fg_Min(nBytes, m_Settings.m_FragmentationSize);
-			NContainer::CIOByteVector VectorData;
-			VectorData.f_Insert(pBytes, ThisTime);
-			nBytes -= ThisTime;
-			pBytes += ThisTime;
-			auto &NewMessage = f_QueueMessage(Opcode, fg_Construct(fg_Move(VectorData)), _Priority);
-			pLastMessage = &NewMessage;
-			Opcode = EOpcode_ContinuationFrame;
-			if (nBytes == 0)
-				break;
-			else
-				NewMessage.m_bFinished = false;
+			m_pLastOutgoingSegment->m_nBytes += _nBytes;
+			m_nOutgoingQueuedBytes += _nBytes;
+			return;
 		}
 
-		return *pLastMessage;
+		auto &Segment = m_OutgoingSegments.f_Insert();
+		Segment.m_Kind = COutgoingSegment::EKind::mc_Arena;
+		Segment.m_nBytes = _nBytes;
+		m_pLastOutgoingSegment = &Segment;
+		m_nOutgoingQueuedBytes += _nBytes;
 	}
 
 	void CWebSocketActor::CInternal::f_WriteQueuedMessages(bool _bFlushAll)
@@ -421,14 +670,18 @@ namespace NMib::NWeb
 		if (m_PendingMessages.f_IsEmpty())
 			return;
 
-		umint OutgoingData = m_OutgoingData.f_GetLen();
-		umint TargetData = 0;
+		uint64 OutgoingData = m_nOutgoingQueuedBytes;
+		uint64 TargetData = 0;
 
 		if (!_bFlushAll)
 		{
-			TargetData = m_OutgoingData.f_GetFirstPageSpace();
-			if (TargetData < EOutgoingPageSize)
-				TargetData += EOutgoingPageSize;
+			// Keep roughly one frame of data queued ahead so the drain loop can issue large
+			// vectored writes while control frames still interleave promptly
+			TargetData = fg_Max(uint64(2 * gc_OutgoingPageSize), uint64(m_Settings.m_FragmentationSize) + NNetwork::gc_SocketFramingMargin);
+#if DMibConfig_IoDebug_Enable
+			if (umint nFrameAhead = m_pIo->f_WebSocketFrameAhead(); nFrameAhead > 1)
+				TargetData *= nFrameAhead;
+#endif
 
 			if (OutgoingData >= TargetData)
 				return;
@@ -468,22 +721,40 @@ namespace NMib::NWeb
 				break;
 #endif
 
-			bFinished = pPending->m_bFinished;
+			bool bMessageDone;
+			if (pPending->m_bView)
+			{
+				// Retain the message at the queue head until every payload fragment is emitted.
+				umint nRemaining = pPending->m_nTotalBytes - pPending->m_iPayloadSent;
+				umint nFrameBytes = fg_Min(nRemaining, m_Settings.m_FragmentationSize);
+				bMessageDone = nFrameBytes == nRemaining;
+				bFinished = bMessageDone && pPending->m_bFinished;
 
-			f_SendMessage(pPending->m_Opcode, pPending->m_pData->f_GetArray(), pPending->m_pData->f_GetLen(), bFinished);
+				f_SendMessageFrameSegmented(*pPending, nFrameBytes);
+			}
+			else
+			{
+				bFinished = pPending->m_bFinished;
+				bMessageDone = true;
+
+				f_SendMessage(pPending->m_Opcode, pPending->m_pData->f_GetArray(), pPending->m_pData->f_GetLen(), bFinished);
+			}
 
 #if DMibConfig_Tests_Enable
 			if (m_nDebugRemainingWriteOps > 0)
 				--m_nDebugRemainingWriteOps;
 #endif
 
-			OutgoingData = m_OutgoingData.f_GetLen();
+			OutgoingData = m_nOutgoingQueuedBytes;
 
-			if (pPending->m_pPromise)
+			if (!bMessageDone)
+				continue;
+
+			if (pPending->m_Promise)
 			{
 				COutgoingDataPromise Promise;
 				Promise.m_Position = m_nSentBytes + OutgoingData;
-				Promise.m_pPromise = fg_Move(pPending->m_pPromise);
+				Promise.m_Promise = fg_Move(pPending->m_Promise);
 				m_OutgoingDataPromises.push_back(fg_Move(Promise));
 			}
 
@@ -516,6 +787,266 @@ namespace NMib::NWeb
 			m_pLastPendingMessagesList = nullptr;
 		else
 			m_pLastPendingMessagesList = pList;
+	}
+
+	void CWebSocketActor::CInternal::f_WriteCloseFrameWhenDrained()
+	{
+		if (!m_bCloseFramePending || !m_PendingMessages.f_IsEmpty())
+			return;
+
+		m_bCloseFramePending = false;
+		NContainer::CByteVector Payload = fg_Move(m_CloseFramePayload);
+		f_SendMessage(EOpcode_ConnectionClose, Payload.f_GetArray(), Payload.f_GetLen(), true);
+	}
+
+	umint CWebSocketActor::CInternal::f_SendWindowStartBytes() const
+	{
+		return m_Settings.f_GetSendWindowStartBytes();
+	}
+
+	// Preallocate the bounded window's reservations so sends never grow the pool.
+	void CWebSocketActor::CInternal::f_SizeSendReservations()
+	{
+		umint nFrameBytes = f_SendWindowStartBytes() / 8;
+		m_nMaxSendReservations = fg_Max(umint(8), m_Settings.f_GetSendWindowBytes() / nFrameBytes + 2);
+		umint nEntries = m_SendReservations.f_GetLen();
+		if (nEntries >= m_nMaxSendReservations)
+			return;
+
+		m_SendReservations.f_SetLen(m_nMaxSendReservations);
+		CSendReservation *pReservations = m_SendReservations.f_GetArray();
+		for (CSendReservation *pReservation = pReservations + nEntries, *pEnd = pReservations + m_nMaxSendReservations; pReservation != pEnd; ++pReservation)
+		{
+			pReservation->m_iNextFree = m_iFreeSendReservation;
+			m_iFreeSendReservation = uint32(pReservation - pReservations);
+		}
+	}
+
+	// Tearing the connection down gives every reservation back at once; operations still in
+	// flight then find their own already accounted for
+	void CWebSocketActor::CInternal::f_ResetSendReservations()
+	{
+		m_iFreeSendReservation = CSendReservation::mc_iNone;
+		CSendReservation *pReservations = m_SendReservations.f_GetArray();
+		for (CSendReservation *pReservation = pReservations + m_SendReservations.f_GetLen(); pReservation != pReservations;)
+		{
+			--pReservation;
+			pReservation->m_nBytes = 0;
+			pReservation->m_iNextFree = m_iFreeSendReservation;
+			m_iFreeSendReservation = uint32(pReservation - pReservations);
+		}
+
+		m_nSendReservationsInUse = 0;
+		m_nSendBytesUnreleased = 0;
+	}
+
+	auto CWebSocketActor::CInternal::f_GatherSendSpans
+		(
+			NSys::CIoSpan *o_pSpans
+			, umint &o_nSpans
+			, NContainer::TCVector<NStorage::TCSharedPointer<CPayloadOwner>> &o_KeepAlives
+			, NStorage::TCSharedPointer<NContainer::CIOByteVector> &o_pArenaCopy
+		)
+		-> umint
+	{
+		umint nSpans = 0;
+		umint nGatheredBytes = 0;
+		umint nArenaBytes = 0;
+		NContainer::TCBitArray<NNetwork::ICSocket::mc_MaxSendSpans> ArenaSpans;
+
+		// Gather at least one frame, retaining a useful minimum batch for small-fragment connections.
+		umint nMaxGatherBytes = fg_Max(umint(256 * 1024), m_Settings.m_FragmentationSize);
+
+		// Skip earlier reservations to avoid duplicate sends; advance the arena offset over even skipped segments.
+		umint nSkip = m_nOutgoingSubmitted;
+
+		umint ArenaOffset = 0;
+		bool bFull = false;
+		for (auto &Segment : m_OutgoingSegments)
+		{
+			if (bFull)
+				break;
+
+			bool bArena = Segment.m_Kind == COutgoingSegment::EKind::mc_Arena;
+			umint nAvailable = bArena ? Segment.m_nBytes : Segment.m_nBytes - Segment.m_iSent;
+
+			if (nSkip >= nAvailable)
+			{
+				nSkip -= nAvailable;
+
+				if (bArena)
+					ArenaOffset += Segment.m_nBytes;
+
+				continue;
+			}
+
+			umint nSkipWithin = nSkip;
+			nSkip = 0;
+
+			if (bArena)
+			{
+				m_OutgoingData.f_Read
+					(
+						ArenaOffset + nSkipWithin
+						, Segment.m_nBytes - nSkipWithin
+						, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
+						{
+							o_pSpans[nSpans].m_pData = _pPtr;
+							o_pSpans[nSpans].m_nBytes = _nBytes;
+							ArenaSpans.f_SetBit(nSpans, 1);
+							++nSpans;
+							nGatheredBytes += _nBytes;
+							nArenaBytes += _nBytes;
+							bFull = nSpans >= NNetwork::ICSocket::mc_MaxSendSpans || nGatheredBytes >= nMaxGatherBytes;
+							return !bFull;
+						}
+					)
+				;
+				ArenaOffset += Segment.m_nBytes;
+			}
+			else
+			{
+				// Bound spans for scalar fallbacks and SSL's signed transfer length.
+				umint iStart = Segment.m_iSent + nSkipWithin;
+				umint nSegmentBytes = fg_Min(Segment.m_nBytes - iStart, nMaxGatherBytes - nGatheredBytes);
+
+				o_pSpans[nSpans].m_pData = Segment.m_pData + iStart;
+				o_pSpans[nSpans].m_nBytes = nSegmentBytes;
+				nGatheredBytes += nSegmentBytes;
+				++nSpans;
+				bFull = nSpans >= NNetwork::ICSocket::mc_MaxSendSpans || nGatheredBytes >= nMaxGatherBytes;
+
+				// Retain payload owners until kernel buffer release, which may follow completion and segment retirement.
+				if (Segment.m_pOwnerKeepAlive)
+					o_KeepAlives.f_Insert(Segment.m_pOwnerKeepAlive);
+			}
+		}
+
+		// Arena pages are recycled at completion. Copy them into release-owned storage for late-release sends;
+		// prompt-release and readiness paths can borrow them directly.
+		if (nArenaBytes && m_pCompletionIo && !m_pCompletionIo->f_SendReleaseIsPrompt())
+		{
+			o_pArenaCopy = fg_Construct();
+			o_pArenaCopy->f_SetLen(nArenaBytes, false);
+
+			umint nCopied = 0;
+			ArenaSpans.f_EnumSetBits
+				(
+					[&](umint _iSpan) -> bool
+					{
+						NMemory::fg_MemCopy(o_pArenaCopy->f_GetArray() + nCopied, o_pSpans[_iSpan].m_pData, o_pSpans[_iSpan].m_nBytes);
+						o_pSpans[_iSpan].m_pData = o_pArenaCopy->f_GetArray() + nCopied;
+						nCopied += o_pSpans[_iSpan].m_nBytes;
+
+						return true;
+					}
+				)
+			;
+		}
+
+		o_nSpans = nSpans;
+
+		return nGatheredBytes;
+	}
+
+	// Advance arena/view progress and settle write promises in stream order.
+	void CWebSocketActor::CInternal::f_ConsumeSentBytes(umint _nSentBytes)
+	{
+		uint64 PrevSent = m_nSentBytes;
+		m_nSentBytes += _nSentBytes;
+
+		while (!m_OutgoingDataPromises.empty())
+		{
+			auto &Promise = m_OutgoingDataPromises.front();
+			uint64 Diff = Promise.m_Position - PrevSent;
+			if (Diff <= _nSentBytes)
+			{
+				Promise.m_Promise->f_SetResult();
+				Promise.m_Promise.f_Clear();
+				m_OutgoingDataPromises.pop_front();
+				continue;
+			}
+			break;
+		}
+
+		umint nConsumed = _nSentBytes;
+		while (nConsumed)
+		{
+			auto &Head = m_OutgoingSegments.f_GetFirst();
+			umint nHeadRemaining = Head.m_nBytes - Head.m_iSent;
+			if (Head.m_Kind == COutgoingSegment::EKind::mc_Arena)
+			{
+				umint nThis = fg_Min(nConsumed, Head.m_nBytes);
+				m_OutgoingData.f_RemoveFront(nThis);
+				Head.m_nBytes -= nThis;
+				nHeadRemaining = Head.m_nBytes;
+				nConsumed -= nThis;
+				m_nOutgoingQueuedBytes -= nThis;
+			}
+			else
+			{
+				umint nThis = fg_Min(nConsumed, nHeadRemaining);
+				Head.m_iSent += nThis;
+				nHeadRemaining -= nThis;
+				nConsumed -= nThis;
+				m_nOutgoingQueuedBytes -= nThis;
+			}
+
+			if (!nHeadRemaining)
+			{
+				if (&Head == m_pLastOutgoingSegment)
+					m_pLastOutgoingSegment = nullptr;
+				m_OutgoingSegments.f_Remove(Head);
+			}
+		}
+	}
+
+	void CWebSocketActor::CInternal::f_ReleaseReceiveState()
+	{
+		m_ReceiveChunk.f_Clear();
+		m_IncomingData.f_RemoveFront(m_IncomingData.f_GetLen());
+		m_NextMessage = CMessage();
+		m_PendingMessage = CMessage();
+		m_bPendingMessage = false;
+		m_nDirectReadRemaining = 0;
+		m_pDirectReadData = nullptr;
+		m_DirectReadFrameStart = 0;
+		m_bDirectReadToStorage = false;
+		m_bReceiveStreamShared = false;
+	}
+
+	// Release retained payloads when disconnected, even if the actor remains alive; wait for kernel sends first.
+	void CWebSocketActor::CInternal::f_ReleaseOutgoingState()
+	{
+		m_OutgoingSegments.f_Clear();
+		m_pLastOutgoingSegment = nullptr;
+		m_nOutgoingQueuedBytes = 0;
+		m_nOutgoingSubmitted = 0;
+		f_ResetSendReservations();
+		m_OutgoingData.f_RemoveFront(m_OutgoingData.f_GetLen());
+	}
+
+	// Release close-deferred storage only after kernel buffer references end.
+	void CWebSocketActor::CInternal::f_TryReleaseDeferredReceiveState()
+	{
+		if (m_nSendOpsInFlight)
+			return;
+
+		// Take deferred close states before reporting them; reporting can reenter disconnect and must not deliver them twice.
+		NNetwork::ENetTCPState DeferredStates = m_DeferredCloseStates;
+		m_DeferredCloseStates = NNetwork::ENetTCPState_None;
+
+		if (m_bDeferredShutdownCleanup)
+		{
+			m_bDeferredShutdownCleanup = false;
+
+			f_ReleaseReceiveState();
+			f_ReleaseOutgoingState();
+		}
+
+		// Last, because it can disconnect and leave nothing here worth touching
+		if (DeferredStates)
+			m_pThis->fp_ProcessState(DeferredStates);
 	}
 
 #if DMibConfig_Tests_Enable
@@ -577,8 +1108,9 @@ namespace NMib::NWeb
 		DebugStats.m_SecondsSinceLastSend = Internal.m_TimeoutSentData.f_GetTime();
 		DebugStats.m_SecondsSinceLastReceive = Internal.m_TimeoutReceivedData.f_GetTime();
 		DebugStats.m_State = Internal.m_State;
+		DebugStats.m_bMaskFrames = Internal.m_bMaskFrames;
 		DebugStats.m_IncomingDataBufferBytes = Internal.m_IncomingData.f_GetLen();
-		DebugStats.m_OutgoingDataBufferBytes = Internal.m_OutgoingData.f_GetLen();
+		DebugStats.m_OutgoingDataBufferBytes = Internal.m_nOutgoingQueuedBytes;
 
 		co_return fg_Move(DebugStats);
 	}
@@ -589,7 +1121,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		if (Internal.m_pClosePromise)
+		if (Internal.m_ClosePromise)
 		{
 			DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::f_Close 1", fg_ThisActor(this), !Internal.m_bClient);
 			co_return DMibErrorInstance("Socket close already initiated");
@@ -606,7 +1138,7 @@ namespace NMib::NWeb
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
-		auto CloseFuture = (Internal.m_pClosePromise = fg_Construct())->f_Future();
+		auto CloseFuture = Internal.m_ClosePromise.f_CreateNew().f_Future();
 
 		DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::f_Close 3", fg_ThisActor(this), !Internal.m_bClient);
 
@@ -621,6 +1153,26 @@ namespace NMib::NWeb
 
 	void CWebSocketActor::CInternal::f_ShutdownDone(NStr::CStr const &_Error)
 	{
+		// Release receive allocations when the socket is gone; a retained closed actor must not pin an advertised frame indefinitely.
+		if (m_nSendOpsInFlight)
+			m_bDeferredShutdownCleanup = true;
+		else
+		{
+			f_ReleaseReceiveState();
+			f_ReleaseOutgoingState();
+		}
+
+		// Cancel queued-message promises now; the deferred flush cannot run without a socket.
+		// Retain arena and segments still referenced by kernel sends until completion releases them.
+		m_PendingMessages.f_Clear();
+		m_pLastPendingMessagesList = nullptr;
+		m_PostCloseMessages.f_Clear();
+		m_OutgoingDataPromises.clear();
+		m_bCloseFramePending = false;
+		m_CloseFramePayload.f_Clear();
+
+		f_StopTimeout();
+
 		for (auto &fOnShutdown : m_OnShutdown)
 			fOnShutdown(_Error);
 		m_OnShutdown.f_Clear();
@@ -635,16 +1187,42 @@ namespace NMib::NWeb
 #endif
 
 		DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Destroy", fg_ThisActor(this), !Internal.m_bClient);
-		Internal.m_PendingMessages.f_Clear();
-		Internal.m_OutgoingDataPromises.clear();
-		Internal.m_pLastPendingMessagesList = nullptr;
-		if (Internal.m_pClosePromise)
+
+		// Destroy aborts outstanding output so an unresponsive peer cannot hold the release fence through retransmission timeout.
+		// Graceful callers use f_CloseWithLinger to drain and shut down first.
+		if (Internal.m_pSocket)
+			Internal.m_pSocket->f_SetAbortOnClose();
+
+		if (Internal.m_pOpTracker)
 		{
-			Internal.m_pClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
-			Internal.m_pClosePromise.f_Clear();
+			// Close cancels kernel work; keep queues, arena and payload owners alive until the operation tracker drains across this await.
+			Internal.m_pSocket.f_Clear();
+
+			auto &Tracker = *Internal.m_pOpTracker;
+			auto DrainFuture = Tracker.m_DrainPromise.f_CreateNew().f_Future();
+			uint32 Previous = Tracker.m_State.f_FetchOr(NConcurrency::CIoCompletionOpTracker::mc_DrainFlag, NAtomic::gc_MemoryOrder_SequentiallyConsistent);
+			if (!Previous)
+				(*Tracker.m_DrainPromise).f_SetResult();
+
+			co_await fg_Move(DrainFuture);
 		}
 
-		return g_Void;
+		Internal.m_PendingMessages.f_Clear();
+		Internal.m_PostCloseMessages.f_Clear();
+		Internal.m_OutgoingDataPromises.clear();
+		Internal.m_pLastPendingMessagesList = nullptr;
+		Internal.m_OutgoingSegments.f_Clear();
+		Internal.m_pLastOutgoingSegment = nullptr;
+		Internal.m_nOutgoingQueuedBytes = 0;
+		Internal.m_nOutgoingSubmitted = 0;
+		Internal.f_ResetSendReservations();
+		if (Internal.m_ClosePromise)
+		{
+			Internal.m_ClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
+			Internal.m_ClosePromise.f_Clear();
+		}
+
+		co_return {};
 	}
 
 	NConcurrency::TCFuture<CWebSocketActor::CCloseInfo> CWebSocketActor::f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime)
@@ -654,7 +1232,9 @@ namespace NMib::NWeb
 
 		{
 			auto &Internal = *mp_pInternal;
-			if (!Internal.m_pSocket || Internal.m_State == EState_Disconnected)
+
+			// A disconnected socket can still be sending its close reply or awaiting peer FIN; destroying it now would cancel graceful output.
+			if (!Internal.m_pSocket)
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} EWebSocketStatus_AlreadyClosed", fg_ThisActor(this), !Internal.m_bClient);
 
@@ -759,7 +1339,7 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector> _pMessage, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinary(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pMessage, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -784,26 +1364,853 @@ namespace NMib::NWeb
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
-		if (nBytes <= Internal.m_Settings.m_FragmentationSize)
+		COutgoingMessage *pNewMessage;
+		if (nBytes > Internal.f_GetCopyThreshold())
 		{
-			auto &NewMessage = Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
-			auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
-			DMibLog(DebugVerbose3, " ++++ {} {} Queue non-fragmented", fg_ThisActor(this), !Internal.m_bClient);
-			fp_UpdateSend();
-			co_return co_await fg_Move(Future);
+			pNewMessage = &Internal.f_QueueViewMessage
+				(
+					EOpcode_BinaryFrame
+					, fg_MakeSpanVector(Massage.f_GetArray(), nBytes)
+					, nBytes
+					, fg_Construct<TCPayloadOwner<NStorage::TCSharedPointer<NContainer::CIOByteVector const>>>(fg_Move(_pMessage))
+					, _Priority
+				)
+			;
+		}
+		else
+			pNewMessage = &Internal.f_QueueMessage(EOpcode_BinaryFrame, _pMessage, _Priority);
+
+		auto Future = pNewMessage->m_Promise.f_CreateNew().f_Future();
+		DMibLog(DebugVerbose3, " ++++ {} {} Queue binary", fg_ThisActor(this), !Internal.m_bClient);
+		fp_ScheduleUpdateSend();
+
+		co_return co_await fg_Move(Future);
+	}
+
+	// The future resolving means sent, not that the storage may change: zero-copy sends keep reading it until kernel release
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinaryStorage(NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage, uint32 _Priority)
+	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
+		auto &Internal = *mp_pInternal;
+
+#if DMibConfig_Tests_Enable
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
+#endif
+
+		DMibLog(DebugVerbose3, " ++++ {} {} f_SendBinaryStorage", fg_ThisActor(this), !Internal.m_bClient);
+
+		umint nBytes = _pMessage->f_GetTotalLength();
+
+		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
+			co_return DMibErrorInstance("Message is bigger than max message size");
+
+		if (_Priority == TCLimitsInt<uint32>::mc_Max)
+			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
+
+		NContainer::TCVector<NSys::CIoSpan> Spans;
+		Spans.f_Reserve(_pMessage->f_GetSpanCount());
+		_pMessage->f_VisitSpans
+			(
+				[&](uint8 const *_pData, umint _nSpanBytes)
+				{
+					Spans.f_InsertLast(NSys::CIoSpan{.m_pData = _pData, .m_nBytes = _nSpanBytes});
+				}
+			)
+		;
+
+		auto &NewMessage = Internal.f_QueueViewMessage
+			(
+				EOpcode_BinaryFrame
+				, fg_Move(Spans)
+				, nBytes
+				, fg_Construct<TCPayloadOwner<NStorage::TCSharedPointer<NStream::CBinaryStorage const>>>(fg_Move(_pMessage))
+				, _Priority
+			)
+		;
+
+		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
+		DMibLog(DebugVerbose3, " ++++ {} {} Queue storage view", fg_ThisActor(this), !Internal.m_bClient);
+		fp_ScheduleUpdateSend();
+		co_return co_await fg_Move(Future);
+	}
+
+	// Queues separate binary messages together; the last message's promise reports the batch outcome.
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendBinaryStorages(NContainer::TCVector<NStorage::TCSharedPointer<NStream::CBinaryStorage const>> _Messages, uint32 _Priority)
+	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying websocket");
+
+		auto &Internal = *mp_pInternal;
+
+#if DMibConfig_Tests_Enable
+		if (Internal.m_bDebugFailSends)
+			co_return DMibErrorInstance("Debug fail send");
+#endif
+
+		DMibLog(DebugVerbose3, " ++++ {} {} f_SendBinaryStorages {}", fg_ThisActor(this), !Internal.m_bClient, _Messages.f_GetLen());
+
+		if (_Messages.f_IsEmpty())
+			co_return {};
+
+		if (_Priority == TCLimitsInt<uint32>::mc_Max)
+			co_return DMibErrorInstance("0xffffffff priority is reserved for internal messages");
+
+		// Validate before queueing so an invalid batch cannot partially reach the wire.
+		for (auto const &pMessage : _Messages)
+		{
+			if (pMessage->f_GetTotalLength() > Internal.m_Settings.m_MaxMessageSize)
+				co_return DMibErrorInstance("Message is bigger than max message size");
 		}
 
-		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_BinaryFrame, Massage.f_GetArray(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
+		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
-		DMibLog(DebugVerbose3, " ++++ {} {} Queue fragmented", fg_ThisActor(this), !Internal.m_bClient);
-		fp_UpdateSend();
+		// Queue-order completion and rejection of pending promises make the last promise cover the whole batch.
+		NConcurrency::TCFuture<void> Future;
+		umint nMessages = _Messages.f_GetLen();
+		for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
+		{
+			auto &pMessage = _Messages[iMessage];
+			umint nBytes = pMessage->f_GetTotalLength();
 
+			NContainer::TCVector<NSys::CIoSpan> Spans;
+			Spans.f_Reserve(pMessage->f_GetSpanCount());
+			pMessage->f_VisitSpans
+				(
+					[&](uint8 const *_pData, umint _nSpanBytes)
+					{
+						Spans.f_InsertLast(NSys::CIoSpan{.m_pData = _pData, .m_nBytes = _nSpanBytes});
+					}
+				)
+			;
+
+			auto &NewMessage = Internal.f_QueueViewMessage
+				(
+					EOpcode_BinaryFrame
+					, fg_Move(Spans)
+					, nBytes
+					, fg_Construct<TCPayloadOwner<NStorage::TCSharedPointer<NStream::CBinaryStorage const>>>(fg_Move(pMessage))
+					, _Priority
+				)
+			;
+
+			if (iMessage + 1 == nMessages)
+				Future = NewMessage.m_Promise.f_CreateNew().f_Future();
+		}
+
+		fp_ScheduleUpdateSend();
 		co_return co_await fg_Move(Future);
 	}
 
 	void CWebSocketActor::fp_StateAdded(NNetwork::ENetTCPState _StateAdded)
 	{
 		fp_ProcessState(_StateAdded);
+	}
+
+	void CWebSocketActor::fp_ScheduleUpdateSend()
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.m_bFlushSendScheduled)
+			return;
+		Internal.m_bFlushSendScheduled = true;
+
+		// Defer behind already-queued send calls so a burst shares one gather and flush.
+		DMibLogWarningOrDiscardResult(fg_ThisActor(this).f_Bind<&CWebSocketActor::fp_FlushSend>(), "Mib/Web", "Flushing the websocket send queue failed");
+	}
+
+	void CWebSocketActor::fp_FlushSend()
+	{
+		auto &Internal = *mp_pInternal;
+		Internal.m_bFlushSendScheduled = false;
+
+		if (f_IsDestroyed())
+			return;
+
+		fp_UpdateSend();
+	}
+
+	void CWebSocketActor::fp_TryActivateCompletionIo(bool _bSubmitReceive)
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.m_bCompletionIo)
+			return;
+
+		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+			return;
+
+		auto *pCompletionIo = Internal.m_pSocket->f_GetCompletionIo();
+		if (!pCompletionIo)
+			return;
+
+		Internal.m_pCompletionIo = pCompletionIo;
+		Internal.m_bCompletionIo = true;
+		Internal.m_pOpTracker = fg_Construct();
+
+		// Reject synchronous entry points before submitting the first operation.
+		pCompletionIo->f_OnCompletionActivated();
+
+		DMibLog(DebugVerbose3, " ++++ {} {} Completion transfers active", fg_ThisActor(this), !Internal.m_bClient);
+
+		if (_bSubmitReceive)
+			fp_StartReceiveStream();
+	}
+
+	void CWebSocketActor::fp_StartReceiveStream()
+	{
+		auto &Internal = *mp_pInternal;
+
+		// Never restart after the stream's terminal segment, even if a late readiness edge arrives.
+		if (Internal.m_bReceiveStreamActive || Internal.m_bReceiveStreamEnded)
+			return;
+
+		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+			return;
+
+		auto *pCompletionIo = Internal.f_GetCompletionIoReceive();
+		if (!pCompletionIo)
+			return;
+
+		// Buffer destructors release charged capacity; resume on this actor after crossing the threshold.
+		umint nBufferBytes = pCompletionIo->f_GetReceiveBufferBytes();
+		auto pBackpressure = NStorage::TCSharedPointer<NSys::CIoStreamBackpressure>(fg_Construct());
+		pBackpressure->m_nLimitBytes = NNetwork::fg_GetReceiveWindowBytes(*Internal.m_pIo, nBufferBytes);
+
+		// State the maximum retained message plus interleaving overhead before stream start, so the backend reserves
+		// partial-buffer headroom and can resume before the final frame arrives. Preserve explicit test overrides.
+		pBackpressure->m_nResumeBytes = pBackpressure->m_nLimitBytes / 2;
+		if (!Internal.m_pIo->f_ReceiveWindowBytesOverride())
+		{
+			pBackpressure->m_nConsumerHoldBytes =
+				fg_Min(Internal.m_Settings.m_MaxMessageSize, TCLimitsInt<umint>::mc_Max - gc_MaxInterleavedBytes) + gc_MaxInterleavedBytes
+			;
+		}
+		pBackpressure->m_fResume = [WeakThis = fg_ThisActor(this).f_Weak()]() mutable
+			{
+				if (auto This = WeakThis.f_Lock())
+					DMibLogWarningOrDiscardResult(This.f_Bind<&CWebSocketActor::fp_ReceiveWindowResume>(), "Mib/Web", "Resuming the receive window failed");
+			}
+		;
+		Internal.m_pReceiveBackpressure = pBackpressure;
+
+		bool bStarted = pCompletionIo->f_StartReceiveStream
+			(
+				fg_Move(pBackpressure)
+				, [WeakThis = fg_ThisActor(this).f_Weak()](NSys::CIoStreamSegment &&_Segment) mutable
+				{
+					// The queued segment retains its buffer even if teardown drops the job.
+					if (auto This = WeakThis.f_Lock())
+						DMibLogWarningOrDiscardResult(This.f_Bind<&CWebSocketActor::fp_ReceiveSegment>(fg_Move(_Segment)), "Mib/Web", "Delivering a received segment failed");
+				}
+			)
+		;
+
+		if (bStarted)
+		{
+			Internal.m_bReceiveStreamActive = true;
+
+			// Drain readiness-held bytes in a later actor job to avoid reentering the processing that started the stream.
+			DMibLogWarningOrDiscardResult(fg_ThisActor(this).f_Bind<&CWebSocketActor::fp_DrainHeldInput>(), "Mib/Web", "Draining the input the socket held failed");
+		}
+
+	}
+
+	void CWebSocketActor::fp_ReceiveWindowResume()
+	{
+		auto &Internal = *mp_pInternal;
+
+		if (f_IsDestroyed())
+			return;
+
+		if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid() && Internal.m_pCompletionIo)
+			Internal.m_pCompletionIo->f_ResumeReceiveStream();
+	}
+
+	// Transport-generated output needs explicit drain operations because completion sends provide no write-readiness edge.
+	void CWebSocketActor::fp_DrainSocketOutput()
+	{
+		auto &Internal = *mp_pInternal;
+
+		auto *pCompletionIo = Internal.f_GetCompletionIoSend();
+		if (!pCompletionIo)
+			return;
+
+		if (!pCompletionIo->f_HasPendingOutput())
+			return;
+
+		fp_SubmitSendOp(true);
+	}
+
+	// A continuation advances transport-held output and may offer no new plaintext.
+	void CWebSocketActor::fp_SubmitSendOp(bool _bContinue, umint _iInheritedReservation)
+	{
+		auto &Internal = *mp_pInternal;
+
+		// A continuation inherits its reservation. Release it on every refused path or the queue remains permanently reserved.
+		umint iReservation = _bContinue ? _iInheritedReservation : Internal.mc_iNoReservation;
+
+		auto fReleaseOnFailure = NMib::g_OnScopeExit / [&]
+			{
+				if (iReservation == Internal.mc_iNoReservation)
+					return;
+
+				auto &Reservation = Internal.m_SendReservations[iReservation];
+
+				if (!Reservation.m_nBytes)
+					return;
+
+				DMibFastCheck(Internal.m_nOutgoingSubmitted >= Reservation.m_nBytes);
+
+				Internal.m_nOutgoingSubmitted -= Reservation.m_nBytes;
+				Reservation.m_nBytes = 0;
+				Reservation.m_iNextFree = Internal.m_iFreeSendReservation;
+				Internal.m_iFreeSendReservation = uint32(iReservation);
+				--Internal.m_nSendReservationsInUse;
+			}
+		;
+
+		if (!Internal.m_nOutgoingQueuedBytes && !_bContinue)
+			return;
+
+		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+			return;
+
+		auto *pCompletionIo = Internal.f_GetCompletionIoSend();
+		if (!pCompletionIo)
+			return;
+
+		// Gate new batches only; buffer release retries when the byte window opens.
+		if (!_bContinue && pCompletionIo->f_IsSendWindowFull(Internal.m_nSendBytesUnreleased, Internal.f_SendWindowStartBytes()))
+		{
+#if DMibConfig_IoDebug_Enable
+			if (auto *pStats = NNetwork::fg_NetIoStats())
+				pStats->m_nSendBlocked.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+#endif
+
+			return;
+		}
+
+		// Never gate continuations on staging capacity: sending held ciphertext is what frees that capacity.
+		if (!_bContinue && !pCompletionIo->f_CanSubmitSend())
+		{
+#if DMibConfig_IoDebug_Enable
+			if (auto *pStats = NNetwork::fg_NetIoStats())
+			{
+				pStats->m_nSendBlocked.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpPending.f_Store(Internal.m_nOutgoingQueuedBytes, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpPinned.f_Store(Internal.m_nOutgoingSubmitted, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpOpsInUse.f_Store(pCompletionIo->f_HasSendOperationInFlight() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpOpsUnresolved.f_Store(pCompletionIo->f_HasPendingOutput() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
+			}
+#endif
+
+			return;
+		}
+
+		if (!_bContinue && Internal.m_nOutgoingQueuedBytes <= Internal.m_nOutgoingSubmitted)
+			return;
+
+
+		// Reservations outlive transport records until continuation chains settle; retry new batches when a slot is released.
+		if (!_bContinue)
+		{
+			umint nMaxReservations = pCompletionIo->f_SupportsSendStaging() ? umint(8) : Internal.m_nMaxSendReservations;
+			if (Internal.m_nSendReservationsInUse >= nMaxReservations)
+				return;
+
+#if DMibConfig_IoDebug_Enable
+			if (auto *pStats = NNetwork::fg_NetIoStats())
+			{
+				uint64 nOutstanding = Internal.m_nSendReservationsInUse + 1;
+				uint64 nMax = pStats->m_nSendMaxOutstanding.f_Load(NAtomic::gc_MemoryOrder_Relaxed);
+				while (nMax < nOutstanding && !pStats->m_nSendMaxOutstanding.f_CompareExchangeWeak(nMax, nOutstanding, NAtomic::gc_MemoryOrder_Relaxed))
+				{
+				}
+			}
+#endif
+		}
+
+		// Continuations offer no plaintext; the queue still holds bytes already reserved by the original transfer.
+		NSys::CIoSpan Spans[NNetwork::ICSocket::mc_MaxSendSpans];
+		umint nSpans = 0;
+		umint nGatheredBytes = 0;
+		NContainer::TCVector<NStorage::TCSharedPointer<CPayloadOwner>> KeepAlives;
+		NStorage::TCSharedPointer<NContainer::CIOByteVector> pArenaCopy;
+		if (!_bContinue)
+		{
+			nGatheredBytes = Internal.f_GatherSendSpans(Spans, nSpans, KeepAlives, pArenaCopy);
+			if (!nGatheredBytes)
+				return;
+		}
+
+		DMibLog(DebugVerbose3, " ++++ {} {} Submitting send of {}", fg_ThisActor(this), !Internal.m_bClient, nGatheredBytes);
+
+		if (!_bContinue)
+		{
+			DMibFastCheck(Internal.m_iFreeSendReservation != CInternal::CSendReservation::mc_iNone);
+			iReservation = umint(Internal.m_iFreeSendReservation);
+			Internal.m_iFreeSendReservation = Internal.m_SendReservations[iReservation].m_iNextFree;
+
+			++Internal.m_nSendReservationsInUse;
+
+			Internal.m_SendReservations[iReservation].m_nBytes = uint32(nGatheredBytes);
+			Internal.m_nOutgoingSubmitted += nGatheredBytes;
+		}
+
+		// Both completion and release functors retain the tracker until destruction, including refusal and exception paths.
+		NSys::FIoCompletion fOnComplete =
+			[
+				Hold = NConcurrency::CIoCompletionOpHold(Internal.m_pOpTracker)
+				, iReservation
+				, WeakThis = fg_ThisActor(this).f_Weak()
+			]
+			(NSys::CIoCompletion _Result) mutable
+			{
+				if (auto This = WeakThis.f_Lock())
+					DMibLogWarningOrDiscardResult(This.f_Bind<&CWebSocketActor::fp_SendCompleted>(_Result, iReservation), "Mib/Web", "Completing a send failed");
+			}
+		;
+
+		NNetwork::FSocketSendReleased fOnReleased =
+			[
+				Hold = NConcurrency::CIoCompletionOpHold(Internal.m_pOpTracker)
+				, KeepAlives = fg_Move(KeepAlives)
+				, pArenaCopy = fg_Move(pArenaCopy)
+				, WeakThis = fg_ThisActor(this).f_Weak()
+				, nGatheredBytes
+			]
+			(umint _iTransfer) mutable
+			{
+				KeepAlives.f_Clear();
+				pArenaCopy.f_Clear();
+
+				if (auto This = WeakThis.f_Lock())
+					DMibLogWarningOrDiscardResult(This.f_Bind<&CWebSocketActor::fp_SendBufferReleased>(_iTransfer, nGatheredBytes), "Mib/Web", "Releasing a send buffer failed");
+			}
+		;
+
+		umint nScheduled = 0;
+		bool bSubmitted;
+		if (_bContinue)
+			bSubmitted = pCompletionIo->f_ContinueSend(fg_Move(fOnComplete), fg_Move(fOnReleased));
+		else
+		{
+			nScheduled = pCompletionIo->f_SubmitSendVectored(Spans, nSpans, fg_Move(fOnComplete), fg_Move(fOnReleased));
+			DMibFastCheck(nScheduled <= nGatheredBytes);
+			bSubmitted = nScheduled != 0;
+		}
+
+		if (bSubmitted)
+		{
+			fReleaseOnFailure.f_Clear();
+
+			// Reserve only the accepted prefix; the untaken suffix remains available for the next gather.
+			if (!_bContinue && nScheduled < nGatheredBytes)
+			{
+				Internal.m_nOutgoingSubmitted -= nGatheredBytes - nScheduled;
+				Internal.m_SendReservations[iReservation].m_nBytes = nScheduled;
+			}
+
+			// Release retains the whole gather, including the untaken tail; temporary double-counting only applies backpressure early.
+			Internal.m_nSendBytesUnreleased += nGatheredBytes;
+		}
+		else
+		{
+			// Refusal is terminal; leaving reserved plaintext queued would strand send futures.
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, "Socket refused a send", true, EWebSocketCloseOrigin_Remote);
+			return;
+		}
+
+#if DMibConfig_IoDebug_Enable
+		if (auto *pStats = NNetwork::fg_NetIoStats())
+		{
+			pStats->m_nSendSubmits.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+			if (_bContinue)
+				pStats->m_nSendContinuations.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+		}
+#endif
+
+		++Internal.m_nSendOpsInFlight;
+	}
+
+	void CWebSocketActor::fp_ReceiveSegment(NSys::CIoStreamSegment &&_Segment)
+	{
+		fp_ReceiveStreamInput(fg_Move(_Segment), false);
+	}
+
+	// Drain readiness-held TLS bytes on activation; the peer may send no further segment to trigger them.
+	void CWebSocketActor::fp_DrainHeldInput()
+	{
+		fp_ReceiveStreamInput(NSys::CIoStreamSegment(), true);
+	}
+
+	void CWebSocketActor::fp_ReceiveStreamInput(NSys::CIoStreamSegment &&_Segment, bool _bHeldOnly)
+	{
+		auto &Internal = *mp_pInternal;
+
+		if (f_IsDestroyed())
+			return;
+
+		// Only TLS sockets hold input, and they never deliver shared segments. A shared segment queued
+		// ahead of the drain can have started a storage-backed direct read, which has no contiguous destination
+		if (_bHeldOnly && Internal.m_bReceiveStreamShared)
+			return;
+
+		auto &Segment = _Segment;
+		bool bTerminal = !_bHeldOnly && (Segment.m_Status != NSys::EIoCompletionStatus::mc_Done || !Segment.m_nBytes);
+
+		if (bTerminal)
+		{
+			Internal.m_bReceiveStreamActive = false;
+			Internal.m_bReceiveStreamEnded = true;
+		}
+
+		bool bSocketUsable = Internal.m_pSocket && Internal.m_pSocket->f_IsValid();
+		if (!bSocketUsable || !Internal.m_pCompletionIo)
+		{
+			Internal.f_TryReleaseDeferredReceiveState();
+			return;
+		}
+
+		if (Segment.m_Status == NSys::EIoCompletionStatus::mc_Cancelled)
+		{
+			NSys::CIoCompletion Result;
+			Internal.m_pCompletionIo->f_ResolveReceiveSegment(Segment, nullptr, 0, Result);
+			Internal.f_TryReleaseDeferredReceiveState();
+			return;
+		}
+
+#if DMibConfig_Tests_Enable
+		// Bank test-held bytes without delivery or timeout refresh; the debug re-drive flushes them later.
+		bool bDebugBank = Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive;
+#else
+		constexpr bool bDebugBank = false;
+#endif
+
+		// Parse retaining views directly; route payload to its message destination and framing bytes to the incoming pages.
+		if (!bTerminal && !_bHeldOnly)
+		{
+			NSys::CIoCompletion SharedResult;
+			NContainer::CSharedByteVector SharedData;
+			if (Internal.m_pCompletionIo->f_ResolveReceiveSegmentShared(Segment, SharedData, SharedResult))
+			{
+#if DMibConfig_IoDebug_Enable
+				if (auto *pStats = NNetwork::fg_NetIoStats())
+				{
+					pStats->m_nRecvSharedDeliveries.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nRecvSharedBytes.f_FetchAdd(SharedData.f_GetLen(), NAtomic::gc_MemoryOrder_Relaxed);
+				}
+#endif
+				try
+				{
+					Internal.m_bReceiveStreamShared = true;
+
+					Internal.m_nReceivedBytes += SharedData.f_GetLen();
+
+					umint iOffset = 0;
+					while (iOffset < SharedData.f_GetLen())
+					{
+						// Drop payload only after the close callback; disconnecting still needs the peer's close frame.
+						if (Internal.m_State == EState_Disconnected)
+							break;
+
+						if (Internal.m_nDirectReadRemaining)
+						{
+							umint nRemaining = (umint)Internal.m_nDirectReadRemaining;
+							umint nCopy = fg_Min(nRemaining, SharedData.f_GetLen() - iOffset);
+
+							if (Internal.m_bDirectReadToStorage)
+							{
+								// Retain views only within the interleave budget; larger gaps would pin more capacity than message size permits.
+								auto &Target = Internal.m_bPendingMessage ? Internal.m_PendingMessage : Internal.m_NextMessage;
+								if (Target.m_nInterleavedBytes > gc_MaxInterleavedBytes)
+									Target.m_Storage.f_AppendBytes(SharedData.f_GetArray() + iOffset, nCopy);
+								else
+									Target.m_Storage.f_AppendShared(NContainer::CSharedByteVector(SharedData, iOffset, nCopy));
+							}
+							else
+							{
+								auto &Dest = *Internal.m_pDirectReadData;
+								umint FrameLength = (umint)Internal.m_NextMessage.m_Length;
+								umint FillOffset = Internal.m_DirectReadFrameStart + FrameLength - nRemaining;
+								NMemory::fg_MemCopy(Dest.f_GetArray() + FillOffset, SharedData.f_GetArray() + iOffset, nCopy);
+							}
+
+							Internal.m_nDirectReadRemaining -= nCopy;
+							iOffset += nCopy;
+
+							if (!Internal.m_nDirectReadRemaining && !bDebugBank)
+							{
+								Internal.f_FinishDirectReadFrame();
+								if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
+									fp_UpdateSend();
+							}
+						}
+						else
+						{
+							// Feed small prefixes until the parser finds a data header, then let direct-read payload bypass the incoming pages.
+							umint nInsert = fg_Min(SharedData.f_GetLen() - iOffset, umint(4096));
+							Internal.m_IncomingData.f_InsertBack(SharedData.f_GetArray() + iOffset, nInsert);
+							iOffset += nInsert;
+
+							// Charge nonpayload gaps; subtract a frame's own prefix when direct reading begins.
+							if (Internal.m_bPendingMessage && !Internal.m_PendingMessage.m_Storage.f_IsEmpty())
+								Internal.m_PendingMessage.m_nInterleavedBytes += nInsert;
+
+							if (!bDebugBank)
+							{
+								fp_ProcessIncoming();
+								if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
+									fp_UpdateSend();
+							}
+						}
+
+						if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+						{
+							Internal.f_TryReleaseDeferredReceiveState();
+							return;
+						}
+					}
+				}
+				catch (NCryptography::CExceptionCryptography const &_Exception)
+				{
+					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+					return;
+				}
+				catch (NNetwork::CExceptionNet const &_Exception)
+				{
+					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+					return;
+				}
+
+				if (!bDebugBank)
+				{
+					Internal.f_OnReceivedData();
+					fp_DrainSocketOutput();
+				}
+
+				return;
+			}
+		}
+
+		// Resolve on the actor thread; one segment can cross framing and direct-payload destinations.
+		bool bResolvedSegment = _bHeldOnly;
+		bool bError = false;
+
+		try
+		{
+			for (;;)
+			{
+				// Terminals need no destination, including when they interrupt a storage-backed direct read.
+				void *pTarget = nullptr;
+				umint nTarget = 0;
+				bool bDirect = false;
+				if (!bTerminal)
+				{
+					bDirect = Internal.m_nDirectReadRemaining && Internal.m_State != EState_Disconnected;
+					DMibFastCheck(!Internal.m_bDirectReadToStorage);
+					if (bDirect)
+					{
+						auto &Dest = *Internal.m_pDirectReadData;
+						umint FrameLength = (umint)Internal.m_NextMessage.m_Length;
+						umint nRemaining = (umint)Internal.m_nDirectReadRemaining;
+						pTarget = Dest.f_GetArray() + Internal.m_DirectReadFrameStart + FrameLength - nRemaining;
+						nTarget = nRemaining;
+					}
+					else
+					{
+						if (Internal.m_ReceiveChunk.f_GetLen() != gc_ReceiveChunkSize)
+							Internal.m_ReceiveChunk.f_SetLen(gc_ReceiveChunkSize, false);
+						pTarget = Internal.m_ReceiveChunk.f_GetArray();
+						nTarget = gc_ReceiveChunkSize;
+					}
+				}
+
+				NSys::CIoCompletion Result;
+				bool bProduced;
+				if (!bResolvedSegment)
+				{
+					bProduced = Internal.m_pCompletionIo->f_ResolveReceiveSegment(Segment, pTarget, nTarget, Result);
+					bResolvedSegment = true;
+
+					if (bProduced && Result.m_Status == NSys::EIoCompletionStatus::mc_Error)
+					{
+						bError = true;
+						break;
+					}
+				}
+				else
+					bProduced = Internal.m_pCompletionIo->f_ResolveHeld(pTarget, nTarget, Result);
+
+				if (!bProduced || !Result.m_nBytes)
+					break;
+
+				DMibLog(DebugVerbose3, " ++++ {} {} Received stream bytes {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
+				Internal.m_nReceivedBytes += Result.m_nBytes;
+
+				// After the close callback, discard payload but continue draining for peer progress. Disconnecting still processes its close frame.
+				if (Internal.m_State == EState_Disconnected)
+					continue;
+
+				if (bDirect)
+				{
+					DMibFastCheck(Result.m_nBytes <= Internal.m_nDirectReadRemaining);
+					Internal.m_nDirectReadRemaining -= Result.m_nBytes;
+
+					if (!Internal.m_nDirectReadRemaining && !bDebugBank)
+					{
+						Internal.f_FinishDirectReadFrame();
+						if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
+							fp_UpdateSend();
+					}
+				}
+				else
+				{
+					Internal.m_IncomingData.f_InsertBack(Internal.m_ReceiveChunk.f_GetArray(), Result.m_nBytes);
+
+					if (!bDebugBank)
+					{
+						fp_ProcessIncoming();
+						if (Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
+							fp_UpdateSend();
+					}
+				}
+
+				if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+				{
+					Internal.f_TryReleaseDeferredReceiveState();
+					return;
+				}
+			}
+		}
+		catch (NCryptography::CExceptionCryptography const &_Exception)
+		{
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+			return;
+		}
+		catch (NNetwork::CExceptionNet const &_Exception)
+		{
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+			return;
+		}
+
+		// TLS close_notify can end the stream before kernel EOF. Release deferred close state now; the peer may wait for our alert before FIN.
+		if (!bTerminal && Internal.m_pCompletionIo->f_ReceiveStreamEndedByProtocol())
+		{
+			bTerminal = true;
+			Internal.m_bReceiveStreamActive = false;
+			Internal.m_bReceiveStreamEnded = true;
+		}
+
+		if (Segment.m_Status == NSys::EIoCompletionStatus::mc_Error)
+		{
+			fp_Disconnect
+				(
+					EWebSocketStatus_AbnormalClosure
+					, NStr::fg_Format("Socket receive error: {}", NNetwork::fg_FormatSocketIoError(Segment.m_Error))
+					, true
+					, EWebSocketCloseOrigin_Remote
+				)
+			;
+			return;
+		}
+
+		if (bError)
+		{
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, "Socket receive failed", true, EWebSocketCloseOrigin_Remote);
+			return;
+		}
+
+		if (bTerminal)
+		{
+			NNetwork::ENetTCPState DeferredStates = Internal.m_DeferredCloseStates;
+			Internal.m_DeferredCloseStates = NNetwork::ENetTCPState_None;
+			if (DeferredStates)
+				fp_ProcessState(DeferredStates);
+
+			Internal.f_TryReleaseDeferredReceiveState();
+			return;
+		}
+
+		if (!bDebugBank)
+		{
+			Internal.f_OnReceivedData();
+			fp_DrainSocketOutput();
+		}
+	}
+
+	void CWebSocketActor::fp_SendCompleted(NSys::CIoCompletion _Result, umint _iReservation)
+	{
+		auto &Internal = *mp_pInternal;
+		DMibFastCheck(Internal.m_nSendOpsInFlight);
+		--Internal.m_nSendOpsInFlight;
+
+		auto fReleaseReservation = [&]()
+			{
+				// Keep the reservation until the transport finishes or the same plaintext can be gathered twice. Continuations reserve no new bytes.
+				if (_iReservation == Internal.mc_iNoReservation)
+					return;
+
+				auto &Reservation = Internal.m_SendReservations[_iReservation];
+
+				if (!Reservation.m_nBytes)
+					return;
+
+				DMibFastCheck(Internal.m_nOutgoingSubmitted >= Reservation.m_nBytes);
+
+				Internal.m_nOutgoingSubmitted -= Reservation.m_nBytes;
+				Reservation.m_nBytes = 0;
+				Reservation.m_iNextFree = Internal.m_iFreeSendReservation;
+				Internal.m_iFreeSendReservation = uint32(_iReservation);
+				--Internal.m_nSendReservationsInUse;
+			}
+		;
+
+		if (f_IsDestroyed())
+			return;
+
+		// Resolve wire bytes to plaintext progress; pending transport records can require a continuation.
+		bool bSocketUsable = Internal.m_pSocket && Internal.m_pSocket->f_IsValid();
+		bool bResolved = true;
+		if (bSocketUsable && Internal.m_pCompletionIo)
+			bResolved = Internal.m_pCompletionIo->f_ResolveSend(_Result);
+
+		if (_Result.m_Status == NSys::EIoCompletionStatus::mc_Cancelled || !bSocketUsable)
+		{
+			Internal.m_nOutgoingSubmitted = 0;
+			Internal.f_ResetSendReservations();
+			Internal.f_TryReleaseDeferredReceiveState();
+			return;
+		}
+
+		if (!bResolved)
+		{
+			// The socket still holds these bytes, so the reservation travels to the operation that
+			// carries on with them
+			fp_SubmitSendOp(true, _iReservation);
+			return;
+		}
+
+		fReleaseReservation();
+
+		if (_Result.m_Status == NSys::EIoCompletionStatus::mc_Error)
+		{
+			fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket send error: {}", NNetwork::fg_FormatSocketIoError(_Result.m_Error)), true, EWebSocketCloseOrigin_Remote);
+			return;
+		}
+
+		DMibLog(DebugVerbose3, " ++++ {} {} Send completion {}", fg_ThisActor(this), !Internal.m_bClient, _Result.m_nBytes);
+
+		if (_Result.m_nBytes)
+		{
+			Internal.f_ConsumeSentBytes(_Result.m_nBytes);
+			Internal.f_OnSentData();
+		}
+
+		fp_UpdateSend();
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketActor::f_SendText(NStr::CStr _Data, uint32 _Priority)
@@ -828,16 +2235,33 @@ namespace NMib::NWeb
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
-		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, (uint8 const *)Data.f_GetStr(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
+		// Move the string into its retained owner before taking a span of its final storage.
+		NStorage::TCSharedPointer<TCPayloadOwner<NStr::CStr>> pStringOwner = fg_Construct(fg_Move(Data));
 
-		fp_UpdateSend();
+		// Read spans before moving the owner; function arguments have unspecified evaluation order.
+		auto Spans = fg_MakeSpanVector((uint8 const *)pStringOwner->m_Owner.f_GetStr(), nBytes);
+
+		auto &NewMessage = Internal.f_QueueViewMessage
+			(
+				EOpcode_TextFrame
+				, fg_Move(Spans)
+				, nBytes
+				, NStorage::TCSharedPointer<CPayloadOwner>(fg_Move(pStringOwner))
+				, _Priority
+			)
+		;
+
+		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
+
+		fp_ScheduleUpdateSend();
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector> _pMessage, uint32 _Priority)
+	// The future resolving means sent, not that the payload may change: zero-copy sends keep reading it until kernel release
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector const> _pMessage, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -859,16 +2283,26 @@ namespace NMib::NWeb
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
-		auto Future = (Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, Message.f_GetArray(), nBytes, _Priority).m_pPromise = fg_Construct())->f_Future();
+		auto &NewMessage = Internal.f_QueueViewMessage
+			(
+				EOpcode_TextFrame
+				, fg_MakeSpanVector(Message.f_GetArray(), nBytes)
+				, nBytes
+				, fg_Construct<TCPayloadOwner<NStorage::TCSharedPointer<CMaybeSecureByteVector const>>>(fg_Move(_pMessage))
+				, _Priority
+			)
+		;
 
-		fp_UpdateSend();
+		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
+
+		fp_ScheduleUpdateSend();
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers> _pMessageBuffers, uint32 _Priority)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers const> _pMessageBuffers, uint32 _Priority)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -907,6 +2341,9 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<void> Future;
 
+		// Retain one owner for every message sliced from the same buffer set.
+		NStorage::TCSharedPointer<CPayloadOwner> pBuffersOwner = fg_Construct<TCPayloadOwner<NStorage::TCSharedPointer<CMessageBuffers const>>>(fg_Move(_pMessageBuffers));
+
 		for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
 		{
 			bool bIsLastMessage = iMessage == (nMessages - 1);
@@ -919,24 +2356,32 @@ namespace NMib::NWeb
 			else
 				nBytes = pMessageMarkersArray[iMessage + 1] - iStart;
 
-			auto &OutMsg = Internal.f_QueueFragmentedMessage(EOpcode_TextFrame, pMessageArray + iStart, nBytes, _Priority);
+			auto &OutMsg = Internal.f_QueueViewMessage
+				(
+					EOpcode_TextFrame
+					, fg_MakeSpanVector(pMessageArray + iStart, nBytes)
+					, nBytes
+					, fg_TempCopy(pBuffersOwner)
+					, _Priority
+				)
+			;
 
 			if (bIsLastMessage)
 			{
 				// OK, assuming messages are sent in the order they are queued attaching the promise to the last message should
 				// behave as assumed.
-				Future = (OutMsg.m_pPromise = fg_Construct())->f_Future();
+				Future = OutMsg.m_Promise.f_CreateNew().f_Future();
 			}
 		}
 
-		fp_UpdateSend();
+		fp_ScheduleUpdateSend();
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -947,16 +2392,16 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Ping, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
-		auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
+		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
 
-		fp_UpdateSend();
+		fp_ScheduleUpdateSend();
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
@@ -967,17 +2412,48 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
 		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Pong, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
-		auto Future = (NewMessage.m_pPromise = fg_Construct())->f_Future();
+		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
 
-		fp_UpdateSend();
+		fp_ScheduleUpdateSend();
 
 		co_await NConcurrency::ECoroutineFlag_BreakSelfReference;
 
 		co_return co_await fg_Move(Future);
 	}
 
-	void CWebSocketActor::CInternal::f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished)
+	// Buffer release unblocks staging generations and queued plaintext.
+	void CWebSocketActor::fp_SendBufferReleased(umint _iTransfer, umint _nBytes)
 	{
+		auto &Internal = *mp_pInternal;
+
+		// The window asks measure against this; a teardown may have zeroed the count already
+		Internal.m_nSendBytesUnreleased -= fg_Min(_nBytes, Internal.m_nSendBytesUnreleased);
+
+		if (f_IsDestroyed())
+			return;
+
+		bool bSocketUsable = Internal.m_pSocket && Internal.m_pSocket->f_IsValid();
+		if (bSocketUsable && Internal.m_pCompletionIo)
+			Internal.m_pCompletionIo->f_ResolveSendRelease(_iTransfer);
+
+		if (!bSocketUsable)
+			return;
+
+		fp_UpdateSend();
+		fp_DrainSocketOutput();
+	}
+
+
+	// Partial frame construction cannot be rolled back; terminate rather than unwind after publishing incomplete framing.
+	void CWebSocketActor::CInternal::f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished) noexcept
+	{
+		umint LenBefore = m_OutgoingData.f_GetLen();
+		auto TrackBytes = g_OnScopeExit / [&]
+			{
+				f_TrackArenaBytes(m_OutgoingData.f_GetLen() - LenBefore);
+			}
+		;
+
 		CBinaryStreamPagedByteVector Stream(m_OutgoingData);
 
 		bool bMask = m_bClient && m_bMaskFrames;
@@ -1037,7 +2513,111 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CWebSocketActor::fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin)
+	// Unmasked frames retain payload spans; masking copies into the arena so the source remains immutable.
+	void CWebSocketActor::CInternal::f_SendMessageFrameSegmented(COutgoingMessage &_Message, umint _nFrameBytes) noexcept
+	{
+		umint nRemaining = _Message.m_nTotalBytes - _Message.m_iPayloadSent;
+		DMibFastCheck(_nFrameBytes <= nRemaining);
+
+		bool bLastFrame = _nFrameBytes == nRemaining;
+		EOpcode Opcode = _Message.m_iPayloadSent == 0 ? _Message.m_Opcode : EOpcode_ContinuationFrame;
+		bool bFinished = bLastFrame && _Message.m_bFinished;
+		bool bMask = m_bClient && m_bMaskFrames;
+
+		// Copy small frames to save span bookkeeping; masked frames always copy to preserve shared source bytes.
+		bool bCopyToArena = bMask || _nFrameBytes <= gc_CopySmallMessageThreshold;
+
+		uint8 Mask[4] = {0};
+		{
+			umint LenBefore = m_OutgoingData.f_GetLen();
+			CBinaryStreamPagedByteVector Stream(m_OutgoingData);
+
+			uint8 Header0 = 0;
+			if (bFinished)
+				Header0 |= uint8(0x01) << 7;
+			Header0 |= ((uint8)Opcode);
+
+			uint8 Header1 = 0;
+			if (bMask)
+				Header1 |= uint8(0x01) << 7;
+
+			if (_nFrameBytes >= 65536)
+				Header1 |= uint8(127);
+			else if (_nFrameBytes >= 126)
+				Header1 |= uint8(126);
+			else
+				Header1 |= uint8(_nFrameBytes);
+
+			Stream << Header0;
+			Stream << Header1;
+
+			if (_nFrameBytes >= 65536)
+				Stream << uint64(_nFrameBytes);
+			else if (_nFrameBytes >= 126)
+				Stream << uint16(_nFrameBytes);
+
+			if (bMask)
+			{
+				NCryptography::fg_GenerateRandomData(Mask, sizeof(Mask));
+				m_OutgoingData.f_InsertBack(Mask, sizeof(Mask));
+			}
+
+			f_TrackArenaBytes(m_OutgoingData.f_GetLen() - LenBefore);
+		}
+
+		umint FrameOffset = 0;
+		while (FrameOffset < _nFrameBytes)
+		{
+			NSys::CIoSpan const &Span = _Message.m_Spans[_Message.m_iSpan];
+			umint nSpanRemaining = Span.m_nBytes - _Message.m_iSpanOffset;
+			umint nThis = fg_Min(_nFrameBytes - FrameOffset, nSpanRemaining);
+			uint8 const *pSpanData = (uint8 const *)Span.m_pData + _Message.m_iSpanOffset;
+
+			if (bCopyToArena)
+			{
+				umint StartPos = m_OutgoingData.f_GetLen();
+				m_OutgoingData.f_InsertBack(pSpanData, nThis);
+				if (bMask)
+				{
+					umint MaskOffset = FrameOffset;
+					m_OutgoingData.f_Mutate
+						(
+							StartPos
+							, nThis
+							, [&](umint _iStart, uint8 *_pPtr, umint _nBytes) -> bool
+							{
+								fs_ApplyMask(_pPtr, MaskOffset + (_iStart - StartPos), _nBytes, Mask);
+								return true;
+							}
+						)
+					;
+				}
+				f_TrackArenaBytes(nThis);
+			}
+			else
+			{
+				auto &Segment = m_OutgoingSegments.f_Insert();
+				Segment.m_Kind = COutgoingSegment::EKind::mc_View;
+				Segment.m_pData = pSpanData;
+				Segment.m_nBytes = nThis;
+				Segment.m_pOwnerKeepAlive = _Message.m_pOwner;
+				m_pLastOutgoingSegment = &Segment;
+				m_nOutgoingQueuedBytes += nThis;
+			}
+
+			_Message.m_iSpanOffset += nThis;
+			if (_Message.m_iSpanOffset == Span.m_nBytes)
+			{
+				++_Message.m_iSpan;
+				_Message.m_iSpanOffset = 0;
+			}
+			FrameOffset += nThis;
+		}
+
+		_Message.m_iPayloadSent += _nFrameBytes;
+	}
+
+	void CWebSocketActor::fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin, bool _bRemoteTransportClosed)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -1045,6 +2625,9 @@ namespace NMib::NWeb
 		{
 			if (_bFatal)
 			{
+				// Fatal closure aborts retransmission so kernel-held pages release promptly.
+				if (Internal.m_pSocket)
+					Internal.m_pSocket->f_SetAbortOnClose();
 				Internal.m_pSocket.f_Clear();
 				Internal.f_ShutdownDone(_Reason);
 			}
@@ -1058,6 +2641,60 @@ namespace NMib::NWeb
 			if (!_bFatal && Internal.m_State == EState_Connected)
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 2 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
+
+				// Local close follows earlier messages through bounded framing. Remote close finishes only a started fragmented message,
+				// then replies promptly (RFC 6455 5.5.1); drop unstarted messages/pings but retain owed pongs.
+				if (_Origin == EWebSocketCloseOrigin_Remote && !Internal.m_PendingMessages.f_IsEmpty())
+				{
+					auto *pFragmentingList = Internal.m_pLastPendingMessagesList;
+
+					NContainer::TCVector<NContainer::TCLinkedList<COutgoingMessage> *> DropLists;
+					for (auto &List : Internal.m_PendingMessages)
+					{
+						if (&List == pFragmentingList)
+							continue;
+
+						if (Internal.m_PendingMessages.fs_GetKey(List) == TCLimitsInt<uint32>::mc_Max)
+							continue;
+
+						DropLists.f_InsertLast(&List);
+					}
+					for (auto *pList : DropLists)
+						Internal.m_PendingMessages.f_Remove(pList);
+
+					if (auto *pControlList = Internal.m_PendingMessages.f_FindEqual(TCLimitsInt<uint32>::mc_Max))
+					{
+						NContainer::TCVector<COutgoingMessage *> DropPings;
+						for (auto &Message : *pControlList)
+						{
+							if (Message.m_Opcode == EOpcode_Ping)
+								DropPings.f_InsertLast(&Message);
+						}
+						for (auto *pMessage : DropPings)
+							pControlList->f_Remove(*pMessage);
+
+						if (pControlList->f_IsEmpty())
+							Internal.m_PendingMessages.f_Remove(pControlList);
+					}
+
+					if (pFragmentingList)
+					{
+						NContainer::TCVector<COutgoingMessage *> DropMessages;
+						bool bProtected = true;
+						for (auto &Message : *pFragmentingList)
+						{
+							if (bProtected)
+							{
+								bProtected = !Message.m_bFinished;
+								continue;
+							}
+
+							DropMessages.f_InsertLast(&Message);
+						}
+						for (auto *pMessage : DropMessages)
+							pFragmentingList->f_Remove(*pMessage);
+					}
+				}
 
 				if (_Status != EWebSocketStatus_NoStatusReceived)
 				{
@@ -1076,14 +2713,16 @@ namespace NMib::NWeb
 					if (ReasonLen != 0)
 						Stream.f_FeedBytes(Reason.f_GetStr(), Reason.f_GetLen());
 
-					auto Data = Stream.f_MoveVector();
-					Internal.f_SendMessage(EOpcode_ConnectionClose, Data.f_GetArray(), Data.f_GetLen(), true);
+					Internal.m_CloseFramePayload = Stream.f_MoveVector();
 				}
 				else
 				{
 					DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 4 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
-					Internal.f_SendMessage(EOpcode_ConnectionClose, nullptr, 0, true);
+					Internal.m_CloseFramePayload.f_Clear();
 				}
+
+				Internal.m_bCloseFramePending = true;
+				Internal.f_WriteCloseFrameWhenDrained();
 
 				Internal.m_State = EState_Disconnecting;
 				fp_UpdateSend();
@@ -1093,11 +2732,11 @@ namespace NMib::NWeb
 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 5 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 				Internal.m_CloseInfo.m_Status = _Status;
 				Internal.m_CloseInfo.m_Reason = _Reason;
-				if (Internal.m_pClosePromise)
+				if (Internal.m_ClosePromise)
 				{
 					DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 6 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
-					Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
-					Internal.m_pClosePromise.f_Clear();
+					Internal.m_ClosePromise->f_SetResult(Internal.m_CloseInfo);
+					Internal.m_ClosePromise.f_Clear();
 				}
 				if (!Internal.m_bOnCloseCalled)
 				{
@@ -1114,20 +2753,67 @@ namespace NMib::NWeb
 					{
 						DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 9 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 						Internal.m_State = EState_Disconnected;
-						Internal.f_StopTimeout();
-						if (Internal.m_PendingMessages.f_IsEmpty() && Internal.m_OutgoingData.f_IsEmpty())
+						fp_ReleaseDeferredCloseStates();
+
+						// Transport loss leaves no event to drive queued frames; reject them and attempt the close best effort.
+						// A received close frame still follows the graceful incremental drain.
+						if (_bRemoteTransportClosed)
 						{
+							Internal.m_PendingMessages.f_Clear();
+							Internal.m_pLastPendingMessagesList = nullptr;
+
+							if (Internal.m_bCloseFramePending)
+							{
+								Internal.m_bCloseFramePending = false;
+								NContainer::CByteVector Payload = fg_Move(Internal.m_CloseFramePayload);
+								Internal.f_SendMessage(EOpcode_ConnectionClose, Payload.f_GetArray(), Payload.f_GetLen(), true);
+								fp_UpdateSend();
+							}
+
+							// Delay write shutdown until the close frame drains; retain its progress timeout.
+							if (!Internal.m_nOutgoingQueuedBytes)
+							{
+								Internal.f_StopTimeout();
+								DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 1b {}", fg_ThisActor(this), !Internal.m_bClient);
+								fp_Shutdown();
+							}
+						}
+						else if (Internal.m_PendingMessages.f_IsEmpty() && !Internal.m_nOutgoingQueuedBytes && !Internal.m_bCloseFramePending)
+						{
+							Internal.f_StopTimeout();
 							DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 1 {}", fg_ThisActor(this), !Internal.m_bClient);
 							fp_Shutdown();
+						}
+						else
+						{
+							// Keep the drain timeout until shutdown completes; the peer can stop reading after sending close.
 						}
 					}
 					else if (WasState == EState_Disconnecting)
 					{
 						DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 10 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 						Internal.m_State = EState_Disconnected;
-						Internal.f_StopTimeout();
-						DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 2 {}", fg_ThisActor(this), !Internal.m_bClient);
-						fp_Shutdown();
+						fp_ReleaseDeferredCloseStates();
+
+						// Drop undeliverable messages before the close reply so no payload follows close. A close may interrupt a fragment sequence.
+						if (Internal.m_bCloseFramePending)
+						{
+							Internal.m_PendingMessages.f_Clear();
+							Internal.m_pLastPendingMessagesList = nullptr;
+
+							Internal.m_bCloseFramePending = false;
+							NContainer::CByteVector Payload = fg_Move(Internal.m_CloseFramePayload);
+							Internal.f_SendMessage(EOpcode_ConnectionClose, Payload.f_GetArray(), Payload.f_GetLen(), true);
+							fp_UpdateSend();
+						}
+
+						// Delay write shutdown until the close reply drains; retain its progress timeout.
+						if (!Internal.m_nOutgoingQueuedBytes)
+						{
+							Internal.f_StopTimeout();
+							DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 2 {}", fg_ThisActor(this), !Internal.m_bClient);
+							fp_Shutdown();
+						}
 					}
 					return;
 				}
@@ -1169,11 +2855,11 @@ namespace NMib::NWeb
 			DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 14 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 			Internal.m_CloseInfo.m_Status = _Status;
 			Internal.m_CloseInfo.m_Reason = fg_Format("Abnormal closure: {}", _Reason);
-			if (Internal.m_pClosePromise)
+			if (Internal.m_ClosePromise)
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 15 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
-				Internal.m_pClosePromise->f_SetResult(Internal.m_CloseInfo);
-				Internal.m_pClosePromise.f_Clear();
+				Internal.m_ClosePromise->f_SetResult(Internal.m_CloseInfo);
+				Internal.m_ClosePromise.f_Clear();
 			}
 			if (!Internal.m_bOnCloseCalled)
 			{
@@ -1182,6 +2868,8 @@ namespace NMib::NWeb
 				Internal.m_fOnClose.f_CallDiscard(_Status, _Reason, _Origin);
 			}
 
+			if (Internal.m_pSocket)
+				Internal.m_pSocket->f_SetAbortOnClose();
 			Internal.m_pSocket.f_Clear();
 			Internal.f_ShutdownDone(_Reason);
 		}
@@ -1189,6 +2877,19 @@ namespace NMib::NWeb
 		DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 17 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
 		Internal.m_State = EState_Disconnected;
 		Internal.f_StopTimeout();
+		fp_ReleaseDeferredCloseStates();
+	}
+
+	// Release deferred close state once the handshake ends; route reentry through active state processing.
+	void CWebSocketActor::fp_ReleaseDeferredCloseStates()
+	{
+		auto &Internal = *mp_pInternal;
+		if (!Internal.m_DeferredCloseStates)
+			return;
+
+		NNetwork::ENetTCPState DeferredStates = Internal.m_DeferredCloseStates;
+		Internal.m_DeferredCloseStates = NNetwork::ENetTCPState_None;
+		fp_ProcessState(DeferredStates);
 	}
 
 	void CWebSocketActor::fp_Shutdown()
@@ -1200,6 +2901,9 @@ namespace NMib::NWeb
 			{
 				Internal.m_pSocket->f_Shutdown();
 				Internal.m_bShutdownCalled = true;
+
+				// A TLS socket under completion sends leaves its close alert for the drain to carry
+				fp_DrainSocketOutput();
 			}
 		}
 		catch (NCryptography::CExceptionCryptography const &_Error)
@@ -1225,87 +2929,111 @@ namespace NMib::NWeb
 
 		if (Internal.m_State == EState_Connected)
 			Internal.f_WriteQueuedMessages(false);
-		else if (Internal.m_State == EState_Disconnecting)
-			Internal.f_WriteQueuedMessages(true);
+		else if ((Internal.m_State == EState_Disconnecting || Internal.m_State == EState_Disconnected) && Internal.m_bCloseFramePending)
+		{
+			// Keep teardown framing bounded; after the close frame, later messages must remain off the wire and reject at destruction.
+			Internal.f_WriteQueuedMessages(false);
+			Internal.f_WriteCloseFrameWhenDrained();
+		}
 
 #if DMibConfig_Tests_Enable
 		if (Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingSend)
 			return;
 #endif
 
-		bool bDidSend = false;
-		while (!Internal.m_OutgoingData.f_IsEmpty() && Internal.m_pSocket->f_IsValid())
+		// Choose completion I/O per direction; readiness sends still need write edges to finish short transfers.
+		if (auto *pCompletionIoSend = Internal.f_GetCompletionIoSend())
 		{
+			// Submit while the staging gate permits, preserving order; continuations still resolve through fp_SendCompleted.
+			while (Internal.m_pSocket->f_IsValid() && pCompletionIoSend->f_CanSubmitSend() && Internal.m_nOutgoingQueuedBytes > Internal.m_nOutgoingSubmitted)
+			{
+				umint nBefore = Internal.m_nOutgoingSubmitted;
+				fp_SubmitSendOp();
+				if (Internal.m_nOutgoingSubmitted == nBefore)
+					break;
+
+				if (Internal.m_State == EState_Connected)
+					Internal.f_WriteQueuedMessages(false);
+				else if ((Internal.m_State == EState_Disconnecting || Internal.m_State == EState_Disconnected) && Internal.m_bCloseFramePending)
+				{
+					Internal.f_WriteQueuedMessages(false);
+					Internal.f_WriteCloseFrameWhenDrained();
+				}
+			}
+
+			// An empty payload queue can still owe a close frame or final shutdown.
+			if (Internal.m_State == EState_Disconnected && !Internal.m_nOutgoingQueuedBytes && !Internal.m_bCloseFramePending)
+				fp_Shutdown();
+
+			fp_DrainSocketOutput();
+
+			return;
+		}
+
+		bool bDidSend = false;
+		while (Internal.m_nOutgoingQueuedBytes && Internal.m_pSocket->f_IsValid())
+		{
+			NSys::CIoSpan Spans[NNetwork::ICSocket::mc_MaxSendSpans];
+			umint nSpans = 0;
+			NContainer::TCVector<NStorage::TCSharedPointer<CPayloadOwner>> KeepAlives;
+			NStorage::TCSharedPointer<NContainer::CIOByteVector> pArenaCopy;
+			umint nGatheredBytes = Internal.f_GatherSendSpans(Spans, nSpans, KeepAlives, pArenaCopy);
+			if (!nGatheredBytes)
+				break;
+
 			umint SentBytes = 0;
 			bool bStuffed = false;
 			bool bDisconnected = false;
 			NNetwork::CSocketOperationResult CombinedResults;
-			Internal.m_OutgoingData.f_ReadFront
-				(
-					[&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
-					{
-						try
-						{
-							bDidSend = true;
-							NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Send(_pPtr, _nBytes);
-							DMibLog(DebugVerbose3, " ++++ {} {} Sending {} resulted in {} sent", fg_ThisActor(this), !Internal.m_bClient, _nBytes, Result.m_nBytes);
+			try
+			{
+				bDidSend = true;
+				NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_SendVectored(Spans, nSpans);
+				DMibLog(DebugVerbose3, " ++++ {} {} Sending {} resulted in {} sent", fg_ThisActor(this), !Internal.m_bClient, nGatheredBytes, Result.m_nBytes);
+#if DMibConfig_IoDebug_Enable
+				if (auto *pStats = NNetwork::fg_NetIoStats())
+				{
+					pStats->m_nSendReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nSendReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+				}
+#endif
 
-							CombinedResults += Result;
+				CombinedResults += Result;
 
-							SentBytes += Result.m_nBytes;
-							if (Result.m_nBytes != _nBytes)
-							{
-								bStuffed = true;
-								return false;
-							}
-							return true;
-						}
-						catch (NCryptography::CExceptionCryptography const &_Error)
-						{
-							fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
-							bDisconnected = true;
-							return false;
-						}
-						catch (NNetwork::CExceptionNet const &_Error)
-						{
-							fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
-							bDisconnected = true;
-							return false;
-						}
-					}
-				)
-			;
+				SentBytes = Result.m_nBytes;
+				if (SentBytes != nGatheredBytes)
+					bStuffed = true;
+			}
+			catch (NCryptography::CExceptionCryptography const &_Error)
+			{
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+				bDisconnected = true;
+			}
+			catch (NNetwork::CExceptionNet const &_Error)
+			{
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket exception: {}", _Error.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
+				bDisconnected = true;
+			}
+
 			if (CombinedResults.m_bSentNetwork)
 				Internal.f_OnSentData();
 			if (CombinedResults.m_bReceivedNetwork)
 				Internal.f_OnReceivedData();
 
-			uint64 PrevSent = Internal.m_nSentBytes;
-			Internal.m_nSentBytes += SentBytes;
+			Internal.f_ConsumeSentBytes(SentBytes);
 
-			while (!Internal.m_OutgoingDataPromises.empty())
-			{
-				auto &Promise = Internal.m_OutgoingDataPromises.front();
-				uint64 Diff = Promise.m_Position - PrevSent;
-				if (Diff <= SentBytes)
-				{
-					Promise.m_pPromise->f_SetResult();
-					Promise.m_pPromise.f_Clear();
-					Internal.m_OutgoingDataPromises.pop_front();
-					continue;
-				}
-				break;
-			}
-
-			Internal.m_OutgoingData.f_RemoveFront(SentBytes);
 			if (bDisconnected)
 				break;
 			if (bStuffed)
 				break;
 			if (Internal.m_State == EState_Connected)
 				Internal.f_WriteQueuedMessages(false);
-			else if (Internal.m_State == EState_Disconnecting)
-				Internal.f_WriteQueuedMessages(true);
+			else if ((Internal.m_State == EState_Disconnecting || Internal.m_State == EState_Disconnected) && Internal.m_bCloseFramePending)
+			{
+				// Emit the parked close when backlog drains here; no later write edge may arrive.
+				Internal.f_WriteQueuedMessages(false);
+				Internal.f_WriteCloseFrameWhenDrained();
+			}
 		}
 
 		if (!bDidSend && Internal.m_pSocket && Internal.m_pSocket->f_IsValid())
@@ -1317,7 +3045,7 @@ namespace NMib::NWeb
 				Internal.f_OnReceivedData();
 		}
 
-		if (Internal.m_State == EState_Disconnected && Internal.m_OutgoingData.f_IsEmpty())
+		if (Internal.m_State == EState_Disconnected && !Internal.m_nOutgoingQueuedBytes && !Internal.m_bCloseFramePending)
 		{
 			DMibLog(DebugVerbose3, " ++++ {} {} fp_Shutdown 3 {}", fg_ThisActor(this), !Internal.m_bClient);
 			fp_Shutdown();
@@ -1555,11 +3283,6 @@ namespace NMib::NWeb
 			Message.m_bHeaderFinished = true;
 		}
 
-		umint nBytesAvailable = Internal.m_IncomingData.f_GetLen();
-
-		if (nBytesAvailable < Length)
-			return false;
-
 		bool bControlMessage = false;
 		switch (Header.m_Opcode)
 		{
@@ -1602,11 +3325,113 @@ namespace NMib::NWeb
 			return false;
 		}
 
+		// Bound advertised data-frame length before reserving direct-read memory.
+		if (!bControlMessage && Length > uint64(Internal.m_Settings.m_MaxFragmentSize))
+		{
+			fp_Disconnect(EWebSocketStatus_MessageTooBig, "Frame is bigger than the maximum fragment size", false, EWebSocketCloseOrigin_Local);
+			return false;
+		}
+
+		umint nBytesAvailable = Internal.m_IncomingData.f_GetLen();
+
+		if (!bControlMessage && Length >= gc_DirectReadThreshold && nBytesAvailable < Length)
+		{
+			auto &Target = Internal.m_bPendingMessage ? Internal.m_PendingMessage : Message;
+
+			// Only unmasked binary frames can retain stream views; masking requires writable contiguous payload.
+			bool bBinaryMessage =
+				(Internal.m_bPendingMessage ? Target.m_Header.m_Opcode : Header.m_Opcode) == EOpcode_BinaryFrame
+			;
+			if (bBinaryMessage && !Header.m_bMask && Internal.m_bReceiveStreamShared)
+			{
+				umint iStart = Target.m_Data.f_GetLen() + umint(Target.m_Storage.f_GetTotalLength());
+				if (iStart > Internal.m_Settings.m_MaxMessageSize || Length > uint64(Internal.m_Settings.m_MaxMessageSize - iStart))
+				{
+					fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
+					return false;
+				}
+
+				// Flush earlier contiguous fragments and the buffered prefix before appending new views.
+				Target.f_FlushDataToStorage();
+
+				if (nBytesAvailable)
+				{
+					// Share the copied prefix so payload consumers can retain subviews.
+					uint8 *pPrefix;
+					NContainer::CSharedByteVector Prefix = NContainer::CSharedByteVector::fs_AllocateExact(nBytesAvailable, pPrefix);
+					Internal.m_IncomingData.f_ReadFront
+						(
+							nBytesAvailable
+							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
+							{
+								NMemory::fg_MemCopy(pPrefix + _iStart, _pData, _nBytes);
+								return _iStart + _nBytes < nBytesAvailable;
+							}
+						)
+					;
+					Internal.m_IncomingData.f_RemoveFront(nBytesAvailable);
+					Target.m_Storage.f_AppendShared(fg_Move(Prefix));
+				}
+
+				// The prefix went through the pages as payload, not as something between fragments
+				Target.m_nInterleavedBytes -= fg_Min(Target.m_nInterleavedBytes, nBytesAvailable);
+
+				Internal.m_pDirectReadData = nullptr;
+				Internal.m_DirectReadFrameStart = 0;
+				Internal.m_nDirectReadRemaining = Length - nBytesAvailable;
+				Internal.m_bDirectReadToStorage = true;
+
+				return false; // The receive loop completes the payload
+			}
+
+			// Count storage-backed fragments toward the whole-message limit; copy offsets remain relative to the contiguous buffer.
+			auto &Dest = Target.m_Data;
+			umint iStart = Dest.f_GetLen();
+			umint nMessageBytes = iStart + umint(Target.m_Storage.f_GetTotalLength());
+			if (nMessageBytes > Internal.m_Settings.m_MaxMessageSize || Length > uint64(Internal.m_Settings.m_MaxMessageSize - nMessageBytes))
+			{
+				fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
+				return false;
+			}
+
+			// Use geometric f_SetLen growth for amortized assembly. The frame limit bounds speculative allocation,
+			// including Windows commit charges when a peer stalls after advertising length.
+			umint NeededLen = umint(iStart + Length);
+			Dest.f_SetLen(NeededLen, false);
+
+			if (nBytesAvailable)
+			{
+				uint8 *pFrame = Dest.f_GetArray() + iStart;
+				Internal.m_IncomingData.f_ReadFront
+					(
+						nBytesAvailable
+						, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
+						{
+							NMemory::fg_MemCopy(pFrame + _iStart, _pData, _nBytes);
+							return _iStart + _nBytes < nBytesAvailable;
+						}
+					)
+				;
+				Internal.m_IncomingData.f_RemoveFront(nBytesAvailable);
+			}
+
+			Internal.m_pDirectReadData = &Dest;
+			Internal.m_DirectReadFrameStart = iStart;
+			Internal.m_nDirectReadRemaining = Length - nBytesAvailable;
+
+			return false; // The receive loop completes the payload
+		}
+
+		if (nBytesAvailable < Length)
+			return false;
+
 		uint8 *pMaskStart;
 		if (Internal.m_bPendingMessage && !bControlMessage)
 		{
+			// Storage-backed fragments count toward the message limit; mask offsets stay relative to the contiguous buffer.
 			umint iStart = Internal.m_PendingMessage.m_Data.f_GetLen();
-			if (iStart + Length > uint64(Internal.m_Settings.m_MaxMessageSize))
+			umint nMessageBytes = iStart + umint(Internal.m_PendingMessage.m_Storage.f_GetTotalLength());
+			if (nMessageBytes > Internal.m_Settings.m_MaxMessageSize || Length > uint64(Internal.m_Settings.m_MaxMessageSize - nMessageBytes))
 			{
 				fp_Disconnect(EWebSocketStatus_MessageTooBig, "Unsupported message length", false, EWebSocketCloseOrigin_Local);
 				return false;
@@ -1673,6 +3498,42 @@ namespace NMib::NWeb
 			Message = CMessage();
 		}
 		return true;
+	}
+
+	void CWebSocketActor::CInternal::f_FinishDirectReadFrame()
+	{
+		auto &Message = m_NextMessage;
+		CHeader &Header = Message.m_Header;
+
+		// Storage-backed direct reads are unmasked; only contiguous payload needs the mask pass.
+		if (Header.m_bMask)
+			fs_ApplyMask(m_pDirectReadData->f_GetArray() + m_DirectReadFrameStart, 0, Message.m_Length, Message.m_Mask);
+
+		m_pDirectReadData = nullptr;
+		m_DirectReadFrameStart = 0;
+		m_bDirectReadToStorage = false;
+
+		if (Header.m_bFinalFragment)
+		{
+			if (m_bPendingMessage)
+			{
+				f_HandleDataMessage(m_PendingMessage);
+				m_bPendingMessage = false;
+				m_PendingMessage = CMessage();
+			}
+			else
+				f_HandleDataMessage(Message);
+			Message = CMessage();
+		}
+		else
+		{
+			if (!m_bPendingMessage)
+			{
+				m_bPendingMessage = true;
+				m_PendingMessage = fg_Move(Message);
+			}
+			Message = CMessage();
+		}
 	}
 
 	void CWebSocketActor::CInternal::f_HandleControlMessage(CMessage &_Message)
@@ -1776,7 +3637,12 @@ namespace NMib::NWeb
 			{
 				DMibLog(DebugVerbose3, " ++++ {} {} call m_OnReceiveBinaryMessage", fg_ThisActor(m_pThis), !m_bClient);
 				if (m_fOnReceiveBinaryMessage.f_ShouldCall())
-					m_fOnReceiveBinaryMessage.f_CallDiscard(fg_Construct(fg_Move(_Message.m_Data)));
+				{
+					_Message.f_FlushDataToStorage();
+
+					NStorage::TCSharedPointer<NStream::CBinaryStorage> pStorage = fg_Construct(fg_Move(_Message.m_Storage));
+					m_fOnReceiveBinaryMessage.f_CallDiscard(pStorage.f_ShareAsConst());
+				}
 			}
 			break;
 		default:
@@ -1888,10 +3754,23 @@ namespace NMib::NWeb
 										ConnectionInfo.m_Protocol = *pProtocol;
 									}
 								}
+
+								// Stop masking only after the server accepts the offered extension.
+								if (Internal.m_Settings.m_bNegotiateUnmaskedFrames)
+								{
+									auto pExtensions = EntityFields.f_GetUnknownField("Sec-WebSocket-Extensions");
+									if (pExtensions && fg_ContainsExtension(*pExtensions, gc_pUnmaskedFramesExtension))
+										Internal.m_bMaskFrames = false;
+								}
 								if (Internal.m_pSocket)
 									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
+								ConnectionInfo.m_FragmentationSize = Internal.m_Settings.m_FragmentationSize;
+								ConnectionInfo.m_MaxFragmentSize = Internal.m_Settings.m_MaxFragmentSize;
 								Internal.m_State = EState_Connected;
+
+								// Let the enclosing readiness drain consume buffered input before arming the receive stream.
+								fp_TryActivateCompletionIo(false);
 
 								Internal.f_FinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 								bMoreWork = true;
@@ -1978,6 +3857,11 @@ namespace NMib::NWeb
 									break;
 								}
 
+								{
+									auto *pExtensions = EntityFields.f_GetUnknownField("Sec-WebSocket-Extensions");
+									Internal.m_bPeerOfferedUnmasked = pExtensions && fg_ContainsExtension(*pExtensions, gc_pUnmaskedFramesExtension);
+								}
+
 								auto *pProtocol = EntityFields.f_GetUnknownField("Sec-WebSocket-Protocol");
 								if (pProtocol)
 								{
@@ -1994,6 +3878,8 @@ namespace NMib::NWeb
 								if (Internal.m_pSocket)
 									ConnectionInfo.m_pSocketInfo = Internal.m_pSocket->f_GetConnectionInfo();
 								ConnectionInfo.m_PeerAddress = Internal.m_PeerAddress;
+								ConnectionInfo.m_FragmentationSize = Internal.m_Settings.m_FragmentationSize;
+								ConnectionInfo.m_MaxFragmentSize = Internal.m_Settings.m_MaxFragmentSize;
 
 								Internal.f_FinishConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 								bMoreWork = true;
@@ -2156,9 +4042,10 @@ namespace NMib::NWeb
 
 		Response.f_SetOutputMethod
 			(
-				[&](uint8 const *_pData, umint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes) noexcept
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
+					Internal.f_TrackArenaBytes(_nBytes);
 				}
 			)
 		;
@@ -2173,6 +4060,13 @@ namespace NMib::NWeb
 		if (!_Protocol.f_IsEmpty())
 			EntityFields.f_SetUnknownField("Sec-WebSocket-Protocol", _Protocol);
 
+		// Accept the extension only when both configured locally and offered by the client.
+		if (Internal.m_Settings.m_bNegotiateUnmaskedFrames && Internal.m_bPeerOfferedUnmasked)
+		{
+			EntityFields.f_SetUnknownField("Sec-WebSocket-Extensions", gc_pUnmaskedFramesExtension);
+			Internal.m_bMaskFrames = false;
+		}
+
 		NCryptography::CHash_SHA1 Hash;
 		Hash.f_AddData(Internal.m_Key.f_GetStr(), Internal.m_Key.f_GetLen());
 		Hash.f_AddData("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36);
@@ -2186,6 +4080,8 @@ namespace NMib::NWeb
 		Response.f_Complete();
 
 		Internal.m_State = EState_Connected;
+
+		fp_TryActivateCompletionIo(true);
 
 		fp_UpdateSend();
 
@@ -2207,9 +4103,10 @@ namespace NMib::NWeb
 
 		Response.f_SetOutputMethod
 			(
-				[&](uint8 const *_pData, umint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes) noexcept
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
+					Internal.f_TrackArenaBytes(_nBytes);
 				}
 			)
 		;
@@ -2237,21 +4134,63 @@ namespace NMib::NWeb
 		if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid() || f_IsDestroyed())
 			return;
 
+		if
+		(
+			Internal.m_bReceiveStreamActive && !Internal.m_bReceiveStreamEnded
+			&& Internal.m_State != EState_Disconnected
+			&& (_StateAdded & (NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed))
+		)
+		{
+			// Poll close state can overtake the peer's close frame; defer until stream terminal.
+			// After the close handshake, stop waiting: retained consumer buffers may prevent kernel terminal delivery.
+			Internal.m_DeferredCloseStates = Internal.m_DeferredCloseStates | (_StateAdded & (NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed));
+			_StateAdded = _StateAdded & ~(NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed);
+
+			if (!_StateAdded)
+				return;
+		}
+
 		if (_StateAdded & NNetwork::ENetTCPState_Closed)
 		{
 			DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_Closed", fg_ThisActor(this), !Internal.m_bClient);
 
-			if (Internal.m_State != EState_Disconnected)
-				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+			if (Internal.m_State == EState_Disconnecting)
+			{
+				// Drain readable bytes before hangup because both can share one unordered event batch containing the close frame.
+				_StateAdded |= NNetwork::ENetTCPState_Read;
+			}
 			else
 			{
-				Internal.m_pSocket.f_Clear();
-				Internal.f_ShutdownDone(NStr::CStr());
+				if (Internal.m_State != EState_Disconnected)
+					fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+				else
+				{
+					Internal.m_pSocket.f_Clear();
+					Internal.f_ShutdownDone(NStr::CStr());
+				}
+				return;
 			}
-			return;
 		}
 
 		if
+		(
+			(_StateAdded & NNetwork::ENetTCPState_Read)
+			&& Internal.f_GetCompletionIoReceive()
+#if DMibConfig_Tests_Enable
+			&& !(Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive)
+#endif
+		)
+		{
+			// Finish banked direct-read payload before parsing more input; never overlap readiness reads with the stream.
+			if ((Internal.m_pDirectReadData || Internal.m_bDirectReadToStorage) && !Internal.m_nDirectReadRemaining)
+				Internal.f_FinishDirectReadFrame();
+
+			if (!Internal.m_IncomingData.f_IsEmpty())
+				fp_ProcessIncoming();
+
+			fp_StartReceiveStream();
+		}
+		else if
 		(
 			(_StateAdded & NNetwork::ENetTCPState_Read)
 #if DMibConfig_Tests_Enable
@@ -2262,18 +4201,64 @@ namespace NMib::NWeb
 			DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_Read", fg_ThisActor(this), !Internal.m_bClient);
 
 			NNetwork::CSocketOperationResult CombinedResults;
-			uint8 Data[16384];
 			try
 			{
 				while (true)
 				{
-					umint Size = 16384;
-					NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Data, Size);
-					CombinedResults += Result;
-					if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
-						break;
+					if (Internal.m_nDirectReadRemaining)
+					{
+						// Direct reads stop at the payload boundary so the next header enters the framing buffer.
+						auto &Dest = *Internal.m_pDirectReadData;
+						umint FrameLength = (umint)Internal.m_NextMessage.m_Length;
+						umint nRemaining = (umint)Internal.m_nDirectReadRemaining;
+						umint FillOffset = Internal.m_DirectReadFrameStart + FrameLength - nRemaining;
+						NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Dest.f_GetArray() + FillOffset, nRemaining);
+						CombinedResults += Result;
+#if DMibConfig_IoDebug_Enable
+						if (auto *pStats = NNetwork::fg_NetIoStats())
+						{
+							pStats->m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+						}
+#endif
+						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
+							break;
+						DMibLog(DebugVerbose3, " ++++ {} {} Received direct data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
+						Internal.m_nReceivedBytes += Result.m_nBytes;
+						Internal.m_nDirectReadRemaining -= Result.m_nBytes;
+
+						if (Internal.m_nDirectReadRemaining)
+							continue;
+
+						Internal.f_FinishDirectReadFrame();
+						if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+							return;
+
+						fp_UpdateSend();
+						if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
+							return;
+
+						continue;
+					}
+
+					// Use a larger bounce buffer when the page tail is small to avoid shrinking each receive syscall.
+					NNetwork::CSocketOperationResult Result;
+					{
+						uint8 Bounce[gc_ReceiveChunkSize];
+						Result = Internal.m_pSocket->f_Receive(Bounce, gc_ReceiveChunkSize);
+						CombinedResults += Result;
+#if DMibConfig_IoDebug_Enable
+						if (auto *pStats = NNetwork::fg_NetIoStats())
+						{
+							pStats->m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+						}
+#endif
+						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
+							break;
+						Internal.m_IncomingData.f_InsertBack(Bounce, Result.m_nBytes);
+					}
 					DMibLog(DebugVerbose3, " ++++ {} {} Received data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
-					Internal.m_IncomingData.f_InsertBack(Data, Result.m_nBytes);
 					Internal.m_nReceivedBytes += Result.m_nBytes;
 
 					fp_ProcessIncoming();
@@ -2283,6 +4268,13 @@ namespace NMib::NWeb
 					fp_UpdateSend();
 					if (!Internal.m_pSocket || !Internal.m_pSocket->f_IsValid())
 						return;
+
+					// Processing can activate completion I/O; leave the readiness loop before another receive overlaps it.
+					if (Internal.f_GetCompletionIoReceive())
+					{
+						fp_StartReceiveStream();
+						break;
+					}
 				}
 			}
 			catch (NCryptography::CExceptionCryptography const& _Exception)
@@ -2301,6 +4293,19 @@ namespace NMib::NWeb
 				Internal.f_OnSentData();
 		}
 
+		if (_StateAdded & NNetwork::ENetTCPState_Closed)
+		{
+			// Only the drain-first path reaches here; a close frame may already have completed disconnect.
+			if (Internal.m_State != EState_Disconnected)
+				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), true, EWebSocketCloseOrigin_Remote);
+			else
+			{
+				Internal.m_pSocket.f_Clear();
+				Internal.f_ShutdownDone(NStr::CStr());
+			}
+			return;
+		}
+
 		if (_StateAdded & NNetwork::ENetTCPState_RemoteClosed)
 		{
 			if (Internal.m_State <= EState_Connected)
@@ -2308,7 +4313,15 @@ namespace NMib::NWeb
 				if (Internal.m_State == EState_Connected)
 				{
 					DMibLog(DebugVerbose3, " ++++ {} {} ENetTCPState_RemoteClosed 1", fg_ThisActor(this), !Internal.m_bClient);
-					fp_Disconnect(Internal.m_CloseInfo.m_Status == EWebSocketStatus_None ? EWebSocketStatus_AbnormalClosure : EWebSocketStatus_NormalClosure, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason()), false, EWebSocketCloseOrigin_Remote);
+					fp_Disconnect
+						(
+							Internal.m_CloseInfo.m_Status == EWebSocketStatus_None ? EWebSocketStatus_AbnormalClosure : EWebSocketStatus_NormalClosure
+							, NStr::fg_Format("Socket closed: {}", Internal.m_pSocket->f_GetCloseReason())
+							, false
+							, EWebSocketCloseOrigin_Remote
+							, true
+						)
+					;
 				}
 				else
 				{
@@ -2325,6 +4338,7 @@ namespace NMib::NWeb
 						, NStr::fg_Format("No close frame received while disconnecting. Socket closed: {}", Internal.m_pSocket->f_GetCloseReason())
 						, false
 						, EWebSocketCloseOrigin_Remote
+						, true
 					)
 				;
 			}
@@ -2345,6 +4359,13 @@ namespace NMib::NWeb
 
 		DMibFastCheck(!Internal.m_pSocket);
 		Internal.m_pSocket = fg_Move(_pSocket);
+
+		// Reevaluate completion support for the replacement socket.
+		Internal.m_pCompletionIo = nullptr;
+
+		Internal.m_pSocket->f_SetTransferSizeHint(fg_Max(Internal.m_Settings.m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin);
+
+		Internal.m_pSocket->f_SetSendWindow(Internal.m_Settings.f_GetSendWindowBytes(), Internal.m_Settings.m_SendWindowBytes != 0);
 
 		NNetwork::ENetTCPState State = NNetwork::ENetTCPState_None;
 
@@ -2434,15 +4455,20 @@ namespace NMib::NWeb
 		EntityFields.f_SetUnknownField("Sec-WebSocket-Version", "13");
 		EntityFields.f_SetUnknownField("Sec-WebSocket-Key", EncodedRandomData);
 
+		// Offer only for confidential point-to-point transport; unsupported peers retain masking.
+		if (Internal.m_Settings.m_bNegotiateUnmaskedFrames)
+			EntityFields.f_SetUnknownField("Sec-WebSocket-Extensions", gc_pUnmaskedFramesExtension);
+
 		for (auto &Protocol : _Protocols)
 			Internal.m_ClientConnectionInput.m_Protocols[Protocol];
 		Internal.m_ClientConnectionInput.m_EncodedKey = EncodedRandomData;
 
 		_RequestHeader.f_WriteHeaders
 			(
-				[&](uint8 const *_pData, umint _nBytes)
+				[&](uint8 const *_pData, umint _nBytes) noexcept
 				{
 					Internal.m_OutgoingData.f_InsertBack(_pData, _nBytes);
+					Internal.f_TrackArenaBytes(_nBytes);
 				}
 			)
 		;
@@ -2503,10 +4529,12 @@ namespace NMib::NWeb
 		m_TimeoutReceivedData.f_Start();
 		m_TimeoutSentData.f_Start();
 
-		m_pTimeoutPingMessage = fg_Construct();
+		// Freeze reusable ping storage because previous sends may still retain it.
 		umint MessageSize = NStr::fg_StrLen(gs_PingMessageData);
-		m_pTimeoutPingMessage->f_SetLen(MessageSize); // TCVector has 16 as min size
-		NMemory::fg_MemCopy(m_pTimeoutPingMessage->f_GetArray(), gs_PingMessageData, MessageSize);
+		NContainer::CIOByteVector PingMessage;
+		PingMessage.f_SetLen(MessageSize);
+		NMemory::fg_MemCopy(PingMessage.f_GetArray(), gs_PingMessageData, MessageSize);
+		m_pTimeoutPingMessage = fg_Construct(fg_Move(PingMessage));
 
 		auto Sequence = ++m_TimeoutTimerSubscriptionSequence;
 		fg_RegisterTimer
@@ -2582,19 +4610,27 @@ namespace NMib::NWeb
 					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) receiving data", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
 			}
 
-			if (!m_OutgoingData.f_IsEmpty())
+			if (m_nOutgoingQueuedBytes)
 			{
 				if (m_TimeoutSentData.f_GetTime() > m_Settings.m_Timeout)
 					m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) sending data", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
 			}
 		}
-		else if (m_State != EState_Disconnected)
+		// Keep the drain watchdog armed after remote close; a peer that stops reading must not strand backlog promises.
+		else if (m_State != EState_Disconnected || m_nOutgoingQueuedBytes || m_bCloseFramePending || !m_PendingMessages.f_IsEmpty())
 		{
 			NNetwork::ENetTCPState State = NNetwork::ENetTCPState_None;
 			if (m_pSocket && m_pSocket->f_IsValid())
 				State = m_pSocket->f_GetState();
 			if (State)
 				m_pThis->fp_ProcessState(State);
+
+			// A peer may keep writing without reading; disconnected send backlog must time out on send progress alone.
+			if (m_State == EState_Disconnected && m_nOutgoingQueuedBytes && m_TimeoutSentData.f_GetTime() > m_Settings.m_Timeout)
+			{
+				m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) sending data", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
+				return;
+			}
 
 			if (m_TimeoutReceivedData.f_GetTime() > m_Settings.m_Timeout && m_TimeoutSentData.f_GetTime() > m_Settings.m_Timeout)
 				m_pThis->fp_Disconnect(EWebSocketStatus_Timeout, NStr::fg_Format("Timeout({}) in non-connected state", m_Settings.m_Timeout), true, EWebSocketCloseOrigin_Local);
