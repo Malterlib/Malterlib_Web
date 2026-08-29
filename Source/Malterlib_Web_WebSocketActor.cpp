@@ -598,6 +598,11 @@ namespace NMib::NWeb
 	CWebSocketActor::CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings)
 		: mp_pInternal(fg_Construct(this, _bClient, _Settings))
 	{
+#if DMibConfig_IoDebug_Enable
+		// The exit report registers on the first ask; asking here makes every run report
+		NNetwork::fg_NetIoStatsEnabled();
+#endif
+
 		auto &Internal = *mp_pInternal;
 		Internal.f_SetupTimeout();
 	}
@@ -3038,6 +3043,13 @@ namespace NMib::NWeb
 				bDidSend = true;
 				NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_SendVectored(Spans, nSpans);
 				DMibLog(DebugVerbose3, " ++++ {} {} Sending {} resulted in {} sent", fg_ThisActor(this), !Internal.m_bClient, nGatheredBytes, Result.m_nBytes);
+#if DMibConfig_IoDebug_Enable
+				if (NNetwork::fg_NetIoStatsEnabled())
+				{
+					NNetwork::g_NetIoStats.m_nSendReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+					NNetwork::g_NetIoStats.m_nSendReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+				}
+#endif
 
 				CombinedResults += Result;
 
@@ -4289,6 +4301,13 @@ namespace NMib::NWeb
 						umint FillOffset = Internal.m_DirectReadFrameStart + FrameLength - nRemaining;
 						NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Dest.f_GetArray() + FillOffset, nRemaining);
 						CombinedResults += Result;
+#if DMibConfig_IoDebug_Enable
+						if (NNetwork::fg_NetIoStatsEnabled())
+						{
+							NNetwork::g_NetIoStats.m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							NNetwork::g_NetIoStats.m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+						}
+#endif
 						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
 							break;
 						DMibLog(DebugVerbose3, " ++++ {} {} Received direct data {}", fg_ThisActor(this), !Internal.m_bClient, Result.m_nBytes);
@@ -4317,6 +4336,13 @@ namespace NMib::NWeb
 						uint8 Bounce[gc_ReceiveChunkSize];
 						Result = Internal.m_pSocket->f_Receive(Bounce, gc_ReceiveChunkSize);
 						CombinedResults += Result;
+#if DMibConfig_IoDebug_Enable
+						if (NNetwork::fg_NetIoStatsEnabled())
+						{
+							NNetwork::g_NetIoStats.m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							NNetwork::g_NetIoStats.m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+						}
+#endif
 						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
 							break;
 						Internal.m_IncomingData.f_InsertBack(Bounce, Result.m_nBytes);
