@@ -940,8 +940,9 @@ namespace NMib::NWeb
 		// Arena bytes live in pages the consume path removes from the front as soon as the
 		// transfer is reported — before a zero copy release. They are copied into storage the
 		// released functor owns, and the spans retargeted, so the kernel never reads a page the
-		// arena has already recycled
-		if (nArenaBytes)
+		// arena has already recycled. A socket whose releases are prompt has no such window:
+		// the kernel is done with the pages by the time the transfer is reported
+		if (nArenaBytes && !(m_pCompletionIo && m_pCompletionIo->f_SendReleaseIsPrompt()))
 		{
 			o_pArenaCopy = fg_Construct();
 			o_pArenaCopy->f_SetLen(nArenaBytes, false);
