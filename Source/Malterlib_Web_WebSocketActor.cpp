@@ -1652,7 +1652,7 @@ namespace NMib::NWeb
 		bool bStarted = pCompletionIo->f_StartReceiveStream
 			(
 				fg_Move(pBackpressure)
-				, [WeakThis = fg_ThisActor(this).f_Weak()](NSys::CIoStreamSegment _Segment) mutable
+				, [WeakThis = fg_ThisActor(this).f_Weak()](NSys::CIoStreamSegment &&_Segment) mutable
 				{
 					// Loop thread: hand the segment to the actor. The segment owns its buffer's
 					// reference, so a job dropped mid-teardown frees it from the destructor
@@ -1880,7 +1880,7 @@ namespace NMib::NWeb
 		++Internal.m_nSendOpsInFlight;
 	}
 
-	void CWebSocketActor::fp_ReceiveSegment(NSys::CIoStreamSegment _Segment)
+	void CWebSocketActor::fp_ReceiveSegment(NSys::CIoStreamSegment &&_Segment)
 	{
 		auto &Internal = *mp_pInternal;
 
