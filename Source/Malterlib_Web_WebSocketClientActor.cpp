@@ -78,6 +78,8 @@ namespace NMib::NWeb
 			Settings.m_FragmentationSize = _Settings.m_FragmentationSize;
 		if (_Settings.m_MaxFragmentSize)
 			Settings.m_MaxFragmentSize = _Settings.m_MaxFragmentSize;
+		if (_Settings.m_SendWindowBytes)
+			Settings.m_SendWindowBytes = _Settings.m_SendWindowBytes;
 
 		if (!mp_DefaultSettings.m_bTimeoutForUnixSockets && ConnectToAdress.f_GetType() == NNetwork::ENetAddressType_Unix)
 			Settings.m_Timeout = 0.0;

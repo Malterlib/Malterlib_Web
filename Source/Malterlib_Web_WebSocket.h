@@ -101,6 +101,9 @@ namespace NMib::NWeb
 		// blocking. The two uint32 fit in the padding the bool leaves
 		uint32 m_FragmentationSize = 0;
 		uint32 m_MaxFragmentSize = 0;
+		// Bytes a connection accepted here may have in flight on its sends; 0 uses the server's
+		// default
+		uint64 m_SendWindowBytes = 0;
 	};
 
 	// Socket factory for listen addresses; constructs from a plain FVirtualSocketFactory or, via
@@ -136,6 +139,9 @@ namespace NMib::NWeb
 		// buffer from an advertised length alone. Raise it to talk to peers that send larger
 		// unfragmented frames
 		umint m_MaxFragmentSize = mc_DefaultMaxFragmentSize;
+		// Bytes the connection may have in flight on its sends — what the kernel holds for a
+		// buffered socket, what stays pinned for a zero copy one. 0 is eight frames
+		umint m_SendWindowBytes = 0;
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
 		// Permit sending (client) and accepting (server) unmasked frames. Both peers must set this
@@ -487,6 +493,7 @@ namespace NMib::NWeb
 			bool m_bNegotiateUnmaskedFrames = false;	// Ask the server for unmasked frames in the handshake. A server that does not agree leaves masking on, so this is safe against an existing deployment
 			uint32 m_FragmentationSize = 0;	// Fragmentation size for this connection. 0 uses the connector's default. uint32 fits in the padding the trailing bool leaves
 			uint32 m_MaxFragmentSize = 0;	// Largest accepted incoming frame for this connection. 0 uses the connector's default. Must be at least what the server fragments at
+			uint64 m_SendWindowBytes = 0;	// Bytes in flight allowed on sends. 0 uses the connector's default
 		};
 
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings); // You will receive an exception if connection fails

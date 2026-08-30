@@ -131,6 +131,8 @@ namespace NMib::NWeb
 						Settings.m_FragmentationSize = AddressConfig.m_FragmentationSize;
 					if (AddressConfig.m_MaxFragmentSize)
 						Settings.m_MaxFragmentSize = AddressConfig.m_MaxFragmentSize;
+					if (AddressConfig.m_SendWindowBytes)
+						Settings.m_SendWindowBytes = AddressConfig.m_SendWindowBytes;
 
 					NNetwork::FVirtualSocketFactory fAddressFactory = fg_Move(AddressConfig.m_Factory);
 					if (!fAddressFactory)
