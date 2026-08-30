@@ -345,6 +345,9 @@ namespace NMib::NWeb
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
+		// The io subsystem, cached since each access through the getter is an atomic operation
+		NMib::NSys::CIoSubSystem *mp_pIo = &NMib::NSys::fg_IoSubSystem();
+
 		struct CClientConnectionInput
 		{
 			NStr::CStr m_EncodedKey;
@@ -599,11 +602,6 @@ namespace NMib::NWeb
 	CWebSocketActor::CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings)
 		: mp_pInternal(fg_Construct(this, _bClient, _Settings))
 	{
-#if DMibConfig_IoDebug_Enable
-		// The exit report registers on the first ask; asking here makes every run report
-		NNetwork::fg_NetIoStatsEnabled();
-#endif
-
 		auto &Internal = *mp_pInternal;
 		Internal.f_SetupTimeout();
 	}
@@ -735,7 +733,7 @@ namespace NMib::NWeb
 #if DMibConfig_IoDebug_Enable
 			// MalterlibWebSocketFrameAhead=N frames N of those ahead, to measure how deep a socket whose
 			// completions come at the packet keeps its pipeline
-			if (umint nFrameAhead = NMib::NSys::fg_IoSubSystem().f_WebSocketFrameAhead(); nFrameAhead > 1)
+			if (umint nFrameAhead = mp_pIo->f_WebSocketFrameAhead(); nFrameAhead > 1)
 				TargetData *= nFrameAhead;
 #endif
 
@@ -1646,7 +1644,7 @@ namespace NMib::NWeb
 		// the release that crosses the resume threshold reschedules through this actor
 		umint nBufferBytes = pCompletionIo->f_GetReceiveBufferBytes();
 		auto pBackpressure = NStorage::TCSharedPointer<NSys::CIoStreamBackpressure>(fg_Construct());
-		pBackpressure->m_nLimitBytes = NNetwork::fg_GetReceiveWindowBytes(nBufferBytes);
+		pBackpressure->m_nLimitBytes = NNetwork::fg_GetReceiveWindowBytes(*Internal.mp_pIo, nBufferBytes);
 		pBackpressure->m_nResumeBytes = pBackpressure->m_nLimitBytes / 2;
 		pBackpressure->m_fResume = [WeakThis = fg_ThisActor(this).f_Weak()]() mutable
 			{
@@ -1753,13 +1751,13 @@ namespace NMib::NWeb
 		if (!_bContinue && !pCompletionIo->f_CanSubmitSend())
 		{
 #if DMibConfig_IoDebug_Enable
-			if (NNetwork::fg_NetIoStatsEnabled())
+			if (auto *pStats = NNetwork::fg_NetIoStats())
 			{
-				NNetwork::g_NetIoStats.m_nSendBlocked.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
-				NNetwork::g_NetIoStats.m_LastPumpPending.f_Store(Internal.m_nOutgoingQueuedBytes, NAtomic::gc_MemoryOrder_Relaxed);
-				NNetwork::g_NetIoStats.m_LastPumpPinned.f_Store(Internal.m_nOutgoingSubmitted, NAtomic::gc_MemoryOrder_Relaxed);
-				NNetwork::g_NetIoStats.m_LastPumpOpsInUse.f_Store(pCompletionIo->f_HasSendOperationInFlight() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
-				NNetwork::g_NetIoStats.m_LastPumpOpsUnresolved.f_Store(pCompletionIo->f_HasPendingOutput() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_nSendBlocked.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpPending.f_Store(Internal.m_nOutgoingQueuedBytes, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpPinned.f_Store(Internal.m_nOutgoingSubmitted, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpOpsInUse.f_Store(pCompletionIo->f_HasSendOperationInFlight() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_LastPumpOpsUnresolved.f_Store(pCompletionIo->f_HasPendingOutput() ? 1 : 0, NAtomic::gc_MemoryOrder_Relaxed);
 			}
 #endif
 
@@ -1787,11 +1785,11 @@ namespace NMib::NWeb
 				return;
 
 #if DMibConfig_IoDebug_Enable
-			if (NNetwork::fg_NetIoStatsEnabled())
+			if (auto *pStats = NNetwork::fg_NetIoStats())
 			{
 				uint64 nOutstanding = nInUse + 1;
-				uint64 nMax = NNetwork::g_NetIoStats.m_nSendMaxOutstanding.f_Load(NAtomic::gc_MemoryOrder_Relaxed);
-				while (nMax < nOutstanding && !NNetwork::g_NetIoStats.m_nSendMaxOutstanding.f_CompareExchangeWeak(nMax, nOutstanding, NAtomic::gc_MemoryOrder_Relaxed))
+				uint64 nMax = pStats->m_nSendMaxOutstanding.f_Load(NAtomic::gc_MemoryOrder_Relaxed);
+				while (nMax < nOutstanding && !pStats->m_nSendMaxOutstanding.f_CompareExchangeWeak(nMax, nOutstanding, NAtomic::gc_MemoryOrder_Relaxed))
 				{
 				}
 			}
@@ -1876,11 +1874,11 @@ namespace NMib::NWeb
 		}
 
 #if DMibConfig_IoDebug_Enable
-		if (NNetwork::fg_NetIoStatsEnabled())
+		if (auto *pStats = NNetwork::fg_NetIoStats())
 		{
-			NNetwork::g_NetIoStats.m_nSendSubmits.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+			pStats->m_nSendSubmits.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
 			if (_bContinue)
-				NNetwork::g_NetIoStats.m_nSendContinuations.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+				pStats->m_nSendContinuations.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
 		}
 #endif
 
@@ -1940,10 +1938,10 @@ namespace NMib::NWeb
 			if (Internal.m_pCompletionIo->f_ResolveReceiveSegmentShared(Segment, SharedData, SharedResult))
 			{
 #if DMibConfig_IoDebug_Enable
-				if (NNetwork::fg_NetIoStatsEnabled())
+				if (auto *pStats = NNetwork::fg_NetIoStats())
 				{
-					NNetwork::g_NetIoStats.m_nRecvSharedDeliveries.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
-					NNetwork::g_NetIoStats.m_nRecvSharedBytes.f_FetchAdd(SharedData.f_GetLen(), NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nRecvSharedDeliveries.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nRecvSharedBytes.f_FetchAdd(SharedData.f_GetLen(), NAtomic::gc_MemoryOrder_Relaxed);
 				}
 #endif
 				try
@@ -3060,10 +3058,10 @@ namespace NMib::NWeb
 				NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_SendVectored(Spans, nSpans);
 				DMibLog(DebugVerbose3, " ++++ {} {} Sending {} resulted in {} sent", fg_ThisActor(this), !Internal.m_bClient, nGatheredBytes, Result.m_nBytes);
 #if DMibConfig_IoDebug_Enable
-				if (NNetwork::fg_NetIoStatsEnabled())
+				if (auto *pStats = NNetwork::fg_NetIoStats())
 				{
-					NNetwork::g_NetIoStats.m_nSendReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
-					NNetwork::g_NetIoStats.m_nSendReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nSendReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+					pStats->m_nSendReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
 				}
 #endif
 
@@ -4318,10 +4316,10 @@ namespace NMib::NWeb
 						NNetwork::CSocketOperationResult Result = Internal.m_pSocket->f_Receive(Dest.f_GetArray() + FillOffset, nRemaining);
 						CombinedResults += Result;
 #if DMibConfig_IoDebug_Enable
-						if (NNetwork::fg_NetIoStatsEnabled())
+						if (auto *pStats = NNetwork::fg_NetIoStats())
 						{
-							NNetwork::g_NetIoStats.m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
-							NNetwork::g_NetIoStats.m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
 						}
 #endif
 						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
@@ -4353,10 +4351,10 @@ namespace NMib::NWeb
 						Result = Internal.m_pSocket->f_Receive(Bounce, gc_ReceiveChunkSize);
 						CombinedResults += Result;
 #if DMibConfig_IoDebug_Enable
-						if (NNetwork::fg_NetIoStatsEnabled())
+						if (auto *pStats = NNetwork::fg_NetIoStats())
 						{
-							NNetwork::g_NetIoStats.m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
-							NNetwork::g_NetIoStats.m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessCalls.f_FetchAdd(1, NAtomic::gc_MemoryOrder_Relaxed);
+							pStats->m_nRecvReadinessBytes.f_FetchAdd(Result.m_nBytes, NAtomic::gc_MemoryOrder_Relaxed);
 						}
 #endif
 						if (Result.m_nBytes == 0 && !Result.m_bSentNetwork && !Result.m_bReceivedNetwork)
