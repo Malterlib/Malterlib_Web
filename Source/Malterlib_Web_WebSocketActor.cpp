@@ -7,6 +7,7 @@
 #include <Mib/Container/BitArray>
 #include <Mib/Stream/BinaryStorage>
 #include <Mib/Concurrency/IoCompletionOpTracker>
+#include <Mib/Core/IoSubSystem>
 
 #include <Mib/Web/HTTP/Request>
 #include <Mib/Web/HTTP/Response>
@@ -734,8 +735,8 @@ namespace NMib::NWeb
 #if DMibConfig_IoDebug_Enable
 			// MalterlibWebSocketFrameAhead=N frames N of those ahead, to measure how deep a socket whose
 			// completions come at the packet keeps its pipeline
-			static uint64 const s_nFrameAhead = uint64(NMib::NSys::fg_Process_GetEnvironmentVariable_NonProtected(NStr::CStrNonTracked("MalterlibWebSocketFrameAhead")).f_ToInt(umint(1)));
-			TargetData *= fg_Max(s_nFrameAhead, uint64(1));
+			if (umint nFrameAhead = NMib::NSys::fg_IoSubSystem().f_WebSocketFrameAhead(); nFrameAhead > 1)
+				TargetData *= nFrameAhead;
 #endif
 
 			if (OutgoingData >= TargetData)
