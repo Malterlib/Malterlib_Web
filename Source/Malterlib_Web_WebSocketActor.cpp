@@ -731,6 +731,12 @@ namespace NMib::NWeb
 			// Keep roughly one frame of data queued ahead so the drain loop can issue large
 			// vectored writes while control frames still interleave promptly
 			TargetData = fg_Max(uint64(2 * gc_OutgoingPageSize), uint64(m_Settings.m_FragmentationSize) + NNetwork::gc_SocketFramingMargin);
+#if DMibConfig_IoDebug_Enable
+			// MalterlibWebSocketFrameAhead=N frames N of those ahead, to measure how deep a socket whose
+			// completions come at the packet keeps its pipeline
+			static uint64 const s_nFrameAhead = uint64(NMib::NSys::fg_Process_GetEnvironmentVariable_NonProtected(NStr::CStrNonTracked("MalterlibWebSocketFrameAhead")).f_ToInt(umint(1)));
+			TargetData *= fg_Max(s_nFrameAhead, uint64(1));
+#endif
 
 			if (OutgoingData >= TargetData)
 				return;
