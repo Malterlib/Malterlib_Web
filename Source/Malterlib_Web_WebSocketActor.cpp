@@ -4461,6 +4461,9 @@ namespace NMib::NWeb
 		// is worth here, which is the fragmentation size the frames are cut to
 		Internal.m_pSocket->f_SetTransferSizeHint(fg_Max(Internal.m_Settings.m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin);
 
+		// And how much of it may be in flight at once
+		Internal.m_pSocket->f_SetSendWindow(Internal.m_Settings.f_GetSendWindowBytes(), Internal.m_Settings.m_SendWindowBytes != 0);
+
 		NNetwork::ENetTCPState State = NNetwork::ENetTCPState_None;
 
 		if (Internal.m_pSocket->f_IsValid())

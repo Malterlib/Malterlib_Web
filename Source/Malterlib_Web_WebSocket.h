@@ -142,6 +142,16 @@ namespace NMib::NWeb
 		// Bytes the connection may have in flight on its sends — what the kernel holds for a
 		// buffered socket, what stays pinned for a zero copy one. 0 is eight frames
 		umint m_SendWindowBytes = 0;
+
+		// The bytes the connection may have in flight on its sends: the configured window, or the
+		// transport's own eight frames
+		umint f_GetSendWindowBytes() const
+		{
+			if (m_SendWindowBytes)
+				return m_SendWindowBytes;
+
+			return 8 * (fg_Max(m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin);
+		}
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
 		// Permit sending (client) and accepting (server) unmasked frames. Both peers must set this

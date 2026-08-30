@@ -153,6 +153,9 @@ namespace NMib::NWeb
 
 				// The actor's own manager, so the listen actor's accept-path picks resolve to the
 				// same manager's loops
+				// Set before the listen, so the accepted connections inherit the buffers it sizes
+				pListenSocket->f_SetSendWindow(Settings.f_GetSendWindowBytes(), Settings.m_SendWindowBytes != 0);
+
 				ListenActor = f_ConcurrencyManager().f_ConstructActor(fg_Construct<CListenActor>(fg_ThisActor(this), fg_Move(Settings)));
 
 				// The listen socket registers with a pool thread's event loop, so connection
