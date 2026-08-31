@@ -425,6 +425,7 @@ namespace
 			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
 			_fMeasure("wss", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
+			_fMeasure("wss_masked", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
 
 			DMibExpectTrue(_PerfTest);
 		}
