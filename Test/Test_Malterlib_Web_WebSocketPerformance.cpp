@@ -219,7 +219,6 @@ namespace
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
 
 		_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		_pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, umint(1024 * 1024), umint(4 * 1024 * 1024)).f_DiscardResult();
 
 		auto ListenResult = _pState->m_ServerActor
 			(
@@ -374,8 +373,6 @@ namespace
 					, .m_Protocols = fg_CreateVector<CStr>("Bench")
 					, .m_SocketFactory = _ClientFactory
 					, .m_bNegotiateUnmaskedFrames = !_bMasked
-					, .m_FragmentationSize = 1024 * 1024
-					, .m_MaxFragmentSize = 4 * 1024 * 1024
 					, .m_SendWindowBytes = nSendWindow
 				}
 			)
