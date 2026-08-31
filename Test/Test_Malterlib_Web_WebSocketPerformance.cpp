@@ -161,6 +161,7 @@ namespace
 			, TCSharedPointerSupportWeak<CBenchState> const &_pState
 			, FVirtualSocketFactory const &_ServerFactory
 			, FVirtualSocketFactory const &_ClientFactory
+			, bool _bMasked
 		)
 	{
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
@@ -256,13 +257,13 @@ namespace
 					DMibLog(Error, "Benchmark accept failed: {}", _ConnectionInfo.m_Error);
 					co_return {};
 				}
-				// The benchmark measures the transport, not the masking XOR: both peers are ours on a
-				// confidential loopback link, so the handshake negotiates unmasked frames
+				// Both peers are ours on a confidential loopback link, so the handshake negotiates
+				// unmasked frames unless this run measures the masking XOR itself
 				, CWebSocketListenSocketFactory::fs_PerAddress
 					(
-						[ServerFactory = _ServerFactory](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+						[ServerFactory = _ServerFactory, _bMasked](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
 						{
-							return {.m_Factory = ServerFactory, .m_bNegotiateUnmaskedFrames = true};
+							return {.m_Factory = ServerFactory, .m_bNegotiateUnmaskedFrames = !_bMasked};
 						}
 					)
 			)
@@ -287,7 +288,7 @@ namespace
 					, .m_Origin = "http://localhost"
 					, .m_Protocols = fg_CreateVector<CStr>("Bench")
 					, .m_SocketFactory = _ClientFactory
-					, .m_bNegotiateUnmaskedFrames = true
+					, .m_bNegotiateUnmaskedFrames = !_bMasked
 					, .m_FragmentationSize = 1024 * 1024
 					, .m_MaxFragmentSize = 4 * 1024 * 1024
 					, .m_SendWindowBytes = nSendWindow
@@ -405,7 +406,10 @@ namespace
 		template <typename tf_FMeasure>
 		static void fs_MeasureTransports(CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
 		{
-			_fMeasure("ws", FVirtualSocketFactory(), FVirtualSocketFactory());
+			_fMeasure("ws", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
+
+			// The RFC’s client side masking, measured on its own so its cost stays visible
+			_fMeasure("ws_masked", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
 
 			CSSLSettings ServerSettings;
 			CCertificateOptions Options;
@@ -420,7 +424,7 @@ namespace
 			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
-			_fMeasure("wss", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext));
+			_fMeasure("wss", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
 
 			DMibExpectTrue(_PerfTest);
 		}
@@ -437,12 +441,12 @@ namespace
 				fs_MeasureTransports
 					(
 						PerfTest
-						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory)
+						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
 						{
 							DMibTestPath(_Tag);
 
 							TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(RunLoopHelper.m_pRunLoop, true, uint64(0));
-							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory);
+							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked);
 
 							TCActor<CBenchDriverActor> Driver = fg_ConstructActor<CBenchDriverActor>();
 
@@ -476,12 +480,12 @@ namespace
 				fs_MeasureTransports
 					(
 						PerfTest
-						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory)
+						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
 						{
 							DMibTestPath(_Tag);
 
 							TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(RunLoopHelper.m_pRunLoop, false, mc_nTransferBytes);
-							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory);
+							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked);
 
 							TCActor<CBenchDriverActor> Driver = fg_ConstructActor<CBenchDriverActor>();
 
