@@ -143,21 +143,21 @@ namespace NMib::NWeb
 		// buffered socket, what stays pinned for a zero copy one. 0 is eight frames
 		umint m_SendWindowBytes = 0;
 
-		// The bytes the connection may have in flight on its sends: the configured window, or the
-		// transport's own eight frames
+		// The ceiling for bytes in flight on the connection's sends: the configured window, or
+		// eight frames unconfigured
 		umint f_GetSendWindowBytes() const
 		{
 			if (m_SendWindowBytes)
 				return m_SendWindowBytes;
 
-			return f_GetSendWindowStartBytes();
+			return 8 * f_GetSendWindowStartBytes();
 		}
 
-		// The window a connection begins at whatever the configured window says: the transport’s
-		// own eight frames, which the path grows past only when its bandwidth-delay product asks
+		// The window a connection begins at whatever the ceiling says: one frame, which the
+		// path grows past only when its bandwidth-delay product asks
 		umint f_GetSendWindowStartBytes() const
 		{
-			return 8 * (fg_Max(m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin);
+			return fg_Max(m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin;
 		}
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;

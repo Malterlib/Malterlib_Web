@@ -203,6 +203,11 @@ namespace
 		return true;
 	}
 
+	// Local transports (a unix path or a loopback address) take the same one MiB frames the
+	// distributed transport picks for them: at local bandwidths a large frame costs
+	// microseconds of head of line blocking and halves the per-frame work. Network addresses
+	// keep the default so fragmentation bounds how long a frame blocks interleaved traffic
+	constexpr umint gc_BenchLocalFragmentationSize = 1024 * 1024 + 4096;
 	// The server half on its own, so the cross machine serve side can stand one up without a
 	// client in the same process; returns the bound port for listens on an ephemeral one
 	template <typename t_CHandler>
@@ -219,6 +224,9 @@ namespace
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
 
 		_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+
+		if (_ListenAddress.f_GetType() == ENetAddressType_Unix || fg_IsLoopbackAddress(_ListenAddress))
+			_pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, gc_BenchLocalFragmentationSize, gc_BenchLocalFragmentationSize).f_DiscardResult();
 
 		auto ListenResult = _pState->m_ServerActor
 			(
@@ -359,6 +367,8 @@ namespace
 
 		_pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 
+		bool bLocalTransport = fg_IsUnixSocketAddressString(_ConnectToAddress) || fg_IsLoopbackHostString(_ConnectToAddress);
+
 		umint nSendWindow = umint(fg_GetSys()->f_GetEnvironmentVariable("SendWindow").f_ToInt(int64(0)));
 
 		auto NewClientConnection = _pState->m_ClientActor
@@ -373,6 +383,8 @@ namespace
 					, .m_Protocols = fg_CreateVector<CStr>("Bench")
 					, .m_SocketFactory = _ClientFactory
 					, .m_bNegotiateUnmaskedFrames = !_bMasked
+					, .m_FragmentationSize = bLocalTransport ? uint32(gc_BenchLocalFragmentationSize) : 0
+					, .m_MaxFragmentSize = bLocalTransport ? uint32(gc_BenchLocalFragmentationSize) : 0
 					, .m_SendWindowBytes = nSendWindow
 				}
 			)
