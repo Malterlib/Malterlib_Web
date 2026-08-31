@@ -256,7 +256,15 @@ namespace
 					DMibLog(Error, "Benchmark accept failed: {}", _ConnectionInfo.m_Error);
 					co_return {};
 				}
-				, CWebSocketListenSocketFactory(fg_TempCopy(_ServerFactory))
+				// The benchmark measures the transport, not the masking XOR: both peers are ours on a
+				// confidential loopback link, so the handshake negotiates unmasked frames
+				, CWebSocketListenSocketFactory::fs_PerAddress
+					(
+						[ServerFactory = _ServerFactory](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+						{
+							return {.m_Factory = ServerFactory, .m_bNegotiateUnmaskedFrames = true};
+						}
+					)
 			)
 			.f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout)
 		;
@@ -279,6 +287,7 @@ namespace
 					, .m_Origin = "http://localhost"
 					, .m_Protocols = fg_CreateVector<CStr>("Bench")
 					, .m_SocketFactory = _ClientFactory
+					, .m_bNegotiateUnmaskedFrames = true
 					, .m_FragmentationSize = 1024 * 1024
 					, .m_MaxFragmentSize = 4 * 1024 * 1024
 					, .m_SendWindowBytes = nSendWindow
