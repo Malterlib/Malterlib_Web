@@ -385,6 +385,7 @@ namespace NMib::NWeb
 			// Bounded so every gather size derived from it stays well inside umint,
 			// on 32 bit platforms included
 			m_Settings.m_FragmentationSize = fg_Min(m_Settings.m_FragmentationSize, umint(1) << 30);
+			fp_SizeSendReservations();
 
 			if (_bClient)
 				m_ConnectionInfo.f_Set<2>();
@@ -553,6 +554,7 @@ namespace NMib::NWeb
 		NContainer::TCVector<CSendReservation> m_SendReservations;
 		smint m_iFreeSendReservation = -1;
 		umint m_nSendReservationsInUse = 0;
+		umint m_nMaxSendReservations = 8;
 
 		// Bytes of accepted sends whose release functors have not run; what the send window
 		// asks are measured against
@@ -564,13 +566,14 @@ namespace NMib::NWeb
 			return m_Settings.f_GetSendWindowStartBytes();
 		}
 
-		umint fp_MaxSendReservations(NNetwork::ICSocketCompletionIo *_pCompletionIo) const
+		// The pool’s ceiling, from the send window: enough entries for the whole window in
+		// typical gathers, never fewer than eight. Computed once when the window is known,
+		// and the vector reserves it up front so growth never reallocates
+		void fp_SizeSendReservations()
 		{
-			if (_pCompletionIo->f_SupportsSendStaging())
-				return 8;
-
 			umint nFrameBytes = fp_SendWindowStartBytes() / 8;
-			return fg_Max(umint(8), m_Settings.f_GetSendWindowBytes() / nFrameBytes + 2);
+			m_nMaxSendReservations = fg_Max(umint(8), m_Settings.f_GetSendWindowBytes() / nFrameBytes + 2);
+			m_SendReservations.f_Reserve(m_nMaxSendReservations);
 		}
 
 		// Tearing the connection down gives every reservation back at once; operations still in
@@ -1832,7 +1835,9 @@ namespace NMib::NWeb
 		// spoken for the batch waits; the completion that frees one re-drives this
 		if (!_bContinue)
 		{
-			if (Internal.m_nSendReservationsInUse >= Internal.fp_MaxSendReservations(pCompletionIo))
+			// A staging socket bounds its own pipeline and keeps the historical eight
+			umint nMaxReservations = pCompletionIo->f_SupportsSendStaging() ? umint(8) : Internal.m_nMaxSendReservations;
+			if (Internal.m_nSendReservationsInUse >= nMaxReservations)
 				return;
 
 #if DMibConfig_IoDebug_Enable
