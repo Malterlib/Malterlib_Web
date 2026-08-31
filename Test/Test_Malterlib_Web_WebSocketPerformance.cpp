@@ -172,6 +172,7 @@ namespace
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
 			, TCSharedPointerSupportWeak<CBenchState> const &_pState
+			, CStr const &_Address
 			, FVirtualSocketFactory const &_ServerFactory
 			, FVirtualSocketFactory const &_ClientFactory
 			, bool _bMasked
@@ -180,7 +181,7 @@ namespace
 	{
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
 
-		CNetAddress ListenAddress = CSocket::fs_ResolveAddress("localhost", ENetAddressType_TCPv4);
+		CNetAddress ListenAddress = CSocket::fs_ResolveAddress(_Address, ENetAddressType_TCPv4);
 
 		_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
 		_pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, umint(1024 * 1024), umint(4 * 1024 * 1024)).f_DiscardResult();
@@ -287,7 +288,7 @@ namespace
 		;
 		_pState->m_ListenSubscription = fg_Move(ListenResult.m_Subscription);
 
-		uint16 ListenPort = ListenResult.m_ListenPorts[0];
+		uint16 ListenPort = ListenResult.m_ListenPorts.f_IsEmpty() ? uint16(0) : ListenResult.m_ListenPorts[0];
 
 		_pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 
@@ -298,7 +299,7 @@ namespace
 				&CWebSocketClientActor::f_Connect
 				, CWebSocketClientActor::CConnectSettings
 				{
-					.m_ConnectToAddress = "localhost"
+					.m_ConnectToAddress = _Address
 					, .m_Port = ListenPort
 					, .m_URI = "/Bench"
 					, .m_Origin = "http://localhost"
@@ -383,7 +384,7 @@ namespace
 
 			// Keep a pipeline of sends in flight so the socket never idles between chunks,
 			// mirroring the transport benchmark's pipeline depth
-			umint PipelineLength = fg_GetSys()->f_GetEnvironmentVariable("PipelineLength").f_ToInt(umint(2));
+			umint PipelineLength = fg_GetSys()->f_GetEnvironmentVariable("PipelineLength").f_ToInt(umint(16));
 
 			uint64 nChunks = (_nBytes + ChunkSize - 1) / ChunkSize;
 			uint64 nQueued = 0;
@@ -422,6 +423,7 @@ namespace
 			CActorRunLoopTestHelper &_RunLoopHelper
 			, CTestPerformance &_PerfTest
 			, CStr const &_Name
+			, CStr const &_Address
 			, FVirtualSocketFactory const &_ServerFactory
 			, FVirtualSocketFactory const &_ClientFactory
 			, bool _bMasked
@@ -430,7 +432,7 @@ namespace
 		)
 	{
 		TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(_RunLoopHelper.m_pRunLoop, true, uint64(0));
-		fg_SetupConnection(_RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<t_CHandler>());
+		fg_SetupConnection(_RunLoopHelper, pState, _Address, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<t_CHandler>());
 
 		TCActor<t_CDriver> Driver = fg_ConstructActor<t_CDriver>();
 
@@ -468,10 +470,20 @@ namespace
 		template <typename tf_FMeasure>
 		static void fs_MeasureTransports(CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
 		{
-			_fMeasure("ws", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
+			CStr RootDirectory = NFile::CFile::fs_GetProgramDirectory() / "WebSocketPerf";
+			fg_TestAddCleanupPath(RootDirectory);
+
+			auto fUnixAddress = [&](CStr const &_Tag)
+				{
+					return "UNIX:" + fg_GetSafeUnixSocketPath("{}/WebSocketPerf_{}.socket"_f << RootDirectory << _Tag);
+				}
+			;
+
+			_fMeasure("ws", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
+			_fMeasure("ws_unix", fUnixAddress("ws"), FVirtualSocketFactory(), FVirtualSocketFactory(), false);
 
 			// The RFC’s client side masking, measured on its own so its cost stays visible
-			_fMeasure("ws_masked", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
+			_fMeasure("ws_masked", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
 
 			CSSLSettings ServerSettings;
 			CCertificateOptions Options;
@@ -486,8 +498,9 @@ namespace
 			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
-			_fMeasure("wss", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
-			_fMeasure("wss_masked", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
+			_fMeasure("wss", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
+			_fMeasure("wss_unix", fUnixAddress("wss"), CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
+			_fMeasure("wss_masked", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
 
 			DMibExpectTrue(_PerfTest);
 		}
@@ -504,15 +517,15 @@ namespace
 				fs_MeasureTransports
 					(
 						PerfTest
-						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
+						, [&](CStr const &_Tag, CStr const &_Address, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
 						{
 							DMibTestPath(_Tag);
 
-							fg_MeasurePing<CBenchDriverActor, CBenchHandlerActor>(RunLoopHelper, PerfTest, "Ping_{}"_f << _Tag, _ServerFactory, _ClientFactory, _bMasked, mc_nPingRoundTrips, mc_nRepetitions);
+							fg_MeasurePing<CBenchDriverActor, CBenchHandlerActor>(RunLoopHelper, PerfTest, "Ping_{}"_f << _Tag, _Address, _ServerFactory, _ClientFactory, _bMasked, mc_nPingRoundTrips, mc_nRepetitions);
 
 							// The high CPU variant keeps the driver and the receive handling in the
 							// socket actors’ pool, so a round trip never hops pools
-							fg_MeasurePing<CBenchDriverActorHighCpu, CBenchHandlerActorHighCpu>(RunLoopHelper, PerfTest, "PingHigh_{}"_f << _Tag, _ServerFactory, _ClientFactory, _bMasked, mc_nPingRoundTrips, mc_nRepetitions);
+							fg_MeasurePing<CBenchDriverActorHighCpu, CBenchHandlerActorHighCpu>(RunLoopHelper, PerfTest, "PingHigh_{}"_f << _Tag, _Address, _ServerFactory, _ClientFactory, _bMasked, mc_nPingRoundTrips, mc_nRepetitions);
 						}
 					)
 				;
@@ -527,12 +540,12 @@ namespace
 				fs_MeasureTransports
 					(
 						PerfTest
-						, [&](CStr const &_Tag, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
+						, [&](CStr const &_Tag, CStr const &_Address, FVirtualSocketFactory const &_ServerFactory, FVirtualSocketFactory const &_ClientFactory, bool _bMasked)
 						{
 							DMibTestPath(_Tag);
 
 							TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(RunLoopHelper.m_pRunLoop, false, mc_nTransferBytes);
-							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<CBenchHandlerActor>());
+							fg_SetupConnection(RunLoopHelper, pState, _Address, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<CBenchHandlerActor>());
 
 							TCActor<CBenchDriverActor> Driver = fg_ConstructActor<CBenchDriverActor>();
 
