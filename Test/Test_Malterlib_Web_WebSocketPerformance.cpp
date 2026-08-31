@@ -155,6 +155,13 @@ namespace
 		TCUniquePointer<TCPromise<void>> m_pClientWaitPromise;
 	};
 
+	// A callback host on the high CPU pool, so the high variants handle receives where the
+	// socket actors already run
+	struct CBenchHandlerActor : public CActor
+	{
+		static constexpr EPriority mc_Priority = EPriority_NormalHighCPU;
+	};
+
 	void fg_SetupConnection
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
@@ -162,6 +169,7 @@ namespace
 			, FVirtualSocketFactory const &_ServerFactory
 			, FVirtualSocketFactory const &_ClientFactory
 			, bool _bMasked
+			, TCActor<CBenchHandlerActor> const &_HandlerActor
 		)
 	{
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
@@ -176,11 +184,11 @@ namespace
 				&CWebSocketServerActor::f_StartListenAddress
 				, fg_CreateVector(ListenAddress)
 				, ENetFlag_None
-				, g_ActorFunctorWeak / [pStateWeak](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
+				, g_ActorFunctorWeak / [pStateWeak, _HandlerActor](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
 				{
 					CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
 
-					ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [pStateWeak](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
+					auto fOnReceiveBinaryMessage = [pStateWeak](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
 						{
 							auto pState = pStateWeak.f_Lock();
 							if (!pState)
@@ -214,6 +222,11 @@ namespace
 							co_return {};
 						}
 					;
+
+					if (_HandlerActor)
+						ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak(_HandlerActor) / fOnReceiveBinaryMessage;
+					else
+						ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / fOnReceiveBinaryMessage;
 
 					CStr Protocol;
 					if (!ConnectionInfo.m_Protocols.f_IsEmpty())
@@ -297,13 +310,18 @@ namespace
 			.f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout)
 		;
 
-		NewClientConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [pStateWeak](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
+		auto fOnClientReceiveBinaryMessage = [pStateWeak](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
 			{
 				if (auto pState = pStateWeak.f_Lock())
 					pState->f_ClientReceived(_pMessage->f_GetTotalLength());
 				co_return {};
 			}
 		;
+
+		if (_HandlerActor)
+			NewClientConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak(_HandlerActor) / fOnClientReceiveBinaryMessage;
+		else
+			NewClientConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / fOnClientReceiveBinaryMessage;
 
 		_pState->m_ClientSocket = NewClientConnection.f_Accept
 			(
@@ -322,9 +340,14 @@ namespace
 	}
 
 	// Drives the benchmark from a coroutine so each iteration costs actor scheduling, not test
-	// thread synchronization
-	struct CBenchDriverActor : public CActor
+	// thread synchronization. The priority picks the pool the driver runs in: the normal pool
+	// hops to the socket actors’ high CPU pool every round trip, the high CPU variant stays
+	// inside it
+	template <EPriority t_Priority>
+	struct TCBenchDriverActor : public CActor
 	{
+		static constexpr EPriority mc_Priority = t_Priority;
+
 		TCFuture<void> f_RunPing(TCSharedPointerSupportWeak<CBenchState> _pState, umint _nRoundTrips)
 		{
 			CIOByteVector Ping;
@@ -390,6 +413,46 @@ namespace
 		}
 	};
 
+	using CBenchDriverActor = TCBenchDriverActor<EPriority_Normal>;
+	using CBenchDriverActorHighCpu = TCBenchDriverActor<EPriority_NormalHighCPU>;
+
+	template <typename t_CDriver>
+	void fg_MeasurePing
+		(
+			CActorRunLoopTestHelper &_RunLoopHelper
+			, CTestPerformance &_PerfTest
+			, CStr const &_Name
+			, FVirtualSocketFactory const &_ServerFactory
+			, FVirtualSocketFactory const &_ClientFactory
+			, bool _bMasked
+			, TCActor<CBenchHandlerActor> const &_HandlerActor
+			, umint _nPingRoundTrips
+			, umint _nRepetitions
+		)
+	{
+		TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(_RunLoopHelper.m_pRunLoop, true, uint64(0));
+		fg_SetupConnection(_RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked, _HandlerActor);
+
+		TCActor<t_CDriver> Driver = fg_ConstructActor<t_CDriver>();
+
+		Driver(&t_CDriver::f_RunPing, pState, _nPingRoundTrips / 8)
+			.f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout)
+		;
+
+		CTestPerformanceMeasure Time(_Name);
+		for (umint iRepetition = 0; iRepetition < _nRepetitions; ++iRepetition)
+		{
+			Time.f_Start();
+			Driver(&t_CDriver::f_RunPing, pState, _nPingRoundTrips)
+				.f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout)
+			;
+			Time.f_Stop(_nPingRoundTrips);
+		}
+		_PerfTest.f_Add(Time);
+
+		Driver->f_BlockDestroy(_RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
+	}
+
 	class CWebSocketPerformance_Tests : public CTest
 	{
 #if defined(DMibDebug) || defined(DMibSanitizerEnabled)
@@ -446,27 +509,11 @@ namespace
 						{
 							DMibTestPath(_Tag);
 
-							TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(RunLoopHelper.m_pRunLoop, true, uint64(0));
-							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked);
+							fg_MeasurePing<CBenchDriverActor>(RunLoopHelper, PerfTest, "Ping_{}"_f << _Tag, _ServerFactory, _ClientFactory, _bMasked, {}, mc_nPingRoundTrips, mc_nRepetitions);
 
-							TCActor<CBenchDriverActor> Driver = fg_ConstructActor<CBenchDriverActor>();
-
-							Driver(&CBenchDriverActor::f_RunPing, pState, mc_nPingRoundTrips / 8)
-								.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout)
-							;
-
-							CTestPerformanceMeasure Time("Ping_{}"_f << _Tag);
-							for (umint iRepetition = 0; iRepetition < mc_nRepetitions; ++iRepetition)
-							{
-								Time.f_Start();
-								Driver(&CBenchDriverActor::f_RunPing, pState, mc_nPingRoundTrips)
-									.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout)
-								;
-								Time.f_Stop(mc_nPingRoundTrips);
-							}
-							PerfTest.f_Add(Time);
-
-							Driver->f_BlockDestroy(RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
+							// The high CPU variant keeps the driver and the receive handling in the
+							// socket actors’ pool, so a round trip never hops pools
+							fg_MeasurePing<CBenchDriverActorHighCpu>(RunLoopHelper, PerfTest, "PingHigh_{}"_f << _Tag, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<CBenchHandlerActor>(), mc_nPingRoundTrips, mc_nRepetitions);
 						}
 					)
 				;
@@ -486,7 +533,7 @@ namespace
 							DMibTestPath(_Tag);
 
 							TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(RunLoopHelper.m_pRunLoop, false, mc_nTransferBytes);
-							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked);
+							fg_SetupConnection(RunLoopHelper, pState, _ServerFactory, _ClientFactory, _bMasked, {});
 
 							TCActor<CBenchDriverActor> Driver = fg_ConstructActor<CBenchDriverActor>();
 
