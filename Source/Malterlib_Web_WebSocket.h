@@ -150,6 +150,13 @@ namespace NMib::NWeb
 			if (m_SendWindowBytes)
 				return m_SendWindowBytes;
 
+			return f_GetSendWindowStartBytes();
+		}
+
+		// The window a connection begins at whatever the configured window says: the transport’s
+		// own eight frames, which the path grows past only when its bandwidth-delay product asks
+		umint f_GetSendWindowStartBytes() const
+		{
 			return 8 * (fg_Max(m_FragmentationSize, umint(4096)) + NNetwork::gc_SocketFramingMargin);
 		}
 		fp64 m_Timeout = mc_DefaultTimeout;
@@ -345,7 +352,7 @@ namespace NMib::NWeb
 		void fp_ReceiveSegment(NSys::CIoStreamSegment &&_Segment);
 		void fp_ReceiveWindowResume();
 		void fp_SendCompleted(NSys::CIoCompletion _Result, umint _iReservation);
-		void fp_SendBufferReleased(umint _iTransfer);
+		void fp_SendBufferReleased(umint _iTransfer, umint _nBytes);
 		void fp_ProcessIncoming();
 		bool fp_ProcessIncomingMessage();
 		void fp_ProcessState(NNetwork::ENetTCPState _StateAdded);
