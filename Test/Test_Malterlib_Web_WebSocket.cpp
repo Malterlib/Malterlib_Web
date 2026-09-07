@@ -413,6 +413,23 @@ public:
 			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
 		}
 
+		if (bTimedOut)
+		{
+			DMibLock(pState->m_Lock);
+			DMibLog
+				(
+					Warning
+					, "Connect wait ran out: client result {} error '{}' socket {}, server connections {} accept error {} '{}', listen error '{}'"
+					, pState->m_bClientConnectionResult
+					, pState->m_ClientConnectionError
+					, !!pState->m_ClientSocket
+					, pState->m_ServerConnections.f_GetLen()
+					, pState->m_bAcceptError
+					, pState->m_AcceptError
+					, pState->m_ListenError
+				)
+			;
+		}
 
 		DMibTest(!DMibExpr(bTimedOut));
 
