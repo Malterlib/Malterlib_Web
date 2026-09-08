@@ -449,6 +449,7 @@ namespace NMib::NWeb
 		EState m_State = EState_None;
 		uint32 m_iFreeSendReservation = CSendReservation::mc_iNone;
 		NNetwork::ENetTCPState m_DeferredCloseStates = NNetwork::ENetTCPState_None; // Defer close states until earlier stream data, including close frames, is delivered.
+		NNetwork::ENetTCPState m_StateBeforeSocket = NNetwork::ENetTCPState_None; // Latch reports queued during accept before socket handover, including terminal handshake failures.
 
 		NContainer::CPagedByteVector m_IncomingData{4096};
 		NContainer::CPagedByteVector m_OutgoingData{4096};
@@ -1508,6 +1509,13 @@ namespace NMib::NWeb
 
 	void CWebSocketActor::fp_StateAdded(NNetwork::ENetTCPState _StateAdded)
 	{
+		auto &Internal = *mp_pInternal;
+		if (!Internal.m_pSocket)
+		{
+			Internal.m_StateBeforeSocket = Internal.m_StateBeforeSocket | _StateAdded;
+			return;
+		}
+
 		fp_ProcessState(_StateAdded);
 	}
 
@@ -4385,6 +4393,9 @@ namespace NMib::NWeb
 
 			State = Internal.m_pSocket->f_GetState();
 		}
+
+		State = State | Internal.m_StateBeforeSocket;
+		Internal.m_StateBeforeSocket = NNetwork::ENetTCPState_None;
 
 		fp_ProcessState(State);
 	}
