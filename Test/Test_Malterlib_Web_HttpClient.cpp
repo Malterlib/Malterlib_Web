@@ -454,6 +454,15 @@ public:
 			co_await WebServerResults.m_Subscription->f_Destroy();
 			WebServerResults.m_Subscription.f_Clear();
 
+			// Node leaves its socket files behind when it is stopped, and they would sit in the
+			// deploy tree until the next setup recreates the directory
+			for (auto const &SocketFile : {"http.sock", "https.sock"})
+			{
+				CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / SocketFile);
+				if (CFile::fs_FileExists(SocketPath))
+					CFile::fs_DeleteFile(SocketPath);
+			}
+
 			co_return {};
 		};
 	}
