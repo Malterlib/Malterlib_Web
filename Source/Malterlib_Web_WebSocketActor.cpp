@@ -497,6 +497,13 @@ namespace NMib::NWeb
 		// its data, which can hold the peer's close frame
 		NNetwork::ENetTCPState m_DeferredCloseStates = NNetwork::ENetTCPState_None;
 
+		// State reported for a socket this actor has not been given yet. An accepted socket's
+		// handshake can run to its end, a failure included, inside the accept on the listen
+		// actor's thread, and the reports it makes then are queued ahead of the job that hands
+		// the socket over. Dropped, they took the close that ended a rejected connection with
+		// them, and the actor sat on a dead socket for good; they wait here for the socket
+		NNetwork::ENetTCPState m_StateBeforeSocket = NNetwork::ENetTCPState_None;
+
 		NContainer::CPagedByteVector m_IncomingData{4096};
 		NContainer::CPagedByteVector m_OutgoingData{4096};
 		NContainer::TCLinkedList<COutgoingSegment> m_OutgoingSegments;
@@ -1681,6 +1688,13 @@ namespace NMib::NWeb
 
 	void CWebSocketActor::fp_StateAdded(NNetwork::ENetTCPState _StateAdded)
 	{
+		auto &Internal = *mp_pInternal;
+		if (!Internal.m_pSocket)
+		{
+			Internal.m_StateBeforeSocket = Internal.m_StateBeforeSocket | _StateAdded;
+			return;
+		}
+
 		fp_ProcessState(_StateAdded);
 	}
 
@@ -4771,6 +4785,10 @@ namespace NMib::NWeb
 
 			State = Internal.m_pSocket->f_GetState();
 		}
+
+		// What the socket reported before it arrived, the latched bits of f_GetState included
+		State = State | Internal.m_StateBeforeSocket;
+		Internal.m_StateBeforeSocket = NNetwork::ENetTCPState_None;
 
 		fp_ProcessState(State);
 	}
