@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/LogError>
 
 
 #include "Malterlib_Web_WebSocket.h"
@@ -92,7 +93,15 @@ namespace NMib::NWeb::NWebSocket
 							{
 								auto ConnectionActor = WeakConnectionActor.f_Lock();
 								if (ConnectionActor)
-									ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded).f_DiscardResult();
+								{
+									DMibLogWarningOrDiscardResult
+										(
+											ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded)
+											, "Mib/Web"
+											, "Reporting the socket state to the connection actor failed"
+										)
+									;
+								}
 							}
 						)
 					;
@@ -102,14 +111,29 @@ namespace NMib::NWeb::NWebSocket
 
 					DMibFastCheck(pAcceptedSocket->f_IsValid());
 
-					ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pAcceptedSocket)).f_DiscardResult();
+					DMibLogWarningOrDiscardResult
+						(
+							ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pAcceptedSocket))
+							, "Mib/Web"
+							, "Handing the accepted socket to the connection actor failed"
+						)
+					;
 
 					auto Server = mp_Server.f_Lock();
 					if (Server)
-						Server.f_Bind<&CWebSocketServerActor::fp_AddConnection>(fg_Move(ConnectionActor)).f_DiscardResult();
+					{
+						DMibLogWarningOrDiscardResult
+							(
+								Server.f_Bind<&CWebSocketServerActor::fp_AddConnection>(fg_Move(ConnectionActor))
+								, "Mib/Web"
+								, "Adding the accepted connection to the server failed"
+							)
+						;
+					}
 				}
-				catch (NException::CException const &)
+				catch (NException::CException const &_Exception)
 				{
+					DMibLogWithCategory(Mib/Web, Warning, "Accepting a websocket connection failed: {}", _Exception);
 				}
 			}
 		}
