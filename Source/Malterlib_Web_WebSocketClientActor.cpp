@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Concurrency/ConcurrencyManager>
+#include <Mib/Concurrency/LogError>
 #include <Mib/Concurrency/WeakActor>
 #include <Mib/Encoding/Base64>
 #include <Mib/Network/Sockets/TCP>
@@ -213,7 +214,13 @@ namespace NMib::NWeb
 
 									auto fFinishConnection = [=, &pNewSocket, &ConnectionActor, CleanupPending = fg_Move(CleanupPending)]() mutable
 										{
-											ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pNewSocket)).f_DiscardResult();
+											DMibLogWarningOrDiscardResult
+												(
+													ConnectionActor.f_Bind<&CWebSocketActor::fp_SetSocket>(fg_Move(pNewSocket))
+													, "Mib/Web"
+													, "Handing the connected socket to the connection actor failed"
+												)
+											;
 
 											ConnectionActor
 												(
@@ -277,7 +284,13 @@ namespace NMib::NWeb
 												auto ConnectionActor = WeakConnectionActor.f_Lock();
 												if (!ConnectionActor)
 													return;
-												ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded).f_DiscardResult();
+												DMibLogWarningOrDiscardResult
+													(
+														ConnectionActor.f_Bind<&CWebSocketActor::fp_StateAdded>(_StateAdded)
+														, "Mib/Web"
+														, "Reporting the socket state to the connection actor failed"
+													)
+												;
 											}
 										)
 									;
