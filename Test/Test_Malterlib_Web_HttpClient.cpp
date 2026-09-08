@@ -454,6 +454,14 @@ public:
 			co_await WebServerResults.m_Subscription->f_Destroy();
 			WebServerResults.m_Subscription.f_Clear();
 
+			// Node does not unlink its Unix listener files at shutdown.
+			for (auto const &SocketFile : {"http.sock", "https.sock"})
+			{
+				CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / SocketFile);
+				if (CFile::fs_FileExists(SocketPath))
+					CFile::fs_DeleteFile(SocketPath);
+			}
+
 			co_return {};
 		};
 	}
