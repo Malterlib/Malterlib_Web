@@ -73,7 +73,7 @@ public:
 					_fGetFactories
 					, _AcceptError
 					, _ConnectError
-					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize)
+					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize << (m_bTestTimeouts ? "_Timeouts" : ""))
 					, false
 					, _bTestTooLongCloseMessage
 					, _bAllowUnmasked
@@ -775,9 +775,10 @@ public:
 		};
 	}
 
-	void fp_TestProtocols(umint _FragmentationSize)
+	void fp_TestProtocols(umint _FragmentationSize, bool _bTestTimeouts)
 	{
 		m_CurrentFragmentationSize = _FragmentationSize;
+		m_bTestTimeouts = _bTestTimeouts;
 		{
 			DMibTestPath("TCP");
 			fp_Test
@@ -789,7 +790,7 @@ public:
 					, ""
 					, ""
 					, _FragmentationSize
-					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+					, m_bTestTimeouts
 				)
 			;
 		}
@@ -821,7 +822,7 @@ public:
 					, ""
 					, ""
 					, _FragmentationSize
-					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+					, m_bTestTimeouts
 				)
 			;
 		}
@@ -856,7 +857,7 @@ public:
 					, ""
 					, ""
 					, _FragmentationSize
-					, m_CurrentFragmentationSize == CWebsocketSettings::mc_DefaultFragmentationSize
+					, m_bTestTimeouts
 					, false
 					, true // Authenticated unix is a confidential point to point transport, so exercise unmasked frames
 					, true // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
@@ -2942,7 +2943,7 @@ public:
 			{
 				DMibTestSuite("Fragmentation {}"_f << i)
 				{
-					fp_TestProtocols(i);
+					fp_TestProtocols(i, false);
 				};
 			}
 
@@ -2950,9 +2951,16 @@ public:
 			{
 				DMibTestSuite("Fragmentation {}"_f << i)
 				{
-					fp_TestProtocols(i);
+					fp_TestProtocols(i, false);
 				};
 			}
+
+			// The timeout paths wait fixed seconds, so they get a suite of their own at the
+			// default fragmentation size and every other suite stays quick enough to loop
+			DMibTestSuite("Timeouts")
+			{
+				fp_TestProtocols(CWebsocketSettings::mc_DefaultFragmentationSize, true);
+			};
 		};
 
 		DMibTestCategory("Unmasked negotiation")
@@ -3255,6 +3263,7 @@ public:
 	}
 
 	umint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
+	bool m_bTestTimeouts = false;
 };
 
 DMibTestRegister(CWebsocket_Tests, Malterlib::Web);
