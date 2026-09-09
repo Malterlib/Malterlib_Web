@@ -6,10 +6,21 @@
 #include <Mib/Cryptography/Certificate>
 #include <Mib/Cryptography/RandomID>
 #include <Mib/Web/HTTP/URL>
+#include <Mib/Network/ResolveActor>
+#include <Mib/Concurrency/WeakActor>
+#include <Mib/Core/IoLoop>
 
 #define CURL_STRICTER
 
 #include <curl/curl.h>
+#include <curl/external_resolver.h>
+#include <openssl/x509.h>
+
+#ifdef DPlatformFamily_Windows
+#	include <winsock2.h>
+#else
+#	include <unistd.h>
+#endif
 
 extern "C"
 {
@@ -107,14 +118,18 @@ namespace NMib::NWeb
 		};
 
 		constinit NStorage::TCAggregate<CCurlInit, 129> g_CurlInit = {DAggregateInit};
-	}
 
-	struct CHttpClientActor::CActorHolder::CInternal
-	{
-		TCUniquePointer<CURLM, CCurlDeleterMulti> m_pMulti;
-		NThread::CEvent m_ActorCreatedEvent;
-		NThread::CEvent m_ProcessingStartedEvent;
-	};
+		struct CCertificatePreparation
+		{
+			NThread::CMutual m_Lock;
+			TCAsyncResult<void> m_Result;
+			TCVector<TCPromise<void>> m_Waiters;
+			bool m_bStarted = false;
+			bool m_bReady = false;
+		};
+
+		constinit NStorage::TCAggregate<CCertificatePreparation, 128> g_CertificatePreparation = {DAggregateInit};
+	}
 
 	struct CHttpClientActor::CState
 	{
@@ -138,6 +153,8 @@ namespace NMib::NWeb
 				return TCMap<CStr, CRequest>::fs_GetKey(*this);
 			}
 
+			int64 m_ReadDataSize = -1;
+			uint64 m_WriteDoneBytes = 0;
 			CHttpClientActor *m_pActor = nullptr;
 			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 			TCUniquePointer<CURL, CCurlDeleterEasy> m_pCurl;
@@ -148,20 +165,267 @@ namespace NMib::NWeb
 			CStr m_CurlErrorBuffer;
 			CStr m_CookieStr;
 			TCPromise<CHttpClientActor::CResult> m_FinishedPromise;
-			int64 m_ReadDataSize = -1;
 			TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> m_fReadData;
 			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
 			NException::CExceptionPointer m_pWriteError;
 			NException::CExceptionPointer m_pReadError;
-			uint64 m_WriteDoneBytes = 0;
 			int m_PauseMask = 0;
 			bool m_bAddedHandle = false;
-			bool m_bWriteDone = false;
+			bool m_bReadEOF = false;
 		};
+
+		struct CSocket
+		{
+			uint64 m_Generation = 0;
+			TCWeakActor<CHttpClientActor> m_Actor;
+			NSys::CIoLoopRegistration *m_pRegistration = nullptr;
+			curl_socket_t m_Handle = CURL_SOCKET_BAD;
+			int m_Interest = CURL_POLL_NONE;
+		};
+
+		struct CDrain
+		{
+			// The initial reference is released after curl has closed its connection cache.
+			NAtomic::TCAtomic<umint> m_Pending{1};
+			TCPromise<void> m_Done;
+
+			void f_Release()
+			{
+				if (m_Pending.f_FetchSub(1) == 1)
+					m_Done.f_SetResult();
+			}
+		};
+
+		struct CDNS
+		{
+			CIntrusiveRefCount m_RefCount;
+			CURL *m_pEasy = nullptr;
+			CActorSubscription m_Cancel;
+			TCVector<curl_external_address> m_Addresses;
+			int m_Status = 0;
+			bool m_bCancelled = false;
+		};
+
+		static void fs_CloseSocket(curl_socket_t _Socket)
+		{
+#ifdef DPlatformFamily_Windows
+			closesocket(_Socket);
+#else
+			close(_Socket);
+#endif
+		}
+
+		static NSys::EIoLoopEvent fs_Interest(int _Interest)
+		{
+			auto Events = NSys::EIoLoopEvent::mc_None;
+			if (_Interest == CURL_POLL_IN || _Interest == CURL_POLL_INOUT)
+				Events |= NSys::EIoLoopEvent::mc_Read;
+			if (_Interest == CURL_POLL_OUT || _Interest == CURL_POLL_INOUT)
+				Events |= NSys::EIoLoopEvent::mc_Write;
+
+			return Events;
+		}
+
+		static int fs_Socket(CURL *, curl_socket_t _Socket, int _What, void *_pUser, void *) noexcept
+		{
+			try
+			{
+				auto &Internal = *static_cast<CInternal *>(_pUser);
+				auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+				if (!pFound && _What == CURL_POLL_REMOVE)
+					return 0;
+
+				if (!pFound)
+				{
+					TCUniquePointer<CSocket> pSocket = fg_Construct();
+					pSocket->m_Handle = _Socket;
+					pSocket->m_Actor = fg_ThisActor(Internal.m_pActor).f_Weak();
+					pSocket->m_Generation = ++Internal.m_NextSocketGeneration;
+
+					pSocket->m_pRegistration = Internal.m_pLoop->f_Register
+						(
+							NSys::CIoLoopHandle(_Socket)
+							, pSocket.f_Get()
+							, NSys::EIoLoopEvent::mc_Read | NSys::EIoLoopEvent::mc_Write
+							, [](void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
+							{
+								auto &Socket = *static_cast<CSocket *>(_pToken);
+								if (auto Actor = Socket.m_Actor.f_Lock())
+									Actor.f_Bind<&CHttpClientActor::fp_SocketReady>(smint(Socket.m_Handle), Socket.m_Generation, _Events, _Error).f_DiscardResult();
+							}
+							, false
+							, {.m_bReadinessOnly = true, .m_bLevelReadiness = true}
+						)
+					;
+
+					Internal.m_Sockets[_Socket] = fg_Move(pSocket);
+					pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+				}
+
+				(*pFound)->m_Interest = _What == CURL_POLL_REMOVE ? CURL_POLL_NONE : _What;
+
+				// Idle cached connections retain their registration until curl closes them.
+				// Each direction can deliver at most one unused notification while idle.
+				Internal.m_pLoop->f_RequestReadiness((*pFound)->m_pRegistration, fs_Interest((*pFound)->m_Interest));
+
+				return 0;
+			}
+			catch (...)
+			{
+				return -1;
+			}
+		}
+
+		static int fs_Close(void *_pUser, curl_socket_t _Socket)
+		{
+			auto &Internal = *static_cast<CInternal *>(_pUser);
+			auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+			if (!pFound)
+			{
+				fs_CloseSocket(_Socket);
+
+				return 0;
+			}
+
+			auto pSocket = fg_Move(*pFound);
+			Internal.m_Sockets.f_Remove(_Socket);
+			auto *pRegistration = pSocket->m_pRegistration;
+			Internal.m_pDrain->m_Pending.f_FetchAdd(1);
+			Internal.m_pLoop->f_DeregisterAsync
+				(
+					pRegistration
+					, [pSocket = fg_Move(pSocket), pDrain = Internal.m_pDrain]
+					{
+						fs_CloseSocket(pSocket->m_Handle);
+						pDrain->f_Release();
+					}
+				)
+			;
+
+			return 0;
+		}
+
+		static int fs_Timer(CURLM *, long _Milliseconds, void *_pUser) noexcept
+		{
+			try
+			{
+				auto &Internal = *static_cast<CInternal *>(_pUser);
+				auto Generation = ++Internal.m_TimerGeneration;
+				fg_ThisActor(Internal.m_pActor).f_Bind<&CHttpClientActor::fp_SetTimer>(Generation, _Milliseconds).f_DiscardResult();
+
+				return 0;
+			}
+			catch (...)
+			{
+				return -1;
+			}
+		}
+
+		static void *fs_Resolve(void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) noexcept
+		{
+			try
+			{
+				auto &Internal = *static_cast<CInternal *>(_pUser);
+				TCSharedPointer<CDNS> pDNS = fg_Construct();
+				pDNS->m_pEasy = _pEasy;
+				auto PreferType = _IPVersion == CURL_IPRESOLVE_V4
+					? NNetwork::ENetAddressType_TCPv4
+					: _IPVersion == CURL_IPRESOLVE_V6
+						? NNetwork::ENetAddressType_TCPv6
+						: NNetwork::ENetAddressType_None
+				;
+
+				Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call()
+					> [pDNS](TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
+					{
+						if (pDNS->m_bCancelled)
+						{
+							if (_Lookup)
+								fg_Move(_Lookup->m_Result).f_DiscardResult();
+
+							return;
+						}
+
+						if (!_Lookup)
+						{
+							pDNS->m_Status = -1;
+							curl_external_resolver_ready(pDNS->m_pEasy);
+
+							return;
+						}
+
+						pDNS->m_Cancel = fg_Move(_Lookup->m_Cancel);
+						fg_Move(_Lookup->m_Result) > [pDNS](TCAsyncResult<NNetwork::CResolveActor::CAddresses> &&_Result)
+							{
+								if (pDNS->m_bCancelled)
+									return;
+
+								pDNS->m_Status = _Result ? 1 : -1;
+								if (_Result)
+									for (auto const &Address : *_Result)
+									{
+										curl_external_address Item{};
+										NNetwork::CNetAddressTCPv4 IPv4;
+										NNetwork::CNetAddressTCPv6 IPv6;
+										if (Address.f_Get(IPv4))
+											NMemory::fg_MemCopy(Item.ip, IPv4.m_IP, sizeof(IPv4.m_IP));
+										else if (Address.f_Get(IPv6))
+										{
+											NMemory::fg_MemCopy(Item.ip, IPv6.m_IP, sizeof(IPv6.m_IP));
+											Item.ipv6 = 1;
+										}
+										else
+											continue;
+
+										Item.scope_id = Address.f_GetScopeID();
+										pDNS->m_Addresses.f_Insert(Item);
+									}
+
+								curl_external_resolver_ready(pDNS->m_pEasy);
+							}
+						;
+					}
+				;
+
+				return pDNS.f_Detach();
+			}
+			catch (...)
+			{
+				return nullptr;
+			}
+		}
+
+		static int fs_ResolvePoll(void *_pLookup, curl_external_address const **o_pAddresses, size_t *o_nAddresses)
+		{
+			auto &DNS = *static_cast<CDNS *>(_pLookup);
+			*o_pAddresses = DNS.m_Addresses.f_GetArray();
+			*o_nAddresses = DNS.m_Addresses.f_GetLen();
+
+			return DNS.m_Status;
+		}
+
+		static void fs_ResolveCancel(void *_pLookup)
+		{
+			TCSharedPointer<CDNS> pDNS = fg_Attach(static_cast<CDNS *>(_pLookup));
+			pDNS->m_bCancelled = true;
+			pDNS->m_Cancel.f_Clear();
+		}
+
+		uint64 m_NextSocketGeneration = 0;
+		uint64 m_TimerGeneration = 0;
+		CHttpClientActor *m_pActor = nullptr;
+		TCUniquePointer<CURLM, CCurlDeleterMulti> m_pMulti;
+		NSys::ICIoLoop *m_pLoop = nullptr;
+		TCActor<NNetwork::CResolveActor> m_Resolver;
+		TCMap<curl_socket_t, TCUniquePointer<CSocket>> m_Sockets;
+		TCSharedPointer<CDrain> m_pDrain = fg_Construct();
+		CActorSubscription m_Timer;
+		NException::CExceptionPointer m_pFailure;
 
 		CCertificateConfig m_CertificateConfig;
 
 		TCMap<CStr, CRequest> m_Requests;
+		bool m_bStopping = false;
 	};
 
 	CHttpClientActor::CResult::CResult(CState const &_State)
@@ -207,241 +471,13 @@ namespace NMib::NWeb
 		return m_ReceiveData.f_SetAsType<CAsyncWriteData>();
 	}
 
-	CHttpClientActor::CActorHolder::CActorHolder
-		(
-			CConcurrencyManager *_pConcurrencyManager
-			, bool _bImmediateDelete
-			, EPriority _Priority
-			, NStorage::TCSharedPointer<ICDistributedActorData> &&_pDistributedActorData
-			, NStr::CStr const &_ThreadName
-		)
-		: CSeparateThreadActorHolder(_pConcurrencyManager, _bImmediateDelete, _Priority, fg_Move(_pDistributedActorData), _ThreadName)
-		, m_pInternal(fg_Construct())
-	{
-	}
-
-	CHttpClientActor::CActorHolder::~CActorHolder() = default;
-
-	void CHttpClientActor::fp_Construct()
-	{
-		auto pActorHolder = fp_GetActorHolder();
-		auto &HolderInternal = *pActorHolder->m_pInternal;
-		HolderInternal.m_ActorCreatedEvent.f_SetSignaled();
-		HolderInternal.m_ProcessingStartedEvent.f_Wait();
-	}
-
-	void CHttpClientActor::CActorHolder::fp_StartQueueProcessing()
-	{
-		*g_CurlInit;
-
-		auto &Internal = *m_pInternal;
-		Internal.m_pMulti = fg_Explicit(curl_multi_init());
-
-		if (!Internal.m_pMulti)
-			DMibError("Failed to initialize multi");
-
-		DMibLock(mp_ThreadLock);
-		mp_pThread = NThread::CThreadObject::fs_StartThread
-			(
-				[this](NThread::CThreadObject *_pThread) -> aint
-				{
-					auto &Internal = *m_pInternal;
-					auto *pMultiHandle = Internal.m_pMulti.f_Get();
-
-					CHttpClientActor *pHttpClientActor = nullptr;
-					Internal.m_ActorCreatedEvent.f_Wait();
-					{
-						DMibLock(mp_ThreadLock);
-						pHttpClientActor = static_cast<CHttpClientActor *>(fp_GetActorRelaxed());
-					}
-
-					auto &ThreadLocal = fg_ConcurrencyThreadLocal();
-
-					DMibFastCheck(pHttpClientActor);
-					CCurrentActorScope CurrentActorScope(ThreadLocal, this);
-
-					Internal.m_ProcessingStartedEvent.f_SetSignaled();
-
-					while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
-					{
-						fp_RunQueue(ThreadLocal);
-						int RunningHandles;
-						curl_multi_perform(pMultiHandle, &RunningHandles);
-
-						{
-							while (true)
-							{
-								int MessagesInQueue = 0;
-								auto pMessage = curl_multi_info_read(pMultiHandle, &MessagesInQueue);
-								if (!pMessage)
-									break;
-
-								if (pMessage->msg == CURLMSG_DONE)
-								{
-									CURL *pEasyHandle = pMessage->easy_handle;
-
-									void *pRawRequest = nullptr;
-									curl_easy_getinfo(pEasyHandle, CURLINFO_PRIVATE, &pRawRequest);
-
-									CHttpClientActor::CInternal::CRequest *pRequest = fg_AutoStaticCast(pRawRequest);
-
-									NException::CExceptionPointer pError;
-									if (pRequest->m_pWriteError && pRequest->m_pReadError)
-									{
-										NException::CExceptionExceptionVectorData::CErrorCollector ErrorCollector;
-
-										ErrorCollector.f_AddError(fg_Move(pRequest->m_pWriteError));
-										ErrorCollector.f_AddError(fg_Move(pRequest->m_pReadError));
-
-										pError = fg_Move(ErrorCollector).f_GetException();
-									}
-									else if (pRequest->m_pWriteError)
-										pError = fg_Move(pRequest->m_pWriteError);
-									else if (pRequest->m_pReadError)
-										pError = fg_Move(pRequest->m_pReadError);
-
-									fg_ThisActor(pHttpClientActor).f_Bind<&CHttpClientActor::fp_RequestFinished>(pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)).f_DiscardResult();
-								}
-							}
-						}
-
-						curl_multi_poll(pMultiHandle, NULL, 0, TCLimitsInt<int>::mc_Max, NULL);
-					}
-					return 0;
-				}
-				, mp_ThreadName
-				, f_ConcurrencyManager().f_GetExecutionPriority(f_GetPriority())
-			)
-		;
-	}
-
-	void CHttpClientActor::CActorHolder::fp_Wakeup()
-	{
-		auto &Internal = *m_pInternal;
-		curl_multi_wakeup(Internal.m_pMulti.f_Get());
-	}
-
-	void CHttpClientActor::CActorHolder::fp_QueueJob(FActorQueueDispatchNoAlloc &&_ToQueue, CConcurrencyThreadLocal &_ThreadLocal)
-	{
-		auto pQueueEntry = CConcurrentRunQueueNonVirtualNoAlloc::fs_QueueEntry(fg_Move(_ToQueue));
-
-		if (_ThreadLocal.m_pCurrentlyProcessingActorHolder == this && _ThreadLocal.m_bCurrentlyProcessingInActorHolder)
-		{
-			if (!_ThreadLocal.m_bForceNonLocal) [[likely]]
-			{
-				mp_JobQueue.f_AddToQueueLocal(fg_Move(pQueueEntry), mp_JobQueueLocal);
-				return;
-			}
-		}
-		mp_JobQueue.f_AddToQueue(fg_Move(pQueueEntry));
-
-		umint Value = mp_JobQueueWorking.f_FetchAdd(1);
-		if (Value == 0)
-			fp_Wakeup();
-	}
-
-	void CHttpClientActor::CActorHolder::fp_QueueProcessDestroy(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
-	{
-		// Make sure the memory isn't deallocated
-		TCActorHolderWeakPointer<CActorHolder> pStayAlive = fg_Explicit(this);
-
-		DMibLock(mp_ThreadLock);
-		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
-		{
-			fp_QueueJob
-				(
-					[this, pStayAlive = fg_Move(pStayAlive)](CConcurrencyThreadLocal &_ThreadLocal)
-					{
-						if (this->mp_Destroyed.f_Load() >= 3)
-							return;
-
-						this->fp_RunProcess(_ThreadLocal);
-					}
-					, _ThreadLocal
-				)
-			;
-		}
-	}
-
-	void CHttpClientActor::CActorHolder::fp_QueueRunProcess(CConcurrencyThreadLocal &_ThreadLocal)
-	{
-		DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
-		fp_QueueJob
-			(
-				[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
-				{
-					DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
-					pThis->fp_RunProcess(_ThreadLocal);
-				}
-				, _ThreadLocal
-			)
-		;
-	}
-
-	void CHttpClientActor::CActorHolder::fp_QueueProcess(FActorQueueDispatch &&_Functor, CConcurrencyThreadLocal &_ThreadLocal)
-	{
-		if (fp_AddToQueue(fg_Move(_Functor), _ThreadLocal))
-		{
-			DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
-			fp_QueueJob
-				(
-					[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
-					{
-						DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
-						pThis->fp_RunProcess(_ThreadLocal);
-					}
-					, _ThreadLocal
-				)
-			;
-		}
-	}
-
-	void CHttpClientActor::CActorHolder::fp_QueueProcessEntry(CConcurrentRunQueueEntryHolder &&_Entry, CConcurrencyThreadLocal &_ThreadLocal)
-	{
-		if (fp_AddToQueue(fg_Move(_Entry), _ThreadLocal))
-		{
-			DMibFastCheck(m_RefCount.m_RefCount.f_Load() >= 0);
-			fp_QueueJob
-				(
-					[pThis = TCActorHolderSharedPointer<CActorHolder>(fg_Explicit(this))](CConcurrencyThreadLocal &_ThreadLocal)
-					{
-						DMibFastCheck(pThis->m_RefCount.m_RefCount.f_Load() >= 0);
-						pThis->fp_RunProcess(_ThreadLocal);
-					}
-					, _ThreadLocal
-				)
-			;
-		}
-	}
-
-	void CHttpClientActor::CActorHolder::fp_DestroyThreaded()
-	{
-		{
-			DMibLock(mp_ThreadLock);
-
-			auto &Internal = *m_pInternal;
-			Internal.m_ActorCreatedEvent.f_SetSignaled();
-
-			mp_pThread->f_Stop(false);
-			fp_Wakeup();
-
-			mp_pThread.f_Clear();
-
-			Internal.m_pMulti.f_Clear();
-		}
-
-		CDefaultActorHolder::fp_DestroyThreaded();
-	}
-
 	CHttpClientActor::CInternal::CRequest::~CRequest()
 	{
 		*m_pDeleted = true;
 
 		if (m_bAddedHandle)
 		{
-			auto pActorHolder = m_pActor->fp_GetActorHolder();
-			auto &HolderInternal = *pActorHolder->m_pInternal;
-			curl_multi_remove_handle(HolderInternal.m_pMulti.f_Get(), m_pCurl.f_Get());
+			curl_multi_remove_handle(m_pActor->mp_pInternal->m_pMulti.f_Get(), m_pCurl.f_Get());
 		}
 	}
 
@@ -452,14 +488,238 @@ namespace NMib::NWeb
 
 	CHttpClientActor::~CHttpClientActor() = default;
 
-	auto CHttpClientActor::fp_GetActorHolder() -> CActorHolder *
+	void CHttpClientActor::fp_Construct()
 	{
-		return static_cast<CActorHolder *>(self.m_pThis.f_Get());
+		*g_CurlInit;
+
+		auto &Internal = *mp_pInternal;
+		Internal.m_pActor = this;
+
+		auto Binding = f_ConcurrencyManager().f_PickIoLoopBinding(self.m_pThis->f_GetPriority());
+		Internal.m_pLoop = Binding ? Binding.m_pLoop : NSys::fg_GetSharedIoLoop();
+		if (!Internal.m_pLoop)
+			DMibError("No I/O loop available for HTTP client");
+		if (Binding)
+			self.m_pThis->f_SetInitialQueue(Binding.m_iQueue);
+
+		Internal.m_Resolver = fg_ConstructActor<NNetwork::CResolveActor>();
+		Internal.m_pMulti = fg_Explicit(curl_multi_init());
+		if (!Internal.m_pMulti)
+			DMibError("Failed to initialize curl multi handle");
+
+		auto *pMulti = Internal.m_pMulti.f_Get();
+		curl_multi_setopt(pMulti, CURLMOPT_SOCKETFUNCTION, &CInternal::fs_Socket);
+		curl_multi_setopt(pMulti, CURLMOPT_SOCKETDATA, &Internal);
+		curl_multi_setopt(pMulti, CURLMOPT_TIMERFUNCTION, &CInternal::fs_Timer);
+		curl_multi_setopt(pMulti, CURLMOPT_TIMERDATA, &Internal);
+
+		curl_external_resolver Resolver{&Internal, &CInternal::fs_Resolve, &CInternal::fs_ResolvePoll, &CInternal::fs_ResolveCancel};
+		auto ResolverResult = curl_multi_set_external_resolver(pMulti, &Resolver);
+		if (ResolverResult != CURLM_OK)
+			DMibError(curl_multi_strerror(ResolverResult));
+	}
+
+	TCFuture<void> CHttpClientActor::fp_PrepareCertificates()
+	{
+		auto &Preparation = *g_CertificatePreparation;
+		TCPromise<void> Promise;
+		bool bStart;
+
+		{
+			DMibLock(Preparation.m_Lock);
+			if (Preparation.m_bReady)
+				co_return Preparation.m_Result;
+
+			Preparation.m_Waiters.f_Insert(Promise);
+			bStart = !Preparation.m_bStarted;
+			Preparation.m_bStarted = true;
+		}
+
+		if (bStart)
+		{
+			auto BlockingActorCheckout = fg_BlockingActor();
+
+			co_await
+				(
+					g_Dispatch(BlockingActorCheckout) / []
+					{
+						TCAsyncResult<void> Result;
+
+						try
+						{
+							auto *pStore = X509_STORE_new();
+							if (!pStore)
+								DMibError("Could not allocate certificate store");
+
+							auto Cleanup = g_OnScopeExit / [pStore]
+								{
+									X509_STORE_free(pStore);
+								}
+							;
+
+							NCryptography::CCertificate::fs_GetSystemCertificates(pStore);
+							Result.f_SetResult();
+						}
+						catch (...)
+						{
+							Result.f_SetException(NException::fg_CurrentException());
+						}
+
+						auto &Preparation = *g_CertificatePreparation;
+						TCVector<TCPromise<void>> Waiters;
+
+						{
+							DMibLock(Preparation.m_Lock);
+							Preparation.m_Result = fg_Move(Result);
+							Preparation.m_bReady = true;
+							Waiters = fg_Move(Preparation.m_Waiters);
+						}
+
+						for (auto &Waiter : Waiters)
+							Waiter.f_SetResult(Preparation.m_Result);
+					}
+				)
+			;
+		}
+
+		co_return co_await Promise.f_Future();
+	}
+
+	TCFuture<void> CHttpClientActor::fp_SetTimer(uint64 _Generation, long _Milliseconds)
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.m_bStopping || Internal.m_pFailure || _Generation != Internal.m_TimerGeneration)
+			co_return {};
+
+		Internal.m_Timer.f_Clear();
+
+		if (_Milliseconds < 0)
+			co_return {};
+
+		if (_Milliseconds == 0)
+		{
+			fp_Drive(smint(CURL_SOCKET_TIMEOUT), 0);
+
+			co_return {};
+		}
+
+		auto Timer = co_await fg_OneshotTimerAbortable
+			(
+				fp64(_Milliseconds) / 1000.0
+				, [this, _Generation]() -> TCFuture<void>
+				{
+					if (!mp_pInternal->m_bStopping && _Generation == mp_pInternal->m_TimerGeneration)
+						fp_Drive(smint(CURL_SOCKET_TIMEOUT), 0);
+
+					co_return {};
+				}
+			)
+		;
+
+		if (!Internal.m_bStopping && !Internal.m_pFailure && _Generation == Internal.m_TimerGeneration)
+			Internal.m_Timer = fg_Move(Timer);
+
+		co_return {};
+	}
+
+	void CHttpClientActor::fp_SocketReady(smint _Socket, uint64 _Generation, NSys::EIoLoopEvent _Events, int _Error)
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.m_bStopping || Internal.m_pFailure)
+			return;
+
+		auto *pSocket = Internal.m_Sockets.f_FindEqual(curl_socket_t(_Socket));
+		if (!pSocket || (*pSocket)->m_Generation != _Generation)
+			return;
+
+		if (_Error)
+		{
+			fp_Fail(DMibErrorInstance(fg_Format("HTTP I/O registration failed ({})", _Error)));
+
+			return;
+		}
+
+		if ((*pSocket)->m_Interest == CURL_POLL_NONE)
+			return;
+
+		int Events = 0;
+		if (fg_IsSet(_Events, NSys::EIoLoopEvent::mc_Read | NSys::EIoLoopEvent::mc_ReadClosed | NSys::EIoLoopEvent::mc_Hup))
+			Events |= CURL_CSELECT_IN;
+		if (fg_IsSet(_Events, NSys::EIoLoopEvent::mc_Write | NSys::EIoLoopEvent::mc_WriteClosed))
+			Events |= CURL_CSELECT_OUT;
+		if (_Error || fg_IsSet(_Events, NSys::EIoLoopEvent::mc_Error))
+			Events |= CURL_CSELECT_ERR;
+
+		fp_Drive(_Socket, Events);
+	}
+
+	void CHttpClientActor::fp_Drive(smint _Socket, int _Events)
+	{
+		auto &Internal = *mp_pInternal;
+		if (Internal.m_bStopping || Internal.m_pFailure)
+			return;
+
+		int Running;
+		auto Error = curl_multi_socket_action(Internal.m_pMulti.f_Get(), curl_socket_t(_Socket), _Events, &Running);
+		if (Error != CURLM_OK)
+		{
+			fp_Fail(DMibErrorInstance(curl_multi_strerror(Error)));
+
+			return;
+		}
+
+		int Remaining;
+		while (auto *pMessage = curl_multi_info_read(Internal.m_pMulti.f_Get(), &Remaining))
+		{
+			if (pMessage->msg != CURLMSG_DONE)
+				continue;
+
+			CInternal::CRequest *pRequest = nullptr;
+			curl_easy_getinfo(pMessage->easy_handle, CURLINFO_PRIVATE, &pRequest);
+
+			NException::CExceptionPointer pError;
+			if (pRequest->m_pReadError && pRequest->m_pWriteError)
+			{
+				NException::CExceptionExceptionVectorData::CErrorCollector Errors;
+				Errors.f_AddError(fg_Move(pRequest->m_pReadError));
+				Errors.f_AddError(fg_Move(pRequest->m_pWriteError));
+
+				pError = fg_Move(Errors).f_GetException();
+			}
+			else if (pRequest->m_pReadError)
+				pError = fg_Move(pRequest->m_pReadError);
+			else if (pRequest->m_pWriteError)
+				pError = fg_Move(pRequest->m_pWriteError);
+
+			fg_ThisActor(this).f_Bind<&CHttpClientActor::fp_RequestFinished>(pRequest->f_GetID(), pMessage->data.result, fg_Move(pError)).f_DiscardResult();
+		}
+
+		if (auto *pSocket = Internal.m_Sockets.f_FindEqual(curl_socket_t(_Socket)))
+			Internal.m_pLoop->f_RequestReadiness((*pSocket)->m_pRegistration, CInternal::fs_Interest((*pSocket)->m_Interest));
+	}
+
+	void CHttpClientActor::fp_Fail(NException::CExceptionPointer &&_pError)
+	{
+		auto &Internal = *mp_pInternal;
+		Internal.m_pFailure = fg_Move(_pError);
+		++Internal.m_TimerGeneration;
+		Internal.m_Timer.f_Clear();
+
+		for (auto &Request : Internal.m_Requests)
+			if (!Request.m_FinishedPromise.f_IsSet())
+				Request.m_FinishedPromise.f_SetException(Internal.m_pFailure);
+
+		Internal.m_Requests.f_Clear();
+		Internal.m_pMulti.f_Clear();
 	}
 
 	TCFuture<void> CHttpClientActor::fp_Destroy()
 	{
 		auto &Internal = *mp_pInternal;
+		Internal.m_bStopping = true;
+		++Internal.m_TimerGeneration;
+		Internal.m_Timer.f_Clear();
+
 		for (auto &Request : Internal.m_Requests)
 		{
 			if (Request.m_FinishedPromise.f_IsSet())
@@ -469,10 +729,17 @@ namespace NMib::NWeb
 		}
 
 		Internal.m_Requests.f_Clear();
+		Internal.m_pMulti.f_Clear();
+
+		DMibFastCheck(Internal.m_Sockets.f_IsEmpty());
+
+		Internal.m_pDrain->f_Release();
+
+		co_await Internal.m_pDrain->m_Done.f_Future();
+		co_await fg_Move(Internal.m_Resolver).f_Destroy();
 
 		co_return {};
 	}
-
 	TCFuture<void> CHttpClientActor::fp_RequestFinished(CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException)
 	{
 		auto &Internal = *mp_pInternal;
@@ -493,9 +760,11 @@ namespace NMib::NWeb
 				auto pEasyError = curl_easy_strerror(ResultCode);
 				auto pExtraError = pEasyError ? pEasyError : "";
 				CStr FullError = pExtraError;
+
 				CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 				if (CurlError)
 					fg_AddStrSep(FullError, CurlError, ". ");
+
 				Request.m_FinishedPromise.f_SetException(DMibErrorInstance(fg_Format("libcurl failed ({}): {}", ResultCode, FullError)));
 			}
 			else
@@ -640,7 +909,13 @@ namespace NMib::NWeb
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
+		co_await fp_PrepareCertificates();
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Aborted request");
+
 		auto &Internal = *mp_pInternal;
+		if (Internal.m_pFailure)
+			co_return Internal.m_pFailure;
 
 		auto RequestID = NCryptography::fg_FastRandomID(Internal.m_Requests);
 		auto &Request = Internal.m_Requests[RequestID];
@@ -694,6 +969,8 @@ namespace NMib::NWeb
 		;
 
 		fg_CurlSetOpt<CURLOPT_ERRORBUFFER>(pCurl, Request.m_CurlErrorBuffer.f_GetStr());
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CLOSESOCKETFUNCTION>(pCurl, &CInternal::fs_Close));
+		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CLOSESOCKETDATA>(pCurl, &Internal));
 
 		curl_slist *pHeaders = NULL;
 		auto CleanupHeaders = g_OnScopeExit / [&]
@@ -785,6 +1062,8 @@ namespace NMib::NWeb
 
 						if (pRequest->m_pReadError)
 							return CURL_READFUNC_ABORT;
+						if (pRequest->m_bReadEOF)
+							return 0;
 
 						size_t Bytes = _Size * _nItems;
 
@@ -803,6 +1082,7 @@ namespace NMib::NWeb
 									else
 									{
 										pRequest->m_Data = fg_Move(*_Result);
+										pRequest->m_bReadEOF = pRequest->m_Data.f_IsEmpty();
 										pRequest->m_iData = fg_Const(pRequest->m_Data).f_GetIterator();
 									}
 									pRequest->m_PauseMask &= ~CURLPAUSE_SEND;
@@ -916,20 +1196,24 @@ namespace NMib::NWeb
 
 					if (pRequest->m_pWriteError)
 						return CURL_WRITEFUNC_ERROR;
-					else if (pRequest->m_bWriteDone)
-					{
-						pRequest->m_bWriteDone = false;
-						return pRequest->m_WriteDoneBytes;
-					}
 
 					size_t Bytes = _Size * _nItems;
+					if (!Bytes)
+						return 0;
 
-					if (Bytes <= 0)
+					// Unpausing replays buffered data, possibly coalesced with more input or
+					// split differently. Acknowledge only complete callback blocks and deliver
+					// each byte to the async sink once, retaining its accepted prefix on pause.
+					if (pRequest->m_WriteDoneBytes >= Bytes)
+					{
+						pRequest->m_WriteDoneBytes -= Bytes;
 						return Bytes;
+					}
 
-					CByteVector Data((uint8 const *)_pBuffer, Bytes);
+					size_t NewBytes = Bytes - size_t(pRequest->m_WriteDoneBytes);
+					CByteVector Data(reinterpret_cast<uint8 const *>(_pBuffer) + pRequest->m_WriteDoneBytes, NewBytes);
 
-					pRequest->m_fWriteData(fg_Move(Data)) > [Bytes, pDeleted = pRequest->m_pDeleted, pRequest](TCAsyncResult<void> &&_Result)
+					pRequest->m_fWriteData(fg_Move(Data)) > [NewBytes, pDeleted = pRequest->m_pDeleted, pRequest](TCAsyncResult<void> &&_Result)
 						{
 							if (*pDeleted)
 								return;
@@ -937,10 +1221,7 @@ namespace NMib::NWeb
 							if (!_Result)
 								pRequest->m_pWriteError = _Result.f_GetException();
 							else
-							{
-								pRequest->m_bWriteDone = true;
-								pRequest->m_WriteDoneBytes = Bytes;
-							}
+								pRequest->m_WriteDoneBytes += NewBytes;
 
 							pRequest->m_PauseMask &= ~CURLPAUSE_RECV;
 							curl_easy_pause(pRequest->m_pCurl.f_Get(), pRequest->m_PauseMask);
@@ -967,10 +1248,10 @@ namespace NMib::NWeb
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_WRITEFUNCTION>(pCurl, (curl_write_callback)fWriteBodyCallback));
 		}
 
-		auto *pActorHolder = fp_GetActorHolder();
+		auto AddResult = curl_multi_add_handle(Internal.m_pMulti.f_Get(), pCurl);
+		if (AddResult != CURLM_OK)
+			co_return DMibErrorInstance(curl_multi_strerror(AddResult));
 
-		auto &HolderInternal = *pActorHolder->m_pInternal;
-		curl_multi_add_handle(HolderInternal.m_pMulti.f_Get(), pCurl);
 		Request.m_bAddedHandle = true;
 
 		co_return co_await Request.m_FinishedPromise.f_Future();

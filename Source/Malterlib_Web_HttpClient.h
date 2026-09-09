@@ -12,33 +12,7 @@ namespace NMib::NWeb
 {
 	struct CHttpClientActor : public NConcurrency::CActor
 	{
-		struct CActorHolder : public NConcurrency::CSeparateThreadActorHolder
-		{
-			struct CInternal;
-
-			CActorHolder
-				(
-					NConcurrency::CConcurrencyManager *_pConcurrencyManager
-					, bool _bImmediateDelete
-					, NConcurrency::EPriority _Priority
-					, NStorage::TCSharedPointer<NConcurrency::ICDistributedActorData> &&_pDistributedActorData
-					, NStr::CStr const &_ThreadName
-				)
-			;
-			~CActorHolder();
-
-			NStorage::TCUniquePointer<CInternal> m_pInternal;
-
-		protected:
-			void fp_StartQueueProcessing() override;
-			void fp_DestroyThreaded() override;
-			void fp_QueueProcessDestroy(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
-			void fp_QueueRunProcess(NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
-			void fp_QueueProcess(NConcurrency::FActorQueueDispatch &&_Functor, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
-			void fp_QueueProcessEntry(NConcurrency::CConcurrentRunQueueEntryHolder &&_Entry, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal) override;
-			void fp_QueueJob(NConcurrency::FActorQueueDispatchNoAlloc &&_ToQueue, NConcurrency::CConcurrencyThreadLocal &_ThreadLocal);
-			void fp_Wakeup();
-		};
+		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 
 		struct CState;
 
@@ -158,7 +132,11 @@ namespace NMib::NWeb
 		void fp_Construct() override;
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
-		CActorHolder *fp_GetActorHolder();
+		void fp_Drive(smint _Socket, int _Events);
+		void fp_Fail(NException::CExceptionPointer &&_pError);
+		void fp_SocketReady(smint _Socket, uint64 _Generation, NSys::EIoLoopEvent _Events, int _Error);
+		NConcurrency::TCFuture<void> fp_SetTimer(uint64 _Generation, long _Milliseconds);
+		NConcurrency::TCFuture<void> fp_PrepareCertificates();
 		NConcurrency::TCFuture<void> fp_RequestFinished(NStr::CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
