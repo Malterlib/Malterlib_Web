@@ -23,6 +23,21 @@ app.get("/slow-request", async (req, res) => {
     res.send("Slow Reply");
 })
 
+app.post("/echo", (req, res) => {
+    req.pipe(res);
+});
+
+app.get("/redirect", (req, res) => {
+    res.redirect(`http://localhost:${req.socket.localPort}/`);
+});
+
+const tcpServer = http.createServer(app);
+tcpServer.listen(0, "127.0.0.1", () => {
+    const address = tcpServer.address();
+    if (address && typeof address !== "string")
+        console.log(`tcp listen: ${address.port}`);
+});
+
 const listenPath = process.env.MalterlibWebTestWebHttpSocket || (process.cwd() + "/http.sock");
 const listenPathTLS = process.env.MalterlibWebTestWebHttpsSocket || (process.cwd() + "/https.sock");
 
