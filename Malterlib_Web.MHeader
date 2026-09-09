@@ -104,6 +104,8 @@ Import "../../External/nginx/nginx.MTarget"
 {
 	Import.CMake_Variables =+ [
 		"BUILD_SHARED_LIBS=OFF"
+		, "ENABLE_EXTERNAL_RESOLVER=ON"
+		, "ENABLE_THREADED_RESOLVER=ON"
 		, "BUILD_STATIC_LIBS=ON"
 		, "BUILD_STATIC_CURL=ON"
 		, "USE_LIBIDN2=OFF"
@@ -140,6 +142,13 @@ Import "../../External/nginx/nginx.MTarget"
 		, `Zstd_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
 	]
 
+	// Curl's BoringSSL probes link stdc++; the cross SDK supplies that runtime, while
+	// the framework's libc++ is linked separately when building the actual targets.
+	Import.CMake_Variables =+ `CMAKE_EXE_LINKER_FLAGS_INIT=@(Import.CMake_Internal_LinkerFlags->Replace("-stdlib=libc++", "-stdlib=libstdc++"))`
+	{
+		!!PlatformFamily "Linux"
+	}
+
 	Import.CMake_Variables =+ "SHARE_LIB_OBJECT=OFF"
 	{
 		!!PlatformFamily "Windows"
@@ -149,6 +158,8 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		!!CompileDialect "C"
 		PreprocessorDefines += "CURL_CA_EXTERNAL_FALLBACK=1"
+		// The C prefix header must see the same Annex K declarations as curl_setup.h.
+		PreprocessorDefines += "__STDC_WANT_LIB_EXT1__=1"
 
 		Warnings_UnusedVariable false
 		{
