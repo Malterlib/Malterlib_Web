@@ -1,11 +1,11 @@
 CMakeFiles/curl-ca-bundle.rule
 CMakeFiles/curl-ca-firefox.rule
+CMakeFiles/curl-lint.rule
 CMakeFiles/curl_uninstall.rule
 docs/curl-config.1.rule
 docs/mk-ca-bundle.1.rule
-docs/runtests.1.rule
-docs/testcurl.1.rule
 docs/wcurl.1.rule
+lib/CMakeFiles/curl-optiontable.rule
 lib/unitprotos.h.rule
 tests/CMakeFiles/curl-pytest-ci.rule
 tests/CMakeFiles/curl-pytest.rule
@@ -21,6 +21,7 @@ tests/certs/CMakeFiles/clean-certs.rule
 tests/certs/test-ca.cacert.rule
 tests/libtest/lib1521.c.rule
 tests/libtest/libtests.c.rule
+tests/perf/perf.c.rule
 tests/server/servers.c.rule
 tests/tunit/tunits.c.rule
 tests/unit/units.c.rule

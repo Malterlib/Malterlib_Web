@@ -74,7 +74,7 @@ while test "$#" -gt 0; do
     ;;
 
   --cc)
-    echo '../../../../Binaries/MalterlibLLVM/Linux/x64/bin/clang'
+    echo '../../../../Binaries/MalterlibLLVM/macOS/arm64/bin/clang'
     ;;
 
   --prefix)
@@ -95,7 +95,7 @@ while test "$#" -gt 0; do
     ;;
 
   --version)
-    echo 'libcurl 8.17.0-DEV'
+    echo 'libcurl 8.22.0-DEV'
     exit 0
     ;;
 
@@ -107,11 +107,11 @@ while test "$#" -gt 0; do
     # dash as that's used for things like version 1.2.3-pre1
     cpatch=`echo "$checkfor" | cut -d. -f3 | cut -d- -f1`
 
-    vmajor=`echo '8.17.0-DEV' | cut -d. -f1`
-    vminor=`echo '8.17.0-DEV' | cut -d. -f2`
+    vmajor=`echo '8.22.0-DEV' | cut -d. -f1`
+    vminor=`echo '8.22.0-DEV' | cut -d. -f2`
     # when extracting the patch part we strip off everything after a
     # dash as that's used for things like version 1.2.3-pre1
-    vpatch=`echo '8.17.0-DEV' | cut -d. -f3 | cut -d- -f1`
+    vpatch=`echo '8.22.0-DEV' | cut -d. -f3 | cut -d- -f1`
 
     if test "$vmajor" -gt "$cmajor"; then
       exit 0
@@ -127,12 +127,12 @@ while test "$#" -gt 0; do
       fi
     fi
 
-    echo "requested version $checkfor is newer than existing 8.17.0-DEV"
+    echo "requested version $checkfor is newer than existing 8.22.0-DEV"
     exit 1
     ;;
 
   --vernum)
-    echo '081100'
+    echo '081600'
     exit 0
     ;;
 
@@ -149,13 +149,13 @@ while test "$#" -gt 0; do
     ;;
 
   --libs)
-    if test "${exec_prefix}/lib" != '/usr/lib' -a "${exec_prefix}/lib" != '/usr/lib64'; then
+    if test "${exec_prefix}/lib" != '/usr/lib' && test "${exec_prefix}/lib" != '/usr/lib64'; then
       curllibdir="-L${exec_prefix}/lib "
     else
       curllibdir=''
     fi
     if test 'no' = 'no'; then
-      echo "${curllibdir}-lcurl -lc -lc -lstdc++ -lz -lc"
+      echo "${curllibdir}-lcurl -lc -lstdc++ -lz -lc"
     else
       echo "${curllibdir}-lcurl"
     fi
@@ -167,7 +167,7 @@ while test "$#" -gt 0; do
 
   --static-libs)
     if test 'yes' != 'no'; then
-      echo "${exec_prefix}/lib/libcurl.a -L"../../../../Binaries/MalterlibLLVM/Linux/arm64/lib/aarch64-unknown-linux-gnu" -lc -lc -lstdc++ -lz -lc"
+      echo "${exec_prefix}/lib/libcurl.a -L"../../../../Binaries/MalterlibLLVM/Linux/arm64/lib/aarch64-unknown-linux-gnu" -lc -lstdc++ -lz -lc"
     else
       echo 'curl was built with static libraries disabled' >&2
       exit 1

@@ -40,6 +40,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/Windows/x64/bin/clang-cl.exe" -E --target=i386-windows-msvc /DWIN32 /D_WINDOWS -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib';
+$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/Windows/x64/bin/clang-cl.exe" -E --target=i386-windows-msvc /DWIN32 /D_WINDOWS -I../../../../../External/curl/include -I../lib -I../../../../../External/curl/lib';
 
 1;

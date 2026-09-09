@@ -32,10 +32,13 @@ supported_features="alt-svc AsynchDNS HSTS IPv6 Largefile libz SSL threadsafe Un
 Name: libcurl
 URL: https://curl.se/
 Description: Library to transfer files with HTTP, FTP, etc.
-Version: 8.17.0-DEV
-Requires: openssl,zlib,libzstd
-Requires.private: openssl,zlib,libzstd
-Libs: -L${libdir} -lcurl -lSystem -lSystem -lstdc++ -lz -lSystem
-Libs.private: -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lSystem -lstdc++ -lz -lSystem
+License: curl
+Copyright: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+Version: 8.22.0-DEV
+Source: https://curl.se/download/curl-8.22.0-DEV.tar.gz
+Requires: zlib,libzstd
+Libs: -L${libdir} -lcurl -lSystem -lstdc++ -lz -lSystem
+Libs.private: -framework SystemConfiguration -framework CoreFoundation -framework CoreServices -lSystem -lstdc++ -lz -lSystem
 Cflags: -I${includedir} -DCURL_STATICLIB
 Cflags.private: -DCURL_STATICLIB
+Link.ABI: c
