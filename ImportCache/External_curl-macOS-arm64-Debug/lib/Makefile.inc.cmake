@@ -24,39 +24,45 @@
 # Shared between CMakeLists.txt and Makefile.am
 
 set(LIB_CURLX_CFILES 
-  curlx/base64.c   
-  curlx/dynbuf.c   
-  curlx/fopen.c    
-  curlx/inet_ntop.c 
-  curlx/inet_pton.c 
-  curlx/multibyte.c 
-  curlx/nonblock.c 
-  curlx/strerr.c   
-  curlx/strparse.c 
-  curlx/timediff.c 
-  curlx/timeval.c  
+  curlx/base64.c        
+  curlx/basename.c      
+  curlx/dynbuf.c        
+  curlx/fopen.c         
+  curlx/inet_ntop.c     
+  curlx/inet_pton.c     
+  curlx/multibyte.c     
+  curlx/nonblock.c      
+  curlx/snprintf.c      
+  curlx/strcopy.c       
+  curlx/strdup.c        
+  curlx/strerr.c        
+  curlx/strparse.c      
+  curlx/timediff.c      
+  curlx/timeval.c       
   curlx/version_win32.c 
-  curlx/wait.c     
-  curlx/warnless.c 
+  curlx/wait.c          
+  curlx/warnless.c      
   curlx/winapi.c)
 
 set(LIB_CURLX_HFILES 
-  curlx/binmode.h  
-  curlx/base64.h   
-  curlx/curlx.h    
-  curlx/dynbuf.h   
-  curlx/fopen.h    
-  curlx/inet_ntop.h 
-  curlx/inet_pton.h 
-  curlx/multibyte.h 
-  curlx/nonblock.h 
-  curlx/strerr.h   
-  curlx/strparse.h 
-  curlx/timediff.h 
-  curlx/timeval.h  
+  curlx/base64.h        
+  curlx/basename.h      
+  curlx/dynbuf.h        
+  curlx/fopen.h         
+  curlx/inet_ntop.h     
+  curlx/inet_pton.h     
+  curlx/multibyte.h     
+  curlx/nonblock.h      
+  curlx/snprintf.h      
+  curlx/strcopy.h       
+  curlx/strdup.h        
+  curlx/strerr.h        
+  curlx/strparse.h      
+  curlx/timediff.h      
+  curlx/timeval.h       
   curlx/version_win32.h 
-  curlx/wait.h     
-  curlx/warnless.h 
+  curlx/wait.h          
+  curlx/warnless.h      
   curlx/winapi.h)
 
 set(LIB_VAUTH_CFILES 
@@ -78,6 +84,27 @@ set(LIB_VAUTH_HFILES
   vauth/digest.h        
   vauth/vauth.h)
 
+set(LIB_VDNS_CFILES 
+  vdns/asyn-ares.c          
+  vdns/asyn-base.c          
+  vdns/asyn-external.c
+  vdns/asyn-thrdd.c         
+  vdns/cf-dns.c             
+  vdns/dnscache.c           
+  vdns/doh.c                
+  vdns/hostip.c             
+  vdns/hostip4.c            
+  vdns/hostip6.c            
+  vdns/httpsrr.c)
+
+set(LIB_VDNS_HFILES 
+  vdns/asyn.h               
+  vdns/cf-dns.h             
+  vdns/dnscache.h           
+  vdns/doh.h                
+  vdns/hostip.h             
+  vdns/httpsrr.h)
+
 set(LIB_VTLS_CFILES 
   vtls/apple.c              
   vtls/cipher_suite.c       
@@ -85,12 +112,12 @@ set(LIB_VTLS_CFILES
   vtls/hostcheck.c          
   vtls/keylog.c             
   vtls/mbedtls.c            
-  vtls/mbedtls_threadlock.c 
   vtls/openssl.c            
   vtls/rustls.c             
   vtls/schannel.c           
   vtls/schannel_verify.c    
   vtls/vtls.c               
+  vtls/vtls_config.c        
   vtls/vtls_scache.c        
   vtls/vtls_spack.c         
   vtls/wolfssl.c            
@@ -103,12 +130,12 @@ set(LIB_VTLS_HFILES
   vtls/hostcheck.h          
   vtls/keylog.h             
   vtls/mbedtls.h            
-  vtls/mbedtls_threadlock.h 
   vtls/openssl.h            
   vtls/rustls.h             
   vtls/schannel.h           
   vtls/schannel_int.h       
   vtls/vtls.h               
+  vtls/vtls_config.h        
   vtls/vtls_int.h           
   vtls/vtls_scache.h        
   vtls/vtls_spack.h         
@@ -116,35 +143,39 @@ set(LIB_VTLS_HFILES
   vtls/x509asn1.h)
 
 set(LIB_VQUIC_CFILES 
-  vquic/curl_ngtcp2.c   
-  vquic/curl_osslq.c   
-  vquic/curl_quiche.c   
-  vquic/vquic.c 
+  vquic/capsule.c           
+  vquic/cf-capsule.c        
+  vquic/cf-ngtcp2.c         
+  vquic/cf-ngtcp2-cmn.c     
+  vquic/cf-ngtcp2-proxy.c   
+  vquic/cf-quiche.c         
+  vquic/vquic.c             
   vquic/vquic-tls.c)
 
 set(LIB_VQUIC_HFILES 
-  vquic/curl_ngtcp2.h   
-  vquic/curl_osslq.h   
-  vquic/curl_quiche.h   
-  vquic/vquic.h    
-  vquic/vquic_int.h 
+  vquic/capsule.h           
+  vquic/cf-capsule.h        
+  vquic/cf-ngtcp2.h         
+  vquic/cf-ngtcp2-cmn.h     
+  vquic/cf-ngtcp2-proxy.h   
+  vquic/cf-quiche.h         
+  vquic/vquic.h             
+  vquic/vquic_int.h         
   vquic/vquic-tls.h)
 
 set(LIB_VSSH_CFILES 
-  vssh/libssh.c    
-  vssh/libssh2.c   
-  vssh/curl_path.c)
+  vssh/libssh.c      
+  vssh/libssh2.c     
+  vssh/vssh.c)
 
 set(LIB_VSSH_HFILES 
-  vssh/curl_path.h   
+  vssh/vssh.h        
   vssh/ssh.h)
 
 set(LIB_CFILES 
   altsvc.c           
   amigaos.c          
-  asyn-ares.c        
-  asyn-base.c        
-  asyn-thrdd.c       
+  api.c              
   bufq.c             
   bufref.c           
   cf-h1-proxy.c      
@@ -152,12 +183,15 @@ set(LIB_CFILES
   cf-haproxy.c       
   cf-https-connect.c 
   cf-ip-happy.c      
+  cf-recvbuf.c       
+  cf-setup.c         
   cf-socket.c        
   cfilters.c         
   conncache.c        
   connect.c          
   content_encoding.c 
   cookie.c           
+  creds.c            
   cshutdn.c          
   curl_addrinfo.c    
   curl_endian.c      
@@ -169,16 +203,15 @@ set(LIB_CFILES
   curl_memrchr.c     
   curl_ntlm_core.c   
   curl_range.c       
-  curl_rtmp.c        
   curl_sasl.c        
   curl_sha512_256.c  
+  curl_share.c       
   curl_sspi.c        
   curl_threads.c     
   curl_trc.c         
   cw-out.c           
   cw-pause.c         
   dict.c             
-  doh.c              
   dynhds.c           
   easy.c             
   easygetopt.c       
@@ -196,20 +229,18 @@ set(LIB_CFILES
   hash.c             
   headers.c          
   hmac.c             
-  hostip.c           
-  hostip4.c          
-  hostip6.c          
   hsts.c             
   http.c             
   http1.c            
   http2.c            
   http_aws_sigv4.c   
+  http_httpsig.c     
+  curl_ed25519.c     
   http_chunks.c      
   http_digest.c      
   http_negotiate.c   
   http_ntlm.c        
   http_proxy.c       
-  httpsrr.c          
   idn.c              
   if2ip.c            
   imap.c             
@@ -226,22 +257,23 @@ set(LIB_CFILES
   multi_ev.c         
   multi_ntfy.c       
   netrc.c            
-  noproxy.c          
   openldap.c         
   parsedate.c        
+  peer.c             
   pingpong.c         
   pop3.c             
   progress.c         
+  protocol.c         
+  proxy.c            
   psl.c              
   rand.c             
-  rename.c           
+  ratelimit.c        
   request.c          
   rtsp.c             
   select.c           
   sendf.c            
   setopt.c           
   sha256.c           
-  share.c            
   slist.c            
   smb.c              
   smtp.c             
@@ -249,18 +281,19 @@ set(LIB_CFILES
   socks.c            
   socks_gssapi.c     
   socks_sspi.c       
-  speedcheck.c       
   splay.c            
   strcase.c          
-  strdup.c           
   strequal.c         
   strerror.c         
   system_win32.c     
   telnet.c           
   tftp.c             
+  thrdpool.c         
+  thrdqueue.c        
   transfer.c         
   uint-bset.c        
   uint-hash.c        
+  uint-hashset.c     
   uint-spbset.c      
   uint-table.c       
   url.c              
@@ -271,8 +304,8 @@ set(LIB_CFILES
 set(LIB_HFILES 
   altsvc.h           
   amigaos.h          
+  api.h              
   arpa_telnet.h      
-  asyn.h             
   bufq.h             
   bufref.h           
   cf-h1-proxy.h      
@@ -280,6 +313,8 @@ set(LIB_HFILES
   cf-haproxy.h       
   cf-https-connect.h 
   cf-ip-happy.h      
+  cf-recvbuf.h       
+  cf-setup.h         
   cf-socket.h        
   cfilters.h         
   conncache.h        
@@ -287,6 +322,7 @@ set(LIB_HFILES
   connect.h          
   content_encoding.h 
   cookie.h           
+  creds.h            
   curl_addrinfo.h    
   curl_ctype.h       
   curl_endian.h      
@@ -299,25 +335,21 @@ set(LIB_HFILES
   curl_ldap.h        
   curl_md4.h         
   curl_md5.h         
-  curl_mem_undef.h   
-  curl_memory.h      
   curl_memrchr.h     
   curl_ntlm_core.h   
   curl_printf.h      
   curl_range.h       
-  curl_rtmp.h        
   curl_sasl.h        
   curl_setup.h       
-  curl_setup_once.h  
   curl_sha256.h      
   curl_sha512_256.h  
+  curl_share.h       
   curl_sspi.h        
   curl_threads.h     
   curl_trc.h         
   cw-out.h           
   cw-pause.h         
   dict.h             
-  doh.h              
   dynhds.h           
   easy_lock.h        
   easyif.h           
@@ -328,30 +360,30 @@ set(LIB_HFILES
   fileinfo.h         
   formdata.h         
   ftp.h              
+  ftp-int.h          
   ftplistparser.h    
   functypes.h        
   getinfo.h          
   gopher.h           
   hash.h             
   headers.h          
-  hostip.h           
   hsts.h             
   http.h             
   http1.h            
   http2.h            
   http_aws_sigv4.h   
+  http_httpsig.h     
+  curl_ed25519.h     
   http_chunks.h      
   http_digest.h      
   http_negotiate.h   
   http_ntlm.h        
   http_proxy.h       
-  httpsrr.h          
   idn.h              
   if2ip.h            
   imap.h             
   llist.h            
   macos.h            
-  memdebug.h         
   mime.h             
   mqtt.h             
   multihandle.h      
@@ -359,14 +391,16 @@ set(LIB_HFILES
   multi_ntfy.h       
   multiif.h          
   netrc.h            
-  noproxy.h          
   parsedate.h        
+  peer.h             
   pingpong.h         
   pop3.h             
   progress.h         
+  protocol.h         
+  proxy.h            
   psl.h              
   rand.h             
-  rename.h           
+  ratelimit.h        
   request.h          
   rtsp.h             
   select.h           
@@ -375,7 +409,6 @@ set(LIB_HFILES
   setup-os400.h      
   setup-vms.h        
   setup-win32.h      
-  share.h            
   sigpipe.h          
   slist.h            
   smb.h              
@@ -383,17 +416,18 @@ set(LIB_HFILES
   sockaddr.h         
   socketpair.h       
   socks.h            
-  speedcheck.h       
   splay.h            
   strcase.h          
-  strdup.h           
   strerror.h         
   system_win32.h     
   telnet.h           
   tftp.h             
+  thrdpool.h         
+  thrdqueue.h        
   transfer.h         
   uint-bset.h        
   uint-hash.h        
+  uint-hashset.h     
   uint-spbset.h      
   uint-table.h       
   url.h              
@@ -403,7 +437,9 @@ set(LIB_HFILES
 
 set(LIB_RCFILES libcurl.rc)
 
-set(CSOURCES ${LIB_CFILES} ${LIB_VAUTH_CFILES} ${LIB_VTLS_CFILES} 
-  ${LIB_VQUIC_CFILES} ${LIB_VSSH_CFILES} ${LIB_CURLX_CFILES})
-set(HHEADERS ${LIB_HFILES} ${LIB_VAUTH_HFILES} ${LIB_VTLS_HFILES} 
-  ${LIB_VQUIC_HFILES} ${LIB_VSSH_HFILES} ${LIB_CURLX_HFILES})
+set(CSOURCES ${LIB_CFILES} ${LIB_VAUTH_CFILES} ${LIB_VDNS_CFILES} 
+  ${LIB_VTLS_CFILES} ${LIB_VQUIC_CFILES} ${LIB_VSSH_CFILES} 
+  ${LIB_CURLX_CFILES})
+set(HHEADERS ${LIB_HFILES} ${LIB_VAUTH_HFILES} ${LIB_VDNS_HFILES} 
+  ${LIB_VTLS_HFILES} ${LIB_VQUIC_HFILES} ${LIB_VSSH_HFILES} 
+  ${LIB_CURLX_HFILES})

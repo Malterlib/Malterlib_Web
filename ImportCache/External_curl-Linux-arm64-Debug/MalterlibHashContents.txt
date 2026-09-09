@@ -119,6 +119,8 @@ Import.CMake_Variables: [
 	OpenSSL_FOUND=TRUE,
 	DISABLE_OPENSSL_WINDOWS=TRUE,
 	BUILD_SHARED_LIBS=OFF,
+	ENABLE_EXTERNAL_RESOLVER=ON,
+	ENABLE_THREADED_RESOLVER=ON,
 	BUILD_STATIC_LIBS=ON,
 	BUILD_STATIC_CURL=ON,
 	USE_LIBIDN2=OFF,
@@ -152,7 +154,8 @@ Import.CMake_Variables: [
 	ENABLE_CURL_MANUAL=OFF,
 	CURL_HIDDEN_EXTERN_SYMBOLS=ON,
 	Zstd_LIBRARY=lib/libc.so,
-	Zstd_INCLUDE_DIR=/External/zstd/lib
+	Zstd_INCLUDE_DIR=/External/zstd/lib,
+	CMAKE_EXE_LINKER_FLAGS_INIT= -fuse-ld=lld -stdlib=libstdc++ -Wno-unused-command-line-argument -L"lib/aarch64-unknown-linux-gnu"
 ]
 
 Import.CMake_IncludeInHash: [
