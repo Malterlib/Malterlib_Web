@@ -131,7 +131,7 @@ namespace NMib::NWeb::NWebSocket
 						;
 					}
 				}
-				catch (NException::CException const &_Exception)
+				catch ([[maybe_unused]] NException::CException const &_Exception)
 				{
 					DMibLogWithCategory(Mib/Web, Warning, "Accepting a websocket connection failed: {}", _Exception);
 				}
