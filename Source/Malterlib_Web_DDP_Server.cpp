@@ -430,10 +430,11 @@ namespace NMib::NWeb
 		if (Internal.m_ConnectionType == EConnectionType_SockJSWebsocket)
 		{
 			Internal.m_WebSocket.f_Bind<&CWebSocketActor::f_SendText>("o", 0).f_DiscardResult(); // Open frame
-			NConcurrency::fg_TimerActor()
+			NConcurrency::fg_TimerActor(fg_ThisActor(this))
 				(
 					&NConcurrency::CTimerActor::f_RegisterTimer
 					, 25.0
+					, NTime::CSystem_Time::fs_GetTimerValue()
 					, fg_ThisActor(this)
 					, [this]() -> NConcurrency::TCFuture<void>
 					{

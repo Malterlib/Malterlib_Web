@@ -1047,10 +1047,11 @@ namespace NMib::NWeb
 		m_ConnectTimeout = _Timeout;
 		m_ConnectTimeoutTimerRef.f_Clear();
 
-		NConcurrency::fg_TimerActor()
+		NConcurrency::fg_TimerActor(fg_ThisActor(m_pThis))
 			(
 				&NConcurrency::CTimerActor::f_OneshotTimerAbortable
 				, _Timeout
+				, NTime::CSystem_Time::fs_GetTimerValue()
 				, fg_ThisActor(m_pThis)
 				, [this]() -> NConcurrency::TCFuture<void>
 				{
