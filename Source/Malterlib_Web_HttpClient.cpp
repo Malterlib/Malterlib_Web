@@ -176,6 +176,7 @@ namespace NMib::NWeb
 			TCActorFunctor<TCFuture<void> (CByteVector _Data)> m_fWriteData;
 			NException::CExceptionPointer m_pWriteError;
 			NException::CExceptionPointer m_pReadError;
+			NException::CExceptionPointer m_pResolveError;
 			int m_PauseMask = 0;
 			bool m_bAddedHandle = false;
 			bool m_bReadEOF = false;
@@ -334,6 +335,13 @@ namespace NMib::NWeb
 				auto &Internal = *static_cast<CInternal *>(_pUser);
 				TCSharedPointer<CDNS> pDNS = fg_Construct();
 				pDNS->m_pEasy = _pEasy;
+
+				// Callbacks run on this actor; removing the curl handle cancels the lookup before request storage is released.
+				CRequest *pRequest = nullptr;
+				if (curl_easy_getinfo(_pEasy, CURLINFO_PRIVATE, &pRequest) != CURLE_OK || !pRequest)
+					return nullptr;
+				pRequest->m_pResolveError = {};
+
 				auto PreferType = _IPVersion == CURL_IPRESOLVE_V4
 					? NNetwork::ENetAddressType_TCPv4
 					: _IPVersion == CURL_IPRESOLVE_V6
@@ -342,7 +350,7 @@ namespace NMib::NWeb
 				;
 
 				Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call()
-					> [pDNS](TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
+					> [pDNS, pRequest](TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
 					{
 						if (pDNS->m_bCancelled)
 						{
@@ -354,6 +362,7 @@ namespace NMib::NWeb
 
 						if (!_Lookup)
 						{
+							pRequest->m_pResolveError = _Lookup.f_GetException();
 							pDNS->m_Status = -1;
 							curl_external_resolver_ready(pDNS->m_pEasy);
 
@@ -361,12 +370,14 @@ namespace NMib::NWeb
 						}
 
 						pDNS->m_Cancel = fg_Move(_Lookup->m_Cancel);
-						fg_Move(_Lookup->m_Result) > [pDNS](TCAsyncResult<NNetwork::CResolveActor::CAddresses> &&_Result)
+						fg_Move(_Lookup->m_Result) > [pDNS, pRequest](TCAsyncResult<NNetwork::CResolveActor::CAddresses> &&_Result)
 							{
 								if (pDNS->m_bCancelled)
 									return;
 
 								pDNS->m_Status = _Result ? 1 : -1;
+								if (!_Result)
+									pRequest->m_pResolveError = _Result.f_GetException();
 								if (_Result)
 								{
 									for (auto const &Address : *_Result)
@@ -774,6 +785,8 @@ namespace NMib::NWeb
 				CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 				if (CurlError)
 					fg_AddStrSep(FullError, CurlError, ". ");
+				if (Request.m_pResolveError && (ResultCode == CURLE_COULDNT_RESOLVE_HOST || ResultCode == CURLE_COULDNT_RESOLVE_PROXY))
+					fg_AddStrSep(FullError, NException::fg_ExceptionString(Request.m_pResolveError), ". ");
 
 				Request.m_FinishedPromise.f_SetException(DMibErrorInstance(fg_Format("libcurl failed ({}): {}", ResultCode, FullError)));
 			}

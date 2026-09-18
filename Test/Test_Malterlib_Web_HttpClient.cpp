@@ -295,6 +295,32 @@ public:
 
 	void f_DoTests()
 	{
+		DMibTestSuite("ResolverErrors") -> TCFuture<void>
+		{
+			DMibTestPath("OversizedLabel");
+			auto Client = fg_ConstructActor<CHttpClientActor>();
+			TCMap<CStr, CStr> Headers;
+
+			auto InvalidName = co_await Client.f_Bind<&CHttpClientActor::f_Get>
+				(
+					CStr("http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.invalid/")
+					, Headers
+				)
+				.f_Wrap()
+			;
+
+			DMibExpectFalse(bool(InvalidName));
+			if (!InvalidName)
+			{
+				auto Error = InvalidName.f_GetExceptionStr();
+				DMibExpect(Error.f_Find("libcurl failed (6)"), >=, 0);
+				DMibExpect(Error.f_Find("Misformatted domain name"), >=, 0);
+			}
+
+			co_await fg_Move(Client).f_Destroy();
+			co_return {};
+		};
+
 #ifdef DPlatformFamily_Windows
 		return; // Node.js doesn't support unix domain sockets yet
 #endif
