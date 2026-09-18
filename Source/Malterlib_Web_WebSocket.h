@@ -236,6 +236,7 @@ namespace NMib::NWeb
 			uint64 m_nReceivedBytes = 0;
 			uint64 m_IncomingDataBufferBytes = 0;
 			uint64 m_OutgoingDataBufferBytes = 0;
+			uint64 m_nTimeoutPongs = 0;
 			fp64 m_SecondsSinceLastSend = 0.0;
 			fp64 m_SecondsSinceLastReceive = 0.0;
 			uint8 m_State = 0;
@@ -261,6 +262,7 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime);
 
 #if DMibConfig_Tests_Enable
+		NConcurrency::TCFuture<void> f_DebugCheckTimeout();
 		NConcurrency::TCFuture<void> f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _Flags);
 		NConcurrency::TCFuture<void> f_DebugSetMaxWriteOps(aint _nMaxWriteOps); // -1 = unlimited, >=0 = remaining write ops allowed (decrements each op)
 #endif

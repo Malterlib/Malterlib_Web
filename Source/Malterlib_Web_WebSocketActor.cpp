@@ -540,6 +540,7 @@ namespace NMib::NWeb
 		umint m_bFlushSendScheduled:1 = false;
 
 #if DMibConfig_Tests_Enable
+		uint64 m_nDebugTimeoutPongs = 0;
 		umint m_bDebugNoProcessing:1 = false;
 		umint m_bDebugNoProcessingReceive:1 = false;
 		umint m_bDebugNoProcessingSend:1 = false;
@@ -1051,6 +1052,16 @@ namespace NMib::NWeb
 	}
 
 #if DMibConfig_Tests_Enable
+	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugCheckTimeout()
+	{
+		if (f_IsDestroyed())
+			co_return DMibErrorInstance("Destroying socket");
+
+		mp_pInternal->f_UpdateTimeout();
+
+		co_return {};
+	}
+
 	NConcurrency::TCFuture<void> CWebSocketActor::f_DebugSetFlags(fp64 _Timeout, NNetwork::ESocketDebugFlag _DebugFlags)
 	{
 		if (f_IsDestroyed())
@@ -1112,6 +1123,9 @@ namespace NMib::NWeb
 		DebugStats.m_bMaskFrames = Internal.m_bMaskFrames;
 		DebugStats.m_IncomingDataBufferBytes = Internal.m_IncomingData.f_GetLen();
 		DebugStats.m_OutgoingDataBufferBytes = Internal.m_nOutgoingQueuedBytes;
+#if DMibConfig_Tests_Enable
+		DebugStats.m_nTimeoutPongs = Internal.m_nDebugTimeoutPongs;
+#endif
 
 		co_return fg_Move(DebugStats);
 	}
@@ -4579,6 +4593,9 @@ namespace NMib::NWeb
 
 	void CWebSocketActor::CInternal::f_OnTimeoutPongReceived()
 	{
+#if DMibConfig_Tests_Enable
+		++m_nDebugTimeoutPongs;
+#endif
 		m_bPendingPing = false;
 		m_bSentPing = false;
 	}
