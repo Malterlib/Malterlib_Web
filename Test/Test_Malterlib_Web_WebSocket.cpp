@@ -695,6 +695,7 @@ public:
 			if (_bTestTimeout)
 			{
 				DMibTestPath("Timeout");
+				fp64 Timeout = 5.0 * gc_TimeoutMultiplier;
 				TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
 					= g_OnScopeExit / [&]
@@ -712,7 +713,7 @@ public:
 					)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
@@ -724,18 +725,46 @@ public:
 					)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, 1.0).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
 				{
 					DMibTestPath("Non timeout");
-					NSys::fg_Thread_Sleep(2.0);
+					TCActor<CWebSocketActor> ServerSocket;
+					{
+						DMibLock(pState->m_Lock);
+						DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+						ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
+					}
+
+					for (umint iRound = 0; iRound < 2; ++iRound)
+					{
+						DMibTestPath("Keepalive {}"_f << iRound);
+
+						auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						auto ServerStats = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						pState->m_ClientSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						ServerSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+						bool bTimedOut = fp_WaitForCondition
+							(
+								[&]
+								{
+									auto ClientNow = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+									auto ServerNow = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+									return ClientNow.m_nTimeoutPongs > ClientStats.m_nTimeoutPongs && ServerNow.m_nTimeoutPongs > ServerStats.m_nTimeoutPongs;
+								}
+							)
+						;
+
+						DMibExpectFalse(bTimedOut);
+					}
 
 					DMibLock(pState->m_Lock);
-					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
-					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ServerConnectionCloseMessage);
+					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ClientConnectionCloseMessage);
 				}
 				{
 					DMibTestPath("Timeout");
