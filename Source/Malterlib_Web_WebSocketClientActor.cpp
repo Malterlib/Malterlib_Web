@@ -58,7 +58,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Connect to address cannot be empty");
 
 		if (!mp_AddressResolver)
-			mp_AddressResolver = NConcurrency::fg_ConstructActor<NNetwork::CResolveActor>();
+			mp_AddressResolver = co_await NNetwork::CResolveActor::fs_GetShared(f_ConcurrencyManager());
 
 		auto [ConnectLookup, BindLookup] = co_await
 			(

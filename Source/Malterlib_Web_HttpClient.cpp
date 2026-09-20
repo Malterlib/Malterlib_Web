@@ -521,7 +521,9 @@ namespace NMib::NWeb
 		if (Binding)
 			self.m_pThis->f_SetInitialQueue(Binding.m_iQueue);
 
-		Internal.m_Resolver = fg_ConstructActor<NNetwork::CResolveActor>();
+		// Construction is not a coroutine, so the wrapped result is unpacked here and a manager that is
+		// shutting down fails the construction of this actor
+		Internal.m_Resolver = NNetwork::CResolveActor::fs_GetShared(f_ConcurrencyManager()).f_Move();
 		Internal.m_pMulti = fg_Explicit(curl_multi_init());
 		if (!Internal.m_pMulti)
 			DMibError("Failed to initialize curl multi handle");
@@ -757,7 +759,9 @@ namespace NMib::NWeb
 		Internal.m_pDrain->f_Release();
 
 		co_await Internal.m_pDrain->m_Done.f_Future();
-		co_await fg_Move(Internal.m_Resolver).f_Destroy();
+
+		// The resolver is shared with the rest of the process, so only this reference to it is released
+		Internal.m_Resolver.f_Clear();
 
 		co_return {};
 	}
