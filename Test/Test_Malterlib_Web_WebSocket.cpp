@@ -696,7 +696,8 @@ public:
 			{
 				DMibTestPath("Timeout");
 				bool bTimerDrivenKeepalive = ServerFactory.f_IsEmpty() && ClientFactory.f_IsEmpty();
-				fp64 Timeout = (bTimerDrivenKeepalive ? 2.0 : 5.0) * gc_TimeoutMultiplier;
+				// The timer pings every half timeout, so a healthy connection times out when a loaded runner delays both peers' timers that long
+				fp64 Timeout = (bTimerDrivenKeepalive ? 4.0 : 5.0) * gc_TimeoutMultiplier;
 				TCSharedPointer<CState> pState = fg_Construct();
 				auto Cleanup
 					= g_OnScopeExit / [&]
