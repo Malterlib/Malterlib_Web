@@ -41,7 +41,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved = 0;
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			uint8 Version;
 			_Stream >> Version;
@@ -56,7 +56,7 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			uint8 Version = m_Version;
 			_Stream << Version;
@@ -83,7 +83,6 @@ namespace NMib::NWeb::NFastCGI
 		, ENullRequestID = 0
 	};
 
-
 	enum ERequestBodyFlag : uint8
 	{
 		ERequestBodyFlag_KeepConnection = DMibBit(0)
@@ -97,7 +96,6 @@ namespace NMib::NWeb::NFastCGI
 		, ERequestRole_Filter = 3
 	};
 
-
 	struct CBeginRequestBody
 	{
 		ERequestRole m_Role;
@@ -105,7 +103,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[5];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			uint16 Role;
 			_Stream >> Role;
@@ -117,7 +115,7 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			uint16 Role = m_Role;
 			_Stream << Role;
@@ -135,7 +133,6 @@ namespace NMib::NWeb::NFastCGI
 		, EEndRequestStatus_UnknownRole = 3
 	};
 
-
 	struct CEndRequestBody
 	{
 		CEndRequestBody()
@@ -150,7 +147,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[3];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			_Stream >> m_AppStatus;
 			uint8 ProtocolStatus;
@@ -160,16 +157,14 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			_Stream << m_AppStatus;
 			uint8 ProtocolStatus = m_ProtocolStatus;
 			_Stream << ProtocolStatus;
 			_Stream.f_FeedBytes(m_Reserved, sizeof(m_Reserved));
 		}
-
 	};
-
 
 	/*
 	 * Variable names for FCGI_GET_VALUES / FCGI_GET_VALUES_RESULT records
@@ -182,5 +177,5 @@ namespace NMib::NWeb::NFastCGI
 	{
 		uint8 m_Type;
 		uint8 m_Reserved[7];
-	} ;
+	};
 }

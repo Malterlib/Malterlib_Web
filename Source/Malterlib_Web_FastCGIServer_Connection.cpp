@@ -77,7 +77,7 @@ namespace NMib::NWeb
 		mp_OutgoingPosition = 0;
 	}
 
-	void CFastCGIConnectionActor::fp_Disconnect(ch8 const* _pReason)
+	void CFastCGIConnectionActor::fp_Disconnect(ch8 const *_pReason)
 	{
 		if (_pReason)
 			fp_OnAbort();
@@ -93,25 +93,25 @@ namespace NMib::NWeb
 		}
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessManagementRecord(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessManagementRecord(CHeader const &_Header, uint8 const *_pData, umint _DataLen)
 	{
 		DMibTrace("Management record\n", 0);
 
 		return true;
 	}
 
-	void CFastCGIConnectionActor::fp_SendData(uint8 const* _pData, umint _Len)
+	void CFastCGIConnectionActor::fp_SendData(uint8 const *_pData, umint _Len)
 	{
 		mp_OutgoingData.f_Insert(_pData, _Len);
 		fp_UpdateSend();
 	}
 
-	void CFastCGIConnectionActor::fp_SendData(NContainer::CIOByteVector const& _Data)
+	void CFastCGIConnectionActor::fp_SendData(NContainer::CIOByteVector const &_Data)
 	{
 		fp_SendData(_Data.f_GetArray(), _Data.f_GetLen());
 	}
 
-	void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::CIOByteVector const& _Data, ERequestType _Type)
+	void CFastCGIConnectionActor::fp_SendStdOutput(NContainer::CIOByteVector const &_Data, ERequestType _Type)
 	{
 		auto *pData = _Data.f_GetArray();
 		umint ToSend = _Data.f_GetLen();
@@ -120,7 +120,7 @@ namespace NMib::NWeb
 
 		while (ToSend)
 		{
-			umint ThisTime = fg_Min(ToSend, 64*1024 - (sizeof(CHeader)));
+			umint ThisTime = fg_Min(ToSend, 64 * 1024 - (sizeof(CHeader)));
 			NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 			Stream.f_OpenReadWrite(HeaderData, 8, 0);
 
@@ -229,22 +229,21 @@ namespace NMib::NWeb
 		mp_RecordInfo.m_bFinished = true;
 
 		fp_SendData(Stream.f_MoveVector());
-
 	}
 
-	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const* _pData, umint _Len)
+	void CFastCGIConnectionActor::fp_OnStdIn(uint8 const *_pData, umint _Len)
 	{
 		if (mp_fOnStdInputRaw)
 			mp_fOnStdInputRaw.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
 		else if (mp_fOnStdInputStr)
 		{
 			NStr::CStr String;
-			String.f_AddStr((ch8 const*)_pData, _Len);
+			String.f_AddStr((ch8 const *)_pData, _Len);
 			mp_fOnStdInputStr.f_CallDiscard(String, _Len == 0);
 		}
 	}
 
-	void CFastCGIConnectionActor::fp_OnStdData(uint8 const* _pData, umint _Len)
+	void CFastCGIConnectionActor::fp_OnStdData(uint8 const *_pData, umint _Len)
 	{
 		if (mp_fOnData)
 			mp_fOnData.f_CallDiscard(NContainer::CIOByteVector(_pData, _Len), _Len == 0);
@@ -263,7 +262,7 @@ namespace NMib::NWeb
 			mp_fOnAbort.f_CallDiscard();
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessBeginRequest(CHeader const &_Header, uint8 const *_pData, umint _DataLen)
 	{
 		if (_DataLen != sizeof(CBeginRequestBody))
 		{
@@ -306,10 +305,11 @@ namespace NMib::NWeb
 		return true;
 	}
 
-	bool CFastCGIConnectionActor::fp_ProcessStreamData(CHeader const& _Header, uint8 const* _pData, umint _DataLen)
+	bool CFastCGIConnectionActor::fp_ProcessStreamData(CHeader const &_Header, uint8 const *_pData, umint _DataLen)
 	{
 		// DMibTrace("Stream data\n", _Header.m_);
 
+		// malterlib-format off
 #if 0
 							   WS->App   management  stream
 
@@ -326,6 +326,7 @@ namespace NMib::NWeb
 		FCGI_STDOUT                                    x
 		FCGI_STDERR                                    x
 #endif
+		// malterlib-format on
 
 		switch (_Header.m_Type)
 		{
@@ -342,7 +343,6 @@ namespace NMib::NWeb
 
 						while (!Stream.f_IsAtEndOfStream())
 						{
-
 							auto Pos = Stream.f_GetPosition();
 							uint8 KeyLen8;
 							uint32 KeyLen;
@@ -394,7 +394,7 @@ namespace NMib::NWeb
 							(*mp_pParams)(Key, Value);
 						}
 					}
-					catch (NException::CException const& _Exception)
+					catch (NException::CException const &_Exception)
 					{
 						// Protect against bad data in stream
 						fp_Disconnect(_Exception.f_GetErrorStr());
@@ -447,12 +447,12 @@ namespace NMib::NWeb
 				umint Sent = mp_Socket.f_Send(mp_OutgoingData.f_GetArray() + mp_OutgoingPosition, ToSend);
 				mp_OutgoingPosition += Sent;
 			}
-			catch (NCryptography::CExceptionCryptography const& _Exception)
+			catch (NCryptography::CExceptionCryptography const &_Exception)
 			{
 				fp_Disconnect(_Exception.f_GetErrorStr());
 				return;
 			}
-			catch (NNetwork::CExceptionNet const& _Exception)
+			catch (NNetwork::CExceptionNet const &_Exception)
 			{
 				fp_Disconnect(_Exception.f_GetErrorStr());
 				return;
@@ -484,7 +484,7 @@ namespace NMib::NWeb
 
 	void CFastCGIConnectionActor::fp_ProcessState(NNetwork::ENetTCPState _ForceState)
 	{
-		if (!mp_Socket.f_IsValid() )
+		if (!mp_Socket.f_IsValid())
 			return;
 
 		auto StateAdded = mp_Socket.f_GetState() | _ForceState;
@@ -511,12 +511,12 @@ namespace NMib::NWeb
 					mp_IncomingData.f_Insert(Data, Received);
 				}
 			}
-			catch (NCryptography::CExceptionCryptography const& _Exception)
+			catch (NCryptography::CExceptionCryptography const &_Exception)
 			{
 				fp_Disconnect(_Exception.f_GetErrorStr());
 				return;
 			}
-			catch (NNetwork::CExceptionNet const& _Exception)
+			catch (NNetwork::CExceptionNet const &_Exception)
 			{
 				fp_Disconnect(_Exception.f_GetErrorStr());
 				return;

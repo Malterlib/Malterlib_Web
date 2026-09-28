@@ -7,21 +7,21 @@ namespace NMib::NWeb::NHTTP
 {
 	class CServer
 	{
-		private:
-			class CDetails;
-			NStorage::TCUniquePointer<CDetails> mp_pD;
+	private:
+		class CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
 
-		public:
-			struct CConfig
-			{
-				uint16 m_Port;
-			};
+	public:
+		struct CConfig
+		{
+			uint16 m_Port;
+		};
 
-		public:
-			CServer(CConfig const& _Config);
-			~CServer();
+	public:
+		CServer(CConfig const &_Config);
+		~CServer();
 
-			bool f_Start(NStr::CStr& _oError);
-			void f_Stop();
+		bool f_Start(NStr::CStr &_oError);
+		void f_Stop();
 	};
 }

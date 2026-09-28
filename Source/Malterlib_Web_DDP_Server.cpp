@@ -181,9 +181,7 @@ namespace NMib::NWeb
 			f_SendMessage(Reply);
 		}
 		else
-		{
 			fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
-		}
 	}
 
 	void CDDPServerConnection::CInternal::fp_ReceiveMessage(NStr::CStr const &_Message)
@@ -204,7 +202,6 @@ namespace NMib::NWeb
 				else
 					fp_ReceiveMessage(Json);
 			}
-
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -233,10 +230,10 @@ namespace NMib::NWeb
 	}
 
 	CDDPServerConnection::CConnectionInfo::CConnectionInfo(CConnectionInfo const &_Other) = default;
-	CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator =(CConnectionInfo &&_Other) = default;
+	CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator = (CConnectionInfo &&_Other) = default;
 
 	CDDPServerConnection::CConnectionInfo::CConnectionInfo(CConnectionInfo &&_Other) = default;
-	CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator =(CConnectionInfo const &_Other) = default;
+	CDDPServerConnection::CConnectionInfo &CDDPServerConnection::CConnectionInfo::operator = (CConnectionInfo const &_Other) = default;
 
 	void CDDPServerConnection::CConnectionInfo::f_Accept(NStr::CStr const &_Session) const
 	{
@@ -249,7 +246,6 @@ namespace NMib::NWeb
 		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
 			Actor.f_Bind<&CDDPServerConnection::fp_RejectConnection>().f_DiscardResult();
 	}
-
 
 	CDDPServerConnection::CConnectionInfo::CConnectionInfo(CDDPServerConnection *_pDDPConnection)
 		: mp_Internal(_pDDPConnection)
@@ -266,7 +262,6 @@ namespace NMib::NWeb
 		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
 	};
 
-
 	CDDPServerConnection::CMethodInfo::CMethodInfo(CDDPServerConnection *_pDDPConnection)
 		: mp_Internal(_pDDPConnection)
 	{
@@ -275,8 +270,8 @@ namespace NMib::NWeb
 	CDDPServerConnection::CMethodInfo::CMethodInfo(CMethodInfo const &_Other) = default;
 	CDDPServerConnection::CMethodInfo::CMethodInfo(CMethodInfo &&_Other) = default;
 
-	CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator =(CMethodInfo const &_Other) = default;
-	CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator =(CMethodInfo &&_Other) = default;
+	CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator = (CMethodInfo const &_Other) = default;
+	CDDPServerConnection::CMethodInfo &CDDPServerConnection::CMethodInfo::operator = (CMethodInfo &&_Other) = default;
 
 	CDDPServerConnection::CMethodInfo::~CMethodInfo()
 	{
@@ -316,8 +311,8 @@ namespace NMib::NWeb
 	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(CSubscribeInfo const &_Other) = default;
 	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(CSubscribeInfo &&_Other) = default;
 
-	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo const &_Other) = default;
-	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator =(CSubscribeInfo &&_Other) = default;
+	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator = (CSubscribeInfo const &_Other) = default;
+	CDDPServerConnection::CSubscribeInfo &CDDPServerConnection::CSubscribeInfo::operator = (CSubscribeInfo &&_Other) = default;
 
 	void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJsonSorted const &_Error) const
 	{
@@ -396,8 +391,8 @@ namespace NMib::NWeb
 		if (_fOnClose)
 		{
 			Internal.m_fOnClose = fg_Move(_fOnClose);
-			Internal.m_pNewWebsocketConnection->m_fOnClose = NConcurrency::g_ActorFunctorWeak
-				/ [this](EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin) -> NConcurrency::TCFuture<void>
+			Internal.m_pNewWebsocketConnection->m_fOnClose = NConcurrency::g_ActorFunctorWeak / [this]
+				(EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin) -> NConcurrency::TCFuture<void>
 				{
 					auto &Internal = *mp_pInternal;
 					if (Internal.m_fOnClose)

@@ -4,13 +4,12 @@
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/LogError>
 
-
 #include "Malterlib_Web_WebSocket.h"
 #include "Malterlib_Web_WebSocketServerActor_Internal_Listen.h"
 
 namespace NMib::NWeb::NWebSocket
 {
-	CListenActor::CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, CWebsocketSettings const &_Settings)
+	CListenActor::CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const &_Server, CWebsocketSettings const &_Settings)
 		: mp_Server(_Server)
 		, mp_Settings(_Settings)
 	{

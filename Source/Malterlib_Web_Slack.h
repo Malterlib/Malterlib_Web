@@ -26,7 +26,7 @@ namespace NMib::NWeb
 		{
 			constexpr CPredefinedColor(EPredefinedColor _Color);
 			CPredefinedColor(CPredefinedColor const &) = default;
-			CPredefinedColor& operator = (CPredefinedColor const &) = default;
+			CPredefinedColor &operator = (CPredefinedColor const &) = default;
 
 			auto operator <=> (CPredefinedColor const &_Right) const noexcept = default;
 

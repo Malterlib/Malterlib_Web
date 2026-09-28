@@ -198,7 +198,6 @@ namespace NMib::NWeb
 		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
 
-
 	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetDocumentIterator() const
 	{
 		return mp_pCollection->m_Documents.f_GetIterator();
@@ -452,7 +451,6 @@ namespace NMib::NWeb
 		Internal.m_PendingMethodUpdated[MethodID] = fg_Move(_fOnUpdated);
 
 		co_return co_await fg_Move(Promise.m_Future);
-
 	}
 
 	NConcurrency::CActorSubscription CDDPClient::f_Observe
@@ -473,8 +471,8 @@ namespace NMib::NWeb
 
 		Observation.m_fCallback = fg_Move(_Callback);
 
-		return NConcurrency::g_ActorSubscription / [this, pDestroyed = Observation.m_pDestroyed, pObservation = &Observation, pCollectionObservations = &CollectionObservations]()
-			-> NConcurrency::TCFuture<void>
+		return NConcurrency::g_ActorSubscription / [this, pDestroyed = Observation.m_pDestroyed, pObservation = &Observation, pCollectionObservations = &CollectionObservations]
+			() -> NConcurrency::TCFuture<void>
 			{
 				if (*pDestroyed)
 					co_return {};
@@ -528,8 +526,8 @@ namespace NMib::NWeb
 
 		Subscription.m_fCallback = fg_Move(_Callback);
 
-		NConcurrency::CActorSubscription CleanupSubscription = NConcurrency::g_ActorSubscription / [this, pDestroyed = Subscription.m_pDestroyed, pSubscription = &Subscription]()
-			-> NConcurrency::TCFuture<void>
+		NConcurrency::CActorSubscription CleanupSubscription = NConcurrency::g_ActorSubscription / [this, pDestroyed = Subscription.m_pDestroyed, pSubscription = &Subscription]
+			() -> NConcurrency::TCFuture<void>
 			{
 				if (*pDestroyed)
 					co_return {};
@@ -633,7 +631,7 @@ namespace NMib::NWeb
 		if (m_ClientOptions & EClientOption_MaintainDatabase)
 		{
 			auto CollectionKey = pCollection->f_String();
-			auto& Collection = m_Collections[CollectionKey];
+			auto &Collection = m_Collections[CollectionKey];
 			Collection.m_Documents.f_Remove(CCollection::fs_IDParse(pID->f_String()));
 			if (Collection.m_Documents.f_IsEmpty())
 				m_Collections.f_Remove(CollectionKey);
@@ -681,9 +679,7 @@ namespace NMib::NWeb
 					}
 				}
 				else if (_Operation == EChangeOperation_Added)
-				{
 					Object = pFields->f_Object();
-				}
 			}
 		}
 		if (_Operation == EChangeOperation_Changed)
@@ -857,29 +853,17 @@ namespace NMib::NWeb
 				(*pPending)(ErrorMessage, fg_Move(Result));
 			}
 			else if (MessageType == "added")
-			{
 				fp_HandleAddedChanged(Json, EChangeOperation_Added);
-			}
 			else if (MessageType == "updated")
-			{
 				fp_HandleUpdated(Json);
-			}
 			else if (MessageType == "changed")
-			{
 				fp_HandleAddedChanged(Json, EChangeOperation_Changed);
-			}
 			else if (MessageType == "removed")
-			{
 				fp_HandleRemoved(Json);
-			}
 			else if (MessageType == "ready")
-			{
 				fp_HandleReady(Json);
-			}
 			else if (MessageType == "nosub")
-			{
 				fp_HandleNoSub(Json);
-			}
 			else if (MessageType == "ping")
 			{
 				NEncoding::CEJsonSorted Reply;
@@ -934,9 +918,7 @@ namespace NMib::NWeb
 				fp_OnError(fg_Format("Unsupported version for DDP connection. Suggested version: {}", SuggestedVersion));
 			}
 			else
-			{
 				fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
-			}
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -960,7 +942,7 @@ namespace NMib::NWeb
 		Message["params"] = _Params;
 		Message["id"] = NStr::CStr::fs_ToStr(MethodID);
 
-		fp_SendMessage(Message);;
+		fp_SendMessage(Message);
 
 		m_PendingMethodCalls[MethodID] = fg_Move(_fOnResult);
 

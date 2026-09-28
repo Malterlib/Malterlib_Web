@@ -79,50 +79,17 @@ namespace NMib::NWeb
 		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {}, fp64 _StallTimeout = 0.0);
 		~CHttpClientActor();
 
-		NConcurrency::TCFuture<CResult> f_Get
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Get(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers);
 
-		NConcurrency::TCFuture<CResult> f_Head
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Head(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers);
 
-		NConcurrency::TCFuture<CResult> f_Post
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-				, CRequestData _Data
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Post(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data);
 
-		NConcurrency::TCFuture<CResult> f_Patch
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-				, CRequestData _Data
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Patch(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data);
 
-		NConcurrency::TCFuture<CResult> f_Put
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-				, CRequestData _Data
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Put(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data);
 
-		NConcurrency::TCFuture<CResult> f_Delete
-			(
-				NStr::CStr _URL
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			)
-		;
+		NConcurrency::TCFuture<CResult> f_Delete(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers);
 
 		NConcurrency::TCFuture<CResult> f_SendRequest(CRequest _Request);
 

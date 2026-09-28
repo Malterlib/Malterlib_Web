@@ -25,7 +25,6 @@ namespace NMib::NWeb::NFastCGI
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 	private:
-
 		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_ProcessState();
 

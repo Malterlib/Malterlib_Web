@@ -13,7 +13,7 @@ namespace NMib::NWeb
 	using namespace NStorage;
 	using namespace NStr;
 
-	CHTTPRequestHandlerActor_ExeFs::CHTTPRequestHandlerActor_ExeFs(CStr const& _ServerPath, CStr const& _ExeFsPath, FCheckAccess &&_fCheckAccess)
+	CHTTPRequestHandlerActor_ExeFs::CHTTPRequestHandlerActor_ExeFs(CStr const &_ServerPath, CStr const &_ExeFsPath, FCheckAccess &&_fCheckAccess)
 		: mp_Path(_ServerPath)
 		, mp_ExeFsPath(_ExeFsPath)
 		, mp_fCheckAccess(fg_Move(_fCheckAccess))
@@ -21,9 +21,7 @@ namespace NMib::NWeb
 		g_Dispatch(fg_ThisActor(this)) / [this]
 			{
 				if (NMib::NFile::fg_OpenExeFS(mp_ExeFs))
-				{
 					mp_pFSInterface = fg_Construct<NFile::CFileSystemInterface_VirtualFS>(mp_ExeFs.m_FileSystem);
-				}
 
 				try
 				{
@@ -37,7 +35,7 @@ namespace NMib::NWeb
 					mp_ExeTime = NTime::CTime::fs_NowUTC();
 				}
 			}
-			> g_DiscardResult;
+			> g_DiscardResult
 		;
 	}
 
@@ -151,7 +149,6 @@ namespace NMib::NWeb
 
 			while (QueuedWrites)
 				co_await QueuedWrites.f_PopFirst();
-
 		}
 
 		co_return true;

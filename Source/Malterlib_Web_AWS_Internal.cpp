@@ -17,12 +17,12 @@ namespace NMib::NWeb
 	{
 		switch (_Method)
 		{
-			case CHttpClientActor::EMethod_GET: return "GET";
-			case CHttpClientActor::EMethod_HEAD: return "HEAD";
-			case CHttpClientActor::EMethod_POST: return "POST";
-			case CHttpClientActor::EMethod_PUT: return "PUT";
-			case CHttpClientActor::EMethod_DELETE: return "DELETE";
-			case CHttpClientActor::EMethod_PATCH: return "PATCH";
+		case CHttpClientActor::EMethod_GET: return "GET";
+		case CHttpClientActor::EMethod_HEAD: return "HEAD";
+		case CHttpClientActor::EMethod_POST: return "POST";
+		case CHttpClientActor::EMethod_PUT: return "PUT";
+		case CHttpClientActor::EMethod_DELETE: return "DELETE";
+		case CHttpClientActor::EMethod_PATCH: return "PATCH";
 		}
 
 		return "";
@@ -44,13 +44,7 @@ namespace NMib::NWeb
 
 		auto PayloadHash = NCryptography::CHash_SHA256::fs_DigestFromData(_Contents).f_GetString();
 		auto CurrentTimeISO8601 = fg_GetISO8601TimeStr(CurrentTime);
-		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f
-			<< CurrentDateTime.m_Year
-			<< CurrentDateTime.m_Month
-			<< CurrentDateTime.m_DayOfMonth
-			<< _Credentials.m_Region
-			<< _Service
-		;
+		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth << _Credentials.m_Region << _Service;
 
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		AWSHeaders["x-amz-date"] = CurrentTimeISO8601;
@@ -156,7 +150,7 @@ namespace NMib::NWeb
 			NCryptography::CHashDigest_SHA256 KeyDate;
 			{
 				CStrSecure SecretStr = "AWS4" + _Credentials.m_SecretKey;
-				CStr Date ="{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
+				CStr Date = "{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
 				NContainer::CSecureByteVector Secret((uint8 const *)SecretStr.f_GetStr(), SecretStr.f_GetLen());
 				NContainer::CSecureByteVector Data((uint8 const *)Date.f_GetStr(), Date.f_GetLen());
 				KeyDate = NCryptography::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
@@ -170,12 +164,7 @@ namespace NMib::NWeb
 		}
 
 		TCMap<CStr, CStr> Headers = AWSHeaders;
-		Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}"_f
-			<< _Credentials.m_AccessKeyID
-			<< Scope
-			<< SignedHeaders
-			<< Signature
-		;
+		Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}"_f << _Credentials.m_AccessKeyID << Scope << SignedHeaders << Signature;
 
 		return Headers;
 	}
@@ -396,13 +385,7 @@ namespace NMib::NWeb
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CHttpClientActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _HttpClientActor
-			(
-				&CHttpClientActor::f_Head
-				, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
-				, Headers
-			)
-		;
+		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Head, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers);
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorJson(Result, _Description);

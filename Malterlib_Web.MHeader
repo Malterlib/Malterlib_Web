@@ -267,7 +267,6 @@ Import "../../External/nginx/nginx.MTarget"
 	}
 }
 
-
 Property
 {
 	MalterlibLibrary_Web: bool = MalterlibLibrary_All

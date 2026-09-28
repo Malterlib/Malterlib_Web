@@ -14,6 +14,7 @@ namespace NMib::NWeb
 	class CFastCGIConnectionActor : public NConcurrency::CActor
 	{
 		friend class CFastCGIRequest;
+
 	public:
 		CFastCGIConnectionActor
 			(
@@ -41,24 +42,24 @@ namespace NMib::NWeb
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy();
 
-		void fp_Disconnect(ch8 const* _pReason);
+		void fp_Disconnect(ch8 const *_pReason);
 		void fp_ProcessState(NNetwork::ENetTCPState _ForceState = NNetwork::ENetTCPState_None);
 		void fp_UpdateSend();
 
 		void fp_ClearState();
 
-		void fp_SendData(uint8 const* _pData, umint _Len);
-		void fp_SendData(NContainer::CIOByteVector const& _Data);
+		void fp_SendData(uint8 const *_pData, umint _Len);
+		void fp_SendData(NContainer::CIOByteVector const &_Data);
 
-		void fp_SendStdOutput(NContainer::CIOByteVector const& _Data, NFastCGI::ERequestType _Type);
+		void fp_SendStdOutput(NContainer::CIOByteVector const &_Data, NFastCGI::ERequestType _Type);
 
-		bool fp_ProcessManagementRecord(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
-		bool fp_ProcessBeginRequest(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
-		bool fp_ProcessStreamData(NFastCGI::CHeader const& _Header, uint8 const* _pData, umint _DataLen);
+		bool fp_ProcessManagementRecord(NFastCGI::CHeader const &_Header, uint8 const *_pData, umint _DataLen);
+		bool fp_ProcessBeginRequest(NFastCGI::CHeader const &_Header, uint8 const *_pData, umint _DataLen);
+		bool fp_ProcessStreamData(NFastCGI::CHeader const &_Header, uint8 const *_pData, umint _DataLen);
 
-		void fp_OnStdIn(uint8 const* _pData, umint _Len);
-		void fp_OnStdData(uint8 const* _pData, umint _Len);
-		void fp_OnParams(NContainer::TCMap<NStr::CStr, NStr::CStr> const& _Params);
+		void fp_OnStdIn(uint8 const *_pData, umint _Len);
+		void fp_OnStdData(uint8 const *_pData, umint _Len);
+		void fp_OnParams(NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params);
 		void fp_OnParams();
 		void fp_OnAbort();
 
@@ -76,6 +77,7 @@ namespace NMib::NWeb
 			bool m_bSentStdErr = false;
 			NFastCGI::ERequestRole m_Role;
 		};
+
 	private:
 		NConcurrency::TCActor<CFastCGIServer> mp_ServerActor;
 		NNetwork::CSocket mp_Socket;

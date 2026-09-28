@@ -43,7 +43,7 @@ namespace NMib::NWeb::NHTTP
 		void f_Set(EVersion _Version, EMethod _Method, CURL const &_URI);
 
 		EMethod f_GetMethod() const;
-		CURL const& f_GetURI() const;
+		CURL const &f_GetURI() const;
 		EVersion f_GetVersion() const;
 	};
 
@@ -61,26 +61,27 @@ namespace NMib::NWeb::NHTTP
 
 		void f_Clear();
 
-		EParse f_Parse(NStr::CStr const& _StatusLine, NStr::CStr& _oErrors);
+		EParse f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &_oErrors);
 
 		EVersion f_GetVersion() const;
 		EStatus f_GetStatus() const;
-		NStr::CStr const& f_GetReasonPhrase() const;
+		NStr::CStr const &f_GetReasonPhrase() const;
 
 		void f_Set(EVersion _Version, EStatus _Status, NStr::CStr const &_CustomReason);
 
 		void f_Write(COutputMethod const &_fOutput);
 	};
+
 	//
 	// Base information used in all field objects
 	//
 
 	enum EFieldType
 	{
-		EFieldType_String				// CStr
-		, EFieldType_Mint				// umint
-		, EFieldType_TransferEncoding	// ETransferEncoding
-		, EFieldType_ConnectionToken	// EConnectionToken
+		EFieldType_String // CStr
+		, EFieldType_Mint // umint
+		, EFieldType_TransferEncoding // ETransferEncoding
+		, EFieldType_ConnectionToken // EConnectionToken
 	};
 
 	using CFieldValue = NStorage::TCStreamableVariant
@@ -99,33 +100,32 @@ namespace NMib::NWeb::NHTTP
 	{
 	private:
 		NStr::CStr mp_Storage;
-		char const* mp_pStr;
+		char const *mp_pStr;
 
-		inline CStringValue(NStr::CStr const& _Str);
-		inline CStringValue(char const* _pStr);
+		inline CStringValue(NStr::CStr const &_Str);
+		inline CStringValue(char const *_pStr);
 
 	public:
-
-		inline CStringValue(CStringValue&& _ToMove);
+		inline CStringValue(CStringValue &&_ToMove);
 		inline CStringValue();
 
 		inline void f_Clear();
 
-		inline CStringValue& operator=(CStringValue&& _ToMove);
+		inline CStringValue &operator = (CStringValue &&_ToMove);
 
-		inline char const* f_Get() const;
+		inline char const *f_Get() const;
 
-		static inline CStringValue fs_CreateStaticString(char const* _pStr);
-		static inline CStringValue fs_CreateDynamicString(char const* _pStr);
-		static inline CStringValue fs_CreateDynamicString(NStr::CStr const& _Str);
+		static inline CStringValue fs_CreateStaticString(char const *_pStr);
+		static inline CStringValue fs_CreateDynamicString(char const *_pStr);
+		static inline CStringValue fs_CreateDynamicString(NStr::CStr const &_Str);
 	};
 
 	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value);
 
 	template <typename t_CEnum>
-	inline NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<t_CEnum, CFieldValue> const& _Fields);
+	inline NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<t_CEnum, CFieldValue> const &_Fields);
 
-	template<typename t_CSub, typename t_CEnum>
+	template <typename t_CSub, typename t_CEnum>
 	class TCFieldsBase
 	{
 	public:
@@ -141,7 +141,7 @@ namespace NMib::NWeb::NHTTP
 
 	public:
 		TCFieldsBase();
-		TCFieldsBase(TCFieldsBase&& _ToMove);
+		TCFieldsBase(TCFieldsBase &&_ToMove);
 		~TCFieldsBase();
 
 		inline void f_SetHTTPVersion(EVersion _Version);
@@ -155,7 +155,7 @@ namespace NMib::NWeb::NHTTP
 		//	EParse_OK			- The field was known and parsed OK
 		//	EParse_Invalid		- The field was known but the data was invalud
 		//	EParse_Unknown		- The field was not known
-		inline EParse f_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		inline EParse f_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		inline void f_ClearField(CEnum _Field);
 
@@ -170,8 +170,8 @@ namespace NMib::NWeb::NHTTP
 		CGeneralFields();
 		~CGeneralFields();
 
-		EParse f_ParseKnownField(EGeneralField _Field, NStr::CStr const& _Value);
-		EParse f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		EParse f_ParseKnownField(EGeneralField _Field, NStr::CStr const &_Value);
+		EParse f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		NStr::CStr f_GetCacheControl() const;
 		EConnectionToken f_GetConnection() const;
@@ -183,16 +183,16 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr f_GetVia() const;
 		NStr::CStr f_GetWarning() const;
 
-		void f_SetCacheControl(NStr::CStr const& _Value);
+		void f_SetCacheControl(NStr::CStr const &_Value);
 		void f_SetConnection(EConnectionToken _Value);
-		void f_SetDate(NStr::CStr const& _Value);
-		void f_SetDate(NTime::CTime const& _Value);
-		void f_SetPragma(NStr::CStr const& _Value);
-		void f_SetTrailer(NStr::CStr const& _Value);
+		void f_SetDate(NStr::CStr const &_Value);
+		void f_SetDate(NTime::CTime const &_Value);
+		void f_SetPragma(NStr::CStr const &_Value);
+		void f_SetTrailer(NStr::CStr const &_Value);
 		void f_SetTransferEncoding(ETransferEncoding _Value);
-		void f_SetUpgrade(NStr::CStr const& _Value);
-		void f_SetVia(NStr::CStr const& _Value);
-		void f_SetWarning(NStr::CStr const& _Value);
+		void f_SetUpgrade(NStr::CStr const &_Value);
+		void f_SetVia(NStr::CStr const &_Value);
+		void f_SetWarning(NStr::CStr const &_Value);
 	};
 
 	struct CRequestFields : public TCFieldsBase<CRequestFields, ERequestField>
@@ -201,8 +201,8 @@ namespace NMib::NWeb::NHTTP
 		CRequestFields();
 		~CRequestFields();
 
-		EParse f_ParseKnownField(ERequestField _Field, NStr::CStr const& _Value);
-		EParse f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		EParse f_ParseKnownField(ERequestField _Field, NStr::CStr const &_Value);
+		EParse f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		NStr::CStr f_GetAccept() const;
 		NStr::CStr f_GetAcceptCharset() const;
@@ -224,26 +224,25 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr f_GetTE() const;
 		NStr::CStr f_GetUserAgent() const;
 
-		void f_SetAccept(NStr::CStr const& _Value);
-		void f_SetAcceptCharset(NStr::CStr const& _Value);
-		void f_SetAcceptEncoding(NStr::CStr const& _Value);
-		void f_SetAcceptLanguage(NStr::CStr const& _Value);
-		void f_SetAuthorization(NStr::CStr const& _Value);
-		void f_SetExpect(NStr::CStr const& _Value);
-		void f_SetFrom(NStr::CStr const& _Value);
-		void f_SetHost(NStr::CStr const& _Value);
-		void f_SetIfMatch(NStr::CStr const& _Value);
-		void f_SetIfModifiedSince(NStr::CStr const& _Value);
-		void f_SetIfNoneMatch(NStr::CStr const& _Value);
-		void f_SetIfRange(NStr::CStr const& _Value);
-		void f_SetIfUnmodifiedSince(NStr::CStr const& _Value);
-		void f_SetMaxForwards(NStr::CStr const& _Value);
-		void f_SetProxyAuthorization(NStr::CStr const& _Value);
-		void f_SetRange(NStr::CStr const& _Value);
-		void f_SetReferer(NStr::CStr const& _Value);
-		void f_SetTE(NStr::CStr const& _Value);
-		void f_SetUserAgent(NStr::CStr const& _Value);;
-
+		void f_SetAccept(NStr::CStr const &_Value);
+		void f_SetAcceptCharset(NStr::CStr const &_Value);
+		void f_SetAcceptEncoding(NStr::CStr const &_Value);
+		void f_SetAcceptLanguage(NStr::CStr const &_Value);
+		void f_SetAuthorization(NStr::CStr const &_Value);
+		void f_SetExpect(NStr::CStr const &_Value);
+		void f_SetFrom(NStr::CStr const &_Value);
+		void f_SetHost(NStr::CStr const &_Value);
+		void f_SetIfMatch(NStr::CStr const &_Value);
+		void f_SetIfModifiedSince(NStr::CStr const &_Value);
+		void f_SetIfNoneMatch(NStr::CStr const &_Value);
+		void f_SetIfRange(NStr::CStr const &_Value);
+		void f_SetIfUnmodifiedSince(NStr::CStr const &_Value);
+		void f_SetMaxForwards(NStr::CStr const &_Value);
+		void f_SetProxyAuthorization(NStr::CStr const &_Value);
+		void f_SetRange(NStr::CStr const &_Value);
+		void f_SetReferer(NStr::CStr const &_Value);
+		void f_SetTE(NStr::CStr const &_Value);
+		void f_SetUserAgent(NStr::CStr const &_Value);
 	};
 
 	// Header fields
@@ -256,8 +255,8 @@ namespace NMib::NWeb::NHTTP
 		CEntityFields();
 		~CEntityFields();
 
-		EParse f_ParseKnownField(EEntityField _Field, NStr::CStr const& _Value);
-		EParse f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		EParse f_ParseKnownField(EEntityField _Field, NStr::CStr const &_Value);
+		EParse f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		NStr::CStr f_GetContentEncoding() const;
 		NStr::CStr f_GetContentLanguage() const;
@@ -272,16 +271,16 @@ namespace NMib::NWeb::NHTTP
 
 		NStr::CStr const *f_GetUnknownField(NStr::CStr const &_Field) const;
 
-		void f_SetContentEncoding(NStr::CStr const& _Value);
-		void f_SetContentLanguage(NStr::CStr const& _Value);
+		void f_SetContentEncoding(NStr::CStr const &_Value);
+		void f_SetContentLanguage(NStr::CStr const &_Value);
 		void f_SetContentLength(umint _Value);
-		void f_SetContentLocation(NStr::CStr const& _Value);
-		void f_SetContentMD(NStr::CStr const& _Value);
-		void f_SetContentRange(NStr::CStr const& _Value);
-		void f_SetContentType(NStr::CStr const& _Value);
-		void f_SetExpires(NStr::CStr const& _Value);
-		void f_SetLastModified(NStr::CStr const& _Value);
-		void f_SetExtensionHeader(NStr::CStr const& _Value);
+		void f_SetContentLocation(NStr::CStr const &_Value);
+		void f_SetContentMD(NStr::CStr const &_Value);
+		void f_SetContentRange(NStr::CStr const &_Value);
+		void f_SetContentType(NStr::CStr const &_Value);
+		void f_SetExpires(NStr::CStr const &_Value);
+		void f_SetLastModified(NStr::CStr const &_Value);
+		void f_SetExtensionHeader(NStr::CStr const &_Value);
 
 		void f_SetUnknownField(NStr::CStr const &_Field, NStr::CStr const &_Value);
 
@@ -295,8 +294,8 @@ namespace NMib::NWeb::NHTTP
 		CResponseFields();
 		~CResponseFields();
 
-		EParse f_ParseKnownField(EResponseField _Field, NStr::CStr const& _Value);
-		EParse f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		EParse f_ParseKnownField(EResponseField _Field, NStr::CStr const &_Value);
+		EParse f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		NStr::CStr f_GetAcceptRanges() const;
 		NStr::CStr f_GetAge() const;
@@ -308,15 +307,15 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr f_GetVary() const;
 		NStr::CStr f_GetWWWAuthenticate() const;
 
-		void f_SetAcceptRanges(NStr::CStr const& _Value);
-		void f_SetAge(NStr::CStr const& _Value);
-		void f_SetETag(NStr::CStr const& _Value);
-		void f_SetLocation(NStr::CStr const& _Value);
-		void f_SetProxyAuthenticate(NStr::CStr const& _Value);
-		void f_SetRetryAfter(NStr::CStr const& _Value);
-		void f_SetServer(NStr::CStr const& _Value);
-		void f_SetVary(NStr::CStr const& _Value);
-		void f_SetWWWAuthenticate(NStr::CStr const& _Value);
+		void f_SetAcceptRanges(NStr::CStr const &_Value);
+		void f_SetAge(NStr::CStr const &_Value);
+		void f_SetETag(NStr::CStr const &_Value);
+		void f_SetLocation(NStr::CStr const &_Value);
+		void f_SetProxyAuthenticate(NStr::CStr const &_Value);
+		void f_SetRetryAfter(NStr::CStr const &_Value);
+		void f_SetServer(NStr::CStr const &_Value);
+		void f_SetVary(NStr::CStr const &_Value);
+		void f_SetWWWAuthenticate(NStr::CStr const &_Value);
 	};
 }
 

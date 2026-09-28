@@ -33,7 +33,7 @@ namespace NMib::NWeb
 			NConcurrency::TCActor<CHTTPRequestHandlerActor> m_HandlerActor;
 		};
 
-		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const& _pRequest, uint32 _Status, NStr::CStr const& _Error)
+		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest, uint32 _Status, NStr::CStr const &_Error)
 		{
 			CHTTPResponseHeader Header;
 			NStr::CStr Content = NStr::CStr::CFormat("{}: {}") << _Status << _Error;
@@ -50,20 +50,18 @@ namespace NMib::NWeb
 		class CConnection : public CHTTPConnection
 		{
 		private:
-
 			CHTTPResponseHeader mp_Header;
 			NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 
-			CHTTPServerInternal& mp_Internal;
+			CHTTPServerInternal &mp_Internal;
 
 		public:
-
 			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
 			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
 			bool mp_bSentAsyncHeader = false;
 			DMibIfEnableSafeCheck(bool mp_bWroteNonAsync = false);
 
-			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, CHTTPServerInternal& _Internal)
+			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, CHTTPServerInternal &_Internal)
 				: mp_pRequest(fg_Move(_pRequest))
 				, mp_ContentStream(NContainer::CByteVector())
 				, mp_Internal(_Internal)
@@ -72,7 +70,6 @@ namespace NMib::NWeb
 
 			virtual ~CConnection()
 			{
-
 			}
 
 			void f_WriteStr(NStr::CStr _Str) override
@@ -80,18 +77,18 @@ namespace NMib::NWeb
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
 				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
 
-				mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
+				mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
 			}
 
-			void f_WriteBinary(uint8 const* _pData, umint _nBytes) override
+			void f_WriteBinary(uint8 const *_pData, umint _nBytes) override
 			{
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
 				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
 
-				mp_ContentStream.f_FeedBytes((void const*)_pData, _nBytes);
+				mp_ContentStream.f_FeedBytes((void const *)_pData, _nBytes);
 			}
 
-			void f_WriteHeader(CHTTPResponseHeader const& _Header) override
+			void f_WriteHeader(CHTTPResponseHeader const &_Header) override
 			{
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
 				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
@@ -135,20 +132,20 @@ namespace NMib::NWeb
 					NStr::CStr HeaderStr = mp_Header.f_Generate();
 
 					mp_pRequest->f_SendStdOutput(HeaderStr);
-					mp_pRequest->f_SendStdOutput((uint8 const*)mp_ContentStream.f_GetBuffer(), mp_Header.m_ContentLength);
+					mp_pRequest->f_SendStdOutput((uint8 const *)mp_ContentStream.f_GetBuffer(), mp_Header.m_ContentLength);
 				}
 
 				mp_pRequest->f_FinishRequest();
 			}
 
-			void fp_ParseVariables(char const* _pData, umint _Len)
+			void fp_ParseVariables(char const *_pData, umint _Len)
 			{
 				if (!_Len)
 					return;
 
-				char const* pCurPos = _pData;
+				char const *pCurPos = _pData;
 				char const *pEntryEndPos, *pEqualsPos;
-				char const* pEnd = _pData + _Len;
+				char const *pEnd = _pData + _Len;
 
 				while (*pCurPos && pCurPos < pEnd)
 				{
@@ -180,20 +177,20 @@ namespace NMib::NWeb
 				}
 			}
 
-			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const& _pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
+			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const &_pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
 			{
 				NConcurrency::TCPromise<void> Promise;
 
 				mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
-				auto* pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
+				auto *pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
 				if (pRemoteIP)
 					mp_pHTTPRequest->m_ClientIP = *pRemoteIP;
 
-				auto* pMethod = _Params.f_FindEqual("REQUEST_METHOD");
+				auto *pMethod = _Params.f_FindEqual("REQUEST_METHOD");
 				if (pMethod)
 					mp_pHTTPRequest->m_Method = *pMethod;
 
-				auto* pQuery = _Params.f_FindEqual("QUERY_STRING");
+				auto *pQuery = _Params.f_FindEqual("QUERY_STRING");
 				if (pQuery && !pQuery->f_IsEmpty())
 				{
 					mp_pHTTPRequest->m_QueryString = *pQuery;
@@ -227,11 +224,10 @@ namespace NMib::NWeb
 
 				if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
 				{
-
 				}
 				else if (fg_StrCmpNoCase(*pMethod, "POST") == 0 || fg_StrCmpNoCase(*pMethod, "PUT") == 0 || fg_StrCmpNoCase(*pMethod, "PATCH") == 0)
 				{
-					auto* pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
+					auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
 					if (!pContentLength)
 					{
 						fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for {}", pMethod->f_GetStr()));
@@ -243,8 +239,8 @@ namespace NMib::NWeb
 
 					mp_pRequest->f_OnStdInputRaw
 						(
-							NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ConcurrentActor())
-							/ [nPostBytes, pData, _pThis](NContainer::CByteVector _Data, bool _bEOF) -> NConcurrency::TCFuture<void>
+							NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ConcurrentActor()) / [nPostBytes, pData, _pThis]
+							(NContainer::CByteVector _Data, bool _bEOF) -> NConcurrency::TCFuture<void>
 							{
 								pData->f_Insert(fg_Move(_Data));
 
@@ -256,7 +252,7 @@ namespace NMib::NWeb
 									{
 										// Store raw body in request
 										_pThis->mp_pHTTPRequest->m_Body = fg_Move(*pData);
-										_pThis->fp_ParseVariables((ch8 const*)_pThis->mp_pHTTPRequest->m_Body.f_GetArray(), _pThis->mp_pHTTPRequest->m_Body.f_GetLen());
+										_pThis->fp_ParseVariables((ch8 const *)_pThis->mp_pHTTPRequest->m_Body.f_GetArray(), _pThis->mp_pHTTPRequest->m_Body.f_GetLen());
 										co_await _pThis->f_HandleRequest();
 									}
 								}
@@ -391,20 +387,15 @@ namespace NMib::NWeb
 			}
 		};
 
-		static umint fs_URLDecode(ch8 const* _pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
+		static umint fs_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
 		{
 			umint j = 0;
 			for (umint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
 			{
-				if
-					(
-						_pSrc[i] == '%'
-						&& NStr::fg_CharIsHexNumber(* (uch8 *) (_pSrc + i + 1))
-						&& NStr::fg_CharIsHexNumber(* (uch8 *) (_pSrc + i + 2))
-					)
+				if (_pSrc[i] == '%' && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + i + 1)) && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + i + 2)))
 				{
-					uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *) (_pSrc + i + 1));
-					uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *) (_pSrc + i + 2));
+					uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + i + 1));
+					uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + i + 2));
 					uint8 UpperValue = NStr::fg_CharIsNumber(Upper) ? (Upper - '0') : (10 + (Upper - 'a'));
 					uint8 LowerValue = NStr::fg_CharIsNumber(Lower) ? (Lower - '0') : (10 + (Lower - 'a'));
 					_pDst[j] = (ch8)(UpperValue << 4 | LowerValue);
@@ -421,7 +412,6 @@ namespace NMib::NWeb
 
 			return j;
 		}
-
 
 	public:
 		CHTTPServerInternal()
@@ -488,11 +478,10 @@ namespace NMib::NWeb
 			mp_pFastCGIServer = fg_Construct();
 			mp_pFastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
 				(
-					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor())
-					/ [this](NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
+					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [this](NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
 					{
-						auto& Params = _pRequest->f_GetParams();
-						auto* pURI = Params.f_FindEqual("DOCUMENT_URI");
+						auto &Params = _pRequest->f_GetParams();
+						auto *pURI = Params.f_FindEqual("DOCUMENT_URI");
 
 						if (!pURI)
 						{
@@ -538,13 +527,11 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
 		NConcurrency::TCActor<CFastCGIServer> mp_pFastCGIServer;
 
-		NContainer::TCMap<int, NContainer::TCVector<CHandlerEntry> > mp_Handlers;
+		NContainer::TCMap<int, NContainer::TCVector<CHandlerEntry>> mp_Handlers;
 
-		NFunction::TCFunction<void(NStr::CStr const &_Log, bool _bError)> mp_LogFunction;
+		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_LogFunction;
 		bool mp_bActorHandlers = false;
 	};
-
-
 
 	// CHTTPServer Public Methods
 
@@ -558,7 +545,7 @@ namespace NMib::NWeb
 		mp_Internal.f_Clear();
 	}
 
-	void CHTTPServer::f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority)
+	void CHTTPServer::f_AddHandlerForPath(NStr::CStr const &_Path, CHTTPRequestHandler *_pHandler, int _Priority)
 	{
 		mp_Internal(&CHTTPServerInternal::f_AddHandlerForPath, _Path, _pHandler, _Priority).f_CallSync();
 	}
@@ -573,7 +560,7 @@ namespace NMib::NWeb
 		mp_Internal(&CHTTPServerInternal::f_AddHandlerActorForPath, _Path, fg_Move(_HandlerActor), _Priority).f_CallSync();
 	}
 
-	bool CHTTPServer::f_Run(CHTTPServerOptions const& _Options)
+	bool CHTTPServer::f_Run(CHTTPServerOptions const &_Options)
 	{
 		return mp_Internal(&CHTTPServerInternal::f_Run, _Options).f_CallSync();
 	}
@@ -616,10 +603,10 @@ namespace NMib::NWeb
 	// CHTTPResponseHeader Public Methods
 
 	CHTTPResponseHeader::CHTTPResponseHeader() = default;
-	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy) = default;
-	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader && _ToMove) = default;
-	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader const& _ToCopy) = default;
-	CHTTPResponseHeader& CHTTPResponseHeader::operator=(CHTTPResponseHeader && _ToMove) = default;
+	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader const &_ToCopy) = default;
+	CHTTPResponseHeader::CHTTPResponseHeader(CHTTPResponseHeader &&_ToMove) = default;
+	CHTTPResponseHeader &CHTTPResponseHeader::operator = (CHTTPResponseHeader const &_ToCopy) = default;
+	CHTTPResponseHeader &CHTTPResponseHeader::operator = (CHTTPResponseHeader &&_ToMove) = default;
 
 	NStr::CStr CHTTPResponseHeader::f_Generate() const
 	{
@@ -629,66 +616,26 @@ namespace NMib::NWeb
 		{
 			switch (Status)
 			{
-			case 200:
-				Response = "HTTP/1.1 200 OK";
-				break;
-			case 201:
-				Response = "HTTP/1.1 201 Created";
-				break;
-			case 204:
-				Response = "HTTP/1.1 204 No Content";
-				break;
-			case 302:
-				Response = "HTTP/1.1 302 Found";
-				break;
-			case 303:
-				Response = "HTTP/1.1 303 See Other";
-				break;
-			case 304:
-				Response = "HTTP/1.1 304 Not Modified";
-				break;
-			case 307:
-				Response = "HTTP/1.1 307 Temporary Redirect";
-				break;
-			case 308:
-				Response = "HTTP/1.1 308 Permanent Redirect";
-				break;
-			case 400:
-				Response = "HTTP/1.1 400 Bad Request";
-				break;
-			case 401:
-				Response = "HTTP/1.1 401 Unauthorized";
-				break;
-			case 403:
-				Response = "HTTP/1.1 403 Forbidden";
-				break;
-			case 404:
-				Response = "HTTP/1.1 404 Not Found";
-				break;
-			case 405:
-				Response = "HTTP/1.1 405 Method Not Allowed";
-				break;
-			case 409:
-				Response = "HTTP/1.1 409 Conflict";
-				break;
-			case 422:
-				Response = "HTTP/1.1 422 Unprocessable Entity";
-				break;
-			case 429:
-				Response = "HTTP/1.1 429 Too Many Requests";
-				break;
-			case 500:
-				Response = "HTTP/1.1 500 Internal Server Error";
-				break;
-			case 502:
-				Response = "HTTP/1.1 502 Bad Gateway";
-				break;
-			case 503:
-				Response = "HTTP/1.1 503 Service Unavailable";
-				break;
-			case 504:
-				Response = "HTTP/1.1 504 Gateway Timeout";
-				break;
+			case 200: Response = "HTTP/1.1 200 OK"; break;
+			case 201: Response = "HTTP/1.1 201 Created"; break;
+			case 204: Response = "HTTP/1.1 204 No Content"; break;
+			case 302: Response = "HTTP/1.1 302 Found"; break;
+			case 303: Response = "HTTP/1.1 303 See Other"; break;
+			case 304: Response = "HTTP/1.1 304 Not Modified"; break;
+			case 307: Response = "HTTP/1.1 307 Temporary Redirect"; break;
+			case 308: Response = "HTTP/1.1 308 Permanent Redirect"; break;
+			case 400: Response = "HTTP/1.1 400 Bad Request"; break;
+			case 401: Response = "HTTP/1.1 401 Unauthorized"; break;
+			case 403: Response = "HTTP/1.1 403 Forbidden"; break;
+			case 404: Response = "HTTP/1.1 404 Not Found"; break;
+			case 405: Response = "HTTP/1.1 405 Method Not Allowed"; break;
+			case 409: Response = "HTTP/1.1 409 Conflict"; break;
+			case 422: Response = "HTTP/1.1 422 Unprocessable Entity"; break;
+			case 429: Response = "HTTP/1.1 429 Too Many Requests"; break;
+			case 500: Response = "HTTP/1.1 500 Internal Server Error"; break;
+			case 502: Response = "HTTP/1.1 502 Bad Gateway"; break;
+			case 503: Response = "HTTP/1.1 503 Service Unavailable"; break;
+			case 504: Response = "HTTP/1.1 504 Gateway Timeout"; break;
 			default:
 				Response = NStr::CStr::CFormat("HTTP/1.1 {} Unknown") << Status;
 				DMibNeverGetHere;
@@ -796,7 +743,7 @@ namespace NMib::NWeb
 
 	CMimeTypes g_MimeTypes;
 
-	void CHTTPResponseHeader::f_SetMimeTypeFromFilename(NStr::CStr const& _Filename)
+	void CHTTPResponseHeader::f_SetMimeTypeFromFilename(NStr::CStr const &_Filename)
 	{
 		auto pMimeType = g_MimeTypes.m_Types.f_FindEqual(NFile::CFile::fs_GetExtension(_Filename).f_LowerCase());
 
@@ -811,7 +758,6 @@ namespace NMib::NWeb
 		m_MimeType = "text/plain";
 	}
 
-
 	// CHTTPServer Options Public Methods
 
 	void CHTTPServerOptions::f_ParseCmdLine(NContainer::CRegistry &_Params)
@@ -820,7 +766,7 @@ namespace NMib::NWeb
 		NStr::CStr CurArg;
 		for (auto PIter = _Params.f_GetChildIterator(); PIter; ++PIter)
 		{
-			NContainer::CRegistry const& CurChild = *PIter;
+			NContainer::CRegistry const &CurChild = *PIter;
 			CurArg = CurChild.f_GetThisValue();
 
 			if (CurArg.f_CmpNoCase("-http_port") == 0)
@@ -868,50 +814,38 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistry const& _Params)
+	void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistry const &_Params)
 	{
 		fp_ParseSettings(_Params);
 	}
 
-	void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistryPreserveWhitespace const& _Params)
+	void CHTTPServerOptions::f_ParseSettings(NContainer::CRegistryPreserveWhitespace const &_Params)
 	{
 		fp_ParseSettings(_Params);
 	}
 
 	template <typename tf_CRegistry>
-	void CHTTPServerOptions::fp_ParseSettings(tf_CRegistry const& _Params)
+	void CHTTPServerOptions::fp_ParseSettings(tf_CRegistry const &_Params)
 	{
 		// Process settings
 		for (auto PIter = _Params.f_GetChildIterator(); PIter; ++PIter)
 		{
-			auto const& CurChild = *PIter;
+			auto const &CurChild = *PIter;
 			auto CurArg = CurChild.f_GetName();
 			auto CurValue = CurChild.f_GetThisValue();
 
 			if (CurArg.f_CmpNoCase("http_port") == 0)
-			{
 				m_ListeningPort = CurValue.f_ToInt(8080);
-			}
 			else if (CurArg.f_CmpNoCase("fastcgi_listen") == 0)
-			{
 				m_FastCGIListenStartPort = CurValue.f_ToInt(9000);
-			}
 			else if (CurArg.f_CmpNoCase("http_threads") == 0)
-			{
 				m_nMaxThreads = CurValue.f_ToInt(1);
-			}
 			else if (CurArg.f_CmpNoCase("http_root") == 0)
-			{
 				m_StaticRoot = CurValue;
-			}
 			else if (CurArg.f_CmpNoCase("http_webroot") == 0)
-			{
 				m_WebRoot = CurValue;
-			}
 			else if (CurArg.f_CmpNoCase("nginx_path") == 0)
-			{
 				m_NGINXPath = CurValue;
-			}
 		}
 	}
 
@@ -932,16 +866,14 @@ namespace NMib::NWeb
 	public:
 		CTestHTTPRequestHandler()
 		{
-
 		}
 
 		virtual ~CTestHTTPRequestHandler()
 		{
-
 		}
 
 		// This could be called for any thread - assume nothing.
-		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req)
+		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req)
 		{
 			CHTTPResponseHeader ResponseHeader;
 			_Connection.f_WriteHeader(ResponseHeader);
@@ -961,7 +893,7 @@ namespace NMib::NWeb
 		return _DefaultValue;
 	}
 
-	NStr::CStr CHTTPRequest::fs_LookupHost(NStr::CStr const& _IP)
+	NStr::CStr CHTTPRequest::fs_LookupHost(NStr::CStr const &_IP)
 	{
 		uint8 IP0 = 0;
 		uint8 IP1 = 0;
@@ -974,17 +906,16 @@ namespace NMib::NWeb
 			uint32 ClientIP = uint32(IP0) << 24 | uint32(IP1) << 16 | uint32(IP2) << 8 | uint32(IP3);
 
 			auto Addr = htonl(ClientIP);
-			auto pHost = gethostbyaddr((const char*)&Addr, 4, AF_INET);
+			auto pHost = gethostbyaddr((char const *)&Addr, 4, AF_INET);
 			if (pHost)
 				return pHost->h_name;
 		}
 		return _IP;
 	}
 
-
 	// CHTMLTemplate
 
-	CHTMLTemplate::CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs)
+	CHTMLTemplate::CHTMLTemplate(NStr::CStr const &_Filename, bool _bExeFs)
 	{
 		NStr::CStr Template;
 		if (!_bExeFs)
@@ -993,7 +924,7 @@ namespace NMib::NWeb
 			{
 				Template = NFile::CFile::fs_ReadStringFromFile(NStr::CStr(_Filename));
 			}
-			catch(NFile::CExceptionFile)
+			catch (NFile::CExceptionFile)
 			{
 			}
 		}
@@ -1002,7 +933,7 @@ namespace NMib::NWeb
 			NContainer::CByteVector lFileBytes;
 			if (NMib::NFile::fg_ReadExeFSFile(_Filename, lFileBytes))
 			{
-				char* pBuf = Template.f_GetStr(lFileBytes.f_GetLen() + 1);
+				char *pBuf = Template.f_GetStr(lFileBytes.f_GetLen() + 1);
 				memcpy(pBuf, lFileBytes.f_GetArray(), lFileBytes.f_GetLen());
 				pBuf[lFileBytes.f_GetLen()] = 0;
 			}
@@ -1010,8 +941,8 @@ namespace NMib::NWeb
 
 		// <!--USERDATA(CONTENT)-->
 
-		const NStr::CStr TagStart = "<!--USERDATA(";
-		const NStr::CStr TagEnd = ")-->";
+		NStr::CStr const TagStart = "<!--USERDATA(";
+		NStr::CStr const TagEnd = ")-->";
 
 		auto &Blocks = mp_pState->m_Blocks;
 
@@ -1049,7 +980,6 @@ namespace NMib::NWeb
 
 	CHTMLTemplate::~CHTMLTemplate()
 	{
-
 	}
 
 	///
@@ -1065,32 +995,31 @@ namespace NMib::NWeb
 	{
 	}
 
-
 	///
 	/// CHTTPCachedConnection
 	/// =====================
 
-	CHTTPCachedConnection::CHTTPCachedConnection() : mp_ContentStream(NContainer::CByteVector())
+	CHTTPCachedConnection::CHTTPCachedConnection()
+		: mp_ContentStream(NContainer::CByteVector())
 	{
 		f_Clear();
 	}
 
-	CHTTPCachedConnection::CHTTPCachedConnection(CHTTPCachedConnection const& _ToCopy)
+	CHTTPCachedConnection::CHTTPCachedConnection(CHTTPCachedConnection const &_ToCopy)
 	{
 		*this = _ToCopy;
 	}
 
-	CHTTPCachedConnection::CHTTPCachedConnection(CHTTPCachedConnection && _ToMove)
+	CHTTPCachedConnection::CHTTPCachedConnection(CHTTPCachedConnection &&_ToMove)
 	{
 		*this = fg_Move(_ToMove);
 	}
 
 	CHTTPCachedConnection::~CHTTPCachedConnection()
 	{
-
 	}
 
-	CHTTPCachedConnection& CHTTPCachedConnection::operator= (CHTTPCachedConnection const& _ToCopy)
+	CHTTPCachedConnection &CHTTPCachedConnection::operator = (CHTTPCachedConnection const &_ToCopy)
 	{
 		mp_Present = _ToCopy.mp_Present;
 		mp_Timestamp = _ToCopy.mp_Timestamp;
@@ -1100,7 +1029,7 @@ namespace NMib::NWeb
 		return *this;
 	}
 
-	CHTTPCachedConnection& CHTTPCachedConnection::operator= (CHTTPCachedConnection && _ToMove)
+	CHTTPCachedConnection &CHTTPCachedConnection::operator = (CHTTPCachedConnection &&_ToMove)
 	{
 		mp_Present = _ToMove.mp_Present;
 		_ToMove.mp_Present = EPresent_None;
@@ -1113,17 +1042,17 @@ namespace NMib::NWeb
 
 	void CHTTPCachedConnection::f_WriteStr(NStr::CStr _Str)
 	{
-		mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
+		mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
 		mp_Present |= EPresent_Content;
 	}
 
-	void CHTTPCachedConnection::f_WriteBinary(uint8 const* _pData, umint _nBytes)
+	void CHTTPCachedConnection::f_WriteBinary(uint8 const *_pData, umint _nBytes)
 	{
-		mp_ContentStream.f_FeedBytes((void const*)_pData, _nBytes);
+		mp_ContentStream.f_FeedBytes((void const *)_pData, _nBytes);
 		mp_Present |= EPresent_Content;
 	}
 
-	void CHTTPCachedConnection::f_WriteHeader(CHTTPResponseHeader const& _Header)
+	void CHTTPCachedConnection::f_WriteHeader(CHTTPResponseHeader const &_Header)
 	{
 		mp_Header = _Header;
 		mp_Present |= EPresent_Header;
@@ -1131,7 +1060,7 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CHTTPCachedConnection::f_WriteAsyncStr(NStr::CStr _Str)
 	{
-		mp_ContentStream.f_FeedBytes((void const*)_Str.f_GetStr(), _Str.f_GetLen());
+		mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
 		mp_Present |= EPresent_Content;
 
 		co_return {};
@@ -1157,6 +1086,7 @@ namespace NMib::NWeb
 	{
 		return mp_Present & EPresent_Header;
 	}
+
 	bool CHTTPCachedConnection::f_HasContent()
 	{
 		return mp_Present & EPresent_Content;
@@ -1166,6 +1096,7 @@ namespace NMib::NWeb
 	{
 		mp_Timestamp = NTime::CTime::fs_NowUTC();
 	}
+
 	NTime::CTime CHTTPCachedConnection::f_GetTimestamp()
 	{
 		return mp_Timestamp;
@@ -1176,19 +1107,19 @@ namespace NMib::NWeb
 		if (!mp_Timestamp.f_IsValid())
 			return false;
 
-		if ( (NTime::CTime::fs_NowUTC() - mp_Timestamp).f_GetSeconds() > _MaxSecondsOld )
+		if ((NTime::CTime::fs_NowUTC() - mp_Timestamp).f_GetSeconds() > _MaxSecondsOld)
 			return false;
 		else
 			return true;
 	}
 
-	void CHTTPCachedConnection::f_Forward(CHTTPConnection& _Dest)
+	void CHTTPCachedConnection::f_Forward(CHTTPConnection &_Dest)
 	{
 		if (mp_Present & EPresent_Header)
 			_Dest.f_WriteHeader(mp_Header);
 
 		if (mp_Present & EPresent_Content)
-			_Dest.f_WriteBinary((uint8 const*)mp_ContentStream.f_GetBuffer(), mp_ContentStream.f_GetLength());
+			_Dest.f_WriteBinary((uint8 const *)mp_ContentStream.f_GetBuffer(), mp_ContentStream.f_GetLength());
 	}
 
 	void CHTTPCachedConnection::f_Clear()
@@ -1234,9 +1165,9 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<void> CHTMLTemplate::f_WriteTemplateAsync
 		(
-			 NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
-			 , CHTTPResponseHeader const &_BaseHeader
-			 , NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
+			NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+			, CHTTPResponseHeader const &_BaseHeader
+			, NFunction::TCFunction<NConcurrency::TCFuture<void> (NStr::CStr const &_BlockName)> &&_fWriteBlock
 		)
 	{
 		_pConnection->f_WriteHeader(_BaseHeader);

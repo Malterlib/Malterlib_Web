@@ -42,12 +42,11 @@ namespace NMib::NWeb
 			CConnectionInfo(CConnectionInfo const &_Other);
 			CConnectionInfo(CConnectionInfo &&_Other);
 
-			CConnectionInfo &operator =(CConnectionInfo const &_Other);
-			CConnectionInfo &operator =(CConnectionInfo &&_Other);
+			CConnectionInfo &operator = (CConnectionInfo const &_Other);
+			CConnectionInfo &operator = (CConnectionInfo &&_Other);
 
 			void f_Accept(NStr::CStr const &_Session) const;
 			void f_Reject() const;
-
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
@@ -69,8 +68,8 @@ namespace NMib::NWeb
 			CMethodInfo(CMethodInfo const &_Other);
 			CMethodInfo(CMethodInfo &&_Other);
 
-			CMethodInfo &operator =(CMethodInfo const &_Other);
-			CMethodInfo &operator =(CMethodInfo &&_Other);
+			CMethodInfo &operator = (CMethodInfo const &_Other);
+			CMethodInfo &operator = (CMethodInfo &&_Other);
 
 			void f_Result(NEncoding::CEJsonSorted const &_Result, bool _bUpdated = true) const;
 			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
@@ -94,8 +93,8 @@ namespace NMib::NWeb
 			CSubscribeInfo(CSubscribeInfo const &_Other);
 			CSubscribeInfo(CSubscribeInfo &&_Other);
 
-			CSubscribeInfo &operator =(CSubscribeInfo const &_Other);
-			CSubscribeInfo &operator =(CSubscribeInfo &&_Other);
+			CSubscribeInfo &operator = (CSubscribeInfo const &_Other);
+			CSubscribeInfo &operator = (CSubscribeInfo &&_Other);
 
 			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
 
@@ -143,8 +142,7 @@ namespace NMib::NWeb
 			NContainer::TCVector<NStr::CStr> m_IDs;
 		};
 
-		using CChange
-			= NStorage::TCStreamableVariant
+		using CChange = NStorage::TCStreamableVariant
 			<
 				EChange
 				, NStorage::TCMember<CAdded, EChange_Added>

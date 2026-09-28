@@ -23,7 +23,7 @@ namespace NMib::NWeb
 
 		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
 
-		static NStr::CStr fs_LookupHost(NStr::CStr const& _IP);
+		static NStr::CStr fs_LookupHost(NStr::CStr const &_IP);
 	};
 
 	struct CHTTPResponseHeader
@@ -34,30 +34,33 @@ namespace NMib::NWeb
 		uint32 m_Status = 200;
 		NTime::CTime m_Expires;
 		NTime::CTime m_LastModified;
-		NStr::CStr m_AllowMethods = "GET";		// List of one or more of GET, POST, HEAD, PUT separated by a comma and a space: e.g. "GET, HEAD"
+		NStr::CStr m_AllowMethods = "GET"; // List of one or more of GET, POST, HEAD, PUT separated by a comma and a space: e.g. "GET, HEAD"
 		NStr::CStr m_CacheControl;
 		NStr::CStr m_ETag;
-		NContainer::TCVector<NStr::CStr> m_AdditionalHeaderLines;	// Each entry is a complete "Key: Value" line. Useful for headers with multiple values (e.g. Set-Cookie) or arbitrary forwarded headers.
+		// Each entry is a complete "Key: Value" line. Useful for headers with multiple values (e.g. Set-Cookie) or arbitrary forwarded headers.
+		NContainer::TCVector<NStr::CStr> m_AdditionalHeaderLines;
 
 		CHTTPResponseHeader();
-		CHTTPResponseHeader(CHTTPResponseHeader const& _ToCopy);
-		CHTTPResponseHeader(CHTTPResponseHeader && _ToMove);
-		CHTTPResponseHeader& operator=(CHTTPResponseHeader const& _ToCopy);
-		CHTTPResponseHeader& operator=(CHTTPResponseHeader && _ToMove);
+		CHTTPResponseHeader(CHTTPResponseHeader const &_ToCopy);
+		CHTTPResponseHeader(CHTTPResponseHeader &&_ToMove);
+		CHTTPResponseHeader &operator = (CHTTPResponseHeader const &_ToCopy);
+		CHTTPResponseHeader &operator = (CHTTPResponseHeader &&_ToMove);
 
 		NStr::CStr f_Generate() const;
 		void f_SetPlainMime();
-		void f_SetMimeTypeFromFilename(NStr::CStr const& _Filename);
+		void f_SetMimeTypeFromFilename(NStr::CStr const &_Filename);
 	};
 
 	class CHTTPConnection
 	{
 	public:
-		virtual ~CHTTPConnection() {}
+		virtual ~CHTTPConnection()
+		{
+		}
 
 		virtual void f_WriteStr(NStr::CStr _Str) = 0;
-		virtual void f_WriteBinary(const uint8* _pData, umint _nBytes) = 0;
-		virtual void f_WriteHeader(CHTTPResponseHeader const& _Header) = 0;
+		virtual void f_WriteBinary(uint8 const *_pData, umint _nBytes) = 0;
+		virtual void f_WriteHeader(CHTTPResponseHeader const &_Header) = 0;
 
 		virtual NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) = 0;
 		virtual NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) = 0;
@@ -71,9 +74,9 @@ namespace NMib::NWeb
 	private:
 		enum EPresent
 		{
-			EPresent_None		= 0,
-			EPresent_Header		= DMibBit(0),
-			EPresent_Content	= DMibBit(1),
+			EPresent_None = 0
+			, EPresent_Header = DMibBit(0)
+			, EPresent_Content = DMibBit(1)
 		};
 
 		EPresent mp_Present;
@@ -84,17 +87,17 @@ namespace NMib::NWeb
 
 	public:
 		CHTTPCachedConnection();
-		CHTTPCachedConnection(CHTTPCachedConnection const& _ToCopy);
-		CHTTPCachedConnection(CHTTPCachedConnection && _ToMove);
+		CHTTPCachedConnection(CHTTPCachedConnection const &_ToCopy);
+		CHTTPCachedConnection(CHTTPCachedConnection &&_ToMove);
 
 		~CHTTPCachedConnection() override;
 
-		CHTTPCachedConnection& operator= (CHTTPCachedConnection const& _ToCopy);
-		CHTTPCachedConnection& operator= (CHTTPCachedConnection && _ToMove);
+		CHTTPCachedConnection &operator = (CHTTPCachedConnection const &_ToCopy);
+		CHTTPCachedConnection &operator = (CHTTPCachedConnection &&_ToMove);
 
 		void f_WriteStr(NStr::CStr _Str) override;
-		void f_WriteBinary(uint8 const* _pData, umint _nBytes) override;
-		void f_WriteHeader(CHTTPResponseHeader const& _Header) override;
+		void f_WriteBinary(uint8 const *_pData, umint _nBytes) override;
+		void f_WriteHeader(CHTTPResponseHeader const &_Header) override;
 
 		NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) override;
 		NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) override;
@@ -106,18 +109,20 @@ namespace NMib::NWeb
 		void f_SetTimestamp();
 		NTime::CTime f_GetTimestamp();
 
-		bool f_IsValid(fp32 _MaxSecondsOld) ;
-		void f_Forward(CHTTPConnection& _Dest);
+		bool f_IsValid(fp32 _MaxSecondsOld);
+		void f_Forward(CHTTPConnection &_Dest);
 		void f_Clear();
 	};
 
 	class CHTTPRequestHandler
 	{
 	public:
-		virtual ~CHTTPRequestHandler() {}
+		virtual ~CHTTPRequestHandler()
+		{
+		}
 
 		// This could be called for any thread - assume nothing.
-		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const& _Req) = 0;
+		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req) = 0;
 	};
 
 	struct CHTTPRequestHandlerActor : public NConcurrency::CActor
@@ -163,13 +168,13 @@ namespace NMib::NWeb
 		*/
 		void f_ParseCmdLine(NContainer::CRegistry &_Params);
 		// Uses the same options (without the -) and uses key-value structure. .hrf style.
-		void f_ParseSettings(NContainer::CRegistry const& _Params);
-		void f_ParseSettings(NContainer::CRegistryPreserveWhitespace const& _Params);
+		void f_ParseSettings(NContainer::CRegistry const &_Params);
+		void f_ParseSettings(NContainer::CRegistryPreserveWhitespace const &_Params);
 		void f_ParseSettings(NEncoding::CEJsonSorted const &_Params);
 
 	private:
 		template <typename tf_CRegistry>
-		void fp_ParseSettings(tf_CRegistry const& _Params);
+		void fp_ParseSettings(tf_CRegistry const &_Params);
 	};
 
 	class CHTTPServer
@@ -185,11 +190,11 @@ namespace NMib::NWeb
 			Handlers will be called to handle any request starting with _Path.
 			The HTTPServer does not take ownership of the handler.
 		*/
-		void f_AddHandlerForPath(NStr::CStr const& _Path, CHTTPRequestHandler* _pHandler, int _Priority);
+		void f_AddHandlerForPath(NStr::CStr const &_Path, CHTTPRequestHandler *_pHandler, int _Priority);
 		void f_AddHandlerActorForPath(NStr::CStr const &_Path, FActorRequestHandler &&_fHandleRequest, int _Priority);
 		void f_AddHandlerActorForPath(NStr::CStr const &_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority);
 
-		bool f_Run(CHTTPServerOptions const& _Options);
+		bool f_Run(CHTTPServerOptions const &_Options);
 		bool f_IsRunning();
 		bool f_Stop();
 
@@ -220,28 +225,35 @@ namespace NMib::NWeb
 	public:
 		enum EBlock
 		{
-			EBlock_HTML,
-			EBlock_UserData,
+			EBlock_HTML
+			, EBlock_UserData
 		};
 
 		struct CBlock
 		{
 			EBlock m_Type;
-			NStr::CStr m_Text;		// HTML or user data name
+			NStr::CStr m_Text; // HTML or user data name
 		};
 
 		using CIteratorConst = NContainer::TCVector<CBlock>::CIteratorConst;
 
 	public:
-		CHTMLTemplate(NStr::CStr const& _Filename, bool _bExeFs);
+		CHTMLTemplate(NStr::CStr const &_Filename, bool _bExeFs);
 		~CHTMLTemplate();
 
-		bool f_IsEmpty() const { return mp_pState->m_Blocks.f_IsEmpty(); }
-		CIteratorConst f_GetIterator() const { return fg_Const(mp_pState->m_Blocks).f_GetIterator(); }
+		bool f_IsEmpty() const
+		{
+			return mp_pState->m_Blocks.f_IsEmpty();
+		}
+
+		CIteratorConst f_GetIterator() const
+		{
+			return fg_Const(mp_pState->m_Blocks).f_GetIterator();
+		}
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
 		template <typename t_FFunc>
-		void f_WriteTemplate(CHTTPConnection & _Conn, t_FFunc const& _Func)
+		void f_WriteTemplate(CHTTPConnection &_Conn, t_FFunc const &_Func)
 		{
 			CHTTPResponseHeader ResponseHeader;
 			f_WriteTemplate(_Conn, ResponseHeader, _Func);
@@ -249,7 +261,7 @@ namespace NMib::NWeb
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
 		template <typename t_FFunc>
-		void f_WriteTemplate(CHTTPConnection & _Conn, CHTTPResponseHeader const& _BaseHeader, t_FFunc const& _Func)
+		void f_WriteTemplate(CHTTPConnection &_Conn, CHTTPResponseHeader const &_BaseHeader, t_FFunc const &_Func)
 		{
 			_Conn.f_WriteHeader(_BaseHeader);
 

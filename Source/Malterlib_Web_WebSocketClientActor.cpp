@@ -67,12 +67,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		auto [ConnectAddresses, BindAddresses] = co_await
-			(
-				fg_Move(ConnectLookup.m_Result)
-				+ fg_Move(BindLookup.m_Result)
-			)
-		;
+		auto [ConnectAddresses, BindAddresses] = co_await (fg_Move(ConnectLookup.m_Result) + fg_Move(BindLookup.m_Result));
 
 		auto ConnectToAdress = fg_Move(ConnectAddresses[0]);
 		auto BindToAddress = fg_Move(BindAddresses[0]);
@@ -207,7 +202,8 @@ namespace NMib::NWeb
 									, Origin
 									, Protocols
 									, pConnectionManager
-								]() mutable
+								]
+								() mutable
 								{
 									if (pPendingDeleted->f_Load())
 										return (void)pCleanupPromise.f_Clear();
@@ -236,8 +232,7 @@ namespace NMib::NWeb
 												(
 													&CWebSocketActor::fp_OnFinishClientConnection
 													// Run finish callbacks on the connection's manager to keep ownership and scheduling consistent.
-													, NConcurrency::g_ActorFunctorWeak(pConnectionManager->f_GetThisConcurrentActor())
-													/
+													, NConcurrency::g_ActorFunctorWeak(pConnectionManager->f_GetThisConcurrentActor()) /
 													[
 														Promise
 														, pCleanupPromise

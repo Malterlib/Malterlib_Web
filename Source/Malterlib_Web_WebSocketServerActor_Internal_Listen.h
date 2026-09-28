@@ -15,7 +15,7 @@ namespace NMib::NWeb::NWebSocket
 	public:
 		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep accept work on the connection actors' pool.
 
-		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const& _Server, CWebsocketSettings const &_Settings);
+		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const &_Server, CWebsocketSettings const &_Settings);
 		~CListenActor();
 
 		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket);

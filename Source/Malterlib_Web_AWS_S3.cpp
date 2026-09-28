@@ -85,7 +85,8 @@ namespace NMib::NWeb
 #endif
 				auto &&_fDoRequest
 				, CStr const &_ContinuationToken
-			) -> void
+			)
+			-> void
 			{
 #if defined(DCompiler_Workaround_Apple_clang) || defined(DCompiler_MSVC_Workaround)
 				#define _fDoRequest(...) _fDoRequest(_fDoRequest, __VA_ARGS__)
@@ -214,11 +215,11 @@ namespace NMib::NWeb
 				CStr Class;
 				switch (_Info.m_StorageClass)
 				{
-					case CAwsS3Actor::EStorageClass_Standard: Class = "STANDARD"; break;
-					case CAwsS3Actor::EStorageClass_StandardInfrequentAccess: Class = "STANDARD_IA"; break;
-					case CAwsS3Actor::EStorageClass_OneZoneInfrequentAccess: Class = "ONEZONE_IA"; break;
-					case CAwsS3Actor::EStorageClass_ReducedRedundancy: Class = "REDUCED_REDUNDANCY"; break;
-					default: DMibNeverGetHere; break;
+				case CAwsS3Actor::EStorageClass_Standard: Class = "STANDARD"; break;
+				case CAwsS3Actor::EStorageClass_StandardInfrequentAccess: Class = "STANDARD_IA"; break;
+				case CAwsS3Actor::EStorageClass_OneZoneInfrequentAccess: Class = "ONEZONE_IA"; break;
+				case CAwsS3Actor::EStorageClass_ReducedRedundancy: Class = "REDUCED_REDUNDANCY"; break;
+				default: DMibNeverGetHere; break;
 				}
 				if (!Class.f_IsEmpty())
 					Headers["x-amz-storage-class"] = Class;

@@ -51,7 +51,7 @@ namespace NMib::NWeb
 
 			NStorage::TCOptional<NStr::CStr> m_Handler; // Required for create
 			NStorage::TCOptional<NStr::CStr> m_Role; // Required for create
-			NStorage::TCOptional<NStr::CStr> m_Runtime;  // Required for create
+			NStorage::TCOptional<NStr::CStr> m_Runtime; // Required for create
 
 			NStorage::TCOptional<NContainer::TCMap<NStr::CStr, NStr::CStr>> m_EnvironmentVariables;
 			NStorage::TCOptional<NContainer::TCMap<NStr::CStr, NStr::CStr>> m_Tags;
@@ -68,13 +68,7 @@ namespace NMib::NWeb
 			NStr::CStr m_Version;
 		};
 
-		NConcurrency::TCFuture<CFunctionInfo> f_CreateOrUpdateFunction
-			(
-				NStr::CStr _FunctionName
-				, NContainer::TCMap<NStr::CStr, NStr::CStr> _Files
-				, CFunctionConfiguration _Config
-			)
-		;
+		NConcurrency::TCFuture<CFunctionInfo> f_CreateOrUpdateFunction(NStr::CStr _FunctionName, NContainer::TCMap<NStr::CStr, NStr::CStr> _Files, CFunctionConfiguration _Config);
 
 	private:
 		struct CInternal;
