@@ -15,57 +15,56 @@ namespace NMib::NWeb::NHTTP
 
 	CEntityFields::~CEntityFields()
 	{
-
 	}
 
 	// Returns:
 	//	EParse_OK			- The field was known and parsed OK
 	//	EParse_Invalid		- The field was known but the data was invalud
 	//	EParse_NotPresent	- The field was not known
-	EParse CEntityFields::f_ParseKnownField(EEntityField _Field, NStr::CStr const& _Value)
+	EParse CEntityFields::f_ParseKnownField(EEntityField _Field, NStr::CStr const &_Value)
 	{
-		switch(_Field)
+		switch (_Field)
 		{
-			case EEntityField_Unknown:
-			default:
-				{
-					DMibNeverGetHere;
+		case EEntityField_Unknown:
+		default:
+			{
+				DMibNeverGetHere;
+				return EParse_Invalid;
+			}
+		case EEntityField_ContentEncoding:
+		case EEntityField_ContentLanguage:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
+
+		case EEntityField_ContentLength:
+			{
+				aint nParsed;
+				umint ContentLength;
+				(NStr::CStr::CParse("{}") >> ContentLength).f_Parse(_Value, nParsed);
+				if (nParsed != 1)
 					return EParse_Invalid;
-				}
-			case EEntityField_ContentEncoding:
-			case EEntityField_ContentLanguage:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
+				mp_Fields[_Field] = ContentLength;
 
-			case EEntityField_ContentLength:
-				{
-					aint nParsed;
-					umint ContentLength;
-					(NStr::CStr::CParse("{}") >> ContentLength).f_Parse(_Value, nParsed);
-					if (nParsed != 1)
-						return EParse_Invalid;
-					mp_Fields[_Field] = ContentLength;
+				return EParse_OK;
+			}
 
-					return EParse_OK;
-				}
-
-			case EEntityField_ContentLocation:
-			case EEntityField_ContentMD:
-			case EEntityField_ContentRange:
-			case EEntityField_ContentType:
-			case EEntityField_Expires:
-			case EEntityField_LastModified:
-			case EEntityField_ExtensionHeader:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
+		case EEntityField_ContentLocation:
+		case EEntityField_ContentMD:
+		case EEntityField_ContentRange:
+		case EEntityField_ContentType:
+		case EEntityField_Expires:
+		case EEntityField_LastModified:
+		case EEntityField_ExtensionHeader:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
 		}
 	}
 
-	EParse CEntityFields::f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	EParse CEntityFields::f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
 		mp_UnknownFields[_Name] = _Value;
 		return EParse_Unknown;
@@ -161,12 +160,12 @@ namespace NMib::NWeb::NHTTP
 			return NStr::CStr();
 	}
 
-	void CEntityFields::f_SetContentEncoding(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentEncoding(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentEncoding] = _Value;
 	}
 
-	void CEntityFields::f_SetContentLanguage(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentLanguage(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentLanguage] = _Value;
 	}
@@ -176,37 +175,37 @@ namespace NMib::NWeb::NHTTP
 		mp_Fields[EEntityField_ContentLength] = _Value;
 	}
 
-	void CEntityFields::f_SetContentLocation(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentLocation(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentLocation] = _Value;
 	}
 
-	void CEntityFields::f_SetContentMD(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentMD(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentMD] = _Value;
 	}
 
-	void CEntityFields::f_SetContentRange(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentRange(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentRange] = _Value;
 	}
 
-	void CEntityFields::f_SetContentType(NStr::CStr const& _Value)
+	void CEntityFields::f_SetContentType(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ContentType] = _Value;
 	}
 
-	void CEntityFields::f_SetExpires(NStr::CStr const& _Value)
+	void CEntityFields::f_SetExpires(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_Expires] = _Value;
 	}
 
-	void CEntityFields::f_SetLastModified(NStr::CStr const& _Value)
+	void CEntityFields::f_SetLastModified(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_LastModified] = _Value;
 	}
 
-	void CEntityFields::f_SetExtensionHeader(NStr::CStr const& _Value)
+	void CEntityFields::f_SetExtensionHeader(NStr::CStr const &_Value)
 	{
 		mp_Fields[EEntityField_ExtensionHeader] = _Value;
 	}
@@ -226,16 +225,16 @@ namespace NMib::NWeb::NHTTP
 	{
 		TCFieldsBase<CEntityFields, EEntityField>::f_WriteToData(_fOutput);
 
-		char const pNameValueSep[] = { ':', ' ' };
-		char const pLineSep[] = { '\r', '\n' };
+		char const pNameValueSep[] = {':', ' '};
+		char const pLineSep[] = {'\r', '\n'};
 
 		for (auto iField = mp_UnknownFields.f_GetIterator(); iField; ++iField)
 		{
-			_fOutput((uint8 const*)iField.f_GetKey().f_GetStr(), iField.f_GetKey().f_GetLen());
-			_fOutput((uint8 const*)pNameValueSep, sizeof(pNameValueSep));
+			_fOutput((uint8 const *)iField.f_GetKey().f_GetStr(), iField.f_GetKey().f_GetLen());
+			_fOutput((uint8 const *)pNameValueSep, sizeof(pNameValueSep));
 
-			_fOutput((uint8 const*)iField->f_GetStr(), iField->f_GetLen());
-			_fOutput((uint8 const*)pLineSep, sizeof(pLineSep));
+			_fOutput((uint8 const *)iField->f_GetStr(), iField->f_GetLen());
+			_fOutput((uint8 const *)pLineSep, sizeof(pLineSep));
 		}
 	}
 

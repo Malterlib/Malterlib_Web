@@ -19,6 +19,7 @@ namespace NMib::NWeb::NHTTP
 			, mp_ParseState(EParseState_Header)
 		{
 		}
+
 		CResponseDetails(COutputMethod &&_OutputMethod)
 			: m_Stage(EStage_Header)
 			, mp_Status(EResponseStatus_Empty)
@@ -49,7 +50,7 @@ namespace NMib::NWeb::NHTTP
 
 		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr _Text);
-		EParse fp_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 	public:
 		EStage m_Stage;
@@ -59,7 +60,7 @@ namespace NMib::NWeb::NHTTP
 		CEntityFields m_EntityFields;
 		CStatusLine m_Status;
 
-		EResponseStatus f_Parse(NContainer::CPagedByteVector& _Data);
+		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
 	};
 
 	//
@@ -71,7 +72,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseStage::CResponseStage(CResponseStage&& _ToMove)
+	CResponseStage::CResponseStage(CResponseStage &&_ToMove)
 		: mp_pD(fg_Move(_ToMove.mp_pD))
 	{
 	}
@@ -91,23 +92,20 @@ namespace NMib::NWeb::NHTTP
 
 	void CResponseStage::f_Abort()
 	{
-
 	}
 
 	//
 	// CResponseHeader Public Methods
 	//
 
-	CResponseHeader::CResponseHeader(CResponseHeader&& _ToMove)
+	CResponseHeader::CResponseHeader(CResponseHeader &&_ToMove)
 		: CResponseStage(fg_Move(_ToMove))
 	{
-
 	}
 
 	CResponseHeader::CResponseHeader(COutputMethod &&_OutputMethod)
 		: CResponseStage(fg_Construct(fg_Move(_OutputMethod)))
 	{
-
 	}
 
 	CResponseHeader::CResponseHeader()
@@ -117,7 +115,6 @@ namespace NMib::NWeb::NHTTP
 
 	CResponseHeader::~CResponseHeader()
 	{
-
 	}
 
 	void CResponseHeader::f_SetOutputMethod(COutputMethod &&_OutputMethod)
@@ -168,21 +165,21 @@ namespace NMib::NWeb::NHTTP
 	//
 	// CRequest::CDetails Private Methods
 	//
-	EParse CResponseDetails::fp_ParseHeader(NContainer::CPagedByteVector& _Data)
+	EParse CResponseDetails::fp_ParseHeader(NContainer::CPagedByteVector &_Data)
 	{
 		// A header will always end with a CRLFCRLF sequence
 		// So we use that to detect if we have a complete header available.
-		static uint8 const s_CrLfCrLf[] = { '\r', '\n', '\r', '\n'};
+		static uint8 const s_CrLfCrLf[] = {'\r', '\n', '\r', '\n'};
 		NStr::CStr RequestText;
 		umint iEnd;
 		if
 		(
 			_Data.f_ReadFrontUntil
 			(
-				 s_CrLfCrLf
+				s_CrLfCrLf
 				, sizeof(s_CrLfCrLf)
 				, iEnd
-				, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes, umint _nTotalBytes)
+				, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes, umint _nTotalBytes)
 				{
 					RequestText.f_AddStr((ch8 const *)_pPtr, _nBytes);
 					return true;
@@ -196,12 +193,10 @@ namespace NMib::NWeb::NHTTP
 			return fp_ParseHeaderText(RequestText);
 		}
 		else
-		{
 			return EParse_Incomplete;
-		}
 	}
 
-	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep);
+	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const &_Source, NStr::CStr const &_Sep);
 
 	// RFC 2616 Section 4 HTTP Message
 	EParse CResponseDetails::fp_ParseHeaderText(NStr::CStr _Text)
@@ -224,7 +219,7 @@ namespace NMib::NWeb::NHTTP
 
 		for (auto LIter = ++lLines.f_GetIterator(); LIter; ++LIter)
 		{
-			NStr::CStr const& CurLine = *LIter;
+			NStr::CStr const &CurLine = *LIter;
 
 			if (CurLine == "")
 				break;
@@ -248,23 +243,19 @@ namespace NMib::NWeb::NHTTP
 		return EParse_OK;
 	}
 
-	EParse CResponseDetails::fp_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	EParse CResponseDetails::fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
 		// First see if the fields is a known general field.
 		EParse ParseStatus = m_GeneralFields.f_ParseField(_Name, _Value);
 		if (ParseStatus == EParse_Invalid)
-		{
 			mp_Errors = NStr::fg_Format("Invalid format for general field \"{}\": \"{}\"", _Name, _Value);
-		}
 
 		// Second see if the field is a known request field.
 		if (ParseStatus == EParse_Unknown)
 		{
 			ParseStatus = m_ResponseFields.f_ParseField(_Name, _Value);
 			if (ParseStatus == EParse_Invalid)
-			{
 				mp_Errors = NStr::fg_Format("Invalid format for request field \"{}\": \"{}\"", _Name, _Value);
-			}
 		}
 
 		// Third see if the field is a known entity field.
@@ -272,19 +263,15 @@ namespace NMib::NWeb::NHTTP
 		{
 			ParseStatus = m_EntityFields.f_ParseField(_Name, _Value);
 			if (ParseStatus == EParse_Invalid)
-			{
 				mp_Errors = NStr::fg_Format("Invalid format for entity field \"{}\": \"{}\"", _Name, _Value);
-			}
 			// Unknown fields are stored in the entity fields object (as per standard)
 		}
 
 		return ParseStatus;
 	}
 
-
-	EResponseStatus CResponseDetails::f_Parse(NContainer::CPagedByteVector& _Data)
+	EResponseStatus CResponseDetails::f_Parse(NContainer::CPagedByteVector &_Data)
 	{
-
 		if (mp_Status == EResponseStatus_Empty)
 			mp_ParseState = EParseState_Header;
 		else if (mp_Status != EResponseStatus_InProgress)
@@ -296,24 +283,21 @@ namespace NMib::NWeb::NHTTP
 		// This lambda takes that result and the parse state to move to
 		// and sets the real parse state along with a flag on whether or not
 		// to continue parsing.
-		auto fl_HandleParseResult =
-			[&](EParse _Result, EParseState _NextParseState, bool& _bContinueParsing)
+		auto fl_HandleParseResult = [&](EParse _Result, EParseState _NextParseState, bool &_bContinueParsing)
 			{
 				switch (_Result)
 				{
-					case EParse_NotPresent:
-					case EParse_Unknown:
-					case EParse_Incomplete:
-						break;
-					case EParse_OK:
-						// Header complete, continue with trying to parse content
-						mp_ParseState = _NextParseState;
-						if (mp_ParseState != EParseState_Complete)
-							bContinueParsing = true;
-						break;
-					case EParse_Invalid:
-						mp_ParseState = EParseState_Invalid;
-						break;
+				case EParse_NotPresent:
+				case EParse_Unknown:
+				case EParse_Incomplete:
+					break;
+				case EParse_OK:
+					// Header complete, continue with trying to parse content
+					mp_ParseState = _NextParseState;
+					if (mp_ParseState != EParseState_Complete)
+						bContinueParsing = true;
+					break;
+				case EParse_Invalid: mp_ParseState = EParseState_Invalid; break;
 				}
 			}
 		;
@@ -325,24 +309,20 @@ namespace NMib::NWeb::NHTTP
 		{
 			bContinueParsing = false;
 
-			switch(mp_ParseState)
+			switch (mp_ParseState)
 			{
-				case EParseState_Header:
-					{
-						fl_HandleParseResult( fp_ParseHeader(_Data), EParseState_Complete, bContinueParsing );
-						break;
-					}
-
-				case EParseState_Complete:
+			case EParseState_Header:
+				{
+					fl_HandleParseResult(fp_ParseHeader(_Data), EParseState_Complete, bContinueParsing);
 					break;
+				}
 
-				case EParseState_Invalid:
-					break;
+			case EParseState_Complete: break;
 
-				default:
-					break;
+			case EParseState_Invalid: break;
+
+			default: break;
 			}
-
 		}
 
 		if (mp_ParseState == EParseState_Complete)
@@ -355,33 +335,28 @@ namespace NMib::NWeb::NHTTP
 		return mp_Status;
 	}
 
-	EResponseStatus CResponseHeader::f_Parse(NContainer::CPagedByteVector& _Data)
+	EResponseStatus CResponseHeader::f_Parse(NContainer::CPagedByteVector &_Data)
 	{
 		return mp_pD->f_Parse(_Data);
 	}
-
 
 	//
 	// CResponseContent
 	//
 
-	CResponseContent::CResponseContent(CResponseContent&& _ToMove)
+	CResponseContent::CResponseContent(CResponseContent &&_ToMove)
 		: CResponseStage(fg_Move(_ToMove))
 	{
-
 	}
 
 	CResponseContent::CResponseContent(NStorage::TCUniquePointer<CResponseDetails> _pD)
 		: CResponseStage(fg_Move(_pD))
 	{
-
 	}
 
 	CResponseContent::~CResponseContent()
 	{
-
 	}
-
 
 	// Content related
 	/*
@@ -395,7 +370,6 @@ namespace NMib::NWeb::NHTTP
 		return CResponseTrailer(fg_Move(mp_pD));
 	}
 
-
 	void CResponseContent::f_SendData(uint8 const *_pData, umint _nBytes)
 	{
 		mp_pD->m_OutputMethod(_pData, _nBytes);
@@ -407,33 +381,29 @@ namespace NMib::NWeb::NHTTP
 		mp_pD->m_OutputMethod((uint8 const *)Data.f_GetStr(), Data.f_GetLen());
 	}
 
-
 	//
 	// CResponseTrailer Public Methods
 	//
 
-	CResponseTrailer::CResponseTrailer(CResponseTrailer&& _ToMove)
+	CResponseTrailer::CResponseTrailer(CResponseTrailer &&_ToMove)
 		: CResponseStage(fg_Move(_ToMove))
 	{
-
 	}
+
 	CResponseTrailer::CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> _pD)
 		: CResponseStage(fg_Move(_pD))
 	{
-
 	}
+
 	CResponseTrailer::~CResponseTrailer()
 	{
-
 	}
 
-	void CResponseTrailer::f_AddField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	void CResponseTrailer::f_AddField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
-
 	}
 
 	void CResponseTrailer::f_Complete()
 	{
-
 	}
 }

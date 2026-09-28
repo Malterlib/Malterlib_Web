@@ -12,7 +12,7 @@ namespace NMib::NWeb::NHTTP
 	private:
 		enum EState
 		{
-			EState_Connected,
+			EState_Connected
 		};
 
 		static constexpr umint mc_ReadBufferSize = 2048;
@@ -31,8 +31,8 @@ namespace NMib::NWeb::NHTTP
 		{
 		public:
 			inline CLinkedRequest();
-			inline CLinkedRequest(CLinkedRequest&& _ToMove);
-			inline CLinkedRequest(CRequest&& _ToMove);
+			inline CLinkedRequest(CLinkedRequest &&_ToMove);
+			inline CLinkedRequest(CRequest &&_ToMove);
 			inline ~CLinkedRequest();
 
 			DMibListLinkD_Link(CLinkedRequest, mp_Link);
@@ -49,7 +49,6 @@ namespace NMib::NWeb::NHTTP
 		void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
 
 		void f_Process();
-
 	};
 
 	//
@@ -58,15 +57,14 @@ namespace NMib::NWeb::NHTTP
 
 	CConnection::CDetails::CLinkedRequest::CLinkedRequest()
 	{
-
 	}
 
-	CConnection::CDetails::CLinkedRequest::CLinkedRequest(CLinkedRequest&& _ToMove)
+	CConnection::CDetails::CLinkedRequest::CLinkedRequest(CLinkedRequest &&_ToMove)
 		: CRequest(fg_Move(_ToMove))
 	{
 	}
 
-	CConnection::CDetails::CLinkedRequest::CLinkedRequest(CRequest&& _ToMove)
+	CConnection::CDetails::CLinkedRequest::CLinkedRequest(CRequest &&_ToMove)
 		: CRequest(fg_Move(_ToMove))
 	{
 	}
@@ -74,7 +72,6 @@ namespace NMib::NWeb::NHTTP
 	CConnection::CDetails::CLinkedRequest::~CLinkedRequest()
 	{
 	}
-
 
 	//
 	// CConnection::CDetails Public Methods
@@ -92,7 +89,6 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-
 	bool CConnection::CDetails::f_IsConnected() const
 	{
 		if (!mp_pSocket->f_IsValid() || mp_pSocket->f_GetState() & NNetwork::ENetTCPState_Closed)
@@ -108,11 +104,11 @@ namespace NMib::NWeb::NHTTP
 
 	void CConnection::CDetails::f_Process()
 	{
-//			DTraceRaw("CConnection::f_Process()\n");
+		// DTraceRaw("CConnection::f_Process()\n");
 
 		auto SocketState = mp_pSocket->f_GetState();
 
-		if ( (SocketState & NNetwork::ENetTCPState_Read) || mp_bFirstProcess)
+		if ((SocketState & NNetwork::ENetTCPState_Read) || mp_bFirstProcess)
 		{
 			DMibTraceRaw("CConnection: Read Set\n");
 
@@ -125,14 +121,14 @@ namespace NMib::NWeb::NHTTP
 				umint nBytesRead = 0;
 
 				umint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mc_ReadBufferSize;
-				DMibTrace("nInitialBytesToRead: {}\n", nBytesToRead );
+				DMibTrace("nInitialBytesToRead: {}\n", nBytesToRead);
 
 				// End of stream is handled through the disconnect state instead
 				bool bEndOfStream = false;
 
-				while ( (nBytesRead = mp_pSocket->f_Receive(ReadBuffer, nBytesToRead, bEndOfStream) ) == nBytesToRead)
+				while ((nBytesRead = mp_pSocket->f_Receive(ReadBuffer, nBytesToRead, bEndOfStream)) == nBytesToRead)
 				{
-					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const*)ReadBuffer, nBytesRead) );
+					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const *)ReadBuffer, nBytesRead));
 
 					mp_IncomingBuffer.f_InsertBack(ReadBuffer, nBytesRead);
 					nBytesToRead = mc_ReadBufferSize;
@@ -141,53 +137,48 @@ namespace NMib::NWeb::NHTTP
 
 				if (nBytesRead)
 				{
-					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const*)ReadBuffer, nBytesRead) );
+					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const *)ReadBuffer, nBytesRead));
 					mp_IncomingBuffer.f_InsertBack(ReadBuffer, nBytesRead);
 					nTotalBytesRead += nBytesRead;
 				}
-
 			}
 
 			DMibTrace("CConnection: nTotalRead: {}\n", nTotalBytesRead);
 
-
 			if (nTotalBytesRead > 0)
 			{
 				// Send the incoming data to the pending request to parse.
-				switch(mp_PendingRequest.f_Parse(mp_IncomingBuffer))
+				switch (mp_PendingRequest.f_Parse(mp_IncomingBuffer))
 				{
-					case ERequestStatus_InProgress:
-						{
-							// All is OK, we are parsing the request.
-							break;
-						}
-					case ERequestStatus_Complete:
-						{
-							DMibTraceRaw("CConnection::f_Process() Request Complete\n");
-							mp_PendingRequest.f_GetRequestLine().f_GetURI().f_DebugOut();
+				case ERequestStatus_InProgress:
+					{
+						// All is OK, we are parsing the request.
+						break;
+					}
+				case ERequestStatus_Complete:
+					{
+						DMibTraceRaw("CConnection::f_Process() Request Complete\n");
+						mp_PendingRequest.f_GetRequestLine().f_GetURI().f_DebugOut();
 
-							// The request is parsed, dispatch it.
-							NStorage::TCUniquePointer<CLinkedRequest> pNewReq = fg_Construct(fg_Move(mp_PendingRequest));
-							mp_OpenRequests.f_InsertLast(pNewReq.f_Detach());
-							break;
-						}
-					case ERequestStatus_Invalid:
-					default: // Nothing else is valid here.
-						{
-							// Connection has failed, drop the connection.
-							DMibTraceRaw("CConnection::f_Process() Request Invalid\n");
-							mp_pSocket->f_Close(); // ??
-							break;
-						}
-
+						// The request is parsed, dispatch it.
+						NStorage::TCUniquePointer<CLinkedRequest> pNewReq = fg_Construct(fg_Move(mp_PendingRequest));
+						mp_OpenRequests.f_InsertLast(pNewReq.f_Detach());
+						break;
+					}
+				case ERequestStatus_Invalid:
+				default: // Nothing else is valid here.
+					{
+						// Connection has failed, drop the connection.
+						DMibTraceRaw("CConnection::f_Process() Request Invalid\n");
+						mp_pSocket->f_Close(); // ??
+						break;
+					}
 				}
 			}
-
 		}
 
 		if (SocketState & NNetwork::ENetTCPState_Write || mp_bFirstProcess)
 		{
-
 		}
 
 		mp_bFirstProcess = false;
@@ -200,12 +191,10 @@ namespace NMib::NWeb::NHTTP
 	CConnection::CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock)
 		: mp_pD(fg_Construct(fg_Move(_pSock)))
 	{
-
 	}
 
 	CConnection::~CConnection()
 	{
-
 	}
 
 	bool CConnection::f_IsConnected() const

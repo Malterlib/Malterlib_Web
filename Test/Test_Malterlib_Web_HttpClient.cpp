@@ -153,17 +153,10 @@ public:
 				Options.f_MakeCA();
 
 				CCertificateSignOptions SignOptions;
-				SignOptions.m_Days = 365*20;
+				SignOptions.m_Days = 365 * 20;
 				SignOptions.f_AddExtension_SubjectKeyIdentifier();
 
-				CCertificate::fs_GenerateSelfSignedCertAndKey
-					(
-						Options
-						, CaCertData
-						, CaKeyData
-						, SignOptions
-					)
-				;
+				CCertificate::fs_GenerateSelfSignedCertAndKey(Options, CaCertData, CaKeyData, SignOptions);
 				CFile::fs_WriteFile(CaCertData, CaCertificateFile);
 				CFile::fs_WriteFileSecure(CaKeyData, CaCertificateKeyFile);
 			}
@@ -193,17 +186,7 @@ public:
 		}
 
 		WebServerResults.m_WebServerLaunch = fg_Construct();
-		CProcessLaunchActor::CLaunch WebServerLaunch
-			(
-				CProcessLaunchParams::fs_LaunchExecutable
-				(
-					"npx"
-					, {"ts-node", _DestinationDirectory / "index.ts"}
-					, _DestinationDirectory
-					, nullptr
-				)
-			)
-		;
+		CProcessLaunchActor::CLaunch WebServerLaunch(CProcessLaunchParams::fs_LaunchExecutable("npx", {"ts-node", _DestinationDirectory / "index.ts"}, _DestinationDirectory, nullptr));
 
 		WebServerLaunch.m_Params.m_bAllowExecutableLocate = true;
 		WebServerLaunch.m_Params.m_bCreateNewProcessGroup = true;
@@ -301,13 +284,7 @@ public:
 			auto Client = fg_ConstructActor<CHttpClientActor>();
 			TCMap<CStr, CStr> Headers;
 
-			auto InvalidName = co_await Client.f_Bind<&CHttpClientActor::f_Get>
-				(
-					CStr("http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.invalid/")
-					, Headers
-				)
-				.f_Wrap()
-			;
+			auto InvalidName = co_await Client.f_Bind<&CHttpClientActor::f_Get>(CStr("http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.invalid/"), Headers).f_Wrap();
 
 			DMibExpectFalse(bool(InvalidName));
 			if (!InvalidName)

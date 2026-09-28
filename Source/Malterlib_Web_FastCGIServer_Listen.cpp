@@ -9,7 +9,6 @@
 #include "Malterlib_Web_FastCGIServer_Connection.h"
 #include "Malterlib_Web_FastCGIServer_Protocol.h"
 
-
 namespace NMib::NWeb::NFastCGI
 {
 	CListenActor::CListenActor

@@ -59,7 +59,7 @@ namespace NMib::NWeb
 	{
 		struct CDeleterHelperMulti
 		{
-			void operator()(CURLM *_pObject)
+			void operator () (CURLM *_pObject)
 			{
 				curl_multi_cleanup(_pObject);
 			}
@@ -67,7 +67,7 @@ namespace NMib::NWeb
 
 		struct CDeleterHelperEasy
 		{
-			void operator()(CURL *_pObject)
+			void operator () (CURL *_pObject)
 			{
 				curl_easy_cleanup(_pObject);
 			}
@@ -75,7 +75,7 @@ namespace NMib::NWeb
 
 		struct CDeleterHelperSList
 		{
-			void operator()(curl_slist *_pObject)
+			void operator () (curl_slist *_pObject)
 			{
 				curl_slist_free_all(_pObject);
 			}
@@ -343,15 +343,12 @@ namespace NMib::NWeb
 					return nullptr;
 				pRequest->m_pResolveError = {};
 
-				auto PreferType = _IPVersion == CURL_IPRESOLVE_V4
-					? NNetwork::ENetAddressType_TCPv4
-					: _IPVersion == CURL_IPRESOLVE_V6
-						? NNetwork::ENetAddressType_TCPv6
-						: NNetwork::ENetAddressType_None
+				auto PreferType
+					= _IPVersion == CURL_IPRESOLVE_V4 ? NNetwork::ENetAddressType_TCPv4 : _IPVersion == CURL_IPRESOLVE_V6 ? NNetwork::ENetAddressType_TCPv6 : NNetwork::ENetAddressType_None
 				;
 
-				Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call()
-					> [pDNS, pRequest](TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
+				Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call() > [pDNS, pRequest]
+					(TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
 					{
 						if (pDNS->m_bCancelled)
 						{
@@ -459,15 +456,7 @@ namespace NMib::NWeb
 		CStr Status = fg_GetStrLineSep(HeaderStr);
 		CStr HttpVersion;
 		aint nParsed;
-		(void)
-			(
-				NMib::NStr::CStr::CParse("HTTP/{} {} {}")
-				>> HttpVersion
-				>> m_StatusCode
-				>> m_StatusMessage
-			)
-			.f_Parse(Status, nParsed)
-		;
+		(void)(NMib::NStr::CStr::CParse("HTTP/{} {} {}") >> HttpVersion >> m_StatusCode >> m_StatusMessage).f_Parse(Status, nParsed);
 
 		while (!HeaderStr.f_IsEmpty())
 		{
@@ -771,6 +760,7 @@ namespace NMib::NWeb
 
 		co_return {};
 	}
+
 	TCFuture<void> CHttpClientActor::fp_RequestFinished(CStr _RequestID, int32 _ResultCode, NException::CExceptionPointer _pException)
 	{
 		auto &Internal = *mp_pInternal;
@@ -809,30 +799,17 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Get
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Get(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers)
 	{
 		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_GET});
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Head
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Head(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers)
 	{
 		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_HEAD});
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Post
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			, CRequestData _Data
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Post(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data)
 	{
 		CRequest Request;
 		Request.m_URL = fg_Move(_URL);
@@ -860,12 +837,7 @@ namespace NMib::NWeb
 		return f_SendRequest(fg_Move(Request));
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Patch
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			, CRequestData _Data
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Patch(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data)
 	{
 		CRequest Request;
 		Request.m_URL = fg_Move(_URL);
@@ -893,12 +865,7 @@ namespace NMib::NWeb
 		return f_SendRequest(fg_Move(Request));
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Put
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-			, CRequestData _Data
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Put(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers, CRequestData _Data)
 	{
 		CRequest Request;
 		Request.m_URL = fg_Move(_URL);
@@ -926,11 +893,7 @@ namespace NMib::NWeb
 		return f_SendRequest(fg_Move(Request));
 	}
 
-	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Delete
-		(
-			NStr::CStr _URL
-			, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers
-		)
+	TCFuture<CHttpClientActor::CResult> CHttpClientActor::f_Delete(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers)
 	{
 		return f_SendRequest(CRequest{.m_URL = fg_Move(_URL), .m_Headers = fg_Move(_Headers), .m_Method = EMethod_DELETE});
 	}
@@ -989,7 +952,7 @@ namespace NMib::NWeb
 				if (_Result != CURLE_OK)
 				{
 					auto pEasyError = curl_easy_strerror(_Result);
-					auto pExtraError = pEasyError ? pEasyError  : "";
+					auto pExtraError = pEasyError ? pEasyError : "";
 					CStr FullError = pExtraError;
 					CStr CurlError = Request.m_CurlErrorBuffer.f_GetStr();
 					if (CurlError)

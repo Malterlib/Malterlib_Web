@@ -7,7 +7,6 @@
 using namespace NMib;
 using namespace NMib::NWeb;
 
-
 class CHTTPApp : public NMib::CApplication
 {
 public:
@@ -27,9 +26,7 @@ public:
 		}
 
 		while (1)
-		{
 			NSys::fg_Thread_Sleep(100.0);
-		}
 
 		Server.f_Stop();
 

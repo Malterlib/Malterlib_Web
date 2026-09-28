@@ -8,8 +8,7 @@
 namespace NMib::NWeb::NHTTP
 {
 	// For debug code
-	static char const* gc_RequestParseStates[]
-		=
+	static char const *gc_RequestParseStates[] =
 		{
 			"EParseState_Header"
 			, "EParseState_Content"
@@ -22,7 +21,6 @@ namespace NMib::NWeb::NHTTP
 		}
 	;
 
-
 	//
 	// CRequest Public Methods
 	//
@@ -32,7 +30,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CRequest::CRequest(CRequest&& _ToMove)
+	CRequest::CRequest(CRequest &&_ToMove)
 		: mp_pD(fg_Move(_ToMove.mp_pD))
 	{
 		_ToMove.mp_pD = fg_Construct();
@@ -43,7 +41,7 @@ namespace NMib::NWeb::NHTTP
 		mp_pD = nullptr;
 	}
 
-	CRequest& CRequest::operator=(CRequest&& _ToMove)
+	CRequest &CRequest::operator = (CRequest &&_ToMove)
 	{
 		mp_pD = fg_Move(_ToMove.mp_pD);
 		_ToMove.mp_pD = fg_Construct();
@@ -67,22 +65,22 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	/*
-		f_Parse parses data as it comes from the network.
-		As soon as request data is received this is called with that
-		data.
+	f_Parse parses data as it comes from the network.
+	As soon as request data is received this is called with that
+	data.
 
-		f_Parse returns:
-			ERequestStatus_Complete
-				- The request is complete, all relevant data has been extracted from _Data
+	f_Parse returns:
+		ERequestStatus_Complete
+			- The request is complete, all relevant data has been extracted from _Data
 
-			ERequestStatus_Invalid
-				- The request was invalid, use f_GetErrors() for more info. The connection should be dropped.
+		ERequestStatus_Invalid
+			- The request was invalid, use f_GetErrors() for more info. The connection should be dropped.
 
-			ERequestStatus_InProgress
-				- The request is not complete yet and f_Parse should be called again as new data arrives.
-					_Data may or may not have been altered in this case.
+		ERequestStatus_InProgress
+			- The request is not complete yet and f_Parse should be called again as new data arrives.
+				_Data may or may not have been altered in this case.
 	*/
-	ERequestStatus CRequest::f_Parse(NContainer::CPagedByteVector& _Data)
+	ERequestStatus CRequest::f_Parse(NContainer::CPagedByteVector &_Data)
 	{
 		return mp_pD->f_Parse(_Data);
 	}
@@ -92,23 +90,25 @@ namespace NMib::NWeb::NHTTP
 		mp_pD->f_WriteHeaders(_fOutput);
 	}
 
-	CRequestLine const& CRequest::f_GetRequestLine() const
+	CRequestLine const &CRequest::f_GetRequestLine() const
 	{
 		return mp_pD->f_GetRequestLine();
 	}
-	CGeneralFields const& CRequest::f_GetGeneralFields() const
+
+	CGeneralFields const &CRequest::f_GetGeneralFields() const
 	{
 		return mp_pD->f_GetGeneralFields();
 	}
-	CRequestFields const& CRequest::f_GetRequestFields() const
+
+	CRequestFields const &CRequest::f_GetRequestFields() const
 	{
 		return mp_pD->f_GetRequestFields();
 	}
-	CEntityFields const& CRequest::f_GetEntityFields() const
+
+	CEntityFields const &CRequest::f_GetEntityFields() const
 	{
 		return mp_pD->f_GetEntityFields();
 	}
-
 
 	CRequestLine &CRequest::f_GetRequestLine()
 	{
@@ -130,8 +130,6 @@ namespace NMib::NWeb::NHTTP
 		return mp_pD->f_GetEntityFields();
 	}
 
-
-
 	//
 	// CRequest::CDetails Public Methods
 	//
@@ -146,7 +144,6 @@ namespace NMib::NWeb::NHTTP
 	{
 		f_Clear();
 	}
-
 
 	void CRequest::CDetails::f_Clear()
 	{
@@ -169,7 +166,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Errors;
 	}
 
-	ERequestStatus CRequest::CDetails::f_Parse(NContainer::CPagedByteVector& _Data)
+	ERequestStatus CRequest::CDetails::f_Parse(NContainer::CPagedByteVector &_Data)
 	{
 		if (mp_Status == ERequestStatus_Empty)
 			mp_ParseState = EParseState_Header;
@@ -182,24 +179,21 @@ namespace NMib::NWeb::NHTTP
 		// This lambda takes that result and the parse state to move to
 		// and sets the real parse state along with a flag on whether or not
 		// to continue parsing.
-		auto fl_HandleParseResult =
-			[&](EParse _Result, EParseState _NextParseState, bool& _bContinueParsing)
+		auto fl_HandleParseResult = [&](EParse _Result, EParseState _NextParseState, bool &_bContinueParsing)
 			{
 				switch (_Result)
 				{
-					case EParse_NotPresent:
-					case EParse_Unknown:
-					case EParse_Incomplete:
-						break;
-					case EParse_OK:
-						// Header complete, continue with trying to parse content
-						mp_ParseState = _NextParseState;
-						if (mp_ParseState != EParseState_Complete)
-							bContinueParsing = true;
-						break;
-					case EParse_Invalid:
-						mp_ParseState = EParseState_Invalid;
-						break;
+				case EParse_NotPresent:
+				case EParse_Unknown:
+				case EParse_Incomplete:
+					break;
+				case EParse_OK:
+					// Header complete, continue with trying to parse content
+					mp_ParseState = _NextParseState;
+					if (mp_ParseState != EParseState_Complete)
+						bContinueParsing = true;
+					break;
+				case EParse_Invalid: mp_ParseState = EParseState_Invalid; break;
 				}
 			}
 		;
@@ -214,59 +208,52 @@ namespace NMib::NWeb::NHTTP
 			(void)gc_RequestParseStates;
 			//DMibTrace("CRequest::f_Parse() State: {}\n", gc_RequestParseStates[(int)mp_ParseState]);
 
-			switch(mp_ParseState)
+			switch (mp_ParseState)
 			{
-				case EParseState_Header:
-					{
-						fl_HandleParseResult( fp_ParseHeader(_Data), EParseState_Content, bContinueParsing );
-						break;
-					}
-
-				case EParseState_Content:
-					{
-						if ( fp_ParseContent(_Data, mp_ParseState) )
-						{
-							bContinueParsing = true;
-						}
-						else
-						{
-							// Did not know what type of content to parse.
-							mp_ParseState = EParseState_Invalid;
-						}
-						break;
-					}
-
-				case EParseState_Chunked_Plain:
-					{
-						fl_HandleParseResult( fp_ParseContent_Plain(_Data), EParseState_DecodeContent, bContinueParsing );
-						break;
-					}
-
-				case EParseState_Content_Chunked:
-					{
-						fl_HandleParseResult( fp_ParseContent_Chunked(_Data), EParseState_Content_Chunked_Trailers, bContinueParsing );
-						break;
-					}
-
-				case EParseState_Content_Chunked_Trailers:
-					{
-						fl_HandleParseResult( fp_ParseContent_Chunked_Trailers(_Data), EParseState_DecodeContent, bContinueParsing);
-						break;
-					}
-
-				case EParseState_DecodeContent:
+			case EParseState_Header:
+				{
+					fl_HandleParseResult(fp_ParseHeader(_Data), EParseState_Content, bContinueParsing);
 					break;
+				}
 
-				case EParseState_Complete:
+			case EParseState_Content:
+				{
+					if (fp_ParseContent(_Data, mp_ParseState))
+						bContinueParsing = true;
+					else
+					{
+						// Did not know what type of content to parse.
+						mp_ParseState = EParseState_Invalid;
+					}
 					break;
+				}
 
-				case EParseState_Invalid:
+			case EParseState_Chunked_Plain:
+				{
+					fl_HandleParseResult(fp_ParseContent_Plain(_Data), EParseState_DecodeContent, bContinueParsing);
 					break;
+				}
 
-				default:
+			case EParseState_Content_Chunked:
+				{
+					fl_HandleParseResult(fp_ParseContent_Chunked(_Data), EParseState_Content_Chunked_Trailers, bContinueParsing);
 					break;
+				}
+
+			case EParseState_Content_Chunked_Trailers:
+				{
+					fl_HandleParseResult(fp_ParseContent_Chunked_Trailers(_Data), EParseState_DecodeContent, bContinueParsing);
+					break;
+				}
+
+			case EParseState_DecodeContent: break;
+
+			case EParseState_Complete: break;
+
+			case EParseState_Invalid: break;
+
+			default: break;
 			}
-
 		}
 
 		if (mp_ParseState == EParseState_Complete)
@@ -310,7 +297,6 @@ namespace NMib::NWeb::NHTTP
 		return mp_EntityFields;
 	}
 
-
 	CRequestLine &CRequest::CDetails::f_GetRequestLine()
 	{
 		return mp_RequestLine;
@@ -331,8 +317,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_EntityFields;
 	}
 
-
-/*
+	/*
 	NStr::CStr CRequest::f_GetFieldAsList(int _iField) const
 	{
 		int nFields = (int)mp_Fields.f_GetLen();
@@ -355,26 +340,26 @@ namespace NMib::NWeb::NHTTP
 
 		return Result;
 	}
-*/
+	*/
 
 	//
 	// CRequest::CDetails Private Methods
 	//
-	EParse CRequest::CDetails::fp_ParseHeader(NContainer::CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseHeader(NContainer::CPagedByteVector &_Data)
 	{
 		// A header will always end with a CRLFCRLF sequence
 		// So we use that to detect if we have a complete header available.
-		static uint8 const s_CrLfCrLf[] = { '\r', '\n', '\r', '\n'};
+		static uint8 const s_CrLfCrLf[] = {'\r', '\n', '\r', '\n'};
 		NStr::CStr RequestText;
 		umint iEnd;
 		if
 		(
 			_Data.f_ReadFrontUntil
 			(
-				 s_CrLfCrLf
+				s_CrLfCrLf
 				, sizeof(s_CrLfCrLf)
 				, iEnd
-				, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes, umint _nTotalBytes)
+				, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes, umint _nTotalBytes)
 				{
 					RequestText.f_AddStr((ch8 const *)_pPtr, _nBytes);
 					return true;
@@ -388,9 +373,7 @@ namespace NMib::NWeb::NHTTP
 			return fp_ParseHeaderText(RequestText);
 		}
 		else
-		{
 			return EParse_Incomplete;
-		}
 	}
 
 	// RFC 2616 Section 4 HTTP Message
@@ -414,7 +397,7 @@ namespace NMib::NWeb::NHTTP
 
 		for (auto LIter = ++lLines.f_GetIterator(); LIter; ++LIter)
 		{
-			NStr::CStr const& CurLine = *LIter;
+			NStr::CStr const &CurLine = *LIter;
 
 			if (CurLine == "")
 				break;
@@ -438,19 +421,17 @@ namespace NMib::NWeb::NHTTP
 		return EParse_OK;
 	}
 
-	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const& _Data, EParseState& _oNextParseState)
+	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &_oNextParseState)
 	{
 		bool bContentExpected = false;
 
-		switch(mp_RequestLine.f_GetMethod())
+		switch (mp_RequestLine.f_GetMethod())
 		{
 		case EMethod_Options:
 			{
 				// RFC 2616 Section 9.2 OPTIONS
 				if (mp_EntityFields.f_HasField(EEntityField_ContentLength))
-				{
 					bContentExpected = mp_EntityFields.f_GetContentLength() != 0;
-				}
 				else
 				{
 					_oNextParseState = EParseState_Invalid;
@@ -510,7 +491,7 @@ namespace NMib::NWeb::NHTTP
 
 		ETransferEncoding TransferEncoding = mp_GeneralFields.f_GetTransferEncoding();
 
-		switch(TransferEncoding)
+		switch (TransferEncoding)
 		{
 		case ETransferEncoding_Identity:
 		case ETransferEncoding_Unknown: // Default is Identity
@@ -535,7 +516,7 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
-	EParse CRequest::CDetails::fp_ParseContent_Plain(NContainer::CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Plain(NContainer::CPagedByteVector &_Data)
 	{
 		if (!mp_EntityFields.f_HasField(EEntityField_ContentLength))
 			return EParse_Invalid;
@@ -550,7 +531,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_ReadFront
 				(
 					ContentLength
-					, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes) -> bool
 					{
 						NMemory::fg_MemCopy(mp_Content.f_GetArray() + iCurPos, _pPtr, _nBytes);
 						iCurPos += _nBytes;
@@ -562,22 +543,20 @@ namespace NMib::NWeb::NHTTP
 			return EParse_OK;
 		}
 		else
-		{
 			return EParse_Incomplete;
-		}
 	}
 
 	// RFC 2616 Section 3.6.1 HTTP Message
-	EParse CRequest::CDetails::fp_ParseContent_Chunked(NContainer::CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Chunked(NContainer::CPagedByteVector &_Data)
 	{
 		// Read chunks
 
-		static uint8 const CRLF[] = { '\r', '\n' };
+		static uint8 const CRLF[] = {'\r', '\n'};
 		NStr::CStr ChunkHeaderLine;
 		umint ChunkSize;
 		umint iPos;
 
-		while(1)
+		while (1)
 		{
 			// Read chunk header line and parse chunk size.
 			if (!fg_PeekLine(_Data, iPos, ChunkHeaderLine))
@@ -604,14 +583,14 @@ namespace NMib::NWeb::NHTTP
 			}
 
 			// Check to see if we are at the last chunk.
-			if( ChunkSize == 0)
+			if (ChunkSize == 0)
 			{
 				// This is the last chunk
 				break;
 			}
 
 			// Check the required chunk data is present (plus two chars for CRLF)
-			if ( (iPos + ChunkSize + 2) > _Data.f_GetLen() )
+			if ((iPos + ChunkSize + 2) > _Data.f_GetLen())
 			{
 				mp_Errors = "Incomplete chunk.";
 				return EParse_Incomplete;
@@ -623,7 +602,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_ReadFront
 				(
 					ChunkSize
-					, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
+					, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes) -> bool
 					{
 						mp_Content.f_Insert(_pPtr, _nBytes);
 						return true;
@@ -645,7 +624,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// RFC 2616 Section 3.6.1 HTTP Message
-	EParse CRequest::CDetails::fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector& _Data)
+	EParse CRequest::CDetails::fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector &_Data)
 	{
 		// Read trailers
 
@@ -654,7 +633,6 @@ namespace NMib::NWeb::NHTTP
 
 		if (mp_GeneralFields.f_HasField(EGeneralField_Trailer))
 		{
-
 			NStr::CStr TrailerLine;
 			umint iPos;
 
@@ -677,9 +655,7 @@ namespace NMib::NWeb::NHTTP
 				NStr::CStr Value = TrailerLine.f_Extract(iColonSpace + 2);
 
 				if (fp_ParseField(Name, Value) == EParse_Invalid)
-				{
 					return EParse_Invalid;
-				}
 			}
 
 			// We are still parsing trailers.
@@ -688,7 +664,7 @@ namespace NMib::NWeb::NHTTP
 		else
 		{
 			// Expect CRLF at the end.
-			static uint8 const CRLF[] = { '\r', '\n' };
+			static uint8 const CRLF[] = {'\r', '\n'};
 			if (!_Data.f_ExpectAndRemoveFront(CRLF, sizeof(CRLF)))
 			{
 				mp_Errors = "No terminating CRLF after last chunk.";
@@ -699,23 +675,19 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
-	EParse CRequest::CDetails::fp_ParseField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	EParse CRequest::CDetails::fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
 		// First see if the fields is a known general field.
 		EParse ParseStatus = mp_GeneralFields.f_ParseField(_Name, _Value);
 		if (ParseStatus == EParse_Invalid)
-		{
 			mp_Errors = NStr::fg_Format("Invalid format for general field \"{}\": \"{}\"", _Name, _Value);
-		}
 
 		// Second see if the field is a known request field.
 		if (ParseStatus == EParse_Unknown)
 		{
 			ParseStatus = mp_RequestFields.f_ParseField(_Name, _Value);
 			if (ParseStatus == EParse_Invalid)
-			{
 				mp_Errors = NStr::fg_Format("Invalid format for request field \"{}\": \"{}\"", _Name, _Value);
-			}
 		}
 
 		// Third see if the field is a known entity field.
@@ -723,9 +695,7 @@ namespace NMib::NWeb::NHTTP
 		{
 			ParseStatus = mp_EntityFields.f_ParseField(_Name, _Value);
 			if (ParseStatus == EParse_Invalid)
-			{
 				mp_Errors = NStr::fg_Format("Invalid format for entity field \"{}\": \"{}\"", _Name, _Value);
-			}
 			// Unknown fields are stored in the entity fields object (as per standard)
 		}
 

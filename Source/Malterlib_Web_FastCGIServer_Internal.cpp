@@ -138,8 +138,8 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFutureVector<void> DestroyResults;
 
-		for (auto& ListenSocket : Internal.mp_ListenSockets)
-		fg_Move(ListenSocket).f_Destroy() > DestroyResults;
+		for (auto &ListenSocket : Internal.mp_ListenSockets)
+			fg_Move(ListenSocket).f_Destroy() > DestroyResults;
 
 		Internal.mp_ListenSockets.f_Clear();
 
@@ -152,7 +152,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		co_await fg_AllDone(DestroyResults).f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
+		co_await fg_AllDone(DestroyResults).f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");
 
 		co_return {};
 	}

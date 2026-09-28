@@ -137,154 +137,183 @@ namespace NMib::NWeb::NHTTP
 	// RFC 2616 Section 6.1.1
 	enum EStatus
 	{
-		EStatus_Unknown							= 0		// Internal use
-		, EStatus_Continue						= 100
-		, EStatus_SwitchingProtocols			= 101
-		, EStatus_OK							= 200
-		, EStatus_Created						= 201
-		, EStatus_Accepted						= 202
-		, EStatus_NonAuthoritativeInfo			= 203
-		, EStatus_NoContent						= 204
-		, EStatus_ResetContent					= 205
-		, EStatus_PartialContent				= 206
-		, EStatus_MultipleChoices				= 300
-		, EStatus_MovedPermanently				= 301
-		, EStatus_Found							= 302
-		, EStatus_SeeOther						= 303
-		, EStatus_NotModified					= 304
-		, EStatus_UseProxy						= 305
-		, EStatus_TemporaryRedirect				= 307
-		, EStatus_BadRequest					= 400
-		, EStatus_Unauthorized					= 401
-		, EStatus_PaymentRequired				= 402
-		, EStatus_Forbidden						= 403
-		, EStatus_NotFound						= 404
-		, EStatus_MethodNotAllowed				= 405
-		, EStatus_NotAcceptable					= 406
-		, EStatus_ProxyAuthRequired				= 407
-		, EStatus_RequestTimeOut				= 408
-		, EStatus_Conflict						= 409
-		, EStatus_Gone							= 410
-		, EStatus_LengthRequired				= 411
-		, EStatus_PreconditionFailed			= 412
-		, EStatus_RequestEntityTooLarge			= 413
-		, EStatus_RequestURITooLarge			= 414
-		, EStatus_UnsupportedMediaType			= 415
-		, EStatus_RequestedRangeNotSatisfiable	= 416
-		, EStatus_ExpectationFailed				= 417
-		, EStatus_InternalServerError			= 500
-		, EStatus_NotImplemented				= 501
-		, EStatus_BadGateway					= 502
-		, EStatus_ServiceUnavailable			= 503
-		, EStatus_GatewayTimeOut				= 504
-		, EStatus_HTTPVersionNotSupported		= 505
+		EStatus_Unknown                        = 0 // Internal use
+		, EStatus_Continue                     = 100
+		, EStatus_SwitchingProtocols           = 101
+		, EStatus_OK                           = 200
+		, EStatus_Created                      = 201
+		, EStatus_Accepted                     = 202
+		, EStatus_NonAuthoritativeInfo         = 203
+		, EStatus_NoContent                    = 204
+		, EStatus_ResetContent                 = 205
+		, EStatus_PartialContent               = 206
+		, EStatus_MultipleChoices              = 300
+		, EStatus_MovedPermanently             = 301
+		, EStatus_Found                        = 302
+		, EStatus_SeeOther                     = 303
+		, EStatus_NotModified                  = 304
+		, EStatus_UseProxy                     = 305
+		, EStatus_TemporaryRedirect            = 307
+		, EStatus_BadRequest                   = 400
+		, EStatus_Unauthorized                 = 401
+		, EStatus_PaymentRequired              = 402
+		, EStatus_Forbidden                    = 403
+		, EStatus_NotFound                     = 404
+		, EStatus_MethodNotAllowed             = 405
+		, EStatus_NotAcceptable                = 406
+		, EStatus_ProxyAuthRequired            = 407
+		, EStatus_RequestTimeOut               = 408
+		, EStatus_Conflict                     = 409
+		, EStatus_Gone                         = 410
+		, EStatus_LengthRequired               = 411
+		, EStatus_PreconditionFailed           = 412
+		, EStatus_RequestEntityTooLarge        = 413
+		, EStatus_RequestURITooLarge           = 414
+		, EStatus_UnsupportedMediaType         = 415
+		, EStatus_RequestedRangeNotSatisfiable = 416
+		, EStatus_ExpectationFailed            = 417
+		, EStatus_InternalServerError          = 500
+		, EStatus_NotImplemented               = 501
+		, EStatus_BadGateway                   = 502
+		, EStatus_ServiceUnavailable           = 503
+		, EStatus_GatewayTimeOut               = 504
+		, EStatus_HTTPVersionNotSupported      = 505
 	};
 
 	//
 	// Utility methods for parsing and naming enums
 	//
 
-	char const* fg_HTTP_GetMethodName(EMethod _Method);
-	char const* fg_HTTP_GetVersionName(EVersion _Version);
-	char const* fg_HTTP_GetTransferEncodingName(ETransferEncoding _Encoding);
-	char const* fg_HTTP_GetConnectionTokenName(EConnectionToken _Token);
-	char const* fg_HTTP_GetGeneralFieldName(EGeneralField _Field);
-	char const* fg_HTTP_GetRequestFieldName(ERequestField _Field);
-	char const* fg_HTTP_GetResponseFieldName(EResponseField _Field);
-	char const* fg_HTTP_GetEntityFieldName(EEntityField _Field);
+	char const *fg_HTTP_GetMethodName(EMethod _Method);
+	char const *fg_HTTP_GetVersionName(EVersion _Version);
+	char const *fg_HTTP_GetTransferEncodingName(ETransferEncoding _Encoding);
+	char const *fg_HTTP_GetConnectionTokenName(EConnectionToken _Token);
+	char const *fg_HTTP_GetGeneralFieldName(EGeneralField _Field);
+	char const *fg_HTTP_GetRequestFieldName(ERequestField _Field);
+	char const *fg_HTTP_GetResponseFieldName(EResponseField _Field);
+	char const *fg_HTTP_GetEntityFieldName(EEntityField _Field);
 
-	EMethod fg_HTTP_LookupMethod(NStr::CStr const& _Method);
-	EVersion fg_HTTP_LookupVersion(NStr::CStr const& _Version);
-	ETransferEncoding fg_HTTP_LookupTransferEncoding(NStr::CStr const& _Encoding);
-	EConnectionToken fg_HTTP_LookupConnectionToken(NStr::CStr const& _Token);
-	EGeneralField fg_HTTP_LookupGeneralField(NStr::CStr const& _Field);
-	ERequestField fg_HTTP_LookupRequestField(NStr::CStr const& _Field);
-	EResponseField fg_HTTP_LookupResponseField(NStr::CStr const& _Field);
-	EEntityField fg_HTTP_LookupEntityField(NStr::CStr const& _Field);
+	EMethod fg_HTTP_LookupMethod(NStr::CStr const &_Method);
+	EVersion fg_HTTP_LookupVersion(NStr::CStr const &_Version);
+	ETransferEncoding fg_HTTP_LookupTransferEncoding(NStr::CStr const &_Encoding);
+	EConnectionToken fg_HTTP_LookupConnectionToken(NStr::CStr const &_Token);
+	EGeneralField fg_HTTP_LookupGeneralField(NStr::CStr const &_Field);
+	ERequestField fg_HTTP_LookupRequestField(NStr::CStr const &_Field);
+	EResponseField fg_HTTP_LookupResponseField(NStr::CStr const &_Field);
+	EEntityField fg_HTTP_LookupEntityField(NStr::CStr const &_Field);
 
-	char const* fg_HTTP_GetReasonPhrase(EStatus _Status);
+	char const *fg_HTTP_GetReasonPhrase(EStatus _Status);
 
-
-	template<typename t_CEnum>
-	char const* fg_HTTP_GetEnumName(t_CEnum _Value)
+	template <typename t_CEnum>
+	char const *fg_HTTP_GetEnumName(t_CEnum _Value)
 	{
 		static_assert(NTraits::cIsSame<t_CEnum, void>);
 	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EMethod>(EMethod _Value)
-	{ return fg_HTTP_GetMethodName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EMethod>(EMethod _Value)
+	{
+		return fg_HTTP_GetMethodName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EVersion>(EVersion _Value)
-	{ return fg_HTTP_GetVersionName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EVersion>(EVersion _Value)
+	{
+		return fg_HTTP_GetVersionName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<ETransferEncoding>(ETransferEncoding _Value)
-	{ return fg_HTTP_GetTransferEncodingName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<ETransferEncoding>(ETransferEncoding _Value)
+	{
+		return fg_HTTP_GetTransferEncodingName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EConnectionToken>(EConnectionToken _Value)
-	{ return fg_HTTP_GetConnectionTokenName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EConnectionToken>(EConnectionToken _Value)
+	{
+		return fg_HTTP_GetConnectionTokenName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EGeneralField>(EGeneralField _Value)
-	{ return fg_HTTP_GetGeneralFieldName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EGeneralField>(EGeneralField _Value)
+	{
+		return fg_HTTP_GetGeneralFieldName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<ERequestField>(ERequestField _Value)
-	{ return fg_HTTP_GetRequestFieldName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<ERequestField>(ERequestField _Value)
+	{
+		return fg_HTTP_GetRequestFieldName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EResponseField>(EResponseField _Value)
-	{ return fg_HTTP_GetResponseFieldName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EResponseField>(EResponseField _Value)
+	{
+		return fg_HTTP_GetResponseFieldName(_Value);
+	}
 
-	template<>
-	inline char const* fg_HTTP_GetEnumName<EEntityField>(EEntityField _Value)
-	{ return fg_HTTP_GetEntityFieldName(_Value); }
+	template <>
+	inline char const *fg_HTTP_GetEnumName<EEntityField>(EEntityField _Value)
+	{
+		return fg_HTTP_GetEntityFieldName(_Value);
+	}
 
-
-	template<typename t_CEnum>
-	t_CEnum fg_HTTP_LookupEnum(NStr::CStr const& _Name)
+	template <typename t_CEnum>
+	t_CEnum fg_HTTP_LookupEnum(NStr::CStr const &_Name)
 	{
 		static_assert(NTraits::cIsSame<t_CEnum, void>);
 	}
 
-	template<>
-	inline EMethod fg_HTTP_LookupEnum<EMethod>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupMethod(_Name); }
+	template <>
+	inline EMethod fg_HTTP_LookupEnum<EMethod>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupMethod(_Name);
+	}
 
-	template<>
-	inline EVersion fg_HTTP_LookupEnum<EVersion>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupVersion(_Name); }
+	template <>
+	inline EVersion fg_HTTP_LookupEnum<EVersion>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupVersion(_Name);
+	}
 
-	template<>
-	inline ETransferEncoding fg_HTTP_LookupEnum<ETransferEncoding>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupTransferEncoding(_Name); }
+	template <>
+	inline ETransferEncoding fg_HTTP_LookupEnum<ETransferEncoding>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupTransferEncoding(_Name);
+	}
 
-	template<>
-	inline EConnectionToken fg_HTTP_LookupEnum<EConnectionToken>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupConnectionToken(_Name); }
+	template <>
+	inline EConnectionToken fg_HTTP_LookupEnum<EConnectionToken>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupConnectionToken(_Name);
+	}
 
-	template<>
-	inline EGeneralField fg_HTTP_LookupEnum<EGeneralField>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupGeneralField(_Name); }
+	template <>
+	inline EGeneralField fg_HTTP_LookupEnum<EGeneralField>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupGeneralField(_Name);
+	}
 
-	template<>
-	inline ERequestField fg_HTTP_LookupEnum<ERequestField>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupRequestField(_Name); }
+	template <>
+	inline ERequestField fg_HTTP_LookupEnum<ERequestField>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupRequestField(_Name);
+	}
 
-	template<>
-	inline EResponseField fg_HTTP_LookupEnum<EResponseField>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupResponseField(_Name); }
+	template <>
+	inline EResponseField fg_HTTP_LookupEnum<EResponseField>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupResponseField(_Name);
+	}
 
-	template<>
-	inline EEntityField fg_HTTP_LookupEnum<EEntityField>(NStr::CStr const& _Name)
-	{ return fg_HTTP_LookupEntityField(_Name); }
-
+	template <>
+	inline EEntityField fg_HTTP_LookupEnum<EEntityField>(NStr::CStr const &_Name)
+	{
+		return fg_HTTP_LookupEntityField(_Name);
+	}
 }
 
 #include "Malterlib_Web_HTTP_HTTP_Imp.h"
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb::NHTTP;
+using namespace NMib::NWeb::NHTTP;
 #endif
