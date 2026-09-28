@@ -52,11 +52,11 @@ namespace NMib::NWeb
 		enum EOpcode : uint8
 		{
 			EOpcode_ContinuationFrame = 0
-			, EOpcode_TextFrame = 1
-			, EOpcode_BinaryFrame = 2
+			, EOpcode_TextFrame       = 1
+			, EOpcode_BinaryFrame     = 2
 			, EOpcode_ConnectionClose = 8
-			, EOpcode_Ping = 9
-			, EOpcode_Pong = 10
+			, EOpcode_Ping            = 9
+			, EOpcode_Pong            = 10
 		};
 
 		struct CHeader
@@ -92,7 +92,7 @@ namespace NMib::NWeb
 			NContainer::CIOByteVector m_Data;
 			NStream::CBinaryStorage m_Storage; // Receive-buffer views interleaved with contiguous assembly in arrival order.
 			umint m_Position = 0;
-			umint m_nInterleavedBytes = 0; // Nonpayload bytes pin shared buffers too; excessive interleaving switches later payload to copying.
+			umint m_nInterleavedBytes = 0;     // Nonpayload bytes pin shared buffers too; excessive interleaving switches later payload to copying.
 			uint8 m_Mask[4];
 			CHeader m_Header;
 			bool m_bHeaderFinished = false;
@@ -149,8 +149,8 @@ namespace NMib::NWeb
 
 			EKind m_Kind = EKind::mc_Arena;
 			umint m_nBytes = 0;
-			umint m_iSent = 0; // partial send progress; only ever nonzero on a view at the head
-			uint8 const *m_pData = nullptr; // EKind::mc_View only
+			umint m_iSent = 0;                                          // partial send progress; only ever nonzero on a view at the head
+			uint8 const *m_pData = nullptr;                             // EKind::mc_View only
 			NStorage::TCSharedPointer<CPayloadOwner> m_pOwnerKeepAlive; // Retains payload until this segment is fully sent.
 		};
 
@@ -169,16 +169,16 @@ namespace NMib::NWeb
 			NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<void>> m_Promise;
 		};
 
-		constexpr static umint gc_OutgoingPageSize = 2048;
-		constexpr static umint gc_IncomingPageSize = 2048;
+		static constexpr umint gc_OutgoingPageSize = 2048;
+		static constexpr umint gc_IncomingPageSize = 2048;
 
-		constexpr static umint gc_ReceiveChunkSize = 24576; // Must exceed one framed TLS record to avoid per-record holdover copies.
+		static constexpr umint gc_ReceiveChunkSize = 24576; // Must exceed one framed TLS record to avoid per-record holdover copies.
 
-		constexpr static umint gc_CopySmallMessageThreshold = 1024; // Copying below this size costs less than view bookkeeping.
+		static constexpr umint gc_CopySmallMessageThreshold = 1024; // Copying below this size costs less than view bookkeeping.
 
-		constexpr static umint gc_DirectReadThreshold = 4 * gc_ReceiveChunkSize; // Below this size buffered prefix cost outweighs direct-read savings.
+		static constexpr umint gc_DirectReadThreshold = 4 * gc_ReceiveChunkSize; // Below this size buffered prefix cost outweighs direct-read savings.
 
-		constexpr static umint gc_MaxInterleavedBytes = 64 * 1024; // Bound nonpayload gaps so control-frame padding cannot pin a buffer per tiny payload fragment.
+		static constexpr umint gc_MaxInterleavedBytes = 64 * 1024; // Bound nonpayload gaps so control-frame padding cannot pin a buffer per tiny payload fragment.
 
 		// Avoid the vector's sixteen-entry minimum for a single span.
 		NContainer::TCVector<NSys::CIoSpan> fg_MakeSpanVector(uint8 const *_pData, umint _nBytes)
@@ -217,7 +217,7 @@ namespace NMib::NWeb
 		using CStripedReturn = typename NConcurrency::NPrivate::TCIsFuture<CReturn>::CType;
 
 		template <typename ...tfp_CParams>
-		NConcurrency::TCFuture<CStripedReturn> operator() (tfp_CParams && ...p_Params)
+		NConcurrency::TCFuture<CStripedReturn> operator () (tfp_CParams && ...p_Params)
 		{
 			if (!mp_fCallback.f_IsEmpty())
 				return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...);
@@ -259,8 +259,7 @@ namespace NMib::NWeb
 			{
 				mp_DeferredCalls.f_Insert
 					(
-						[...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
-						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+						[...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))](NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
 						{
 							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
 								{
@@ -317,7 +316,6 @@ namespace NMib::NWeb
 		bool mp_bDoDefer = false;
 		NConcurrency::TCActorFunctorWeak<t_CCallback> mp_fCallback;
 	};
-
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
@@ -392,14 +390,8 @@ namespace NMib::NWeb
 		NContainer::TCLinkedList<COutgoingMessage> &f_PickMessageQueue(uint32 _Priority);
 		COutgoingMessage &f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector const> const &_pData, uint32 _Priority);
 
-		COutgoingMessage &f_QueueViewMessage
-			(
-				EOpcode _Opcode
-				, NContainer::TCVector<NSys::CIoSpan> &&_Spans
-				, umint _nTotalBytes
-				, NStorage::TCSharedPointer<CPayloadOwner> &&_pOwner
-				, uint32 _Priority
-			)
+		auto f_QueueViewMessage(EOpcode _Opcode, NContainer::TCVector<NSys::CIoSpan> &&_Spans, umint _nTotalBytes, NStorage::TCSharedPointer<CPayloadOwner> &&_pOwner, uint32 _Priority)
+			-> COutgoingMessage &
 		;
 
 		umint f_GetCopyThreshold() const;
@@ -449,7 +441,7 @@ namespace NMib::NWeb
 		EState m_State = EState_None;
 		uint32 m_iFreeSendReservation = CSendReservation::mc_iNone;
 		NNetwork::ENetTCPState m_DeferredCloseStates = NNetwork::ENetTCPState_None; // Defer close states until earlier stream data, including close frames, is delivered.
-		NNetwork::ENetTCPState m_StateBeforeSocket = NNetwork::ENetTCPState_None; // Latch reports queued during accept before socket handover, including terminal handshake failures.
+		NNetwork::ENetTCPState m_StateBeforeSocket = NNetwork::ENetTCPState_None;   // Latch reports queued during accept before socket handover, including terminal handshake failures.
 
 		NContainer::CPagedByteVector m_IncomingData{4096};
 		NContainer::CPagedByteVector m_OutgoingData{4096};
@@ -476,7 +468,7 @@ namespace NMib::NWeb
 		NContainer::TCMap<uint32, NContainer::TCLinkedList<COutgoingMessage>> m_PendingMessages;
 		NContainer::TCLinkedList<COutgoingMessage> *m_pLastPendingMessagesList;
 
-		NContainer::CByteVector m_CloseFramePayload; // Emit after pending messages drain; framing the whole masked backlog at once would copy it all.
+		NContainer::CByteVector m_CloseFramePayload;                    // Emit after pending messages drain; framing the whole masked backlog at once would copy it all.
 		NContainer::TCLinkedList<COutgoingMessage> m_PostCloseMessages; // Do not admit post-close messages to the stream; teardown rejects their promises.
 
 		NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<CWebSocketActor::CCloseInfo>> m_ClosePromise;
@@ -512,7 +504,7 @@ namespace NMib::NWeb
 		NContainer::TCVector<CSendReservation> m_SendReservations; // Preallocated for the window; indexed free list avoids per-send scanning or growth.
 		umint m_nSendReservationsInUse = 0;
 		umint m_nMaxSendReservations = 8;
-		umint m_nSendBytesUnreleased = 0; // Accepted bytes whose release callback has not run.
+		umint m_nSendBytesUnreleased = 0;                          // Accepted bytes whose release callback has not run.
 
 		umint m_bPendingPing:1 = false;
 		umint m_bSentPing:1 = false;
@@ -601,12 +593,7 @@ namespace NMib::NWeb
 		return m_PendingMessages[_Priority];
 	}
 
-	COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage
-		(
-			EOpcode _Opcode
-			, NStorage::TCSharedPointer<NContainer::CIOByteVector const> const &_pData
-			, uint32 _Priority
-		)
+	COutgoingMessage &CWebSocketActor::CInternal::f_QueueMessage(EOpcode _Opcode, NStorage::TCSharedPointer<NContainer::CIOByteVector const> const &_pData, uint32 _Priority)
 	{
 		DMibFastCheck(!m_pThis->f_IsDestroyed());
 
@@ -616,7 +603,6 @@ namespace NMib::NWeb
 		NewMessage.m_bFinished = true;
 
 		return NewMessage;
-
 	}
 
 	// Frame views lazily; unmasked payload stays shared while masked payload is copied into the arena.
@@ -690,7 +676,7 @@ namespace NMib::NWeb
 		}
 
 		auto pList = m_pLastPendingMessagesList;
-		auto pFragmentingList = m_pLastPendingMessagesList;  // Save the fragmenting list
+		auto pFragmentingList = m_pLastPendingMessagesList; // Save the fragmenting list
 
 		if (!pList)
 		{
@@ -891,7 +877,7 @@ namespace NMib::NWeb
 					(
 						ArenaOffset + nSkipWithin
 						, Segment.m_nBytes - nSkipWithin
-						, [&](umint _iStart, uint8 const* _pPtr, umint _nBytes) -> bool
+						, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes) -> bool
 						{
 							o_pSpans[nSpans].m_pData = _pPtr;
 							o_pSpans[nSpans].m_nBytes = _nBytes;
@@ -1144,7 +1130,7 @@ namespace NMib::NWeb
 
 		if (!Internal.m_pSocket || Internal.m_State == EState_Disconnected)
 		{
-			DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::f_Close 2", fg_ThisActor(this), !Internal.m_bClient );
+			DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::f_Close 2", fg_ThisActor(this), !Internal.m_bClient);
 			CWebSocketActor::CCloseInfo CloseInfo;
 			CloseInfo.m_Status = EWebSocketStatus_AlreadyClosed;
 			CloseInfo.m_Reason = "Already fully closed";
@@ -1605,11 +1591,7 @@ namespace NMib::NWeb
 		// partial-buffer headroom and can resume before the final frame arrives. Preserve explicit test overrides.
 		pBackpressure->m_nResumeBytes = pBackpressure->m_nLimitBytes / 2;
 		if (!Internal.m_pIo->f_ReceiveWindowBytesOverride())
-		{
-			pBackpressure->m_nConsumerHoldBytes =
-				fg_Min(Internal.m_Settings.m_MaxMessageSize, TCLimitsInt<umint>::mc_Max - gc_MaxInterleavedBytes) + gc_MaxInterleavedBytes
-			;
-		}
+			pBackpressure->m_nConsumerHoldBytes = fg_Min(Internal.m_Settings.m_MaxMessageSize, TCLimitsInt<umint>::mc_Max - gc_MaxInterleavedBytes) + gc_MaxInterleavedBytes;
 		pBackpressure->m_fResume = [WeakThis = fg_ThisActor(this).f_Weak()]() mutable
 			{
 				if (auto This = WeakThis.f_Lock())
@@ -1637,7 +1619,6 @@ namespace NMib::NWeb
 			// Drain readiness-held bytes in a later actor job to avoid reentering the processing that started the stream.
 			DMibLogWarningOrDiscardResult(fg_ThisActor(this).f_Bind<&CWebSocketActor::fp_DrainHeldInput>(), "Mib/Web", "Draining the input the socket held failed");
 		}
-
 	}
 
 	void CWebSocketActor::fp_ReceiveWindowResume()
@@ -1735,7 +1716,6 @@ namespace NMib::NWeb
 		if (!_bContinue && Internal.m_nOutgoingQueuedBytes <= Internal.m_nOutgoingSubmitted)
 			return;
 
-
 		// Reservations outlive transport records until continuation chains settle; retry new batches when a slot is released.
 		if (!_bContinue)
 		{
@@ -1783,12 +1763,7 @@ namespace NMib::NWeb
 		}
 
 		// Both completion and release functors retain the tracker until destruction, including refusal and exception paths.
-		NSys::FIoCompletion fOnComplete =
-			[
-				Hold = NConcurrency::CIoCompletionOpHold(Internal.m_pOpTracker)
-				, iReservation
-				, WeakThis = fg_ThisActor(this).f_Weak()
-			]
+		NSys::FIoCompletion fOnComplete = [Hold = NConcurrency::CIoCompletionOpHold(Internal.m_pOpTracker), iReservation, WeakThis = fg_ThisActor(this).f_Weak()]
 			(NSys::CIoCompletion _Result) mutable
 			{
 				if (auto This = WeakThis.f_Lock())
@@ -2263,15 +2238,7 @@ namespace NMib::NWeb
 		// Read spans before moving the owner; function arguments have unspecified evaluation order.
 		auto Spans = fg_MakeSpanVector((uint8 const *)pStringOwner->m_Owner.f_GetStr(), nBytes);
 
-		auto &NewMessage = Internal.f_QueueViewMessage
-			(
-				EOpcode_TextFrame
-				, fg_Move(Spans)
-				, nBytes
-				, NStorage::TCSharedPointer<CPayloadOwner>(fg_Move(pStringOwner))
-				, _Priority
-			)
-		;
+		auto &NewMessage = Internal.f_QueueViewMessage(EOpcode_TextFrame, fg_Move(Spans), nBytes, NStorage::TCSharedPointer<CPayloadOwner>(fg_Move(pStringOwner)), _Priority);
 
 		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
 
@@ -2378,15 +2345,7 @@ namespace NMib::NWeb
 			else
 				nBytes = pMessageMarkersArray[iMessage + 1] - iStart;
 
-			auto &OutMsg = Internal.f_QueueViewMessage
-				(
-					EOpcode_TextFrame
-					, fg_MakeSpanVector(pMessageArray + iStart, nBytes)
-					, nBytes
-					, fg_TempCopy(pBuffersOwner)
-					, _Priority
-				)
-			;
+			auto &OutMsg = Internal.f_QueueViewMessage(EOpcode_TextFrame, fg_MakeSpanVector(pMessageArray + iStart, nBytes), nBytes, fg_TempCopy(pBuffersOwner), _Priority);
 
 			if (bIsLastMessage)
 			{
@@ -2465,7 +2424,6 @@ namespace NMib::NWeb
 		fp_DrainSocketOutput();
 	}
 
-
 	// Partial frame construction cannot be rolled back; terminate rather than unwind after publishing incomplete framing.
 	void CWebSocketActor::CInternal::f_SendMessage(EOpcode _Opcode, uint8 const *_pData, umint _nBytes, bool _bFinished) noexcept
 	{
@@ -2525,7 +2483,7 @@ namespace NMib::NWeb
 				(
 					StartPos
 					, _nBytes
-					, [&](umint _iStart, uint8 * _pPtr, umint _nBytes) -> bool
+					, [&](umint _iStart, uint8 *_pPtr, umint _nBytes) -> bool
 					{
 						fs_ApplyMask(_pPtr, _iStart - StartPos, _nBytes, Mask);
 						return true;
@@ -3361,9 +3319,7 @@ namespace NMib::NWeb
 			auto &Target = Internal.m_bPendingMessage ? Internal.m_PendingMessage : Message;
 
 			// Only unmasked binary frames can retain stream views; masking requires writable contiguous payload.
-			bool bBinaryMessage =
-				(Internal.m_bPendingMessage ? Target.m_Header.m_Opcode : Header.m_Opcode) == EOpcode_BinaryFrame
-			;
+			bool bBinaryMessage = (Internal.m_bPendingMessage ? Target.m_Header.m_Opcode : Header.m_Opcode) == EOpcode_BinaryFrame;
 			if (bBinaryMessage && !Header.m_bMask && Internal.m_bReceiveStreamShared)
 			{
 				umint iStart = Target.m_Data.f_GetLen() + umint(Target.m_Storage.f_GetTotalLength());
@@ -3711,7 +3667,6 @@ namespace NMib::NWeb
 						{
 						case NHTTP::EResponseStatus_Complete:
 							{
-
 								auto &EntityFields = ConnectionInfo.m_pResponse->f_GetEntityFields();
 								auto &GeneralFields = ConnectionInfo.m_pResponse->f_GetGeneralFields();
 
@@ -3719,7 +3674,11 @@ namespace NMib::NWeb
 
 								if (StatusLine.f_GetStatus() != NHTTP::EStatus_SwitchingProtocols)
 								{
-									fp_RejectClientConnection(fg_Format("Status was not set to 101 Switching Protocols, but rather: {} {}", StatusLine.f_GetStatus(), StatusLine.f_GetReasonPhrase()));
+									fp_RejectClientConnection
+										(
+											fg_Format("Status was not set to 101 Switching Protocols, but rather: {} {}", StatusLine.f_GetStatus(), StatusLine.f_GetReasonPhrase())
+										)
+									;
 									break;
 								}
 
@@ -3742,7 +3701,6 @@ namespace NMib::NWeb
 										fp_RejectClientConnection("Sec-WebSocket-Accept missing");
 										break;
 									}
-
 
 									NCryptography::CHash_SHA1 Hash;
 									Hash.f_AddData(Internal.m_ClientConnectionInput.m_EncodedKey.f_GetStr(), Internal.m_ClientConnectionInput.m_EncodedKey.f_GetLen());
@@ -3796,7 +3754,6 @@ namespace NMib::NWeb
 
 								Internal.f_FinishClientConnection(EFinishConnectionResult_Success, fg_Move(ConnectionInfo));
 								bMoreWork = true;
-
 							}
 							break;
 						case NHTTP::EResponseStatus_Invalid:
@@ -3804,8 +3761,7 @@ namespace NMib::NWeb
 								fp_Disconnect(EWebSocketStatus_ProtocolError, "Invalid HTTP request header", true, EWebSocketCloseOrigin_Local);
 							}
 							return;
-						case NHTTP::EResponseStatus_InProgress:
-							break;
+						case NHTTP::EResponseStatus_InProgress: break;
 						default:
 							{
 								bMoreWork = false;
@@ -3907,8 +3863,7 @@ namespace NMib::NWeb
 								bMoreWork = true;
 							}
 							break;
-						case NHTTP::ERequestStatus_InProgress:
-							break;
+						case NHTTP::ERequestStatus_InProgress: break;
 						case NHTTP::ERequestStatus_Invalid:
 							{
 								fp_Disconnect(EWebSocketStatus_ProtocolError, "Invalid HTTP request header", true, EWebSocketCloseOrigin_Local);
@@ -4133,7 +4088,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		auto& StatusLine = Response.f_GetStatusLine();
+		auto &StatusLine = Response.f_GetStatusLine();
 
 		// RFC 6455 - 4.2.1.
 		if (StatusLine.f_GetStatus() == NHTTP::EStatus_Unknown)
@@ -4158,7 +4113,8 @@ namespace NMib::NWeb
 
 		if
 		(
-			Internal.m_bReceiveStreamActive && !Internal.m_bReceiveStreamEnded
+			Internal.m_bReceiveStreamActive
+			&& !Internal.m_bReceiveStreamEnded
 			&& Internal.m_State != EState_Disconnected
 			&& (_StateAdded & (NNetwork::ENetTCPState_Closed | NNetwork::ENetTCPState_RemoteClosed))
 		)
@@ -4299,12 +4255,12 @@ namespace NMib::NWeb
 					}
 				}
 			}
-			catch (NCryptography::CExceptionCryptography const& _Exception)
+			catch (NCryptography::CExceptionCryptography const &_Exception)
 			{
 				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
 				return;
 			}
-			catch (NNetwork::CExceptionNet const& _Exception)
+			catch (NNetwork::CExceptionNet const &_Exception)
 			{
 				fp_Disconnect(EWebSocketStatus_AbnormalClosure, NStr::fg_Format("Socket error: {}", _Exception.f_GetErrorStr()), true, EWebSocketCloseOrigin_Remote);
 				return;
@@ -4564,7 +4520,7 @@ namespace NMib::NWeb
 		auto Sequence = ++m_TimeoutTimerSubscriptionSequence;
 		fg_RegisterTimer
 			(
-				m_Settings.m_Timeout/2.0
+				m_Settings.m_Timeout / 2.0
 				, [this]() -> NConcurrency::TCFuture<void>
 				{
 					f_UpdateTimeout();
@@ -4619,7 +4575,7 @@ namespace NMib::NWeb
 							fg_Dispatch
 								(
 									This
-									,[this]
+									, [this]
 									{
 										if (m_bPendingPing)
 											m_bSentPing = true;

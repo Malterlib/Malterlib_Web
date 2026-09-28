@@ -17,26 +17,25 @@ namespace NMib::NWeb
 		struct CCollection;
 
 	public:
-
 		enum ESubscriptionNotification
 		{
-			ESubscriptionNotification_None = 0
+			ESubscriptionNotification_None    = 0
 			, ESubscriptionNotification_Ready = DMibBit(0)
 			, ESubscriptionNotification_Error = DMibBit(1)
 		};
 
 		enum EObserveNotification
 		{
-			EObserveNotification_None = 0
-			, EObserveNotification_Added = DMibBit(0)
+			EObserveNotification_None      = 0
+			, EObserveNotification_Added   = DMibBit(0)
 			, EObserveNotification_Changed = DMibBit(1)
 			, EObserveNotification_Removed = DMibBit(2)
-			, EObserveNotification_NoSub = DMibBit(3)
+			, EObserveNotification_NoSub   = DMibBit(3)
 		};
 
 		enum EClientOption
 		{
-			EClientOption_None = 0
+			EClientOption_None               = 0
 			, EClientOption_MaintainDatabase = DMibBit(0)
 		};
 
@@ -45,6 +44,7 @@ namespace NMib::NWeb
 			CConnectInfo()
 			{
 			}
+
 			CConnectInfo(NStr::CStr const &_SessionID)
 				: m_SessionID(_SessionID)
 			{
@@ -108,12 +108,8 @@ namespace NMib::NWeb
 			)
 		;
 		NConcurrency::TCFuture<NEncoding::CEJsonSorted> f_Method(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJsonSorted> _Params);
-		NConcurrency::TCFuture<NEncoding::CEJsonSorted> f_MethodWithUpdated
-			(
-				NStr::CStr _MethodName
-				, NContainer::TCVector<NEncoding::CEJsonSorted> _Params
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated
-			)
+		auto f_MethodWithUpdated(NStr::CStr _MethodName, NContainer::TCVector<NEncoding::CEJsonSorted> _Params, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated)
+			-> NConcurrency::TCFuture<NEncoding::CEJsonSorted>
 		;
 		NConcurrency::TCFuture<NConcurrency::CActorSubscription> f_Subscribe
 			(
@@ -139,7 +135,6 @@ namespace NMib::NWeb
 		static NStr::CStr fs_HighEntropyRandomID();
 
 	private:
-
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;

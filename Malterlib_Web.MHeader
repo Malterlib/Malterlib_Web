@@ -55,7 +55,10 @@ Repository
 Property
 {
 	CurlEnableSMTP: bool = false
-	Pcre2IncludePath: [string] = ["../../External/pcre2/src"->MakeAbsolute(), GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*") / "interface"]
+	Pcre2IncludePath: [string] = [
+		"../../External/pcre2/src"->MakeAbsolute()
+		, GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:PCRE2.Target:Lib_PCRE2_pcre2-8-static.Import:*") / "interface"
+	]
 	CurlIncludePath: string = GetProperty(&Import.CMake_CacheDirectory, "Workspace:*.Group:External.Group:CURL.Target:Lib_CURL_libcurl_static.Import:*")
 }
 
@@ -266,7 +269,6 @@ Import "../../External/nginx/nginx.MTarget"
 		Dependency.Indirect true
 	}
 }
-
 
 Property
 {

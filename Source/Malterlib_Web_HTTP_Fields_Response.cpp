@@ -7,48 +7,42 @@ namespace NMib::NWeb::NHTTP
 {
 	CResponseFields::CResponseFields()
 	{
-
 	}
 
 	CResponseFields::~CResponseFields()
 	{
-
 	}
 
-
-
-	EParse CResponseFields::f_ParseKnownField(EResponseField _Field, NStr::CStr const& _Value)
+	EParse CResponseFields::f_ParseKnownField(EResponseField _Field, NStr::CStr const &_Value)
 	{
-		switch(_Field)
+		switch (_Field)
 		{
-			case EResponseField_Unknown:
-			default:
-				{
-					DMibNeverGetHere;
-					return EParse_Invalid;
-				}
-			case EResponseField_AcceptRanges:
-			case EResponseField_Age:
-			case EResponseField_ETag:
-			case EResponseField_Location:
-			case EResponseField_ProxyAuthenticate:
-			case EResponseField_RetryAfter:
-			case EResponseField_Server:
-			case EResponseField_Vary:
-			case EResponseField_WWWAuthenticate:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
+		case EResponseField_Unknown:
+		default:
+			{
+				DMibNeverGetHere;
+				return EParse_Invalid;
+			}
+		case EResponseField_AcceptRanges:
+		case EResponseField_Age:
+		case EResponseField_ETag:
+		case EResponseField_Location:
+		case EResponseField_ProxyAuthenticate:
+		case EResponseField_RetryAfter:
+		case EResponseField_Server:
+		case EResponseField_Vary:
+		case EResponseField_WWWAuthenticate:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
 		}
 	}
 
-	EParse CResponseFields::f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	EParse CResponseFields::f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
 		return EParse_Unknown;
 	}
-
-
 
 	NStr::CStr CResponseFields::f_GetAcceptRanges() const
 	{
@@ -95,49 +89,47 @@ namespace NMib::NWeb::NHTTP
 		return fp_GetField<EFieldType_String>(EResponseField_WWWAuthenticate);
 	}
 
-
-
-	void CResponseFields::f_SetAcceptRanges(NStr::CStr const& _Value)
+	void CResponseFields::f_SetAcceptRanges(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_AcceptRanges] = _Value;
 	}
 
-	void CResponseFields::f_SetAge(NStr::CStr const& _Value)
+	void CResponseFields::f_SetAge(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_Age] = _Value;
 	}
 
-	void CResponseFields::f_SetETag(NStr::CStr const& _Value)
+	void CResponseFields::f_SetETag(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_ETag] = _Value;
 	}
 
-	void CResponseFields::f_SetLocation(NStr::CStr const& _Value)
+	void CResponseFields::f_SetLocation(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_Location] = _Value;
 	}
 
-	void CResponseFields::f_SetProxyAuthenticate(NStr::CStr const& _Value)
+	void CResponseFields::f_SetProxyAuthenticate(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_ProxyAuthenticate] = _Value;
 	}
 
-	void CResponseFields::f_SetRetryAfter(NStr::CStr const& _Value)
+	void CResponseFields::f_SetRetryAfter(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_RetryAfter] = _Value;
 	}
 
-	void CResponseFields::f_SetServer(NStr::CStr const& _Value)
+	void CResponseFields::f_SetServer(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_Server] = _Value;
 	}
 
-	void CResponseFields::f_SetVary(NStr::CStr const& _Value)
+	void CResponseFields::f_SetVary(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_Vary] = _Value;
 	}
 
-	void CResponseFields::f_SetWWWAuthenticate(NStr::CStr const& _Value)
+	void CResponseFields::f_SetWWWAuthenticate(NStr::CStr const &_Value)
 	{
 		mp_Fields[EResponseField_WWWAuthenticate] = _Value;
 	}

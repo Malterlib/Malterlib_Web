@@ -11,19 +11,19 @@ namespace NMib::NWeb::NFastCGI
 
 	enum ERequestType : uint8
 	{
-		ERequestType_Invalid = 0
-		, ERequestType_BeginRequest = 1
-		, ERequestType_AbortRequest = 2
-		, ERequestType_EndRequest = 3
-		, ERequestType_Params = 4
-		, ERequestType_StdIn = 5
-		, ERequestType_StdOut = 6
-		, ERequestType_StdErr = 7
-		, ERequestType_Data = 8
-		, ERequestType_GetValues = 9
+		ERequestType_Invalid           = 0
+		, ERequestType_BeginRequest    = 1
+		, ERequestType_AbortRequest    = 2
+		, ERequestType_EndRequest      = 3
+		, ERequestType_Params          = 4
+		, ERequestType_StdIn           = 5
+		, ERequestType_StdOut          = 6
+		, ERequestType_StdErr          = 7
+		, ERequestType_Data            = 8
+		, ERequestType_GetValues       = 9
 		, ERequestType_GetValuesResult = 10
-		, ERequestType_UnknownType = 11
-		, ERequestType_Max = ERequestType_UnknownType
+		, ERequestType_UnknownType     = 11
+		, ERequestType_Max             = ERequestType_UnknownType
 	};
 
 	enum ERequestVersion : uint8
@@ -41,7 +41,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved = 0;
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			uint8 Version;
 			_Stream >> Version;
@@ -56,7 +56,7 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			uint8 Version = m_Version;
 			_Stream << Version;
@@ -83,7 +83,6 @@ namespace NMib::NWeb::NFastCGI
 		, ENullRequestID = 0
 	};
 
-
 	enum ERequestBodyFlag : uint8
 	{
 		ERequestBodyFlag_KeepConnection = DMibBit(0)
@@ -91,12 +90,11 @@ namespace NMib::NWeb::NFastCGI
 
 	enum ERequestRole : uint16
 	{
-		ERequestRole_Invalid = 0
-		, ERequestRole_Responder = 1
+		ERequestRole_Invalid      = 0
+		, ERequestRole_Responder  = 1
 		, ERequestRole_Authorizer = 2
-		, ERequestRole_Filter = 3
+		, ERequestRole_Filter     = 3
 	};
-
 
 	struct CBeginRequestBody
 	{
@@ -105,7 +103,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[5];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			uint16 Role;
 			_Stream >> Role;
@@ -117,7 +115,7 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			uint16 Role = m_Role;
 			_Stream << Role;
@@ -129,12 +127,11 @@ namespace NMib::NWeb::NFastCGI
 
 	enum EEndRequestStatus : uint8
 	{
-		EEndRequestStatus_RequestComplete = 0
+		EEndRequestStatus_RequestComplete           = 0
 		, EEndRequestStatus_CantMultiplexConnection = 1
-		, EEndRequestStatus_Overloaded = 2
-		, EEndRequestStatus_UnknownRole = 3
+		, EEndRequestStatus_Overloaded              = 2
+		, EEndRequestStatus_UnknownRole             = 3
 	};
-
 
 	struct CEndRequestBody
 	{
@@ -150,7 +147,7 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[3];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream& _Stream)
+		void f_Consume(tf_CStream &_Stream)
 		{
 			_Stream >> m_AppStatus;
 			uint8 ProtocolStatus;
@@ -160,27 +157,25 @@ namespace NMib::NWeb::NFastCGI
 		}
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream& _Stream) const
+		void f_Feed(tf_CStream &_Stream) const
 		{
 			_Stream << m_AppStatus;
 			uint8 ProtocolStatus = m_ProtocolStatus;
 			_Stream << ProtocolStatus;
 			_Stream.f_FeedBytes(m_Reserved, sizeof(m_Reserved));
 		}
-
 	};
-
 
 	/*
 	 * Variable names for FCGI_GET_VALUES / FCGI_GET_VALUES_RESULT records
 	 */
-	#define FCGI_MAX_CONNS  "FCGI_MAX_CONNS"
-	#define FCGI_MAX_REQS   "FCGI_MAX_REQS"
-	#define FCGI_MPXS_CONNS "FCGI_MPXS_CONNS"
+#define FCGI_MAX_CONNS  "FCGI_MAX_CONNS"
+#define FCGI_MAX_REQS   "FCGI_MAX_REQS"
+#define FCGI_MPXS_CONNS "FCGI_MPXS_CONNS"
 
 	struct CUnknownTypeBody
 	{
 		uint8 m_Type;
 		uint8 m_Reserved[7];
-	} ;
+	};
 }

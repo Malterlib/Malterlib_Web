@@ -27,8 +27,8 @@ namespace NMib::NWeb
 
 	DMibImpErrorSpecificClassDefine(CExceptionAws, NMib::NException::CException, CAwsErrorData);
 
-#	define DMibErrorAws(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
-#	define DMibErrorInstanceAws(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
+#define DMibErrorAws(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
+#define DMibErrorInstanceAws(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
 
 	ch8 const *fg_MethodToStr(CHttpClientActor::EMethod _Method);
 

@@ -46,9 +46,7 @@ namespace NMib::NWeb
 			auto pItems = PostDocument.f_CreateElement(pPaths, "Items");
 
 			for (auto &Path : _Paths)
-			{
 				PostDocument.f_SetText(PostDocument.f_CreateElement(pItems, "Path"), Path);
-			}
 
 			PostDocument.f_SetText(PostDocument.f_CreateElement(pPaths, "Quantity"), "{}"_f << _Paths.f_GetLen());
 		}
@@ -90,11 +88,7 @@ namespace NMib::NWeb
 		co_return ID;
 	}
 
-	NConcurrency::TCFuture<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions
-		(
-			NStr::CStr _DistributionID
-			, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations
-		)
+	NConcurrency::TCFuture<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions(NStr::CStr _DistributionID, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations)
 	{
 		auto &Internal = *mp_pInternal;
 		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2020-05-31/distribution/{}/config"_f << _DistributionID};
@@ -133,10 +127,10 @@ namespace NMib::NWeb
 					CStr AssociationType;
 					switch (_FunctionAssociations.fs_GetKey(Function))
 					{
-						case EFunctionEventType_ViewerRequest: AssociationType = "viewer-request"; break;
-						case EFunctionEventType_ViewerResponse: AssociationType = "viewer-response"; break;
-						case EFunctionEventType_OriginRequest: AssociationType = "origin-request"; break;
-						case EFunctionEventType_OriginResponse: AssociationType = "origin-response"; break;
+					case EFunctionEventType_ViewerRequest: AssociationType = "viewer-request"; break;
+					case EFunctionEventType_ViewerResponse: AssociationType = "viewer-response"; break;
+					case EFunctionEventType_OriginRequest: AssociationType = "origin-request"; break;
+					case EFunctionEventType_OriginResponse: AssociationType = "origin-response"; break;
 					}
 					AssociationsToUpdate[AssociationType] = Function;
 				}
@@ -196,7 +190,6 @@ namespace NMib::NWeb
 			}
 		;
 
-
 		if (auto pBehavior = Results.f_GetChildNode(pDistributionConfig, "DefaultCacheBehavior"))
 			fUpdateCacheBehavior(pBehavior);
 
@@ -221,7 +214,19 @@ namespace NMib::NWeb
 		if (auto pHeader = CurlResult.m_Headers.f_FindEqual("etag"))
 			Headers["If-Match"] = *pHeader;
 
-		co_await fg_DoAWSRequestXML("Update distribution", Internal.m_HttpClientActor, 200, AWSUrl, fg_Move(Results), CHttpClientActor::EMethod_PUT, Internal.m_Credentials, Headers, "cloudfront");
+		co_await fg_DoAWSRequestXML
+			(
+				"Update distribution"
+				, Internal.m_HttpClientActor
+				, 200
+				, AWSUrl
+				, fg_Move(Results)
+				, CHttpClientActor::EMethod_PUT
+				, Internal.m_Credentials
+				, Headers
+				, "cloudfront"
+			)
+		;
 
 		co_return {};
 	}

@@ -31,17 +31,17 @@ namespace NMib::NWeb
 
 		NContainer::TCMap<NStr::CStr, NStr::CStr> const &f_GetParams();
 
-		void f_SendStdOutput(NStr::CStr const& _Output);
-		void f_SendStdError(NStr::CStr const& _Output);
+		void f_SendStdOutput(NStr::CStr const &_Output);
+		void f_SendStdError(NStr::CStr const &_Output);
 
-		void f_SendStdOutput(uint8 const* _pOutput, umint _Len);
-		void f_SendStdError(uint8 const* _pOutput, umint _Len);
+		void f_SendStdOutput(uint8 const *_pOutput, umint _Len);
+		void f_SendStdError(uint8 const *_pOutput, umint _Len);
 
 		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NContainer::CIOByteVector &&_Data);
 		NConcurrency::TCFuture<void> f_SendAsyncStdError(NContainer::CIOByteVector &&_Data);
 
-		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NStr::CStr const& _Output);
-		NConcurrency::TCFuture<void> f_SendAsyncStdError(NStr::CStr const& _Output);
+		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NStr::CStr const &_Output);
+		NConcurrency::TCFuture<void> f_SendAsyncStdError(NStr::CStr const &_Output);
 
 		void f_FinishRequest();
 		bool f_IsFinished() const;

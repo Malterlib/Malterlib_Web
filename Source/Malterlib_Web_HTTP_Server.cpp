@@ -16,18 +16,17 @@ namespace NMib::NWeb::NHTTP
 
 		NStorage::TCUniquePointer<NThread::CThreadObject> mp_pThread;
 
-		aint fp_Work(NThread::CThreadObject* _pThread);
+		aint fp_Work(NThread::CThreadObject *_pThread);
 
 	public:
 		CConnectionWorker();
 		~CConnectionWorker();
 
 		// Thread safe
-		void f_AddConnection( NStorage::TCUniquePointer<CConnection> _pConn );
+		void f_AddConnection(NStorage::TCUniquePointer<CConnection> _pConn);
 
 		void f_Start();
 		void f_Stop();
-
 	};
 
 	class CServer::CDetails
@@ -35,8 +34,8 @@ namespace NMib::NWeb::NHTTP
 	private:
 		enum EState
 		{
-			EState_Stopped,
-			EState_Running,
+			EState_Stopped
+			, EState_Running
 		};
 
 		CConfig mp_Config;
@@ -49,15 +48,14 @@ namespace NMib::NWeb::NHTTP
 //		NContainer::TCVector< TCUniquePointer<NThread::CThreadObject> > mp_lProcessingThreads;
 
 		// Run on mp_ListenThread
-		aint fp_Listen(NThread::CThreadObject* _pThread);
+		aint fp_Listen(NThread::CThreadObject *_pThread);
 
 	private:
-
 	public:
-		CDetails(CConfig const& _Config);
+		CDetails(CConfig const &_Config);
 		~CDetails();
 
-		bool f_Start(NStr::CStr& _oError);
+		bool f_Start(NStr::CStr &_oError);
 		void f_Stop();
 	};
 
@@ -65,7 +63,7 @@ namespace NMib::NWeb::NHTTP
 	// CServer::CDetails Public Methods
 	//
 
-	CServer::CDetails::CDetails(CConfig const& _Config)
+	CServer::CDetails::CDetails(CConfig const &_Config)
 		: mp_State(EState_Stopped)
 		, mp_Config(_Config)
 	{
@@ -75,7 +73,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	bool CServer::CDetails::f_Start(NStr::CStr& _oError)
+	bool CServer::CDetails::f_Start(NStr::CStr &_oError)
 	{
 		if (mp_State != EState_Stopped)
 		{
@@ -83,10 +81,15 @@ namespace NMib::NWeb::NHTTP
 			return false;
 		}
 
-		mp_pListenThread = NThread::CThreadObject::fs_StartThread(
-								[this](NThread::CThreadObject* _pThread) { return fp_Listen(_pThread); }
-							,	"HTTPServerListener"
-							);
+		mp_pListenThread = NThread::CThreadObject::fs_StartThread
+			(
+				[this](NThread::CThreadObject *_pThread)
+				{
+					return fp_Listen(_pThread);
+				}
+				, "HTTPServerListener"
+			)
+		;
 
 		mp_Worker.f_Start();
 
@@ -106,14 +109,13 @@ namespace NMib::NWeb::NHTTP
 		}
 
 		mp_Worker.f_Stop();
-
 	}
 
 	//
 	// CServer::CDetails Private Methods
 	//
 
-	aint CServer::CDetails::fp_Listen(NThread::CThreadObject* _pThread)
+	aint CServer::CDetails::fp_Listen(NThread::CThreadObject *_pThread)
 	{
 		NNetwork::CSocket ListenSocket;
 
@@ -134,27 +136,25 @@ namespace NMib::NWeb::NHTTP
 
 		NStorage::TCUniquePointer<NNetwork::CSocket> pIncomingSocket;
 
-		while(_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
+		while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 		{
-				while ( 1 )
+			while (1)
+			{
+				if (!pIncomingSocket)
+					pIncomingSocket = fg_Construct();
+
+				pIncomingSocket->f_Accept(&ListenSocket, nullptr);
+
+				if (pIncomingSocket->f_IsValid())
 				{
-					if (!pIncomingSocket)
-						pIncomingSocket = fg_Construct();
-
-					pIncomingSocket->f_Accept(&ListenSocket, nullptr);
-
-					if (pIncomingSocket->f_IsValid())
-					{
-						NStorage::TCUniquePointer<CConnection> pNewConn = fg_Construct(fg_Move(pIncomingSocket));
+					NStorage::TCUniquePointer<CConnection> pNewConn = fg_Construct(fg_Move(pIncomingSocket));
 
 						// Put on connection list
-						mp_Worker.f_AddConnection(fg_Move(pNewConn));
-					}
-					else
-					{
-						break;
-					}
+					mp_Worker.f_AddConnection(fg_Move(pNewConn));
 				}
+				else
+					break;
+			}
 
 			_pThread->m_EventWantQuit.f_Wait();
 		}
@@ -168,18 +168,16 @@ namespace NMib::NWeb::NHTTP
 	// CServer Public Methods
 	//
 
-	CServer::CServer(CConfig const& _Config)
+	CServer::CServer(CConfig const &_Config)
 		: mp_pD(fg_Construct(_Config))
 	{
-
 	}
 
 	CServer::~CServer()
 	{
-
 	}
 
-	bool CServer::f_Start(NStr::CStr & _oError)
+	bool CServer::f_Start(NStr::CStr &_oError)
 	{
 		return mp_pD->f_Start(_oError);
 	}
@@ -195,7 +193,6 @@ namespace NMib::NWeb::NHTTP
 
 	CConnectionWorker::CConnectionWorker()
 	{
-
 	}
 
 	CConnectionWorker::~CConnectionWorker()
@@ -205,7 +202,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// Thread safe
-	void CConnectionWorker::f_AddConnection( NStorage::TCUniquePointer<CConnection> _pConn )
+	void CConnectionWorker::f_AddConnection(NStorage::TCUniquePointer<CConnection> _pConn)
 	{
 		DMibLock(mp_NewConnectionsLock);
 		mp_NewConnectionsList.f_Insert(_pConn.f_Detach());
@@ -217,7 +214,17 @@ namespace NMib::NWeb::NHTTP
 	void CConnectionWorker::f_Start()
 	{
 		if (!mp_pThread)
-			mp_pThread = NThread::CThreadObject::fs_StartThread( [this](NThread::CThreadObject* _pThread) { return fp_Work(_pThread); }, "HTTPConnectionWorker" );
+		{
+			mp_pThread = NThread::CThreadObject::fs_StartThread
+				(
+					[this](NThread::CThreadObject *_pThread)
+					{
+						return fp_Work(_pThread);
+					}
+					, "HTTPConnectionWorker"
+				)
+			;
+		}
 	}
 
 	void CConnectionWorker::f_Stop()
@@ -225,22 +232,20 @@ namespace NMib::NWeb::NHTTP
 		mp_pThread->f_Stop();
 	}
 
-	aint CConnectionWorker::fp_Work(NThread::CThreadObject* _pThread)
+	aint CConnectionWorker::fp_Work(NThread::CThreadObject *_pThread)
 	{
 		while (_pThread->f_GetState() != NThread::EThreadState_EventWantQuit)
 		{
 			{ // Take new connections
 				DMibLock(mp_NewConnectionsLock);
-				while( !mp_NewConnectionsList.f_IsEmpty() )
+				while (!mp_NewConnectionsList.f_IsEmpty())
 				{
 					mp_NewConnectionsList.f_GetIterator()->f_SetReportTo(&_pThread->m_EventWantQuit);
-					mp_ConnectionsList.f_Insert( mp_NewConnectionsList.f_GetIterator() );
+					mp_ConnectionsList.f_Insert(mp_NewConnectionsList.f_GetIterator());
 				}
 			}
 
-			for (auto ConnIter = mp_ConnectionsList.f_GetIterator()
-				;ConnIter
-				;)
+			for (auto ConnIter = mp_ConnectionsList.f_GetIterator(); ConnIter;)
 			{
 				if ((*ConnIter).f_IsConnected())
 				{

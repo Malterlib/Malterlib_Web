@@ -32,7 +32,6 @@ static fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 class CDDP_Tests : public CTest
 {
 public:
-
 	struct CServer : public CActor
 	{
 		CServer(FVirtualSocketFactory const &_ServerFactory)
@@ -135,8 +134,7 @@ public:
 					&CWebSocketServerActor::f_StartListenAddress
 					, TCVector<CNetAddress>{ToListenTo}
 					, ENetFlag_None
-					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _ConnectionInfo)
-					-> TCFuture<void>
+					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
 					{
 						auto &NewConnection = m_Connections.f_Insert();
 						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
@@ -244,8 +242,7 @@ public:
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo _SubscribeInfo)
-								-> TCFuture<void>
+								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo _SubscribeInfo) -> TCFuture<void>
 								// On subscribe
 								{
 									//DMibTrace("Subscription: {}\n", _SubscribeInfo.m_Name);
@@ -269,14 +266,11 @@ public:
 										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
 									}
 									else
-									{
 										_SubscribeInfo.f_Error(CEJsonSorted());
-									}
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this](CStr _SubscriptionID)
-								-> TCFuture<void>
+								, g_ActorFunctorWeak / [this](CStr _SubscriptionID) -> TCFuture<void>
 								// On unsubscribe
 								{
 									++m_nUnsubscribe;
@@ -284,16 +278,14 @@ public:
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [this](CStr _Error)
-								-> TCFuture<void>
+								, g_ActorFunctorWeak / [this](CStr _Error) -> TCFuture<void>
 								// On error
 								{
 									f_ReportError(_Error);
 
 									co_return {};
 								}
-								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin)
-								-> TCFuture<void>
+								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 								{
 									co_return {};
 								}
@@ -307,8 +299,7 @@ public:
 
 						co_return {};
 					}
-					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo _ConnectionInfo)
-					-> TCFuture<void>
+					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
 					{
 						f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
 
@@ -389,11 +380,8 @@ public:
 				(
 					&CDDPClient::f_Observe
 					, "testCollection"
-					, CDDPClient::EObserveNotification_Added
-					| CDDPClient::EObserveNotification_Changed
-					| CDDPClient::EObserveNotification_Removed
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJsonSorted _NotificationData)
-					-> TCFuture<void>
+					, CDDPClient::EObserveNotification_Added | CDDPClient::EObserveNotification_Changed | CDDPClient::EObserveNotification_Removed
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::EObserveNotification_Added)
 							++pState->m_nAdded;
@@ -406,7 +394,8 @@ public:
 
 						co_return {};
 					}
-				).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+				)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 			;
 
 			CActorSubscription Subscription = Client
@@ -415,10 +404,8 @@ public:
 					, "testSub"
 					, ""
 					, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
-					, CDDPClient::ESubscriptionNotification_Ready
-					| CDDPClient::ESubscriptionNotification_Error
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData)
-					-> TCFuture<void>
+					, CDDPClient::ESubscriptionNotification_Ready | CDDPClient::ESubscriptionNotification_Error
+					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
 					{
 						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
 							++pState->m_nReady;
@@ -430,7 +417,8 @@ public:
 						co_return {};
 					}
 					, true
-				).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+				)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 			;
 
 			CStopwatch Stopwatch;
@@ -454,11 +442,11 @@ public:
 					Client
 						(
 							&CDDPClient::f_AccessData
-							, [&Documents, &Lock] (CDDPClient::CDataAccessor const &_Accessor)
+							, [&Documents, &Lock](CDDPClient::CDataAccessor const &_Accessor)
 							{
 								try
 								{
-									auto const& Collection = _Accessor.f_GetCollection("testCollection");
+									auto const &Collection = _Accessor.f_GetCollection("testCollection");
 									DMibLock(Lock);
 									for (auto iDocument = Collection.f_GetDocumentIterator(); iDocument; ++iDocument)
 										Documents[iDocument.f_GetKey()] = *iDocument;
@@ -481,7 +469,7 @@ public:
 
 				DMibAssert(Documents.f_GetLen(), ==, 10);
 
-				for (auto const& Document : Documents)
+				for (auto const &Document : Documents)
 				{
 					auto pID = Document.f_GetMember("_id");
 					DMibAssert(pID, !=, nullptr)(ETestFlag_Aggregated);
@@ -509,14 +497,13 @@ public:
 								, ""
 								, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
 								, CDDPClient::ESubscriptionNotification_None
-								, g_ActorFunctorWeak(ProcessingActor)
-								/ [](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData)
-								-> TCFuture<void>
+								, g_ActorFunctorWeak(ProcessingActor) / [](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
 								{
 									co_return {};
 								}
 								, true
-							).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+							)
+							.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
 						;
 					}
 				;

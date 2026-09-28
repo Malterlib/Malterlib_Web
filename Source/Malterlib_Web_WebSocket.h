@@ -24,48 +24,47 @@ namespace NMib::NWeb
 	// RFC 6455 - 7.4.1.
 	enum EWebSocketStatus : uint16
 	{
-		EWebSocketStatus_None = 0
-		, EWebSocketStatus_NormalClosure			= 1000	/// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
-		, EWebSocketStatus_GoingAway				= 1001	/// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
-		, EWebSocketStatus_ProtocolError			= 1002	/// Indicates that an endpoint is terminating the connection due to a protocol error.
-		, EWebSocketStatus_UnsupportedData			= 1003	/// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an
-															///	 endpoint that understands only text data MAY send this if it receives a binary message).
-		, EWebSocketStatus_Reserved0				= 1004	/// Reserved.  The specific meaning might be defined in the future.
-		, EWebSocketStatus_NoStatusReceived			= 1005	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use
-															///  in applications expecting a status code to indicate that no status code was actually present.
-		, EWebSocketStatus_AbnormalClosure			= 1006	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use
-															///  in applications expecting a status code to indicate that the connection was closed abnormally, e.g., without sending or
-															///  receiving a Close control frame.
-		, EWebSocketStatus_InvalidFramePayloadData	= 1007	/// Indicates that an endpoint is terminating the connection because it has received data within a message that was not consistent
-															///  with the type of the message (e.g., non-UTF-8 [RFC3629] data within a text message).
-		, EWebSocketStatus_PolicyViolation			= 1008	/// Indicates that an endpoint is terminating the connection because it has received a message that violates its policy. This is a
-															///  generic status code that can be returned when there is no other more suitable status code (e.g., 1003 or 1009) or if there is
-															///  a need to hide specific details about the policy.
-		, EWebSocketStatus_MessageTooBig			= 1009	/// Indicates that an endpoint is terminating the connection because it has received a message that is too big for it to process.
-		, EWebSocketStatus_MandatoryExtension		= 1010	/// Indicates that an endpoint (client) is terminating the connection because it has expected the server to negotiate one or more
-															///  extension, but the server didn't return them in the response message of the WebSocket handshake.  The list of extensions that
-															///  are needed SHOULD appear in the /reason/ part of the Close frame. Note that this status code is not used by the server,
-															///  because it can fail the WebSocket handshake instead.
-		, EWebSocketStatus_InternalError			= 1011	/// Indicates that a server is terminating the connection because it encountered an unexpected condition that prevented it from
-															///  fulfilling the request.
-		, EWebSocketStatus_ServiceRestart			= 1012	///
-		, EWebSocketStatus_TryAgainLater			= 1013	///
-		, EWebSocketStatus_TLSHandshakeFailed		= 1015	/// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint. It is designated for use in
-															///  applications expecting a status code to indicate that the connection was closed due to a failure to perform a TLS handshake
-															///  (e.g., the server certificate can't be verified).
-		, EWebSocketStatus_ReservedStart			= 1016	/// Status codes in the range 1000-2999 are reserved for definition by this protocol, its future revisions, and extensions
-															///  specified in a permanent and readily available public specification.
-		, EWebSocketStatus_ReservedEnd				= 2999
-		, EWebSocketStatus_IANAStart				= 3000	/// Status codes in the range 3000-3999 are reserved for use by libraries, frameworks, and applications.  These status codes are
-															/// registered directly with IANA.  The interpretation of these codes is undefined by this protocol.
-		, EWebSocketStatus_IANAEnd					= 3999
-		, EWebSocketStatus_Timeout					= 4000	/// Connection timed out
-		, EWebSocketStatus_Rejected					= 4001	/// Closed because you rejected the connection
-		, EWebSocketStatus_AlreadyClosed			= 4002	/// Already closed
-		, EWebSocketStatus_PrivateStart				= 4000	/// Status codes in the range 4000-4999 are reserved for private use and thus can't be registered.  Such codes can be used by
-															/// prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol.
-		, EWebSocketStatus_PrivateEnd				= 4999
-
+		EWebSocketStatus_None                      = 0
+		, EWebSocketStatus_NormalClosure           = 1000 /// Indicates a normal closure, meaning that the purpose for which the connection was established has been fulfilled.
+		, EWebSocketStatus_GoingAway               = 1001 /// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
+		, EWebSocketStatus_ProtocolError           = 1002 /// Indicates that an endpoint is terminating the connection due to a protocol error.
+		, EWebSocketStatus_UnsupportedData         = 1003 /// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an
+		                                                  ///  endpoint that understands only text data MAY send this if it receives a binary message).
+		, EWebSocketStatus_Reserved0               = 1004 /// Reserved.  The specific meaning might be defined in the future.
+		, EWebSocketStatus_NoStatusReceived        = 1005 /// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use
+		                                                  ///  in applications expecting a status code to indicate that no status code was actually present.
+		, EWebSocketStatus_AbnormalClosure         = 1006 /// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use
+		                                                  ///  in applications expecting a status code to indicate that the connection was closed abnormally, e.g., without sending or
+		                                                  ///  receiving a Close control frame.
+		, EWebSocketStatus_InvalidFramePayloadData = 1007 /// Indicates that an endpoint is terminating the connection because it has received data within a message that was not consistent
+		                                                  ///  with the type of the message (e.g., non-UTF-8 [RFC3629] data within a text message).
+		, EWebSocketStatus_PolicyViolation         = 1008 /// Indicates that an endpoint is terminating the connection because it has received a message that violates its policy. This is a
+		                                                  ///  generic status code that can be returned when there is no other more suitable status code (e.g., 1003 or 1009) or if there is
+		                                                  ///  a need to hide specific details about the policy.
+		, EWebSocketStatus_MessageTooBig           = 1009 /// Indicates that an endpoint is terminating the connection because it has received a message that is too big for it to process.
+		, EWebSocketStatus_MandatoryExtension      = 1010 /// Indicates that an endpoint (client) is terminating the connection because it has expected the server to negotiate one or more
+		                                                  ///  extension, but the server didn't return them in the response message of the WebSocket handshake.  The list of extensions that
+		                                                  ///  are needed SHOULD appear in the /reason/ part of the Close frame. Note that this status code is not used by the server,
+		                                                  ///  because it can fail the WebSocket handshake instead.
+		, EWebSocketStatus_InternalError           = 1011 /// Indicates that a server is terminating the connection because it encountered an unexpected condition that prevented it from
+		                                                  ///  fulfilling the request.
+		, EWebSocketStatus_ServiceRestart          = 1012 ///
+		, EWebSocketStatus_TryAgainLater           = 1013 ///
+		, EWebSocketStatus_TLSHandshakeFailed      = 1015 /// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint. It is designated for use in
+		                                                  ///  applications expecting a status code to indicate that the connection was closed due to a failure to perform a TLS handshake
+		                                                  ///  (e.g., the server certificate can't be verified).
+		, EWebSocketStatus_ReservedStart           = 1016 /// Status codes in the range 1000-2999 are reserved for definition by this protocol, its future revisions, and extensions
+		                                                  ///  specified in a permanent and readily available public specification.
+		, EWebSocketStatus_ReservedEnd             = 2999
+		, EWebSocketStatus_IANAStart               = 3000 /// Status codes in the range 3000-3999 are reserved for use by libraries, frameworks, and applications.  These status codes are
+		                                                  ///  registered directly with IANA.  The interpretation of these codes is undefined by this protocol.
+		, EWebSocketStatus_IANAEnd                 = 3999
+		, EWebSocketStatus_Timeout                 = 4000 /// Connection timed out
+		, EWebSocketStatus_Rejected                = 4001 /// Closed because you rejected the connection
+		, EWebSocketStatus_AlreadyClosed           = 4002 /// Already closed
+		, EWebSocketStatus_PrivateStart            = 4000 /// Status codes in the range 4000-4999 are reserved for private use and thus can't be registered.  Such codes can be used by
+		                                                  ///  prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol.
+		, EWebSocketStatus_PrivateEnd              = 4999
 	};
 
 	enum EWebSocketCloseOrigin
@@ -91,9 +90,9 @@ namespace NMib::NWeb
 		NNetwork::FVirtualSocketFactory m_Factory;
 		bool m_bAllowUnmaskedFrames = false;
 		bool m_bNegotiateUnmaskedFrames = false; // Negotiate unmasked frames; peers without the extension keep masking.
-		uint32 m_FragmentationSize = 0; // Zero selects server defaults for each frame limit.
+		uint32 m_FragmentationSize = 0;          // Zero selects server defaults for each frame limit.
 		uint32 m_MaxFragmentSize = 0;
-		uint64 m_SendWindowBytes = 0; // Zero inherits the server's send-window default.
+		uint64 m_SendWindowBytes = 0;            // Zero inherits the server's send-window default.
 	};
 
 	// A selector can choose transport configuration per address; a plain factory retains one callable across addresses.
@@ -126,11 +125,11 @@ namespace NMib::NWeb
 		umint m_MaxMessageSize = mc_DefaultMaxMessageSize;
 		umint m_FragmentationSize = mc_DefaultFragmentationSize;
 		umint m_MaxFragmentSize = mc_DefaultMaxFragmentSize; // Bounds advertised-frame allocation; must accommodate the peer's outgoing fragment size.
-		umint m_SendWindowBytes = 0; // Bytes in flight; zero selects eight frames.
+		umint m_SendWindowBytes = 0;                         // Bytes in flight; zero selects eight frames.
 		fp64 m_Timeout = mc_DefaultTimeout;
 		bool m_bTimeoutForUnixSockets = true;
-		bool m_bAllowUnmaskedFrames = false; // Both peers must agree; safe only on a confidential point-to-point transport without intermediaries.
-		bool m_bNegotiateUnmaskedFrames = false; // Negotiate only on confidential point-to-point transport; unsupported peers retain masking.
+		bool m_bAllowUnmaskedFrames = false;                 // Both peers must agree; safe only on a confidential point-to-point transport without intermediaries.
+		bool m_bNegotiateUnmaskedFrames = false;             // Negotiate only on confidential point-to-point transport; unsupported peers retain masking.
 	};
 
 	constexpr ch8 const *gc_pUnmaskedFramesExtension = "x-malterlib-unmasked"; // Private RFC 6455 masking exception; requires agreement over transport without intermediaries.
@@ -152,6 +151,7 @@ namespace NMib::NWeb
 				: m_pRequest(fg_Construct())
 			{
 			}
+
 			CConnectionInfo(CConnectionInfo &&) = default;
 			CConnectionInfo(CConnectionInfo const &) = delete;
 
@@ -192,14 +192,17 @@ namespace NMib::NWeb
 				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
 			{
 			}
+
 			CMaybeSecureByteVector(NContainer::CSecureByteVector &&_Vector)
 				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
 			{
 			}
+
 			CMaybeSecureByteVector(NContainer::CSecureByteVector const &_Vector)
 				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
 			{
 			}
+
 			CMaybeSecureByteVector(NContainer::CByteVector const &_Vector)
 				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
 			{
@@ -270,7 +273,7 @@ namespace NMib::NWeb
 
 		static bool fs_IsValidCloseStatus(EWebSocketStatus _Status);
 
-		constexpr static umint mc_MaxCloseMessageLength = 125 - 2;
+		static constexpr umint mc_MaxCloseMessageLength = 125 - 2;
 
 	private:
 		friend class NWebSocket::CListenActor;
@@ -279,7 +282,6 @@ namespace NMib::NWeb
 		friend struct CWebSocketNewServerConnection;
 		friend struct CWebSocketNewClientConnection;
 		friend class CWebSocketClientActor;
-
 
 		enum EFinishConnectionResult
 		{
@@ -322,20 +324,8 @@ namespace NMib::NWeb
 		void fp_ProcessState(NNetwork::ENetTCPState _StateAdded);
 		void fp_UpdateSend();
 		void fp_Shutdown();
-		NConcurrency::CActorSubscription fp_AcceptServerConnection
-			(
-				NStr::CStr _Protocol
-				, NHTTP::CResponseHeader _ResponseHeader
-				, CCallbacks _Callbacks
-			)
-		;
-		void fp_RejectServerConnection
-			(
-				NStr::CStr _Error
-				, NHTTP::CResponseHeader _ResponseHeader = NHTTP::CResponseHeader()
-				, NStr::CStr _Content = NStr::CStr()
-			)
-		;
+		NConcurrency::CActorSubscription fp_AcceptServerConnection(NStr::CStr _Protocol, NHTTP::CResponseHeader _ResponseHeader, CCallbacks _Callbacks);
+		void fp_RejectServerConnection(NStr::CStr _Error, NHTTP::CResponseHeader _ResponseHeader = NHTTP::CResponseHeader(), NStr::CStr _Content = NStr::CStr());
 		NConcurrency::CActorSubscription fp_AcceptClientConnection(CCallbacks _Callbacks);
 		void fp_StopDeferring();
 		void fp_TryStopDeferring();
@@ -401,8 +391,8 @@ namespace NMib::NWeb
 		CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other);
 
 	private:
-		CWebSocketNewClientConnection &operator =(CWebSocketNewClientConnection const &);
-		CWebSocketNewClientConnection &operator =(CWebSocketNewClientConnection &&);
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection const &);
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection &&);
 		CWebSocketNewClientConnection(CWebSocketNewClientConnection const &_Other);
 
 		struct CRepliedHelper
@@ -412,6 +402,7 @@ namespace NMib::NWeb
 			CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
 			~CRepliedHelper();
 		};
+
 		NStorage::TCSharedPointer<CRepliedHelper> mp_pHelper;
 	};
 
@@ -421,10 +412,18 @@ namespace NMib::NWeb
 		NContainer::TCVector<NStr::CStr> m_Protocols;
 
 		template <typename tf_CResultCall>
-		NConcurrency::TCActor<CWebSocketActor> f_Accept(NStr::CStr const &_Protocol, tf_CResultCall &&_CallbackResultCall, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader());
+		auto f_Accept(NStr::CStr const &_Protocol, tf_CResultCall &&_CallbackResultCall, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader())
+			-> NConcurrency::TCActor<CWebSocketActor>
+		;
 		void f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader()) const;
 
-		CWebSocketNewServerConnection(CWebSocketActor::CConnectionInfo &&_ConnectionInfo, NContainer::TCVector<NStr::CStr> &&_Protocols, NConcurrency::TCActor<CWebSocketActor> const &_Connection);
+		CWebSocketNewServerConnection
+			(
+				CWebSocketActor::CConnectionInfo &&_ConnectionInfo
+				, NContainer::TCVector<NStr::CStr> &&_Protocols
+				, NConcurrency::TCActor<CWebSocketActor> const &_Connection
+			)
+		;
 		~CWebSocketNewServerConnection();
 
 		CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other)
@@ -436,8 +435,8 @@ namespace NMib::NWeb
 		}
 
 	private:
-		CWebSocketNewServerConnection &operator =(CWebSocketNewServerConnection const &);
-		CWebSocketNewServerConnection &operator =(CWebSocketNewServerConnection &&);
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &);
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection &&);
 		CWebSocketNewServerConnection(CWebSocketNewServerConnection const &_Other);
 
 		struct CRepliedHelper
@@ -447,6 +446,7 @@ namespace NMib::NWeb
 			CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
 			~CRepliedHelper();
 		};
+
 		NStorage::TCSharedPointer<CRepliedHelper> mp_pHelper;
 	};
 
@@ -465,19 +465,19 @@ namespace NMib::NWeb
 		struct CConnectSettings
 		{
 			NStr::CStr m_ConnectToAddress;
-			NStr::CStr m_BindAddress; // Empty leaves source address selection to the platform.
+			NStr::CStr m_BindAddress;                        // Empty leaves source address selection to the platform.
 			NMib::NNetwork::ENetAddressType m_PreferAddress = NMib::NNetwork::ENetAddressType_None;
-			uint16 m_Port = 0; // Zero preserves the resolved address's port.
+			uint16 m_Port = 0;                               // Zero preserves the resolved address's port.
 			NStr::CStr m_URI;
 			NStr::CStr m_Origin;
 			NContainer::TCVector<NStr::CStr> m_Protocols;
-			NHTTP::CRequest m_Request; // Additional handshake fields; the request line is ignored.
+			NHTTP::CRequest m_Request;                       // Additional handshake fields; the request line is ignored.
 			NNetwork::FVirtualSocketFactory m_SocketFactory; // Empty selects CSocket_TCP::fs_GetFactory().
-			bool m_bAllowUnmaskedFrames = false; // Both peers must agree; requires a confidential point-to-point transport.
-			bool m_bNegotiateUnmaskedFrames = false; // Unsupported peers retain masking.
-			uint32 m_FragmentationSize = 0; // Zero selects the connector default.
-			uint32 m_MaxFragmentSize = 0; // Zero selects the connector default; must accommodate the server's outgoing fragments.
-			uint64 m_SendWindowBytes = 0; // Zero selects the connector's send-window default.
+			bool m_bAllowUnmaskedFrames = false;             // Both peers must agree; requires a confidential point-to-point transport.
+			bool m_bNegotiateUnmaskedFrames = false;         // Unsupported peers retain masking.
+			uint32 m_FragmentationSize = 0;                  // Zero selects the connector default.
+			uint32 m_MaxFragmentSize = 0;                    // Zero selects the connector default; must accommodate the server's outgoing fragments.
+			uint64 m_SendWindowBytes = 0;                    // Zero selects the connector's send-window default.
 		};
 
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings);
@@ -494,6 +494,7 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<NAtomic::TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 			NConcurrency::CIoLoopBinding m_IoBinding; // Chosen before socket start; seed connection scheduling on this loop queue.
 		};
+
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
 		CWebsocketSettings mp_DefaultSettings;
@@ -502,6 +503,7 @@ namespace NMib::NWeb
 	class CWebSocketServerActor : public NConcurrency::CActor
 	{
 		friend class NWebSocket::CListenActor;
+
 	public:
 		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
 
@@ -516,21 +518,21 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<CListenResult> f_StartListen
 			(
-				uint16 _StartListen		// The port to listen to
-				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
+				uint16 _StartListen // The port to listen to
+				, uint16 _nListen // The number of ports to listen to. In consecutive order from the _StartListen port
 				, NMib::NNetwork::ENetFlag _ListenFlags
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
 				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			)
 		;
 
 		NConcurrency::TCFuture<CListenResult> f_StartListenAddress
 			(
-				NContainer::TCVector<NNetwork::CNetAddress> _AddressesToListenTo // The addresses to listen to
+				NContainer::TCVector<NNetwork::CNetAddress> _AddressesToListenTo
 				, NMib::NNetwork::ENetFlag _ListenFlags
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
 				, CWebSocketListenSocketFactory _SocketFactory
 			)
 		;
@@ -559,5 +561,5 @@ namespace NMib::NWeb
 #include "Malterlib_Web_WebSocket.hpp"
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb;
+using namespace NMib::NWeb;
 #endif

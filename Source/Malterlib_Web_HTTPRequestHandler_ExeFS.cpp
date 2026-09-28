@@ -16,18 +16,16 @@ namespace NMib::NWeb
 
 	CHTTPRequestHandler_ExeFs::CHTTPRequestHandler_ExeFs
 		(
-			NStr::CStr const& _ServerPath
-			, NStr::CStr const& _ExeFsPath
-			, NFunction::TCFunction<bool (CHTTPConnection &_Connection, CHTTPRequest const& _Req)> const &_fCheckAccess
+			NStr::CStr const &_ServerPath
+			, NStr::CStr const &_ExeFsPath
+			, NFunction::TCFunction<bool (CHTTPConnection &_Connection, CHTTPRequest const &_Req)> const &_fCheckAccess
 		)
 		: mp_Path(_ServerPath)
 		, mp_ExeFsPath(_ExeFsPath)
 		, mp_fCheckAccess(_fCheckAccess)
 	{
 		if (NMib::NFile::fg_OpenExeFS(mp_ExeFs))
-		{
 			mp_pFSInterface = fg_Construct<NFile::CFileSystemInterface_VirtualFS>(mp_ExeFs.m_FileSystem);
-		}
 
 		try
 		{
@@ -44,7 +42,6 @@ namespace NMib::NWeb
 
 	CHTTPRequestHandler_ExeFs::~CHTTPRequestHandler_ExeFs()
 	{
-
 	}
 
 	// This could be called for any thread - assume nothing.
@@ -129,7 +126,7 @@ namespace NMib::NWeb
 				CMibFilePos nBytesRead;
 				while (nBytes)
 				{
-					nBytesRead = fg_Min(nBytes, 1024*1024);
+					nBytesRead = fg_Min(nBytes, 1024 * 1024);
 					pStream->f_ConsumeBytes(lBuf.f_GetArray(), nBytesRead);
 					_Connection.f_WriteBinary(lBuf.f_GetArray(), nBytesRead);
 					nBytes -= nBytesRead;
