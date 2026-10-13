@@ -76,7 +76,7 @@ namespace NMib::NWeb
 
 		using CRequestData = NStorage::TCVariant<NContainer::CByteVector, NStr::CStr, NEncoding::CEJsonSorted, NEncoding::CEJsonOrdered, NEncoding::CJsonSorted, NEncoding::CJsonOrdered>;
 
-		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {});
+		CHttpClientActor(CCertificateConfig const &_CertificateConfig = {}, fp64 _StallTimeout = 0.0);
 		~CHttpClientActor();
 
 		NConcurrency::TCFuture<CResult> f_Get

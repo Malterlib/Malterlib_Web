@@ -146,8 +146,9 @@ namespace NMib::NWeb
 
 	struct CHttpClientActor::CInternal
 	{
-		CInternal(CCertificateConfig const &_CertificateConfig)
+		CInternal(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout)
 			: m_CertificateConfig(_CertificateConfig)
+			, m_StallTimeout(_StallTimeout)
 		{
 		}
 
@@ -442,6 +443,7 @@ namespace NMib::NWeb
 		NException::CExceptionPointer m_pFailure;
 
 		CCertificateConfig m_CertificateConfig;
+		fp64 m_StallTimeout = 0.0;
 
 		TCMap<CStr, CRequest> m_Requests;
 		bool m_bStopping = false;
@@ -498,8 +500,12 @@ namespace NMib::NWeb
 			curl_multi_remove_handle(m_pActor->mp_pInternal->m_pMulti.f_Get(), m_pCurl.f_Get());
 	}
 
-	CHttpClientActor::CHttpClientActor(CCertificateConfig const &_CertificateConfig)
-		: mp_pInternal(fg_Construct(_CertificateConfig))
+	/// _StallTimeout, when not 0, fails a request that doesn't connect within that many seconds, rounded up, or that transfers less
+	/// than a byte per second on average over that long. A server that accepts a request and never answers otherwise keeps it waiting
+	/// forever, since no total timeout applies. A slow but steady transfer below that rate fails too, so pick it well above the
+	/// longest pause a server may take.
+	CHttpClientActor::CHttpClientActor(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout)
+		: mp_pInternal(fg_Construct(_CertificateConfig, _StallTimeout))
 	{
 	}
 
@@ -1009,6 +1015,14 @@ namespace NMib::NWeb
 		//fCheckResult(fg_CurlSetOpt<CURLOPT_VERBOSE>(pCurl, 1L));
 		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_NOSIGNAL>(pCurl, 1L));
 		co_await fCheckResult(fg_CurlSetOpt<CURLOPT_PRIVATE>(pCurl, &Request));
+
+		if (Internal.m_StallTimeout > 0.0)
+		{
+			long StallSeconds = fg_Max(long(Internal.m_StallTimeout.f_Ceil().f_ToInt()), 1L);
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_CONNECTTIMEOUT>(pCurl, StallSeconds));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_LOW_SPEED_LIMIT>(pCurl, 1L));
+			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_LOW_SPEED_TIME>(pCurl, StallSeconds));
+		}
 
 		for (auto &Cookie : _Request.m_Cookies.f_Entries())
 			Request.m_CookieStr += "{}={}; "_f << Cookie.f_Key() << Cookie.f_Value();
