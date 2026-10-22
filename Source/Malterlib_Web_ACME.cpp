@@ -694,7 +694,7 @@ namespace NMib::NWeb
 					co_return DMibErrorInstance("Authorization response missing 'status'");
 
 				if (pStatus->f_String() == "valid")
-					break;
+					continue;
 
 				auto Url = ResponseJson.f_GetMemberValue("url", "").f_String();
 				if (!Url)
