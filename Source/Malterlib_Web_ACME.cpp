@@ -4,6 +4,7 @@
 #include <Mib/Encoding/Json>
 #include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Cryptography/Certificate>
+#include <Mib/Cryptography/MessageAuthentication>
 #include <Mib/Web/HttpClient>
 #include <Mib/XML/XML>
 
@@ -49,6 +50,30 @@ namespace NMib::NWeb
 			return fg_Base64Encode(_Source).f_TrimRight("=").f_ReplaceChar('+', '-').f_ReplaceChar('/', '_');
 		}
 
+		CSecureByteVector fg_Base64URLDecode(CStrSecure const &_Source)
+		{
+			CStrSecure Base64 = _Source.f_Trim().f_TrimRight("=");
+
+			// The base64 decoder doesn't reject invalid input, so a mistyped key would otherwise turn into a different key without warning
+			for (ch8 const *pChar = Base64.f_GetStr(); *pChar; ++pChar)
+			{
+				ch8 Char = *pChar;
+				if (!((Char >= 'A' && Char <= 'Z') || (Char >= 'a' && Char <= 'z') || (Char >= '0' && Char <= '9') || Char == '-' || Char == '_'))
+					DMibError("Not valid base64url: unexpected character");
+			}
+
+			if (Base64.f_GetLen() % 4 == 1)
+				DMibError("Not valid base64url: wrong length");
+
+			Base64 = Base64.f_ReplaceChar('-', '+').f_ReplaceChar('_', '/');
+			while (Base64.f_GetLen() % 4)
+				Base64 += "=";
+
+			CSecureByteVector Data;
+			fg_Base64Decode(Base64, Data);
+			return Data;
+		}
+
 		CStr fg_JwkThumbPrint(CJsonSorted const &_Json)
 		{
 			CStr String = _Json.f_ToString(nullptr);
@@ -71,6 +96,85 @@ namespace NMib::NWeb
 			EDigestType m_DigestType = EDigestType_None;
 		};
 
+		CJsonSorted fg_AccountJwk(CAcmeState &_State)
+		{
+			auto KeySettings = CPublicCrypto::fs_PublicKeySettingsFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
+			auto PublicKey = CPublicCrypto::fs_GetPublicKeyFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
+			auto KeyParams = CPublicCrypto::fs_GetPublicKeyParameters(PublicKey);
+
+			CJsonSorted Jwk;
+
+			switch (KeySettings.f_GetTypeID())
+			{
+			case EPublicKeyType::mc_RSA:
+				{
+					_State.m_Algorithm = "RS256";
+					_State.m_DigestType = EDigestType_SHA256;
+
+					if (!KeyParams.f_IsOfType<CPublicCrypto::CPublicKeyParameters_RSA>())
+						DMibError("Public key and private key type do not match");
+
+					auto &RsaParams = KeyParams.f_GetAsType<CPublicCrypto::CPublicKeyParameters_RSA>();
+
+					Jwk =
+						{
+							"e"_j= fg_Base64URLEncode(RsaParams.m_Exponent)
+							, "kty"_j= "RSA"
+							, "n"_j= fg_Base64URLEncode(RsaParams.m_Modulus)
+						}
+					;
+				}
+				break;
+			case EPublicKeyType::mc_EC_secp256r1:
+			case EPublicKeyType::mc_EC_secp384r1:
+			case EPublicKeyType::mc_EC_secp521r1:
+				{
+					if (!KeyParams.f_IsOfType<CPublicCrypto::CPublicKeyParameters_EC>())
+						DMibError("Public key and private key type do not match");
+
+					auto &EcParams = KeyParams.f_GetAsType<CPublicCrypto::CPublicKeyParameters_EC>();
+
+					CStr Curve;
+					switch (KeySettings.f_GetTypeID())
+					{
+					case EPublicKeyType::mc_EC_secp256r1:
+						Curve = "P-256";
+						_State.m_Algorithm = "ES256";
+						_State.m_DigestType = EDigestType_SHA256;
+						break;
+					case EPublicKeyType::mc_EC_secp384r1:
+						Curve = "P-384";
+						_State.m_Algorithm = "ES384";
+						_State.m_DigestType = EDigestType_SHA384;
+						break;
+					case EPublicKeyType::mc_EC_secp521r1:
+						Curve = "P-521";
+						_State.m_Algorithm = "ES512";
+						_State.m_DigestType = EDigestType_SHA512;
+						break;
+					default: DMibNeverGetHere; break;
+					}
+
+					Jwk =
+						{
+							"crv"_j= Curve
+							, "kty"_j= "EC"
+							, "x"_j= fg_Base64URLEncode(EcParams.m_CoordinateX)
+							, "y"_j= fg_Base64URLEncode(EcParams.m_CoordinateY)
+						}
+					;
+				}
+				break;
+			default:
+				DMibError("Unsupported public key type. Only RSA, secp256r1, secp384r1 or secp521r1 is supported");
+				break;
+			}
+
+			_State.m_JwkThumbPrint = fg_JwkThumbPrint(Jwk);
+
+			return Jwk;
+		}
+
 		CByteVector fg_FlattenedJwsEncode(CStr const &_Url, CJsonSorted &&_Payload, CAcmeState &_State)
 		{
 			CJsonSorted JwsMessage;
@@ -80,83 +184,7 @@ namespace NMib::NWeb
 			if (_State.m_AccountLocation)
 				Protected["kid"] = _State.m_AccountLocation;
 			else
-			{
-				auto KeySettings = CPublicCrypto::fs_PublicKeySettingsFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
-				auto PublicKey = CPublicCrypto::fs_GetPublicKeyFromPrivateKey(_State.m_Dependencies.m_AccountInfo.m_AccountPrivateKey);
-				auto KeyParams = CPublicCrypto::fs_GetPublicKeyParameters(PublicKey);
-
-				CJsonSorted Jwk;
-				CStr Algorithm;
-
-				switch (KeySettings.f_GetTypeID())
-				{
-				case EPublicKeyType::mc_RSA:
-					{
-						_State.m_Algorithm = "RS256";
-						_State.m_DigestType = EDigestType_SHA256;
-
-						if (!KeyParams.f_IsOfType<CPublicCrypto::CPublicKeyParameters_RSA>())
-							DMibError("Public key and private key type do not match");
-
-						auto &RsaParams = KeyParams.f_GetAsType<CPublicCrypto::CPublicKeyParameters_RSA>();
-
-						Jwk =
-							{
-								"e"_j= fg_Base64URLEncode(RsaParams.m_Exponent)
-								, "kty"_j= "RSA"
-								, "n"_j= fg_Base64URLEncode(RsaParams.m_Modulus)
-							}
-						;
-					}
-					break;
-				case EPublicKeyType::mc_EC_secp256r1:
-				case EPublicKeyType::mc_EC_secp384r1:
-				case EPublicKeyType::mc_EC_secp521r1:
-					{
-						if (!KeyParams.f_IsOfType<CPublicCrypto::CPublicKeyParameters_EC>())
-							DMibError("Public key and private key type do not match");
-
-						auto &EcParams = KeyParams.f_GetAsType<CPublicCrypto::CPublicKeyParameters_EC>();
-
-						CStr Curve;
-						switch (KeySettings.f_GetTypeID())
-						{
-						case EPublicKeyType::mc_EC_secp256r1:
-							Curve = "P-256";
-							_State.m_Algorithm = "ES256";
-							_State.m_DigestType = EDigestType_SHA256;
-							break;
-						case EPublicKeyType::mc_EC_secp384r1:
-							Curve = "P-384";
-							_State.m_Algorithm = "ES384";
-							_State.m_DigestType = EDigestType_SHA384;
-							break;
-						case EPublicKeyType::mc_EC_secp521r1:
-							Curve = "P-521";
-							_State.m_Algorithm = "ES512";
-							_State.m_DigestType = EDigestType_SHA512;
-							break;
-						default: DMibNeverGetHere; break;
-						}
-
-						Jwk =
-							{
-								"crv"_j= Curve
-								, "kty"_j= "EC"
-								, "x"_j= fg_Base64URLEncode(EcParams.m_CoordinateX)
-								, "y"_j= fg_Base64URLEncode(EcParams.m_CoordinateY)
-							}
-						;
-					}
-					break;
-				default:
-					DMibError("Unsupported public key type. Only RSA, secp256r1, secp384r1 or secp521r1 is supported");
-					break;
-				}
-
-				_State.m_JwkThumbPrint = fg_JwkThumbPrint(Jwk);
-				Protected["jwk"] = fg_Move(Jwk);
-			}
+				Protected["jwk"] = fg_AccountJwk(_State);
 			Protected["alg"] = _State.m_Algorithm;
 			Protected["url"] = _Url;
 
@@ -186,6 +214,45 @@ namespace NMib::NWeb
 
 			CStr OutputString = JwsMessage.f_ToString(nullptr);
 			return CByteVector((uint8 const *)OutputString.f_GetStr(), OutputString.f_GetLen());
+		}
+
+		// The account key signed with the CA issued MAC key, binding the new ACME account to the CA's own account (RFC 8555 7.3.4)
+		CJsonSorted fg_ExternalAccountBinding(CStr const &_NewAccountUrl, CAcmeState &_State)
+		{
+			auto &Binding = *_State.m_Dependencies.m_AccountInfo.m_ExternalAccountBinding;
+
+			if (!Binding.m_KeyID)
+				DMibError("External account binding is missing the key ID");
+
+			CSecureByteVector HmacKey = fg_Base64URLDecode(Binding.m_HmacKey);
+			if (HmacKey.f_IsEmpty())
+				DMibError("External account binding is missing the MAC key");
+
+			CJsonSorted Protected =
+				{
+					"alg"_j= "HS256"
+					, "kid"_j= Binding.m_KeyID
+					, "url"_j= _NewAccountUrl
+				}
+			;
+
+			CStr ProtectedString = fg_Base64URLEncode(Protected.f_ToString(nullptr));
+			CStr PayloadString = fg_Base64URLEncode(fg_AccountJwk(_State).f_ToString(nullptr));
+
+			CSecureByteVector ToSign;
+			ToSign.f_Insert((uint8 const *)ProtectedString.f_GetStr(), ProtectedString.f_GetLen());
+			ToSign.f_Insert('.');
+			ToSign.f_Insert((uint8 const *)PayloadString.f_GetStr(), PayloadString.f_GetLen());
+
+			auto Signature = fg_MessageAuthenication_HMAC_SHA256(ToSign, HmacKey);
+
+			return
+				{
+					"payload"_j= PayloadString
+					, "protected"_j= ProtectedString
+					, "signature"_j= fg_Base64URLEncode(CByteVector(Signature.f_GetData(), Signature.mc_Size))
+				}
+			;
 		}
 	}
 
@@ -533,6 +600,13 @@ namespace NMib::NWeb
 		else
 			co_return DMibErrorInstance("Directory response is missing a valid 'newOrder' URL");
 
+		bool bExternalAccountRequired = false;
+		if (auto pMeta = DirectoryJson.f_GetMember("meta", EJsonType_Object))
+		{
+			if (auto pRequired = pMeta->f_GetMember("externalAccountRequired", EJsonType_Boolean))
+				bExternalAccountRequired = pRequired->f_Boolean();
+		}
+
 		{
 			CStr Nonce;
 			auto NonceResult = co_await fHead(NewNonceUrl);
@@ -548,19 +622,29 @@ namespace NMib::NWeb
 			for (auto &Email: Internal.m_Dependencies.m_AccountInfo.m_Emails)
 				EmailContacts.f_Insert("mailto:{}"_f << Email);
 
-			auto Result = co_await fPost
-				(
-					NewAccountUrl
-					,
-					{
-						"contact"_j= fg_Move(EmailContacts)
-						, "termsOfServiceAgreed"_j= true
-						, "onlyReturnExisting"_j= false
-					}
-				)
+			CJsonSorted NewAccount =
+				{
+					"contact"_j= fg_Move(EmailContacts)
+					, "termsOfServiceAgreed"_j= true
+					, "onlyReturnExisting"_j= false
+				}
 			;
+
+			if (Internal.m_Dependencies.m_AccountInfo.m_ExternalAccountBinding)
+			{
+				auto CaptureScope = co_await (g_CaptureExceptions % "Exception creating external account binding");
+				NewAccount["externalAccountBinding"] = fg_ExternalAccountBinding(NewAccountUrl, *pState);
+			}
+
+			auto Result = co_await fPost(NewAccountUrl, fg_Move(NewAccount));
 			if (Result.m_StatusCode != 200 && Result.m_StatusCode != 201)
+			{
+				// Not checked before sending: a server that requires a binding still returns an account that already exists without one
+				if (bExternalAccountRequired && !Internal.m_Dependencies.m_AccountInfo.m_ExternalAccountBinding)
+					co_return fGetError(Result, "Error creating/getting account. The ACME server requires an external account binding, and none is configured");
+
 				co_return fGetError(Result, "Error creating/getting account");
+			}
 
 			if (auto pAccountLocation = Result.m_Headers.f_FindEqual("location"))
 				pState->m_AccountLocation = *pAccountLocation;
