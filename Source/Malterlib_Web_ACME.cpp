@@ -313,7 +313,7 @@ namespace NMib::NWeb
 
 			for (mint iRetry = 0;; ++iRetry)
 			{
-				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
+				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}, {"User-Agent", _pState->m_Dependencies.m_UserAgent}};
 
 				auto Result = co_await _HttpClient.f_Bind<&CCurlActor::f_Request, EVirtualCall::mc_NotVirtual>
 					(
@@ -352,7 +352,7 @@ namespace NMib::NWeb
 					(
 						CCurlActor::EMethod_GET
 						, _Path
-						, TCMap<CStr, CStr>{}
+						, TCMap<CStr, CStr>{{"User-Agent", Internal.m_Dependencies.m_UserAgent}}
 						, CByteVector{}
 						, TCMap<CStr, CStr>{}
 					)
@@ -368,7 +368,7 @@ namespace NMib::NWeb
 					(
 						CCurlActor::EMethod_HEAD
 						, _Path
-						, TCMap<CStr, CStr>{}
+						, TCMap<CStr, CStr>{{"User-Agent", Internal.m_Dependencies.m_UserAgent}}
 						, CByteVector{}
 						, TCMap<CStr, CStr>{}
 					)
