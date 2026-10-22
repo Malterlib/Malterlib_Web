@@ -23,10 +23,17 @@ namespace NMib::NWeb
 			, EDefaultDirectory_LetsEncryptStaging
 		};
 
+		struct CExternalAccountBinding
+		{
+			NStr::CStr m_KeyID;
+			NStr::CStrSecure m_HmacKey; // Base64url encoded, as issued by the CA
+		};
+
 		struct CAccountInfo
 		{
 			NContainer::CSecureByteVector m_AccountPrivateKey;
 			NContainer::TCVector<NStr::CStr> m_Emails;
+			NStorage::TCOptional<CExternalAccountBinding> m_ExternalAccountBinding; // Required by CAs that only issue to accounts known to them (RFC 8555 7.3.4)
 		};
 
 		struct CDependencies
