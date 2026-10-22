@@ -311,7 +311,7 @@ namespace NMib::NWeb
 
 			for (umint iRetry = 0;; ++iRetry)
 			{
-				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
+				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}, {"User-Agent", _pState->m_Dependencies.m_UserAgent}};
 
 				auto Result = co_await _HttpClient.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
 					(
@@ -344,14 +344,26 @@ namespace NMib::NWeb
 		auto fGet = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Get, EVirtualCall::mc_NotVirtual>(_Path, fg_Default()).f_Call();
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Get, EVirtualCall::mc_NotVirtual>
+					(
+						_Path
+						, TCMap<CStr, CStr>{{"User-Agent", Internal.m_Dependencies.m_UserAgent}}
+					)
+					.f_Call()
+				;
 			}
 		;
 
 		auto fHead = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Head, EVirtualCall::mc_NotVirtual>(_Path, fg_Default()).f_Call();
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Head, EVirtualCall::mc_NotVirtual>
+					(
+						_Path
+						, TCMap<CStr, CStr>{{"User-Agent", Internal.m_Dependencies.m_UserAgent}}
+					)
+					.f_Call()
+				;
 			}
 		;
 
