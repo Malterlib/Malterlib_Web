@@ -728,6 +728,15 @@ namespace NMib::NWeb
 
 					if (pStatus->f_String() == "valid")
 						continue;
+
+					// Only a pending authorization can be completed. Anything else would set up a challenge that is bound to fail.
+					if (pStatus->f_String() != "pending")
+					{
+						if (auto *pError = ResponseJson.f_GetMember("error", EJsonType_Object))
+							co_return DMibErrorInstance("Authorization is '{}': {}"_f << pStatus->f_String() << fGetErrorFromJson(*pError));
+
+						co_return DMibErrorInstance("Authorization is '{}'"_f << pStatus->f_String());
+					}
 				}
 
 				CStr Identifier;
