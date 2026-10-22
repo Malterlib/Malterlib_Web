@@ -678,13 +678,13 @@ namespace NMib::NWeb
 
 			auto Result = co_await fPost(NewOrderUrl, {"identifiers"_j= fg_Move(Identifiers)});
 
+			if (Result.m_StatusCode != 201)
+				co_return fGetError(Result, "Error creating new certificate order");
+
 			if (auto pLocation = Result.m_Headers.f_FindEqual("location"))
 				OrderUrl = *pLocation;
 			else
 				co_return DMibErrorInstance("Missing location header in new order response");
-
-			if (Result.m_StatusCode != 201)
-				co_return fGetError(Result, "Error creating new certificate order");
 
 			co_await fUpdateNonce(Result);
 
