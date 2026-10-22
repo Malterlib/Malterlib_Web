@@ -284,6 +284,52 @@ namespace NMib::NWeb
 
 			return Return;
 		}
+
+		bool fg_IsBadNonce(CHttpClientActor::CResult const &_Result)
+		{
+			if (_Result.m_StatusCode != 400 || !_Result.m_Body)
+				return false;
+
+			try
+			{
+				auto ErrorObject = _Result.f_ToJson();
+				if (auto *pType = ErrorObject.f_GetMember("type", EJsonType_String))
+					return pType->f_String() == "urn:ietf:params:acme:error:badNonce";
+			}
+			catch (CException const &)
+			{
+			}
+
+			return false;
+		}
+
+		// Signs and posts a request. A server may reject a nonce at any time with badNonce. The error response carries a fresh nonce, so the request is
+		// signed again and resent (RFC 8555 6.5).
+		TCFuture<CHttpClientActor::CResult> fg_AcmePost(TCActor<CHttpClientActor> _HttpClient, TCSharedPointer<CAcmeState> _pState, CStr _Path, CJsonSorted _Payload)
+		{
+			constexpr umint c_MaxBadNonceRetries = 3;
+
+			for (umint iRetry = 0;; ++iRetry)
+			{
+				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
+
+				auto Result = co_await _HttpClient.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
+					(
+						_Path
+						, fg_Move(Headers)
+						, fg_FlattenedJwsEncode(_Path, CJsonSorted(_Payload), *_pState)
+					)
+					.f_Call()
+				;
+
+				// Without a fresh nonce a retry can't succeed, so the badNonce error is returned as is
+				auto *pNonce = Result.m_Headers.f_FindEqual("Replay-Nonce");
+				if (iRetry == c_MaxBadNonceRetries || !fg_IsBadNonce(Result) || !pNonce)
+					co_return fg_Move(Result);
+
+				_pState->m_Nonce = *pNonce;
+			}
+		}
 	}
 
 	auto CAcmeClientActor::f_RequestCertificate(CCertificateRequest _RequestCertificate) -> TCFuture<CCertificateChains>
@@ -310,37 +356,7 @@ namespace NMib::NWeb
 		;
 
 		TCSharedPointer<CAcmeState> pState = fg_Construct(Internal.m_Dependencies);
-
-		auto fPost = [this, pState](CStr const &_Path, CJsonSorted &&_Payload)
-			{
-				auto &Internal = *mp_pInternal;
-				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
-
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
-					(
-						_Path
-						, fg_Move(Headers)
-						, fg_FlattenedJwsEncode(_Path, fg_Move(_Payload), *pState)
-					)
-					.f_Call()
-				;
-			}
-		;
-		auto fPostAsGet = [this, pState](CStr const &_Path)
-			{
-				auto &Internal = *mp_pInternal;
-				TCMap<CStr, CStr> Headers = {{"Content-Type", "application/jose+json"}};
-
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Post, EVirtualCall::mc_NotVirtual>
-					(
-						_Path
-						, fg_Move(Headers)
-						, fg_FlattenedJwsEncode(_Path, {}, *pState)
-					)
-					.f_Call()
-				;
-			}
-		;
+		auto HttpClient = Internal.m_Dependencies.m_HttpClientActor;
 
 		auto fUpdateNonce = [pState](CHttpClientActor::CResult const &_Result) -> TCUnsafeFuture<void>
 			{
@@ -417,7 +433,7 @@ namespace NMib::NWeb
 
 						while (true)
 						{
-							auto Result = co_await fPostAsGet(_Url);
+							auto Result = co_await fg_AcmePost(HttpClient, pState, _Url, CJsonSorted());
 
 							if (Result.m_StatusCode != 200)
 								co_return fGetError(Result, "Error getting challenge result");
@@ -445,10 +461,22 @@ namespace NMib::NWeb
 								co_return DMibErrorInstance("{cc} is invalid"_f << _Message);
 							}
 
-							if (Stopwatch.f_GetTime() > Timeout)
+							fp64 Remaining = Timeout - Stopwatch.f_GetTime();
+							if (Remaining <= 0.0)
 								co_return DMibErrorInstance("Timed out waiting for {} to turn valid. Status is: '{}'"_f << _Message << ResponseJson);
 
-							co_await fg_Timeout(3.0);
+							// Only the delay-seconds form of Retry-After is used. An HTTP date falls back to the default delay. The delay is clamped so that
+							// a server asking for 0 isn't polled in a tight loop, and one asking for longer than the timeout is still polled once more at the
+							// deadline.
+							fp64 Delay = 3.0;
+							if (auto *pRetryAfter = Result.m_Headers.f_FindEqual("Retry-After"))
+							{
+								int64 RetryAfter = pRetryAfter->f_Trim().f_ToInt(int64(-1));
+								if (RetryAfter >= 0)
+									Delay = fg_Clamp(fp64(RetryAfter), 1.0, 30.0);
+							}
+
+							co_await fg_Timeout(fg_Min(Delay, Remaining));
 						}
 
 						co_return {};
@@ -501,10 +529,12 @@ namespace NMib::NWeb
 			for (auto &Email : Internal.m_Dependencies.m_AccountInfo.m_Emails)
 				EmailContacts.f_Insert("mailto:{}"_f << Email);
 
-			auto Result = co_await fPost
+			auto Result = co_await fg_AcmePost
 				(
-					NewAccountUrl
-					,
+					HttpClient
+					, pState
+					, NewAccountUrl
+					, CJsonSorted
 					{
 						"contact"_j= fg_Move(EmailContacts)
 						, "termsOfServiceAgreed"_j= true
@@ -545,7 +575,7 @@ namespace NMib::NWeb
 			for (auto &DnsName : _RequestCertificate.m_DnsNames)
 				Identifiers.f_Array().f_Insert(CJsonSorted{"type"_j= "dns", "value"_j= DnsName});
 
-			auto Result = co_await fPost(NewOrderUrl, {"identifiers"_j= fg_Move(Identifiers)});
+			auto Result = co_await fg_AcmePost(HttpClient, pState, NewOrderUrl, CJsonSorted{"identifiers"_j= fg_Move(Identifiers)});
 
 			if (auto pLocation = Result.m_Headers.f_FindEqual("location"))
 				OrderUrl = *pLocation;
@@ -575,7 +605,7 @@ namespace NMib::NWeb
 
 		for (auto &Url : AuthorizationUrls)
 		{
-			auto Result = co_await fPostAsGet(Url);
+			auto Result = co_await fg_AcmePost(HttpClient, pState, Url, CJsonSorted());
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error getting authorization");
 
@@ -662,7 +692,7 @@ namespace NMib::NWeb
 				co_return DMibErrorInstance("None of the challenges were successful, aborting");
 
 			{
-				auto Result = co_await fPost(SuccessfulChallengeUrl, EJsonType_Object);
+				auto Result = co_await fg_AcmePost(HttpClient, pState, SuccessfulChallengeUrl, CJsonSorted(EJsonType_Object));
 
 				if (Result.m_StatusCode != 200)
 					co_return fGetError(Result, "Error getting challenge result");
@@ -710,7 +740,14 @@ namespace NMib::NWeb
 		CStr Status;
 		CStr CertificateUrl;
 		{
-			auto Result = co_await fPost(FinalizeUrl, {"csr"_j= fg_Base64URLEncode(CCertificate::fs_ConvertToDer_CertificateSigningRequest(CertificateSigningRequest))});
+			auto Result = co_await fg_AcmePost
+				(
+					HttpClient
+					, pState
+					, FinalizeUrl
+					, CJsonSorted{"csr"_j= fg_Base64URLEncode(CCertificate::fs_ConvertToDer_CertificateSigningRequest(CertificateSigningRequest))}
+				)
+			;
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error finalizing order");
 
@@ -735,7 +772,7 @@ namespace NMib::NWeb
 			co_return DMibErrorInstance("Order response is missing 'certificate': {}"_f << OrderResponseJson);
 
 		{
-			auto Result = co_await fPostAsGet(CertificateUrl);
+			auto Result = co_await fg_AcmePost(HttpClient, pState, CertificateUrl, CJsonSorted());
 			if (Result.m_StatusCode != 200)
 				co_return fGetError(Result, "Error getting certificate");
 
@@ -796,7 +833,7 @@ namespace NMib::NWeb
 
 			for (auto &Link : AlternateLinks)
 			{
-				auto Result = co_await fPostAsGet(Link);
+				auto Result = co_await fg_AcmePost(HttpClient, pState, Link, CJsonSorted());
 				if (Result.m_StatusCode != 200)
 					co_return fGetError(Result, "Error alternate chain certificate");
 
