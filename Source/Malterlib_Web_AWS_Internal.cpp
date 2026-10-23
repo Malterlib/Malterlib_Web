@@ -56,6 +56,8 @@ namespace NMib::NWeb
 		AWSHeaders["x-amz-date"] = CurrentTimeISO8601;
 		AWSHeaders["Host"] = _URL.f_GetHost();
 		AWSHeaders["x-amz-content-sha256"] = PayloadHash;
+		if (_Credentials.m_SessionToken)
+			AWSHeaders["x-amz-security-token"] = _Credentials.m_SessionToken.f_Trim(); // Trimmed so the value sent is the value signed
 		if (!AWSHeaders.f_FindEqual("Accept"))
 			AWSHeaders["Accept"] = "application/xml";
 		if (!AWSHeaders.f_FindEqual("Content-Type"))

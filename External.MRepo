@@ -7,5 +7,8 @@
 	},
 	"../../External/pcre2": {
 		"Hash": "f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+	},
+	"../../External/pebble": {
+		"Hash": "1fcb30cabf594e047cb92432b9392bc3dfa469f7"
 	}
 }
