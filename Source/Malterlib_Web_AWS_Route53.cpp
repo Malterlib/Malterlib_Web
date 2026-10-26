@@ -145,9 +145,27 @@ namespace NMib::NWeb
 				CAwsRoute53Actor::CResourceRecordSet ReturnedEntry;
 
 				ReturnedEntry.m_Name = ResultsXML.f_GetChildValue(iNode, "Name", CStr{});
+
+				bool bKnownType = true;
+				try
 				{
-					auto CaptureScope = co_await g_CaptureExceptions;
 					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
+				}
+				catch (NException::CException const &)
+				{
+					bKnownType = false;
+				}
+
+				// A record type this client doesn't know, for example HTTPS or TLSA, can't be returned. It's never the type that was asked for, and the
+				// records are listed in name order, so it ends a list for another name or a given type. Otherwise it's skipped.
+				if (!bKnownType)
+				{
+					if ((_Params.m_Name && ReturnedEntry.m_Name != *_Params.m_Name) || _Params.m_Type)
+					{
+						bFinished = true;
+						break;
+					}
+					continue;
 				}
 
 				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "TTL"))
