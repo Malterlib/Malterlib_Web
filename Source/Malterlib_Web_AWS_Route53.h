@@ -122,7 +122,7 @@ namespace NMib::NWeb
 		};
 
 		static NStr::CStr fs_ResourceRecordTypeToStr(CAwsRoute53Actor::EResourceRecordType _Type);
-		static CAwsRoute53Actor::EResourceRecordType fs_ResourceRecordTypeFromStr(NStr::CStr const &_Type);
+		static NConcurrency::TCWrapped<CAwsRoute53Actor::EResourceRecordType> fs_ResourceRecordTypeFromStr(NStr::CStr const &_Type);
 
 		NConcurrency::TCFuture<NContainer::TCVector<CHostedZone>> f_ListHostedZonesByName(CListHostedZonesByNameParams _Params);
 		NConcurrency::TCFuture<NContainer::TCVector<CResourceRecordSet>> f_ListResourceRecordSets(NStr::CStr _HostedZoneID, CListResourceRecordSetsParams _Params);
