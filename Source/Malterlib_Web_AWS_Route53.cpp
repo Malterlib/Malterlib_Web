@@ -56,7 +56,7 @@ namespace NMib::NWeb
 		return "Unknown";
 	}
 
-	CAwsRoute53Actor::EResourceRecordType CAwsRoute53Actor::fs_ResourceRecordTypeFromStr(NStr::CStr const &_Type)
+	NConcurrency::TCWrapped<CAwsRoute53Actor::EResourceRecordType> CAwsRoute53Actor::fs_ResourceRecordTypeFromStr(NStr::CStr const &_Type)
 	{
 		if (_Type == "A")
 			return CAwsRoute53Actor::EResourceRecordType_A;
@@ -83,7 +83,7 @@ namespace NMib::NWeb
 		if (_Type == "TXT")
 			return CAwsRoute53Actor::EResourceRecordType_TXT;
 
-		DMibError("Unknown resource type: {}"_f << _Type);
+		return DMibErrorInstance("Unknown resource type: {}"_f << _Type);
 	}
 
 	auto CAwsRoute53Actor::f_ListResourceRecordSets(NStr::CStr _HostedZoneID, CListResourceRecordSetsParams _Params)
@@ -145,10 +145,22 @@ namespace NMib::NWeb
 				CAwsRoute53Actor::CResourceRecordSet ReturnedEntry;
 
 				ReturnedEntry.m_Name = ResultsXML.f_GetChildValue(iNode, "Name", CStr{});
+
+				auto Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
+
+				// A record type this client doesn't know, for example HTTPS or TLSA, can't be returned. It's never the type that was asked for, and the
+				// records are listed in name order, so it ends a list for another name or a given type. Otherwise it's skipped.
+				if (!Type)
 				{
-					auto CaptureScope = co_await g_CaptureExceptions;
-					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
+					if ((_Params.m_Name && ReturnedEntry.m_Name != *_Params.m_Name) || _Params.m_Type)
+					{
+						bFinished = true;
+						break;
+					}
+					continue;
 				}
+
+				ReturnedEntry.m_Type = *Type;
 
 				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "TTL"))
 					ReturnedEntry.m_TTL = ResultsXML.f_GetNodeInt(pValue);
