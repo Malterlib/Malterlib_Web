@@ -52,6 +52,20 @@ Repository
 	}
 }
 
+// Let's Encrypt's ACME test server, which the ACME tests run against
+%Repository "pebble"
+{
+	Repository
+	{
+		Type "External"
+		DefaultUpstreamBranch "main"
+		Remotes =+ {Name: "upstream", URL: "https://github.com/letsencrypt/pebble.git"}
+		{
+			!!MalterlibAddUpstreams true
+		}
+	}
+}
+
 Property
 {
 	CurlEnableSMTP: bool = false
@@ -298,6 +312,11 @@ Property
 		}
 
 		PrefixHeader "Test/PCH.h"->MakeAbsolute()
+
+		PreprocessorDefines =+ "DMibWebPebbleTests"
+		{
+			!!MalterlibWebEnablePebbleTests true
+		}
 	}
 	Property
 	{
@@ -310,11 +329,81 @@ Property
 
 Property
 {
+	MalterlibWebEnablePebbleTests: bool = true // User(Tests)=true: Enable the ACME tests, which run against Pebble. Requires Go (the version in External/pebble/go.mod or later)
+	MalterlibWebPebbleDirectory: string = "../../External/pebble"->MakeAbsolute()
+}
+
+// Pebble is built with the target's GOOS and GOARCH, and without cgo, so it cross-compiles like the rest of the tests
+%Target "Tool_Malterlib_Web_Pebble"
+{
+	Property
+	{
+		MalterlibPostCopyProject "Tests"
+		MalterlibPostCopyDestination "TestApps/Pebble/"
+
+		PebbleExecutable: string = `@(Target.OutputDirectory)pebble`
+		PebbleGoOS: string = PlatformFamily->SwitchWithError("Pebble: Unsupported platform", "macOS", "darwin", "Linux", "linux", "Windows", "windows")
+		PebbleGoArch: string = Architecture->SwitchWithError("Pebble: Unsupported architecture", "x64", "amd64", "x86", "386", "arm64", "arm64", "arm64e", "arm64")
+	}
+	Property
+	{
+		!!PlatformFamily "Windows"
+
+		PebbleExecutable `@(Target.OutputDirectory)pebble.exe`
+	}
+	Property
+	{
+		MalterlibPostCopySources =+ PebbleExecutable
+	}
+	Target
+	{
+		Type "Tool"
+		BaseName "Pebble"
+		Group "Helpers"
+
+		// GOTOOLCHAIN=local stops Go from downloading a newer toolchain. Dependencies are vendored, so the build needs no network.
+		CommandLine_Build `MToolCMake -E env CGO_ENABLED=0 GOTOOLCHAIN=local GOOS=@(PebbleGoOS) GOARCH=@(PebbleGoArch) `\
+			`go build -C @(MalterlibWebPebbleDirectory->fg_EscapeCommand()) -trimpath -o @(PebbleExecutable->fg_EscapeCommand()) ./cmd/pebble`
+		CommandLine_Inputs [
+			MalterlibWebPebbleDirectory->FindFilesRecursiveIn("*.go")...
+			, MalterlibWebPebbleDirectory / "go.mod"
+			, MalterlibWebPebbleDirectory / "go.sum"
+			, MalterlibWebPebbleDirectory / "vendor/modules.txt"
+		]
+		CommandLine_Outputs [PebbleExecutable]
+		CommandLine_AlwaysDirty false
+	}
+}
+
+%Group "{Test}/{Malterlib_Web}/Pebble"
+{
+	Group.HideTargets true
+
+	%Target "Tool_Malterlib_Web_Pebble"
+}
+
+Property
+{
 	!!MalterlibEnableInternalTests true
 
 	MalterlibTests =+ "Malterlib_Web"
 	MalterlibTestFiles_Malterlib_Web: [type(CEntity)] = ["Test/^*"->MakeAbsolute()]
 	MalterlibTestDependencies_Malterlib_Web: [type(CEntity)] = ["Lib_Malterlib_Web"]
+	// Building only the test target also builds and deploys Pebble
+	MalterlibTestDependencies_Malterlib_Web [
+		"Lib_Malterlib_Web"
+		, {
+			Name: "Tool_Pebble"
+			, Properties: {
+				Dependency.Target: "Tool_Malterlib_Web_Pebble"
+				, Dependency.Link: false
+				, Dependency.Stage: "Runtime"
+			}
+		}
+	]
+	{
+		!!MalterlibWebEnablePebbleTests true
+	}
 	MalterlibTestExtraGroups_Malterlib_Web: [string] = ["{Test}/{Malterlib_Web}"]
 }
 

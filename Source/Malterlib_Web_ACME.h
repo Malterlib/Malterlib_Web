@@ -23,10 +23,17 @@ namespace NMib::NWeb
 			, EDefaultDirectory_LetsEncryptStaging
 		};
 
+		struct CExternalAccountBinding
+		{
+			NStr::CStr m_KeyID;
+			NStr::CStrSecure m_HmacKey; // Base64url encoded, as issued by the CA
+		};
+
 		struct CAccountInfo
 		{
 			NContainer::CSecureByteVector m_AccountPrivateKey;
 			NContainer::TCVector<NStr::CStr> m_Emails;
+			NStorage::TCOptional<CExternalAccountBinding> m_ExternalAccountBinding; // Required by CAs that only issue to accounts known to them (RFC 8555 7.3.4)
 		};
 
 		struct CDependencies
@@ -35,6 +42,7 @@ namespace NMib::NWeb
 
 			NConcurrency::TCActor<CHttpClientActor> m_HttpClientActor;
 			NHTTP::CURL m_DirectoryURL;
+			NStr::CStr m_UserAgent = "Malterlib ACME client"; // ACME servers require a User-Agent (RFC 8555 6.1)
 
 			CAccountInfo m_AccountInfo;
 		};
