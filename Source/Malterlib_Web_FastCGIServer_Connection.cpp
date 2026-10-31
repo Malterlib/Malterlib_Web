@@ -310,6 +310,7 @@ namespace NMib::NWeb
 	{
 		// DMibTrace("Stream data\n", _Header.m_);
 
+		// malterlib-format off
 #if 0
 							   WS->App   management  stream
 
@@ -326,6 +327,7 @@ namespace NMib::NWeb
 		FCGI_STDOUT                                    x
 		FCGI_STDERR                                    x
 #endif
+		// malterlib-format on
 
 		switch (_Header.m_Type)
 		{
