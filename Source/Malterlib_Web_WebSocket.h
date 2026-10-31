@@ -519,18 +519,18 @@ namespace NMib::NWeb
 				uint16 _StartListen		// The port to listen to
 				, uint16 _nListen		// The number of ports to listen to. In consecutive order from the _StartListen port
 				, NMib::NNetwork::ENetFlag _ListenFlags
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
 				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			)
 		;
 
 		NConcurrency::TCFuture<CListenResult> f_StartListenAddress
 			(
-				NContainer::TCVector<NNetwork::CNetAddress> _AddressesToListenTo // The addresses to listen to
+				NContainer::TCVector<NNetwork::CNetAddress> _AddressesToListenTo
 				, NMib::NNetwork::ENetFlag _ListenFlags
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection	// The functor called on the actor for each new connection
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection	// The functor called on the actor for each connection attempt that failed
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
 				, CWebSocketListenSocketFactory _SocketFactory
 			)
 		;
