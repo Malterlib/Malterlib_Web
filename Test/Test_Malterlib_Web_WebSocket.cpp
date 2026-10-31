@@ -39,8 +39,13 @@ using namespace NMib::NWeb;
 namespace
 {
 	CPublicKeySetting gc_TestTestKeySetting = CPublicKeySettings_EC_secp256r1{};
-	constexpr static auto gc_CloseMessage = gc_Str<"Malterlib Web closed connection">;
-	constexpr static auto gc_CloseMessageTooLong = gc_Str<"Malterlib Web closed connection. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789">;
+	static constexpr auto gc_CloseMessage = gc_Str<"Malterlib Web closed connection">;
+	static constexpr auto gc_CloseMessageTooLong = gc_Str
+		<
+			"Malterlib Web closed connection. 01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012"
+			"3456789012345678901234567890123456789"
+		>
+	;
 	static_assert((gc_CloseMessageTooLong.m_StrData.mc_nChars - 1) > CWebSocketActor::mc_MaxCloseMessageLength);
 
 	fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
