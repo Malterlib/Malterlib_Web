@@ -29,7 +29,7 @@ namespace NMib::NWeb
 		, EWebSocketStatus_GoingAway               = 1001 /// Indicates that an endpoint is "going away", such as a server going down or a browser having navigated away from a page.
 		, EWebSocketStatus_ProtocolError           = 1002 /// Indicates that an endpoint is terminating the connection due to a protocol error.
 		, EWebSocketStatus_UnsupportedData         = 1003 /// Indicates that an endpoint is terminating the connection because it has received a type of data it cannot accept (e.g., an
-		                                                  ///	 endpoint that understands only text data MAY send this if it receives a binary message).
+		                                                  ///  endpoint that understands only text data MAY send this if it receives a binary message).
 		, EWebSocketStatus_Reserved0               = 1004 /// Reserved.  The specific meaning might be defined in the future.
 		, EWebSocketStatus_NoStatusReceived        = 1005 /// Is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.  It is designated for use
 		                                                  ///  in applications expecting a status code to indicate that no status code was actually present.
@@ -57,13 +57,13 @@ namespace NMib::NWeb
 		                                                  ///  specified in a permanent and readily available public specification.
 		, EWebSocketStatus_ReservedEnd             = 2999
 		, EWebSocketStatus_IANAStart               = 3000 /// Status codes in the range 3000-3999 are reserved for use by libraries, frameworks, and applications.  These status codes are
-		                                                  /// registered directly with IANA.  The interpretation of these codes is undefined by this protocol.
+		                                                  ///  registered directly with IANA.  The interpretation of these codes is undefined by this protocol.
 		, EWebSocketStatus_IANAEnd                 = 3999
 		, EWebSocketStatus_Timeout                 = 4000 /// Connection timed out
 		, EWebSocketStatus_Rejected                = 4001 /// Closed because you rejected the connection
 		, EWebSocketStatus_AlreadyClosed           = 4002 /// Already closed
 		, EWebSocketStatus_PrivateStart            = 4000 /// Status codes in the range 4000-4999 are reserved for private use and thus can't be registered.  Such codes can be used by
-		                                                  /// prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol.
+		                                                  ///  prior agreements between WebSocket applications.  The interpretation of these codes is undefined by this protocol.
 		, EWebSocketStatus_PrivateEnd              = 4999
 	};
 
