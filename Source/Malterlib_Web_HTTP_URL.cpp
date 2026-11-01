@@ -19,7 +19,6 @@ namespace NMib::NWeb::NHTTP
 
 	CURL::CURL()
 	{
-
 	}
 
 	CURL::CURL(NStr::CStr const &_URL)
@@ -42,14 +41,13 @@ namespace NMib::NWeb::NHTTP
 		f_Clear();
 	}
 
-
-	CURL &CURL::operator =(NStr::CStr const &_URL)
+	CURL &CURL::operator = (NStr::CStr const &_URL)
 	{
 		f_Decode(_URL);
 		return *this;
 	}
 
-	CURL &CURL::operator =(CURL const &_ToCopy)
+	CURL &CURL::operator = (CURL const &_ToCopy)
 	{
 		mp_Flags = _ToCopy.mp_Flags;
 		mp_Scheme = _ToCopy.mp_Scheme;
@@ -63,7 +61,7 @@ namespace NMib::NWeb::NHTTP
 		return *this;
 	}
 
-	CURL &CURL::operator =(CURL &&_ToMove)
+	CURL &CURL::operator = (CURL &&_ToMove)
 	{
 		mp_Flags = _ToMove.mp_Flags;
 		mp_Scheme = fg_Move(_ToMove.mp_Scheme);
@@ -171,12 +169,9 @@ namespace NMib::NWeb::NHTTP
 
 		aint iQueryMark = URL.f_Find(iAuthorityEnd, "?");
 
-		aint iFragmentMark = URL.f_Find( fg_Max(iQueryMark + 1, iAuthorityEnd), "#");
+		aint iFragmentMark = URL.f_Find(fg_Max(iQueryMark + 1, iAuthorityEnd), "#");
 
-		aint iPathEnd = (iQueryMark >= 0)
-							? iQueryMark
-							: ( (iFragmentMark >= 0) ? iFragmentMark : URLLength);
-
+		aint iPathEnd = (iQueryMark >= 0) ? iQueryMark : ((iFragmentMark >= 0) ? iFragmentMark : URLLength);
 
 		if (iColonSlashSlash >= 0)
 		{
@@ -241,7 +236,7 @@ namespace NMib::NWeb::NHTTP
 				{
 					mp_Flags |= EURLFlag_HostBrackets;
 					++iHostStartTrimmed;
-					if (URL[iHostEndTrimmed-1] == ']')
+					if (URL[iHostEndTrimmed - 1] == ']')
 						--iHostEndTrimmed;
 				}
 				if (!fs_PercentDecode(mp_Host, URL, iHostStartTrimmed, iHostEndTrimmed))
@@ -255,7 +250,7 @@ namespace NMib::NWeb::NHTTP
 		aint iCurSegmentEnd;
 		NStr::CStr PathSegment;
 
-		while ( iCurSegmentStart < iPathEnd )
+		while (iCurSegmentStart < iPathEnd)
 		{
 			iCurSegmentEnd = URL.f_Find(iCurSegmentStart, "/", iPathEnd - iCurSegmentStart);
 
@@ -264,7 +259,7 @@ namespace NMib::NWeb::NHTTP
 
 			if (!fs_PercentDecode(PathSegment, URL, iCurSegmentStart, iCurSegmentEnd))
 				return false;
-			mp_Paths.f_Insert( fg_Move(PathSegment) );
+			mp_Paths.f_Insert(fg_Move(PathSegment));
 
 			iCurSegmentStart = iCurSegmentEnd + 1;
 		}
@@ -396,9 +391,7 @@ namespace NMib::NWeb::NHTTP
 			for (auto &Entry : mp_Query)
 			{
 				if (!bFirst)
-				{
 					Output += "&";
-				}
 				else
 					bFirst = false;
 				fs_PercentEncode(Output, Entry.m_Key, nullptr, _Flags);
@@ -492,7 +485,7 @@ namespace NMib::NWeb::NHTTP
 			uint16 m_Port;
 		};
 
-		const CSchemeToPort g_SchemeToPort[] =
+		CSchemeToPort const g_SchemeToPort[] =
 			{
 				{"ws", 80}
 				, {"wss", 443}
@@ -609,7 +602,7 @@ namespace NMib::NWeb::NHTTP
 		mp_Flags |= EURLFlag_Path;
 	}
 
-	void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> && _Path)
+	void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> &&_Path)
 	{
 		mp_Paths = fg_Move(_Path);
 		mp_Flags |= EURLFlag_Path;
@@ -824,11 +817,11 @@ namespace NMib::NWeb::NHTTP
 		if (_Start > _End)
 			return false;
 
-		char const* pStart = _Str.f_GetStr() + _Start;
-		char const* pPtr = pStart;
-		char const* pEnd = _Str.f_GetStr() + _End;
+		char const *pStart = _Str.f_GetStr() + _Start;
+		char const *pPtr = pStart;
+		char const *pEnd = _Str.f_GetStr() + _End;
 
-		char const* pRunStart = pPtr;
+		char const *pRunStart = pPtr;
 
 		NStr::CStr Result;
 		char Ch0, Ch1;
@@ -841,22 +834,16 @@ namespace NMib::NWeb::NHTTP
 				if (pPtr > pRunStart)
 					Result += NStr::CStr(pRunStart, pPtr - pRunStart);
 
-				if ( (pPtr + 2) >= pEnd)
+				if ((pPtr + 2) >= pEnd)
 				{
 					// Error: No room for encoded char
 					return false;
 				}
 
-				if
-					(
-						!fg_DecodeHexChar(Ch0, pPtr[1])
-						|| !fg_DecodeHexChar(Ch1, pPtr[2])
-					)
-				{
+				if (!fg_DecodeHexChar(Ch0, pPtr[1]) || !fg_DecodeHexChar(Ch1, pPtr[2]))
 					return false; // Error: Invalid encoding chars.
-				}
 
-				char Code = ( Ch0 << 4 ) + Ch1;
+				char Code = (Ch0 << 4) + Ch1;
 
 				Result.f_AddChar(Code);
 
@@ -864,26 +851,16 @@ namespace NMib::NWeb::NHTTP
 				pRunStart = pPtr;
 			}
 			else
-			{
 				++pPtr;
-			}
 		}
 
 		if (pRunStart < pPtr)
 		{
 			// Check for the case of returning the whole string to get an implicit copy.
-			if
-				(
-					pRunStart == _Str.f_GetStr()
-					&& pPtr == (_Str.f_GetStr() + _Str.f_GetLen())
-				)
-			{
+			if (pRunStart == _Str.f_GetStr() && pPtr == (_Str.f_GetStr() + _Str.f_GetLen()))
 				Result = _Str;
-			}
 			else
-			{
 				Result += NStr::CStr(pRunStart, pPtr - pRunStart);
-			}
 		}
 
 		_oResult = fg_Move(Result);

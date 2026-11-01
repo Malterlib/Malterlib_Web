@@ -17,18 +17,18 @@ namespace NMib::NWeb
 	{
 		switch (_Method)
 		{
-			case CHttpClientActor::EMethod_GET: return "GET";
-			case CHttpClientActor::EMethod_HEAD: return "HEAD";
-			case CHttpClientActor::EMethod_POST: return "POST";
-			case CHttpClientActor::EMethod_PUT: return "PUT";
-			case CHttpClientActor::EMethod_DELETE: return "DELETE";
-			case CHttpClientActor::EMethod_PATCH: return "PATCH";
+		case CHttpClientActor::EMethod_GET: return "GET";
+		case CHttpClientActor::EMethod_HEAD: return "HEAD";
+		case CHttpClientActor::EMethod_POST: return "POST";
+		case CHttpClientActor::EMethod_PUT: return "PUT";
+		case CHttpClientActor::EMethod_DELETE: return "DELETE";
+		case CHttpClientActor::EMethod_PATCH: return "PATCH";
 		}
 
 		return "";
 	}
 
-	TCMap<CStr, CStr> fg_SignAWSRequest
+	auto fg_SignAWSRequest
 		(
 			NHTTP::CURL const &_URL
 			, CByteVector const &_Contents
@@ -38,19 +38,14 @@ namespace NMib::NWeb
 			, CStr const &_Service // https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-aws-service-namespaces
 			, bool _bTrace
 		)
+		-> TCMap<CStr, CStr>
 	{
 		NTime::CTime CurrentTime = NTime::CTime::fs_NowUTC();
 		auto CurrentDateTime = NTime::CTimeConvert{CurrentTime}.f_ExtractDateTime();
 
 		auto PayloadHash = NCryptography::CHash_SHA256::fs_DigestFromData(_Contents).f_GetString();
 		auto CurrentTimeISO8601 = fg_GetISO8601TimeStr(CurrentTime);
-		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f
-			<< CurrentDateTime.m_Year
-			<< CurrentDateTime.m_Month
-			<< CurrentDateTime.m_DayOfMonth
-			<< _Credentials.m_Region
-			<< _Service
-		;
+		CStr Scope = "{}{sf0,sj2}{sf0,sj2}/{}/{}/aws4_request"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth << _Credentials.m_Region << _Service;
 
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		AWSHeaders["x-amz-date"] = CurrentTimeISO8601;
@@ -156,7 +151,7 @@ namespace NMib::NWeb
 			NCryptography::CHashDigest_SHA256 KeyDate;
 			{
 				CStrSecure SecretStr = "AWS4" + _Credentials.m_SecretKey;
-				CStr Date ="{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
+				CStr Date = "{}{sf0,sj2}{sf0,sj2}"_f << CurrentDateTime.m_Year << CurrentDateTime.m_Month << CurrentDateTime.m_DayOfMonth;
 				NContainer::CSecureByteVector Secret((uint8 const *)SecretStr.f_GetStr(), SecretStr.f_GetLen());
 				NContainer::CSecureByteVector Data((uint8 const *)Date.f_GetStr(), Date.f_GetLen());
 				KeyDate = NCryptography::fg_MessageAuthenication_HMAC_SHA256(Data, Secret);
@@ -170,12 +165,7 @@ namespace NMib::NWeb
 		}
 
 		TCMap<CStr, CStr> Headers = AWSHeaders;
-		Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}"_f
-			<< _Credentials.m_AccessKeyID
-			<< Scope
-			<< SignedHeaders
-			<< Signature
-		;
+		Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential={}/{}, SignedHeaders={}, Signature={}"_f << _Credentials.m_AccessKeyID << Scope << SignedHeaders << Signature;
 
 		return Headers;
 	}
@@ -217,7 +207,7 @@ namespace NMib::NWeb
 		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
-	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult>> fg_DoAWSRequestXML
+	auto fg_DoAWSRequestXML
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -230,6 +220,7 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace
 		)
+		-> TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult>>
 	{
 		CByteVector Contents;
 
@@ -317,7 +308,7 @@ namespace NMib::NWeb
 		return DMibErrorInstanceAws("{} request failed with status {}: {}"_f << _pRequestDescription << _Result.m_StatusCode << _Result.m_Body, ErrorData);
 	}
 
-	TCFuture<NEncoding::CJsonSorted> fg_DoAWSRequestJson
+	auto fg_DoAWSRequestJson
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -330,6 +321,7 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace
 		)
+		-> TCFuture<NEncoding::CJsonSorted>
 	{
 		CByteVector Contents;
 
@@ -381,7 +373,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
+	auto fg_DoAWSRequestHEAD
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -392,17 +384,12 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace
 		)
+		-> TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>>
 	{
 		TCMap<CStr, CStr> AWSHeaders = _AWSHeaders;
 		TCMap<CStr, CStr> Headers = fg_SignAWSRequest(_URL, {}, CHttpClientActor::EMethod_HEAD, _Credentials, AWSHeaders, _Service, _bTrace);
 
-		auto Result = co_await _HttpClientActor
-			(
-				&CHttpClientActor::f_Head
-				, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode)
-				, Headers
-			)
-		;
+		auto Result = co_await _HttpClientActor(&CHttpClientActor::f_Head, _URL.f_Encode(NHTTP::EEncodeFlag_UpperCasePercentEncode), Headers);
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fg_ReportAWSErrorJson(Result, _Description);

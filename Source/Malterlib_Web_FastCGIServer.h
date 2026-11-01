@@ -31,17 +31,17 @@ namespace NMib::NWeb
 
 		NContainer::TCMap<NStr::CStr, NStr::CStr> const &f_GetParams();
 
-		void f_SendStdOutput(NStr::CStr const& _Output);
-		void f_SendStdError(NStr::CStr const& _Output);
+		void f_SendStdOutput(NStr::CStr const &_Output);
+		void f_SendStdError(NStr::CStr const &_Output);
 
-		void f_SendStdOutput(uint8 const* _pOutput, umint _Len);
-		void f_SendStdError(uint8 const* _pOutput, umint _Len);
+		void f_SendStdOutput(uint8 const *_pOutput, umint _Len);
+		void f_SendStdError(uint8 const *_pOutput, umint _Len);
 
 		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NContainer::CIOByteVector &&_Data);
 		NConcurrency::TCFuture<void> f_SendAsyncStdError(NContainer::CIOByteVector &&_Data);
 
-		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NStr::CStr const& _Output);
-		NConcurrency::TCFuture<void> f_SendAsyncStdError(NStr::CStr const& _Output);
+		NConcurrency::TCFuture<void> f_SendAsyncStdOutput(NStr::CStr const &_Output);
+		NConcurrency::TCFuture<void> f_SendAsyncStdError(NStr::CStr const &_Output);
 
 		void f_FinishRequest();
 		bool f_IsFinished() const;
@@ -61,20 +61,22 @@ namespace NMib::NWeb
 		CFastCGIServer();
 		~CFastCGIServer();
 
-		NConcurrency::TCFuture<void> f_StartListenAddress
+		auto f_StartListenAddress
 			(
 				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 			)
+			-> NConcurrency::TCFuture<void>
 		;
 
-		NConcurrency::TCFuture<void> f_Start
+		auto f_Start
 			(
 				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
 				, NNetwork::CNetAddress _BindAddress = NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)
 			)
+			-> NConcurrency::TCFuture<void>
 		;
 
 	private:

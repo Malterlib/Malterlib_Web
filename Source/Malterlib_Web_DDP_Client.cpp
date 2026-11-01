@@ -183,12 +183,13 @@ namespace NMib::NWeb
 		void fp_HandleUpdated(NEncoding::CEJsonSorted const &_Message);
 		void fp_HandleNoSub(NEncoding::CEJsonSorted const &_Message);
 		void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJsonSorted const &_Message, EObserveNotification _Notification);
-		uint64 fp_SendMethod
+		auto fp_SendMethod
 			(
 				NStr::CStr const &_MethodName
 				, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
 				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
 			)
+			-> uint64
 		;
 		void fp_SendLoginResumeMessage();
 		void fp_SendLoginMessage();
@@ -197,7 +198,6 @@ namespace NMib::NWeb
 
 		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
-
 
 	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetDocumentIterator() const
 	{
@@ -288,7 +288,7 @@ namespace NMib::NWeb
 	{
 	}
 
-	NConcurrency::TCFuture<CDDPClient::CConnectInfo> CDDPClient::f_Connect
+	auto CDDPClient::f_Connect
 		(
 			NStr::CStr _UserName
 			, NStr::CStrSecure _Password
@@ -297,6 +297,7 @@ namespace NMib::NWeb
 			, fp32 _Timeout
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> _fOnClose
 		)
+		-> NConcurrency::TCFuture<CDDPClient::CConnectInfo>
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -426,12 +427,13 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	NConcurrency::TCFuture<NEncoding::CEJsonSorted> CDDPClient::f_MethodWithUpdated
+	auto CDDPClient::f_MethodWithUpdated
 		(
 			NStr::CStr _MethodName
 			, NContainer::TCVector<NEncoding::CEJsonSorted> _Params
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> _fOnUpdated
 		)
+		-> NConcurrency::TCFuture<NEncoding::CEJsonSorted>
 	{
 		NConcurrency::TCPromiseFuturePair<NEncoding::CEJsonSorted> Promise;
 		auto &Internal = *mp_pInternal;
@@ -452,15 +454,15 @@ namespace NMib::NWeb
 		Internal.m_PendingMethodUpdated[MethodID] = fg_Move(_fOnUpdated);
 
 		co_return co_await fg_Move(Promise.m_Future);
-
 	}
 
-	NConcurrency::CActorSubscription CDDPClient::f_Observe
+	auto CDDPClient::f_Observe
 		(
 			NStr::CStr _CollectionName // Leave empty to observe all collections
 			, EObserveNotification _NotifyOn
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
 		)
+		-> NConcurrency::CActorSubscription
 	{
 		auto &Internal = *mp_pInternal;
 		auto &CollectionObservations = Internal.m_Observations[_CollectionName];
@@ -473,8 +475,8 @@ namespace NMib::NWeb
 
 		Observation.m_fCallback = fg_Move(_Callback);
 
-		return NConcurrency::g_ActorSubscription / [this, pDestroyed = Observation.m_pDestroyed, pObservation = &Observation, pCollectionObservations = &CollectionObservations]()
-			-> NConcurrency::TCFuture<void>
+		return NConcurrency::g_ActorSubscription / [this, pDestroyed = Observation.m_pDestroyed, pObservation = &Observation, pCollectionObservations = &CollectionObservations]
+			() -> NConcurrency::TCFuture<void>
 			{
 				if (*pDestroyed)
 					co_return {};
@@ -494,7 +496,7 @@ namespace NMib::NWeb
 		;
 	}
 
-	NConcurrency::TCFuture<NConcurrency::CActorSubscription> CDDPClient::f_Subscribe
+	auto CDDPClient::f_Subscribe
 		(
 			NStr::CStr _SubscriptionName
 			, NStr::CStr _SubscriptionID
@@ -503,6 +505,7 @@ namespace NMib::NWeb
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
 			, bool _bWaitForResponse
 		)
+		-> NConcurrency::TCFuture<NConcurrency::CActorSubscription>
 	{
 		NStr::CStr SubscriptionID = _SubscriptionID;
 
@@ -528,8 +531,8 @@ namespace NMib::NWeb
 
 		Subscription.m_fCallback = fg_Move(_Callback);
 
-		NConcurrency::CActorSubscription CleanupSubscription = NConcurrency::g_ActorSubscription / [this, pDestroyed = Subscription.m_pDestroyed, pSubscription = &Subscription]()
-			-> NConcurrency::TCFuture<void>
+		NConcurrency::CActorSubscription CleanupSubscription = NConcurrency::g_ActorSubscription / [this, pDestroyed = Subscription.m_pDestroyed, pSubscription = &Subscription]
+			() -> NConcurrency::TCFuture<void>
 			{
 				if (*pDestroyed)
 					co_return {};
@@ -633,7 +636,7 @@ namespace NMib::NWeb
 		if (m_ClientOptions & EClientOption_MaintainDatabase)
 		{
 			auto CollectionKey = pCollection->f_String();
-			auto& Collection = m_Collections[CollectionKey];
+			auto &Collection = m_Collections[CollectionKey];
 			Collection.m_Documents.f_Remove(CCollection::fs_IDParse(pID->f_String()));
 			if (Collection.m_Documents.f_IsEmpty())
 				m_Collections.f_Remove(CollectionKey);
@@ -681,9 +684,7 @@ namespace NMib::NWeb
 					}
 				}
 				else if (_Operation == EChangeOperation_Added)
-				{
 					Object = pFields->f_Object();
-				}
 			}
 		}
 		if (_Operation == EChangeOperation_Changed)
@@ -857,29 +858,17 @@ namespace NMib::NWeb
 				(*pPending)(ErrorMessage, fg_Move(Result));
 			}
 			else if (MessageType == "added")
-			{
 				fp_HandleAddedChanged(Json, EChangeOperation_Added);
-			}
 			else if (MessageType == "updated")
-			{
 				fp_HandleUpdated(Json);
-			}
 			else if (MessageType == "changed")
-			{
 				fp_HandleAddedChanged(Json, EChangeOperation_Changed);
-			}
 			else if (MessageType == "removed")
-			{
 				fp_HandleRemoved(Json);
-			}
 			else if (MessageType == "ready")
-			{
 				fp_HandleReady(Json);
-			}
 			else if (MessageType == "nosub")
-			{
 				fp_HandleNoSub(Json);
-			}
 			else if (MessageType == "ping")
 			{
 				NEncoding::CEJsonSorted Reply;
@@ -934,9 +923,7 @@ namespace NMib::NWeb
 				fp_OnError(fg_Format("Unsupported version for DDP connection. Suggested version: {}", SuggestedVersion));
 			}
 			else
-			{
 				fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
-			}
 		}
 		catch (NException::CException const &_Exception)
 		{
@@ -944,12 +931,13 @@ namespace NMib::NWeb
 		}
 	}
 
-	uint64 CDDPClient::CInternal::fp_SendMethod
+	auto CDDPClient::CInternal::fp_SendMethod
 		(
 			NStr::CStr const &_MethodName
 			, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
 			, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
 		)
+		-> uint64
 	{
 		uint64 MethodID = ++m_LastMethodID;
 
@@ -960,7 +948,7 @@ namespace NMib::NWeb
 		Message["params"] = _Params;
 		Message["id"] = NStr::CStr::fs_ToStr(MethodID);
 
-		fp_SendMessage(Message);;
+		fp_SendMessage(Message);
 
 		m_PendingMethodCalls[MethodID] = fg_Move(_fOnResult);
 

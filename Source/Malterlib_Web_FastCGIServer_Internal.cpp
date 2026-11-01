@@ -22,11 +22,12 @@ namespace NMib::NWeb
 	{
 	}
 
-	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_StartListenAddress
+	auto CFastCGIServer::CInternal::f_StartListenAddress
 		(
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 		)
+		-> NConcurrency::TCFuture<void>
 	{
 		if (mp_pOnRequest)
 			co_return DMibErrorInstance("Already started");
@@ -81,13 +82,14 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CFastCGIServer::CInternal::f_Start
+	auto CFastCGIServer::CInternal::f_Start
 		(
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 			, uint16 _FastCGIListenStartPort
 			, uint16 _nListen
 			, NNetwork::CNetAddress _BindAddress
 		)
+		-> NConcurrency::TCFuture<void>
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> Addresses;
 
@@ -138,8 +140,8 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFutureVector<void> DestroyResults;
 
-		for (auto& ListenSocket : Internal.mp_ListenSockets)
-		fg_Move(ListenSocket).f_Destroy() > DestroyResults;
+		for (auto &ListenSocket : Internal.mp_ListenSockets)
+			fg_Move(ListenSocket).f_Destroy() > DestroyResults;
 
 		Internal.mp_ListenSockets.f_Clear();
 
@@ -152,7 +154,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		co_await fg_AllDone(DestroyResults).f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");;
+		co_await fg_AllDone(DestroyResults).f_Wrap() > LogError.f_Warning("Failed to destroy fast CGI server");
 
 		co_return {};
 	}

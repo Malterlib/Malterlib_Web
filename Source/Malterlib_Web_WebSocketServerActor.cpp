@@ -103,7 +103,6 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFutureVector<void> SetSocketResults;
 		{
-
 			umint nListenTo = _AddressesToListenTo.f_GetLen();
 
 			mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
@@ -272,9 +271,7 @@ namespace NMib::NWeb
 							pSubscription->f_Clear();
 						}
 						break;
-					default:
-						DMibPDebugBreak;
-						break;
+					default: DMibPDebugBreak; break;
 					}
 
 					*pHandled = true;

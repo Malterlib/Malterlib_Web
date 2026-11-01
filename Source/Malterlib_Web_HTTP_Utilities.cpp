@@ -9,7 +9,7 @@ namespace NMib::NWeb::NHTTP
 	// Utility Methods
 	//
 
-	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const& _Source, NStr::CStr const& _Sep)
+	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const &_Source, NStr::CStr const &_Sep)
 	{
 		NContainer::TCVector<NStr::CStr> lResult;
 
@@ -35,37 +35,38 @@ namespace NMib::NWeb::NHTTP
 	// Peeks an ASCII line terminated by CRLF from _Data, starting at _iPos.
 	// On success returns true and sets _iPos to the first byte after the CRLF
 	// On failure returns false and does not alter _iPos
-	bool fg_PeekLine(NContainer::CPagedByteVector const& _Data, umint& _iPos, NStr::CStr& _oLine)
+	bool fg_PeekLine(NContainer::CPagedByteVector const &_Data, umint &_iPos, NStr::CStr &_oLine)
 	{
 		NStr::CStr Result;
-		static uint8 const CRLFCRLF[] = { '\r', '\n', '\r', '\n'};
+		static uint8 const CRLFCRLF[] = {'\r', '\n', '\r', '\n'};
 
 		umint Pos;
-		NStr::CStr::CChar* pDest = nullptr;
-		if (_Data.f_ReadFrontUntil(
-						CRLFCRLF
-					,	sizeof(CRLFCRLF)
-					,	Pos
-					,	[&](umint _iStart, uint8 const* _pPtr, umint _nBytes, umint _nTotal)
-						{
-							if (Result.f_IsEmpty())
-								pDest = Result.f_GetStr(_nTotal);
+		NStr::CStr::CChar *pDest = nullptr;
+		if
+		(
+			_Data.f_ReadFrontUntil
+			(
+				CRLFCRLF
+				, sizeof(CRLFCRLF)
+				, Pos
+				, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes, umint _nTotal)
+				{
+					if (Result.f_IsEmpty())
+						pDest = Result.f_GetStr(_nTotal);
 
-							NMemory::fg_MemCopy(pDest + _iStart, _pPtr, _nBytes);
+					NMemory::fg_MemCopy(pDest + _iStart, _pPtr, _nBytes);
 
-							return true;
-						}
-					)
+					return true;
+				}
 			)
+		)
 		{
-//			*(Result.f_GetStr() + Result.f_GetLen()) = 0;
+			// *(Result.f_GetStr() + Result.f_GetLen()) = 0;
 			_iPos = Result.f_GetLen() + sizeof(CRLFCRLF);
 			_oLine = fg_Move(Result);
 			return true;
 		}
 		else
-		{
 			return false;
-		}
 	}
 }

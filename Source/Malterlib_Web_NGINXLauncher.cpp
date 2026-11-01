@@ -6,7 +6,7 @@
 
 namespace NMib::NWeb
 {
-	CNGINXLauncher::CNGINXLauncher(NStr::CStr const& _LaunchPath, NStr::CStr const& _RootDir)
+	CNGINXLauncher::CNGINXLauncher(NStr::CStr const &_LaunchPath, NStr::CStr const &_RootDir)
 		: mp_LaunchPath(_LaunchPath)
 		, mp_RootDir(_RootDir)
 		, mp_nFastCGIListen(1)
@@ -15,9 +15,7 @@ namespace NMib::NWeb
 	{
 #ifdef DPlatformFamily_Windows
 		if (NFile::CFile::fs_GetExtension(mp_LaunchPath).f_CmpNoCase("exe") != 0)
-		{
 			mp_LaunchPath = mp_LaunchPath + ".exe";
-		}
 #endif
 	}
 
@@ -29,7 +27,7 @@ namespace NMib::NWeb
 			{
 				mp_pProcessLaunch->f_StopProcess();
 			}
-			catch (NException::CException const&)
+			catch (NException::CException const &)
 			{
 			}
 			mp_pProcessLaunch.f_Clear();
@@ -47,7 +45,7 @@ namespace NMib::NWeb
 		mp_Listen = _Port;
 	}
 
-	void CNGINXLauncher::f_SetStaticRoot(NStr::CStr const& _Root)
+	void CNGINXLauncher::f_SetStaticRoot(NStr::CStr const &_Root)
 	{
 		mp_StaticRoot = _Root;
 	}
@@ -81,7 +79,7 @@ namespace NMib::NWeb
 			Contents += "fastcgi_param  SERVER_PORT        $server_port;\n";
 			Contents += "fastcgi_param  SERVER_NAME        $server_name;\n";
 
-//				Contents += "fastcgi_index  index.php;\n";
+			// Contents += "fastcgi_index  index.php;\n";
 
 			Contents += "fastcgi_param  REDIRECT_STATUS    200;\n";
 
@@ -93,12 +91,12 @@ namespace NMib::NWeb
 
 			Contents += NStr::CStr::CFormat("daemon off;\n") << PidFile;
 #ifdef DMibDebug
-//				Contents += NStr::CStr::CFormat("master_process off;\n") << PidFile;
+			// Contents += NStr::CStr::CFormat("master_process off;\n") << PidFile;
 			Contents += NStr::CStr::CFormat("error_log logs/error.log_ debug;\n") << PidFile;
 #endif
 			Contents += NStr::CStr::CFormat("pid {};\n") << PidFile;
 //#ifdef DPlatformFamily_Windows
-//				Contents += NStr::CStr::CFormat("worker_threads {};\n") << mp_nListen;
+			// Contents += NStr::CStr::CFormat("worker_threads {};\n") << mp_nListen;
 //#else
 			Contents += NStr::CStr::CFormat("worker_processes {};\n") << mp_nFastCGIListen;
 //#endif
@@ -181,8 +179,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		LaunchParams.m_fOnOutput
-			= [](NProcess::EProcessLaunchOutputType _OutputType, NStr::CStr const &_Output)
+		LaunchParams.m_fOnOutput = [](NProcess::EProcessLaunchOutputType _OutputType, NStr::CStr const &_Output)
 			{
 				DMibLogWithCategory(Malterlib/Web/nginx, Info, "{}", _Output.f_TrimRight());
 			}

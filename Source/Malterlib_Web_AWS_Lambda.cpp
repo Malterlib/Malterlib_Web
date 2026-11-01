@@ -13,7 +13,6 @@
 #include "contrib/minizip/ioapi.h"
 #include "contrib/minizip/zip.h"
 
-
 namespace NMib::NWeb
 {
 	namespace
@@ -58,7 +57,7 @@ namespace NMib::NWeb
 			}
 
 		private:
-			static voidpf ZCALLBACK fp_fopen_func (voidpf opaque, const char* filename, int mode)
+			static voidpf ZCALLBACK fp_fopen_func(voidpf opaque, char const *filename, int mode)
 			{
 				CMiniZipAdaptor *pThis = (CMiniZipAdaptor *)opaque;
 
@@ -79,7 +78,6 @@ namespace NMib::NWeb
 
 					pNewFile->f_OpenRead(pSourceFile->f_GetStr(), pSourceFile->f_GetLen());
 					pFile = pNewFile;
-
 				}
 				else if (mode & ZLIB_FILEFUNC_MODE_CREATE)
 				{
@@ -93,13 +91,12 @@ namespace NMib::NWeb
 				return pFile;
 			}
 
-			static voidpf ZCALLBACK fp_fopen64_func (voidpf opaque, const void* filename, int mode)
+			static voidpf ZCALLBACK fp_fopen64_func(voidpf opaque, void const *filename, int mode)
 			{
-				return fp_fopen_func(opaque, (const ch8 *)filename, mode);
+				return fp_fopen_func(opaque, (ch8 const *)filename, mode);
 			}
 
-
-			static uLong ZCALLBACK fp_fread_func (voidpf opaque, voidpf stream, void* buf, uLong size)
+			static uLong ZCALLBACK fp_fread_func(voidpf opaque, voidpf stream, void *buf, uLong size)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -107,8 +104,7 @@ namespace NMib::NWeb
 				return size;
 			}
 
-
-			static uLong ZCALLBACK fp_fwrite_func (voidpf opaque, voidpf stream, const void* buf, uLong size)
+			static uLong ZCALLBACK fp_fwrite_func(voidpf opaque, voidpf stream, void const *buf, uLong size)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -116,68 +112,56 @@ namespace NMib::NWeb
 				return size;
 			}
 
-			static long ZCALLBACK fp_ftell_func (voidpf opaque, voidpf stream)
+			static long ZCALLBACK fp_ftell_func(voidpf opaque, voidpf stream)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static ZPOS64_T ZCALLBACK fp_ftell64_func (voidpf opaque, voidpf stream)
+			static ZPOS64_T ZCALLBACK fp_ftell64_func(voidpf opaque, voidpf stream)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static long ZCALLBACK fp_fseek_func (voidpf opaque, voidpf stream, uLong offset, int origin)
+			static long ZCALLBACK fp_fseek_func(voidpf opaque, voidpf stream, uLong offset, int origin)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				switch (origin)
 				{
-				case ZLIB_FILEFUNC_SEEK_CUR:
-					pFile->f_AddPosition(offset);
-					break;
-				case ZLIB_FILEFUNC_SEEK_END:
-					pFile->f_SetPositionFromEnd(offset);
-					break;
-				case ZLIB_FILEFUNC_SEEK_SET:
-					pFile->f_SetPosition(offset);
-					break;
+				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(offset); break;
+				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(offset); break;
+				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(offset); break;
 				default: return -1;
 				}
 
 				return 0;
 			}
 
-			static long ZCALLBACK fp_fseek64_func (voidpf opaque, voidpf stream, ZPOS64_T offset, int origin)
+			static long ZCALLBACK fp_fseek64_func(voidpf opaque, voidpf stream, ZPOS64_T offset, int origin)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				switch (origin)
 				{
-				case ZLIB_FILEFUNC_SEEK_CUR:
-					pFile->f_AddPosition(offset);
-					break;
-				case ZLIB_FILEFUNC_SEEK_END:
-					pFile->f_SetPositionFromEnd(offset);
-					break;
-				case ZLIB_FILEFUNC_SEEK_SET:
-					pFile->f_SetPosition(offset);
-					break;
+				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(offset); break;
+				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(offset); break;
+				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(offset); break;
 				default: return -1;
 				}
 
 				return 0;
 			}
 
-			static int ZCALLBACK fp_fclose_func (voidpf opaque, voidpf stream)
+			static int ZCALLBACK fp_fclose_func(voidpf opaque, voidpf stream)
 			{
 				return 0;
 			}
 
-			static int ZCALLBACK fp_ferror_func (voidpf opaque, voidpf stream)
+			static int ZCALLBACK fp_ferror_func(voidpf opaque, voidpf stream)
 			{
 				/* We never return errors */
 				return 0;
@@ -191,7 +175,6 @@ namespace NMib::NWeb
 
 	struct CAwsLambdaActor::CInternal : public NConcurrency::CActorInternal
 	{
-
 		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
 			: m_HttpClientActor{_HttpClientActor}
 			, m_Credentials{_Credentials}
@@ -389,9 +372,7 @@ namespace NMib::NWeb
 				{
 					auto &OutEnv = *(Config.m_EnvironmentVariables = NContainer::TCMap<NStr::CStr, NStr::CStr>{});
 					for (auto &EnvVar : pVariables->f_Object())
-					{
 						OutEnv[EnvVar.f_Name()] = EnvVar.f_Value().f_String();
-					}
 				}
 			}
 
@@ -416,12 +397,7 @@ namespace NMib::NWeb
 			return Config;
 		}
 
-		TCFuture<CFunctionInfo> f_CreateFunction
-			(
-				CStr _FunctionName
-				, CCodeBlob _CodeBlob
-				, CFunctionConfiguration _Config
-			)
+		TCFuture<CFunctionInfo> f_CreateFunction(CStr _FunctionName, CCodeBlob _CodeBlob, CFunctionConfiguration _Config)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 			CJsonSorted Request;
@@ -455,18 +431,26 @@ namespace NMib::NWeb
 			co_return fg_Move(FunctionInfo);
 		}
 
-		TCFuture<void> f_UpdateFunctionConfiguration
-			(
-				CStr _FunctionName
-				, CFunctionConfiguration _Config
-			)
+		TCFuture<void> f_UpdateFunctionConfiguration(CStr _FunctionName, CFunctionConfiguration _Config)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/configuration"_f << m_Credentials.m_Region << _FunctionName};
 			CJsonSorted Request;
 
 			fp_PopulateFunctionConfigurationRequest(Request, _Config);
 
-			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function configuration", m_HttpClientActor, 200, AWSUrl, Request, CHttpClientActor::EMethod_PUT, m_Credentials, {}, "lambda");
+			CJsonSorted Results = co_await fg_DoAWSRequestJson
+				(
+					"Update function configuration"
+					, m_HttpClientActor
+					, 200
+					, AWSUrl
+					, Request
+					, CHttpClientActor::EMethod_PUT
+					, m_Credentials
+					, {}
+					, "lambda"
+				)
+			;
 
 			CFunctionInfo FunctionInfo;
 			FunctionInfo.m_Arn = Results.f_GetMemberValue("FunctionArn", "").f_String();
@@ -476,12 +460,7 @@ namespace NMib::NWeb
 			co_return {};
 		}
 
-		TCFuture<CFunctionInfo> f_UpdateFunctionCode
-			(
-				CStr _FunctionName
-				, CCodeBlob _CodeBlob
-				, CFunctionConfiguration _Config
-			)
+		TCFuture<CFunctionInfo> f_UpdateFunctionCode(CStr _FunctionName, CCodeBlob _CodeBlob, CFunctionConfiguration _Config)
 		{
 			NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/code"_f << m_Credentials.m_Region << _FunctionName};
 			CJsonSorted Request;
@@ -589,12 +568,7 @@ namespace NMib::NWeb
 
 	CAwsLambdaActor::~CAwsLambdaActor() = default;
 
-	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction
-		(
-			CStr _FunctionName
-			, TCMap<CStr, CStr> _Files
-			, CFunctionConfiguration _Config
-		)
+	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::f_CreateOrUpdateFunction(CStr _FunctionName, TCMap<CStr, CStr> _Files, CFunctionConfiguration _Config)
 	{
 		auto &Internal = *mp_pInternal;
 

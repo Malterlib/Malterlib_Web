@@ -13,11 +13,6 @@ namespace NMib::NWeb::NWebSocketEcho
 	{
 		CDistributedAppActor::fp_BuildCommandLine(o_CommandLine);
 
-		o_CommandLine.f_SetProgramDescription
-			(
-				"Malterlib WebSocket Echo Server"
-				, "WebSocket echo server."
-			)
-		;
+		o_CommandLine.f_SetProgramDescription("Malterlib WebSocket Echo Server", "WebSocket echo server.");
 	}
 }

@@ -27,12 +27,12 @@ namespace NMib::NWeb
 
 	DMibImpErrorSpecificClassDefine(CExceptionAws, NMib::NException::CException, CAwsErrorData);
 
-#	define DMibErrorAws(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
-#	define DMibErrorInstanceAws(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
+#define DMibErrorAws(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
+#define DMibErrorInstanceAws(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NWeb::CExceptionAws, d_Description, d_Specific)
 
 	ch8 const *fg_MethodToStr(CHttpClientActor::EMethod _Method);
 
-	TCMap<CStr, CStr> fg_SignAWSRequest
+	auto fg_SignAWSRequest
 		(
 			NHTTP::CURL const &_URL
 			, CByteVector const &_Contents
@@ -42,9 +42,10 @@ namespace NMib::NWeb
 			, CStr const &_Service
 			, bool _bTrace = false
 		)
+		-> TCMap<CStr, CStr>
 	;
 
-	TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult>> fg_DoAWSRequestXML
+	auto fg_DoAWSRequestXML
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -57,9 +58,10 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace = false
 		)
+		-> TCFuture<NStorage::TCTuple<NXML::CXMLDocument, CHttpClientActor::CResult>>
 	;
 
-	TCFuture<NEncoding::CJsonSorted> fg_DoAWSRequestJson
+	auto fg_DoAWSRequestJson
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -72,9 +74,10 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace = false
 		)
+		-> TCFuture<NEncoding::CJsonSorted>
 	;
 
-	TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> fg_DoAWSRequestHEAD
+	auto fg_DoAWSRequestHEAD
 		(
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
@@ -85,6 +88,7 @@ namespace NMib::NWeb
 			, CStr _Service
 			, bool _bTrace = false
 		)
+		-> TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>>
 	;
 }
 

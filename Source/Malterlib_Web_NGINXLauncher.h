@@ -11,12 +11,12 @@ namespace NMib::NWeb
 	class CNGINXLauncher
 	{
 	public:
-		CNGINXLauncher(NStr::CStr const& _LaunchPath, NStr::CStr const& _RootDir);
+		CNGINXLauncher(NStr::CStr const &_LaunchPath, NStr::CStr const &_RootDir);
 		~CNGINXLauncher();
 
 		void f_SetFastCGIListen(uint16 _StartPort, uint16 _nListen);
 		void f_SetListen(uint16 _Poth);
-		void f_SetStaticRoot(NStr::CStr const& _Root);
+		void f_SetStaticRoot(NStr::CStr const &_Root);
 		void f_Launch();
 
 	private:
@@ -31,5 +31,5 @@ namespace NMib::NWeb
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb;
+using namespace NMib::NWeb;
 #endif

@@ -16,11 +16,7 @@ namespace NMib::NWeb
 		using CActorHolder = NConcurrency::CSeparateThreadActorHolder;
 		using FCheckAccess = NConcurrency::TCActorFunctorWeak
 			<
-				NConcurrency::TCFuture<bool>
-				(
-					NStorage::TCSharedPointer<CHTTPConnection> _pConnection
-					, NStorage::TCSharedPointer<CHTTPRequest> _pRequest
-				)
+				NConcurrency::TCFuture<bool> (NStorage::TCSharedPointer<CHTTPConnection> _pConnection, NStorage::TCSharedPointer<CHTTPRequest> _pRequest)
 			>
 		;
 

@@ -149,9 +149,7 @@ namespace NMib::NWeb
 						;
 					}
 					break;
-				default:
-					DMibError("Unsupported public key type. Only RSA, secp256r1, secp384r1 or secp521r1 is supported");
-					break;
+				default: DMibError("Unsupported public key type. Only RSA, secp256r1, secp384r1 or secp521r1 is supported"); break;
 				}
 
 				_State.m_JwkThumbPrint = fg_JwkThumbPrint(Jwk);
@@ -300,26 +298,14 @@ namespace NMib::NWeb
 		auto fGet = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Get, EVirtualCall::mc_NotVirtual>
-					(
-						_Path
-						, fg_Default()
-					)
-					.f_Call()
-				;
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Get, EVirtualCall::mc_NotVirtual>(_Path, fg_Default()).f_Call();
 			}
 		;
 
 		auto fHead = [this](CStr const &_Path)
 			{
 				auto &Internal = *mp_pInternal;
-				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Head, EVirtualCall::mc_NotVirtual>
-					(
-						_Path
-						, fg_Default()
-					)
-					.f_Call()
-				;
+				return Internal.m_Dependencies.m_HttpClientActor.f_Bind<&CHttpClientActor::f_Head, EVirtualCall::mc_NotVirtual>(_Path, fg_Default()).f_Call();
 			}
 		;
 
@@ -512,7 +498,7 @@ namespace NMib::NWeb
 		{
 			CJsonSorted EmailContacts = EJsonType_Array;
 
-			for (auto &Email: Internal.m_Dependencies.m_AccountInfo.m_Emails)
+			for (auto &Email : Internal.m_Dependencies.m_AccountInfo.m_Emails)
 				EmailContacts.f_Insert("mailto:{}"_f << Email);
 
 			auto Result = co_await fPost
@@ -738,7 +724,6 @@ namespace NMib::NWeb
 					Status = pStatus->f_String();
 				else
 					co_return DMibErrorInstance("Finalize order response is missing 'status'");
-
 			}
 		}
 
@@ -748,7 +733,6 @@ namespace NMib::NWeb
 			CertificateUrl = pCertificate->f_String();
 		else
 			co_return DMibErrorInstance("Order response is missing 'certificate': {}"_f << OrderResponseJson);
-
 
 		{
 			auto Result = co_await fPostAsGet(CertificateUrl);

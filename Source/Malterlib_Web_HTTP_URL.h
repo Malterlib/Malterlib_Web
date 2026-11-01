@@ -8,25 +8,25 @@ namespace NMib::NWeb::NHTTP
 {
 	enum EURLFlag
 	{
-		EURLFlag_None = 0
-		, EURLFlag_Valid = DMibBit(0)
-		, EURLFlag_Scheme = DMibBit(1)
-		, EURLFlag_Host = DMibBit(2)
-		, EURLFlag_Port = DMibBit(3)
-		, EURLFlag_Username = DMibBit(4)
-		, EURLFlag_Password = DMibBit(5)
-		, EURLFlag_Path = DMibBit(6)
-		, EURLFlag_Query = DMibBit(7)
-		, EURLFlag_Fragment = DMibBit(8)
+		EURLFlag_None           = 0
+		, EURLFlag_Valid        = DMibBit(0)
+		, EURLFlag_Scheme       = DMibBit(1)
+		, EURLFlag_Host         = DMibBit(2)
+		, EURLFlag_Port         = DMibBit(3)
+		, EURLFlag_Username     = DMibBit(4)
+		, EURLFlag_Password     = DMibBit(5)
+		, EURLFlag_Path         = DMibBit(6)
+		, EURLFlag_Query        = DMibBit(7)
+		, EURLFlag_Fragment     = DMibBit(8)
 		, EURLFlag_HostBrackets = DMibBit(9)
-		, EURLFlag_HostRaw = DMibBit(10)
+		, EURLFlag_HostRaw      = DMibBit(10)
 	};
 
 	enum EEncodeFlag
 	{
-		EEncodeFlag_None = 0
+		EEncodeFlag_None                     = 0
 		, EEncodeFlag_UpperCasePercentEncode = DMibBit(0)
-		, EEncodeFlag_DoublePercentEncode = DMibBit(1)
+		, EEncodeFlag_DoublePercentEncode    = DMibBit(1)
 	};
 
 	/*
@@ -84,9 +84,9 @@ namespace NMib::NWeb::NHTTP
 		CURL(CURL &&_ToMove);
 		~CURL();
 
-		CURL &operator =(NStr::CStr const &_URL);
-		CURL &operator =(CURL const &_ToCopy);
-		CURL &operator =(CURL &&_ToMove);
+		CURL &operator = (NStr::CStr const &_URL);
+		CURL &operator = (CURL const &_ToCopy);
+		CURL &operator = (CURL &&_ToMove);
 
 		auto operator <=> (CURL const &_Right) const noexcept = default;
 
@@ -138,7 +138,7 @@ namespace NMib::NWeb::NHTTP
 		void f_SetUsername(NStr::CStr const &_Username);
 		void f_SetPassword(NStr::CStr const &_Password);
 		void f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path);
-		void f_SetPath(NContainer::TCVector<NStr::CStr>  &&_Path);
+		void f_SetPath(NContainer::TCVector<NStr::CStr> &&_Path);
 		void f_AppendPath(NContainer::TCVector<NStr::CStr> const &_Path);
 		void f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query);
 		void f_AddQueryEntry(CQueryEntry const &_QueryEntry);
@@ -178,7 +178,7 @@ namespace NMib::NWeb::NHTTP
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb::NHTTP;
+using namespace NMib::NWeb::NHTTP;
 #endif
 
 #include "Malterlib_Web_HTTP_URL.hpp"

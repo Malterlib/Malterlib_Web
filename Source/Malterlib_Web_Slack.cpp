@@ -30,7 +30,6 @@ namespace NMib::NWeb
 
 	CSlackActor::~CSlackActor() = default;
 
-
 	CStr CSlackActor::CMessage::fs_EscapeString(CStr const &_String)
 	{
 		CUStr UnicodeString = _String;
@@ -50,9 +49,7 @@ namespace NMib::NWeb
 				OutString.f_AddChar(*pParse);
 				OutString.f_AddChar(0x0C);
 				break;
-			default:
-				OutString.f_AddChar(*pParse);
-				break;
+			default: OutString.f_AddChar(*pParse); break;
 			}
 		}
 
@@ -179,14 +176,7 @@ namespace NMib::NWeb
 		TCMap<CStr, CStr> Headers;
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
 
-		auto Result = co_await Internal.m_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, "https://slack.com/api/chat.postMessage"
-				, fg_Move(Headers)
-				, fg_Move(SlackMessage)
-			)
-		;
+		auto Result = co_await Internal.m_HttpClientActor(&CHttpClientActor::f_Post, "https://slack.com/api/chat.postMessage", fg_Move(Headers), fg_Move(SlackMessage));
 
 		if (Result.m_StatusCode != 200)
 			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);
@@ -216,14 +206,7 @@ namespace NMib::NWeb
 		TCMap<CStr, CStr> Headers;
 		Headers["Authorization"] = "Bearer {}"_f << _Token;
 
-		auto Result = co_await Internal.m_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, "https://slack.com/api/chat.update"
-				, fg_Move(Headers)
-				, fg_Move(SlackMessage)
-			)
-		;
+		auto Result = co_await Internal.m_HttpClientActor(&CHttpClientActor::f_Post, "https://slack.com/api/chat.update", fg_Move(Headers), fg_Move(SlackMessage));
 
 		if (Result.m_StatusCode != 200)
 			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);
@@ -248,14 +231,7 @@ namespace NMib::NWeb
 
 		CEJsonSorted SlackMessage = fg_MessageToJson(_Message);
 
-		auto Result = co_await Internal.m_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, _IncomingWebhook.f_Encode()
-				, TCMap<CStr, CStr>{}
-				, fg_Move(SlackMessage)
-			)
-		;
+		auto Result = co_await Internal.m_HttpClientActor(&CHttpClientActor::f_Post, _IncomingWebhook.f_Encode(), TCMap<CStr, CStr>{}, fg_Move(SlackMessage));
 
 		if (Result.m_StatusCode != 200)
 			co_return DMibErrorInstance("Slack request failed with status {}: {}"_f << Result.m_StatusCode << Result.m_Body);

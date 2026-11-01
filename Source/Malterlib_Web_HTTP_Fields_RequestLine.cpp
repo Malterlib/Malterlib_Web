@@ -10,12 +10,10 @@ namespace NMib::NWeb::NHTTP
 		: mp_Method(EMethod_Unknown)
 		, mp_Version(EVersion_Unknown)
 	{
-
 	}
 
 	CRequestLine::~CRequestLine()
 	{
-
 	}
 
 	void CRequestLine::f_Clear()
@@ -25,7 +23,7 @@ namespace NMib::NWeb::NHTTP
 		mp_URI.f_Clear();
 	}
 
-	EParse CRequestLine::f_Parse(NStr::CStr const& _RequestLine, NStr::CStr& _oErrors)
+	EParse CRequestLine::f_Parse(NStr::CStr const &_RequestLine, NStr::CStr &_oErrors)
 	{
 		NContainer::TCVector<NStr::CStr> lReqParts = fg_SplitStringOn(_RequestLine, " ");
 
@@ -69,16 +67,9 @@ namespace NMib::NWeb::NHTTP
 
 	void CRequestLine::f_Write(COutputMethod const &_fOutput)
 	{
-		NStr::CStr Line = NStr::fg_Format
-			(
-				"{} {} {}\r\n"
-				, fg_HTTP_GetMethodName(mp_Method)
-				, mp_URI.f_Encode()
-				, fg_HTTP_GetVersionName(mp_Version)
-			)
-		;
+		NStr::CStr Line = NStr::fg_Format("{} {} {}\r\n", fg_HTTP_GetMethodName(mp_Method), mp_URI.f_Encode(), fg_HTTP_GetVersionName(mp_Version));
 
-		_fOutput((uint8 const*)Line.f_GetStr(), Line.f_GetLen());
+		_fOutput((uint8 const *)Line.f_GetStr(), Line.f_GetLen());
 	}
 
 	EMethod CRequestLine::f_GetMethod() const
@@ -86,7 +77,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Method;
 	}
 
-	CURL const& CRequestLine::f_GetURI() const
+	CURL const &CRequestLine::f_GetURI() const
 	{
 		return mp_URI;
 	}

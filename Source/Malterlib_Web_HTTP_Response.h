@@ -11,8 +11,8 @@ namespace NMib::NWeb::NHTTP
 {
 	enum EResponseStatus
 	{
-		EResponseStatus_Empty			// The request has been created but not parsed.
-		, EResponseStatus_InProgress	// The request has parsing in progress,
+		EResponseStatus_Empty        // The request has been created but not parsed.
+		, EResponseStatus_InProgress // The request has parsing in progress,
 		, EResponseStatus_Invalid
 		, EResponseStatus_Complete
 	};
@@ -24,14 +24,15 @@ namespace NMib::NWeb::NHTTP
 	class CResponseStage
 	{
 		CResponseStage(CResponseStage const &) = delete;
-		CResponseStage& operator =(CResponseStage const &) = delete;
-		CResponseStage& operator =(CResponseStage &&) = delete;
+		CResponseStage &operator = (CResponseStage const &) = delete;
+		CResponseStage &operator = (CResponseStage &&) = delete;
+
 	protected:
 		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
 
 	public:
 		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> _pD);
-		CResponseStage(CResponseStage&& _ToMove);
+		CResponseStage(CResponseStage &&_ToMove);
 		CResponseStage();
 		~CResponseStage();
 
@@ -55,7 +56,7 @@ namespace NMib::NWeb::NHTTP
 		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> _pD);
 		~CResponseTrailer();
 
-		void f_AddField(NStr::CStr const& _Name, NStr::CStr const& _Value);
+		void f_AddField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 		void f_Complete();
 	};
@@ -86,8 +87,9 @@ namespace NMib::NWeb::NHTTP
 	class CResponseHeader : public CResponseStage
 	{
 		CResponseHeader(CResponseHeader const &) = delete;
-		CResponseHeader& operator =(CResponseHeader const &) = delete;
-		CResponseHeader& operator =(CResponseHeader &&) = delete;
+		CResponseHeader &operator = (CResponseHeader const &) = delete;
+		CResponseHeader &operator = (CResponseHeader &&) = delete;
+
 	public:
 		CResponseHeader(CResponseHeader &&_ToMove);
 		CResponseHeader(COutputMethod &&_OutputMethod);
@@ -107,10 +109,10 @@ namespace NMib::NWeb::NHTTP
 
 		CResponseContent f_Complete();
 
-		EResponseStatus f_Parse(NContainer::CPagedByteVector& _Data);
+		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
 	};
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb::NHTTP;
+using namespace NMib::NWeb::NHTTP;
 #endif

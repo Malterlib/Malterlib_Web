@@ -86,8 +86,7 @@ namespace NMib::NWeb
 		DMibError("Unknown resource type: {}"_f << _Type);
 	}
 
-	auto CAwsRoute53Actor::f_ListResourceRecordSets(NStr::CStr _HostedZoneID, CListResourceRecordSetsParams _Params)
-		-> NConcurrency::TCFuture<NContainer::TCVector<CResourceRecordSet>>
+	auto CAwsRoute53Actor::f_ListResourceRecordSets(NStr::CStr _HostedZoneID, CListResourceRecordSetsParams _Params) -> NConcurrency::TCFuture<NContainer::TCVector<CResourceRecordSet>>
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -223,7 +222,6 @@ namespace NMib::NWeb
 					bFinished = true;
 					break;
 				}
-
 			}
 
 			if (bFinished)
@@ -245,7 +243,6 @@ namespace NMib::NWeb
 			}
 			else
 				break;
-
 		}
 
 		co_return fg_Move(Return);
@@ -510,18 +507,7 @@ namespace NMib::NWeb
 			// GET /2013-04-01/change/Id HTTP/1.1
 			NHTTP::CURL AWSUrl = CStr("{}/change/{}"_f << gc_Route53ApiUrl << Id);
 
-			auto Results = co_await fg_DoAWSRequestXML
-				(
-					"Get change status"
-					, Internal.m_HttpClientActor
-					, 200
-					, AWSUrl
-					, {}
-					, CHttpClientActor::EMethod_GET
-					, Internal.m_Credentials
-					, {}
-					, "route53"
-				)
+			auto Results = co_await fg_DoAWSRequestXML("Get change status", Internal.m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, Internal.m_Credentials, {}, "route53")
 				.f_Wrap()
 			;
 

@@ -35,7 +35,6 @@ namespace NMib::NWeb
 	{
 	}
 
-
 	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory)
 		: m_Factory(fg_Move(_Factory))
 	{
@@ -46,10 +45,7 @@ namespace NMib::NWeb
 	{
 	}
 
-	auto CWebSocketListenSocketFactory::fs_PerAddress
-		(
-			NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector
-		)
+	auto CWebSocketListenSocketFactory::fs_PerAddress(NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector)
 		-> CWebSocketListenSocketFactory
 	{
 		CWebSocketListenSocketFactory Return;
@@ -82,24 +78,30 @@ namespace NMib::NWeb
 			mp_Connection.f_Bind<&CWebSocketActor::fp_RejectServerConnection>(_Error, fg_Move(_ResponseHeader), NStr::CStr()).f_DiscardResult();
 	}
 
-	CWebSocketNewServerConnection::CWebSocketNewServerConnection(CWebSocketActor::CConnectionInfo &&_ConnectionInfo, NContainer::TCVector<NStr::CStr> &&_Protocols, NConcurrency::TCActor<CWebSocketActor> const &_Connection)
+	CWebSocketNewServerConnection::CWebSocketNewServerConnection
+		(
+			CWebSocketActor::CConnectionInfo &&_ConnectionInfo
+			, NContainer::TCVector<NStr::CStr> &&_Protocols
+			, NConcurrency::TCActor<CWebSocketActor> const &_Connection
+		)
 		: CWebSocketNewConnection(_Connection, _ConnectionInfo.m_FragmentationSize, _ConnectionInfo.m_MaxFragmentSize)
 		, m_Info(fg_Move(_ConnectionInfo))
 		, m_Protocols(fg_Move(_Protocols))
 		, mp_pHelper(fg_Construct(_Connection))
 	{
-
 	}
 
 	CWebSocketNewServerConnection::CRepliedHelper::CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection)
 		: m_Connection(_Connection)
 	{
 	}
+
 	CWebSocketNewServerConnection::CRepliedHelper::~CRepliedHelper()
 	{
 		if (!m_bRepliedToConnection.f_Exchange(true))
 			m_Connection.f_Bind<&CWebSocketActor::fp_RejectServerConnection>("Abandoned", NHTTP::CResponseHeader(), NStr::CStr()).f_DiscardResult();
 	}
+
 	CWebSocketNewServerConnection::~CWebSocketNewServerConnection()
 	{
 		mp_pHelper.f_Clear();

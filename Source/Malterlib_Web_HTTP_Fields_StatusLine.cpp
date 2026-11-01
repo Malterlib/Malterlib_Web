@@ -11,12 +11,10 @@ namespace NMib::NWeb::NHTTP
 		: mp_Version(EVersion_Unknown)
 		, mp_Status(EStatus_Unknown)
 	{
-
 	}
 
 	CStatusLine::~CStatusLine()
 	{
-
 	}
 
 	void CStatusLine::f_Clear()
@@ -26,12 +24,12 @@ namespace NMib::NWeb::NHTTP
 		mp_ReasonPhrase.f_Clear();
 	}
 
-	EParse CStatusLine::f_Parse(NStr::CStr const& _StatusLine, NStr::CStr& _oErrors)
+	EParse CStatusLine::f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &_oErrors)
 	{
 		NContainer::TCVector<NStr::CStr> lReqParts;
 		lReqParts.f_SetLen(3);
 
-		NStr::CStr::CParse Parse("{} {} {}");;
+		NStr::CStr::CParse Parse("{} {} {}");
 		Parse >> lReqParts[0];
 		Parse >> lReqParts[1];
 		Parse >> lReqParts[2];
@@ -84,7 +82,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Status;
 	}
 
-	NStr::CStr const& CStatusLine::f_GetReasonPhrase() const
+	NStr::CStr const &CStatusLine::f_GetReasonPhrase() const
 	{
 		return mp_ReasonPhrase;
 	}
@@ -101,15 +99,8 @@ namespace NMib::NWeb::NHTTP
 
 	void CStatusLine::f_Write(COutputMethod const &_fOutput)
 	{
-		NStr::CStr Line = NStr::fg_Format
-			(
-				"{} {} {}\r\n"
-				, fg_HTTP_GetVersionName(mp_Version)
-				, (uint32)mp_Status
-				, mp_ReasonPhrase
-			)
-		;
+		NStr::CStr Line = NStr::fg_Format("{} {} {}\r\n", fg_HTTP_GetVersionName(mp_Version), (uint32)mp_Status, mp_ReasonPhrase);
 
-		_fOutput((uint8 const*)Line.f_GetStr(), Line.f_GetLen());
+		_fOutput((uint8 const *)Line.f_GetStr(), Line.f_GetLen());
 	}
 }

@@ -268,8 +268,7 @@ public:
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-								(TCAsyncResult<CActorSubscription> &&_Callback)
+								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback && !*pDeleted)
@@ -398,15 +397,10 @@ public:
 				if (pState->m_bClientConnectionResult)
 				{
 					if
-						(
-							!pState->m_ClientSocket
-							&&
-							(
-								pState->m_bAcceptError
-								|| !pState->m_ServerConnections.f_IsEmpty()
-								|| (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty())
-							)
-						)
+					(
+						!pState->m_ClientSocket
+						&& (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty()))
+					)
 					{
 						break; // Client connection failed
 					}
@@ -505,8 +499,7 @@ public:
 				CNetAddress ListenAddress = Address;
 
 				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup
-					= g_OnScopeExit / [&]
+				auto Cleanup = g_OnScopeExit / [&]
 					{
 						pState->f_Clear(RunLoopHelper.m_pRunLoop);
 					}
@@ -576,31 +569,20 @@ public:
 				ListenAddress = CSocket::fs_ResolveAddress(_Address);
 			{
 				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup
-					= g_OnScopeExit / [&]
+				auto Cleanup = g_OnScopeExit / [&]
 					{
 						pState->f_Clear(RunLoopHelper.m_pRunLoop);
 					}
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor
-					(
-						&CWebSocketServerActor::f_SetDefaultFragmentationSize
-						, m_CurrentFragmentationSize
-						, CWebsocketSettings::mc_DefaultMaxFragmentSize
-					)
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor
-					(
-						&CWebSocketClientActor::f_SetDefaultFragmentationSize
-						, m_CurrentFragmentationSize
-						, CWebsocketSettings::mc_DefaultMaxFragmentSize
-					)
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
@@ -693,7 +675,6 @@ public:
 					DMibTest(!DMibExpr(bTimedOut));
 					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, ExpectedCloseMessage);
 					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, ExpectedCloseMessage);
-
 				}
 			}
 
@@ -704,32 +685,21 @@ public:
 				// The timer pings every half timeout, so a healthy connection times out when a loaded runner delays both peers' timers that long
 				fp64 Timeout = (bTimerDrivenKeepalive ? 4.0 : 5.0) * gc_TimeoutMultiplier;
 				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup
-					= g_OnScopeExit / [&]
+				auto Cleanup = g_OnScopeExit / [&]
 					{
 						pState->f_Clear(RunLoopHelper.m_pRunLoop);
 					}
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor
-					(
-						&CWebSocketServerActor::f_SetDefaultFragmentationSize
-						, m_CurrentFragmentationSize
-						, CWebsocketSettings::mc_DefaultMaxFragmentSize
-					)
+				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor
-					(
-						&CWebSocketClientActor::f_SetDefaultFragmentationSize
-						, m_CurrentFragmentationSize
-						, CWebsocketSettings::mc_DefaultMaxFragmentSize
-					)
+				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
@@ -1047,7 +1017,14 @@ public:
 						ClientOptions.m_KeySetting = gc_TestTestKeySetting;
 
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+						CCertificate::fs_SignClientCertificate
+							(
+								ServerSettings.m_PublicCertificateData
+								, ServerSettings.m_PrivateKeyData
+								, CertificateRequestData
+								, ClientSettings.m_PublicCertificateData
+							)
+						;
 
 						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
@@ -1086,7 +1063,14 @@ public:
 
 						CByteVector CertificateRequestData;
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate(ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+						CCertificate::fs_SignClientCertificate
+							(
+								ServerSettings.m_PublicCertificateData
+								, ServerSettings.m_PrivateKeyData
+								, CertificateRequestData
+								, ClientSettings.m_PublicCertificateData
+							)
+						;
 
 						CSSLSettings ClientSettings2;
 						ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
@@ -1098,7 +1082,14 @@ public:
 
 						CByteVector CertificateRequestData2;
 						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate(ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData, CertificateRequestData2, ClientSettings2.m_PublicCertificateData);
+						CCertificate::fs_SignClientCertificate
+							(
+								ClientSettings.m_PublicCertificateData
+								, ClientSettings.m_PrivateKeyData
+								, CertificateRequestData2
+								, ClientSettings2.m_PublicCertificateData
+							)
+						;
 
 						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
 
@@ -1469,9 +1460,9 @@ public:
 		CStr m_ServerConnectionCloseMessage;
 
 		// Extended tracking for priority tests
-		TCVector<CStr> m_Messages;  // Messages in receive order
+		TCVector<CStr> m_Messages;      // Messages in receive order
 		TCVector<CStr> m_ServerMessages;
-		TCVector<umint> m_PongReceived;  // Track pong receipts
+		TCVector<umint> m_PongReceived; // Track pong receipts
 		bool m_bProtocolError = false;
 
 		bool m_bCleared = false;
@@ -1567,8 +1558,7 @@ public:
 						pServerConnection->m_Actor = ConnectionInfo.f_Accept
 							(
 								Protocol
-								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-								(TCAsyncResult<CActorSubscription> &&_Callback)
+								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
 								{
 									DMibLock(pState->m_Lock);
 									if (_Callback && !*pDeleted)
@@ -1746,23 +1736,13 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor
-			(
-				&CWebSocketServerActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor
-			(
-				&CWebSocketClientActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
@@ -1944,23 +1924,13 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor
-			(
-				&CWebSocketServerActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor
-			(
-				&CWebSocketClientActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
@@ -2146,23 +2116,13 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor
-			(
-				&CWebSocketServerActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor
-			(
-				&CWebSocketClientActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
@@ -2224,23 +2184,13 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor
-			(
-				&CWebSocketServerActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor
-			(
-				&CWebSocketClientActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
@@ -2301,23 +2251,13 @@ public:
 		ListenAddress.m_Port = 0;
 
 		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor
-			(
-				&CWebSocketServerActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
 
 		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor
-			(
-				&CWebSocketClientActor::f_SetDefaultFragmentationSize
-				, _FragmentationSize
-				, CWebsocketSettings::mc_DefaultMaxFragmentSize
-			)
+		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 		;
 		pState->f_Connect(ListenPort, _FragmentationSize);
@@ -2895,10 +2835,7 @@ public:
 			DMibExpect(pState->m_ServerLingerError, ==, "");
 
 			// The queued linger can run after drain and hangup finish; already-closed is a valid outcome.
-			bool bLingerStatusExpected
-				= pState->m_ServerLingerStatus == EWebSocketStatus_NormalClosure
-				|| pState->m_ServerLingerStatus == EWebSocketStatus_AlreadyClosed
-			;
+			bool bLingerStatusExpected = pState->m_ServerLingerStatus == EWebSocketStatus_NormalClosure || pState->m_ServerLingerStatus == EWebSocketStatus_AlreadyClosed;
 			DMibExpectTrue(bLingerStatusExpected);
 			DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_NormalClosure);
 			DMibExpect(pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
@@ -3140,7 +3077,8 @@ public:
 					;
 
 					TCPromise<void> ClosedPromise;
-					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise]
+						(EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);

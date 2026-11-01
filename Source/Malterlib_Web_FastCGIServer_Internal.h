@@ -16,20 +16,22 @@ namespace NMib::NWeb
 		CInternal(CFastCGIServer *_pThis);
 		~CInternal();
 
-		NConcurrency::TCFuture<void> f_Start
+		auto f_Start
 			(
 				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, uint16 _FastCGIListenStartPort
 				, uint16 _nListen
 				, NNetwork::CNetAddress _BindAddress
 			)
+			-> NConcurrency::TCFuture<void>
 		;
 
-		NConcurrency::TCFuture<void> f_StartListenAddress
+		auto f_StartListenAddress
 			(
 				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)> _fOnRequest
 				, NContainer::TCVector<NNetwork::CNetAddress> _Addresses
 			)
+			-> NConcurrency::TCFuture<void>
 		;
 
 		void f_Construct();

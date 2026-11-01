@@ -11,92 +11,85 @@ namespace NMib::NWeb::NHTTP
 
 	CGeneralFields::CGeneralFields()
 	{
-
 	}
 
 	CGeneralFields::~CGeneralFields()
 	{
-
 	}
 
-	EParse CGeneralFields::f_ParseKnownField(EGeneralField _Field, NStr::CStr const& _Value)
+	EParse CGeneralFields::f_ParseKnownField(EGeneralField _Field, NStr::CStr const &_Value)
 	{
-		switch(_Field)
+		switch (_Field)
 		{
-			case EGeneralField_Unknown:
-				{
+		case EGeneralField_Unknown:
+			{
+				return EParse_Unknown;
+			}
+
+		default:
+			{
+				DMibNeverGetHere;
+				return EParse_Invalid;
+			}
+
+		case EGeneralField_CacheControl:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
+
+		case EGeneralField_Connection:
+			{
+				EConnectionToken Token = fg_HTTP_LookupConnectionToken(_Value);
+				if (Token == EConnectionToken_Unknown)
 					return EParse_Unknown;
-				}
 
-			default:
+				mp_Fields[_Field] = Token;
+				return EParse_OK;
+			}
+
+		case EGeneralField_Date:
+		case EGeneralField_Pragma:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
+
+		case EGeneralField_Trailer:
+			{
+				// List field
+				auto pValue = mp_Fields.f_FindEqual(_Field);
+				if (pValue)
 				{
-					DMibNeverGetHere;
+					pValue->f_Get<EFieldType_String>() += ",";
+					pValue->f_Get<EFieldType_String>() += _Value;
+				}
+				else
+					mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
+
+		case EGeneralField_TransferEncoding:
+			{
+				ETransferEncoding Encoding = fg_HTTP_LookupTransferEncoding(_Value);
+				if (Encoding == ETransferEncoding_Unknown)
 					return EParse_Invalid;
-				}
 
-			case EGeneralField_CacheControl:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
+				mp_Fields[_Field] = Encoding;
+				return EParse_OK;
+			}
 
-			case EGeneralField_Connection:
-				{
-					EConnectionToken Token = fg_HTTP_LookupConnectionToken(_Value);
-					if (Token == EConnectionToken_Unknown)
-					{
-						return EParse_Unknown;
-					}
-
-					mp_Fields[_Field] = Token;
-					return EParse_OK;
-				}
-
-			case EGeneralField_Date:
-			case EGeneralField_Pragma:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
-
-			case EGeneralField_Trailer:
-				{
-					// List field
-					auto pValue = mp_Fields.f_FindEqual(_Field);
-					if (pValue)
-					{
-						pValue->f_Get<EFieldType_String>() += ",";
-						pValue->f_Get<EFieldType_String>() += _Value;
-					}
-					else
-					{
-						mp_Fields[_Field] = _Value;
-
-					}
-					return EParse_OK;
-				}
-
-			case EGeneralField_TransferEncoding:
-				{
-					ETransferEncoding Encoding = fg_HTTP_LookupTransferEncoding(_Value);
-					if (Encoding == ETransferEncoding_Unknown)
-						return EParse_Invalid;
-
-					mp_Fields[_Field] = Encoding;
-					return EParse_OK;
-				}
-
-			case EGeneralField_Upgrade:
-			case EGeneralField_Via:
-			case EGeneralField_Warning:
-				{
-					mp_Fields[_Field] = _Value;
-					return EParse_OK;
-				}
+		case EGeneralField_Upgrade:
+		case EGeneralField_Via:
+		case EGeneralField_Warning:
+			{
+				mp_Fields[_Field] = _Value;
+				return EParse_OK;
+			}
 		}
 	}
 
-	EParse CGeneralFields::f_ParseUnknownField(NStr::CStr const& _Name, NStr::CStr const& _Value)
+	EParse CGeneralFields::f_ParseUnknownField(NStr::CStr const &_Name, NStr::CStr const &_Value)
 	{
 		return EParse_Unknown;
 	}
@@ -119,15 +112,15 @@ namespace NMib::NWeb::NHTTP
 		{
 			// Default behaviour when the field is not specified
 			// RFC 2616 Section 14.10 Connection
-			switch(f_GetHTTPVersion())
+			switch (f_GetHTTPVersion())
 			{
-				case EVersion_HTTP_1_0:
-				default:
-					return EConnectionToken_Close;
+			case EVersion_HTTP_1_0:
+			default:
+				return EConnectionToken_Close;
 
-				case EVersion_HTTP_1_1:
-				case EVersion_HTTP_2_0:
-					return EConnectionToken_KeepAlive;
+			case EVersion_HTTP_1_1:
+			case EVersion_HTTP_2_0:
+				return EConnectionToken_KeepAlive;
 			}
 		}
 	}
@@ -199,8 +192,7 @@ namespace NMib::NWeb::NHTTP
 			return NStr::CStr();
 	}
 
-
-	void CGeneralFields::f_SetCacheControl(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetCacheControl(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_CacheControl] = _Value;
 	}
@@ -216,7 +208,7 @@ namespace NMib::NWeb::NHTTP
 		ch8 const *g_Months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 	}
 
-	void CGeneralFields::f_SetDate(NTime::CTime const& _Value)
+	void CGeneralFields::f_SetDate(NTime::CTime const &_Value)
 	{
 		NTime::CTimeConvert::CDateTime DateTime;
 		NTime::CTimeConvert(_Value).f_ExtractDateTime(DateTime);
@@ -235,17 +227,17 @@ namespace NMib::NWeb::NHTTP
 		;
 	}
 
-	void CGeneralFields::f_SetDate(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetDate(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Date] = _Value;
 	}
 
-	void CGeneralFields::f_SetPragma(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetPragma(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Pragma] = _Value;
 	}
 
-	void CGeneralFields::f_SetTrailer(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetTrailer(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Trailer] = _Value;
 	}
@@ -255,17 +247,17 @@ namespace NMib::NWeb::NHTTP
 		mp_Fields[EGeneralField_TransferEncoding] = _Value;
 	}
 
-	void CGeneralFields::f_SetUpgrade(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetUpgrade(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Upgrade] = _Value;
 	}
 
-	void CGeneralFields::f_SetVia(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetVia(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Via] = _Value;
 	}
 
-	void CGeneralFields::f_SetWarning(NStr::CStr const& _Value)
+	void CGeneralFields::f_SetWarning(NStr::CStr const &_Value)
 	{
 		mp_Fields[EGeneralField_Warning] = _Value;
 	}

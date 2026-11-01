@@ -78,7 +78,7 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<CObjectInfoMetadata> f_GetObjectMetadata(NStr::CStr _BucketName, NStr::CStr _Key);
 		NConcurrency::TCFuture<void> f_PutObject(NStr::CStr _BucketName, NStr::CStr _Key, CPutObjectInfo _Info, NContainer::CByteVector _Data);
-		NConcurrency::TCFuture<void> f_PutObjectMultipart
+		auto f_PutObjectMultipart
 			(
 				NStr::CStr _BucketName
 				, NStr::CStr _Key
@@ -86,6 +86,7 @@ namespace NMib::NWeb
 				, uint64 _TotalSize
 				, NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> ()> _fGetPart
 			)
+			-> NConcurrency::TCFuture<void>
 		;
 
 		NConcurrency::TCFuture<void> f_DeleteObject(NStr::CStr _BucketName, NStr::CStr _Key);
@@ -101,5 +102,5 @@ namespace NMib::NWeb
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NWeb;
+using namespace NMib::NWeb;
 #endif
