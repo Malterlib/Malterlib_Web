@@ -10,7 +10,7 @@ namespace NMib::NWeb
 {
 	struct CDDPServerConnection::CInternal : public NConcurrency::CActorInternal
 	{
-		CDDPServerConnection *mp_pServerConnection;
+		CDDPServerConnection *mp_pThis;
 		NStorage::TCUniquePointer<CWebSocketNewServerConnection> m_pNewWebsocketConnection;
 
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
@@ -28,7 +28,7 @@ namespace NMib::NWeb
 		EConnectionType m_ConnectionType;
 
 		CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection, EConnectionType _ConnectionType)
-			: mp_pServerConnection(_pDDPServerConnection)
+			: mp_pThis(_pDDPServerConnection)
 			, m_pNewWebsocketConnection(fg_Construct(fg_Move(_NewWebsocketConnection)))
 			, m_WebSocket()
 			, m_ConnectionType(_ConnectionType)
@@ -90,10 +90,10 @@ namespace NMib::NWeb
 			}
 
 			if (m_fOnConnection.f_IsEmpty())
-				mp_pServerConnection->fp_AcceptConnection(NStr::CStr());
+				mp_pThis->fp_AcceptConnection(NStr::CStr());
 			else
 			{
-				CConnectionInfo ConnectionInfo{mp_pServerConnection};
+				CConnectionInfo ConnectionInfo{mp_pThis};
 				auto pSessionID = Json.f_GetMember("session");
 				if (fg_ValidateType(pSessionID, NEncoding::EJsonType_String))
 					ConnectionInfo.m_Session = pSessionID->f_String();
@@ -116,7 +116,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			CMethodInfo MethodInfo(mp_pServerConnection);
+			CMethodInfo MethodInfo(mp_pThis);
 			MethodInfo.m_ID = pMethodID->f_String();
 			MethodInfo.m_Name = pName->f_String();
 
@@ -147,7 +147,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			CSubscribeInfo SubscribeInfo(mp_pServerConnection);
+			CSubscribeInfo SubscribeInfo(mp_pThis);
 			SubscribeInfo.m_ID = pSubscriptionID->f_String();
 			SubscribeInfo.m_Name = pName->f_String();
 

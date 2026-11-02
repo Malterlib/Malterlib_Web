@@ -163,7 +163,7 @@ namespace NMib::NWeb
 
 			int64 m_ReadDataSize = -1;
 			uint64 m_WriteDoneBytes = 0;
-			CHttpClientActor *m_pActor = nullptr;
+			CHttpClientActor *m_pThis = nullptr;
 			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
 			TCUniquePointer<CURL, CCurlDeleterEasy> m_pCurl;
 			TCUniquePointer<curl_slist, CCurlDeleterSList> m_pHeaders;
@@ -247,7 +247,7 @@ namespace NMib::NWeb
 				{
 					TCUniquePointer<CSocket> pSocket = fg_Construct();
 					pSocket->m_Handle = _Socket;
-					pSocket->m_Actor = fg_ThisActor(Internal.m_pActor).f_Weak();
+					pSocket->m_Actor = fg_ThisActor(Internal.m_pThis).f_Weak();
 					pSocket->m_Generation = ++Internal.m_NextSocketGeneration;
 
 					pSocket->m_pRegistration = Internal.m_pLoop->f_Register
@@ -319,7 +319,7 @@ namespace NMib::NWeb
 			{
 				auto &Internal = *static_cast<CInternal *>(_pUser);
 				auto Generation = ++Internal.m_TimerGeneration;
-				fg_ThisActor(Internal.m_pActor).f_Bind<&CHttpClientActor::fp_SetTimer>(Generation, _Milliseconds).f_DiscardResult();
+				fg_ThisActor(Internal.m_pThis).f_Bind<&CHttpClientActor::fp_SetTimer>(Generation, _Milliseconds).f_DiscardResult();
 
 				return 0;
 			}
@@ -430,7 +430,7 @@ namespace NMib::NWeb
 
 		uint64 m_NextSocketGeneration = 0;
 		uint64 m_TimerGeneration = 0;
-		CHttpClientActor *m_pActor = nullptr;
+		CHttpClientActor *m_pThis = nullptr;
 		TCUniquePointer<CURLM, CCurlDeleterMulti> m_pMulti;
 		NSys::ICIoLoop *m_pLoop = nullptr;
 		TCActor<NNetwork::CResolveActor> m_Resolver;
@@ -486,7 +486,7 @@ namespace NMib::NWeb
 		*m_pDeleted = true;
 
 		if (m_bAddedHandle)
-			curl_multi_remove_handle(m_pActor->mp_pInternal->m_pMulti.f_Get(), m_pCurl.f_Get());
+			curl_multi_remove_handle(m_pThis->mp_pInternal->m_pMulti.f_Get(), m_pCurl.f_Get());
 	}
 
 	/// _StallTimeout, when not 0, fails a request that doesn't connect within that many seconds, rounded up, or that transfers less
@@ -505,7 +505,7 @@ namespace NMib::NWeb
 		*g_CurlInit;
 
 		auto &Internal = *mp_pInternal;
-		Internal.m_pActor = this;
+		Internal.m_pThis = this;
 
 		auto Binding = f_ConcurrencyManager().f_PickIoLoopBinding(self.m_pThis->f_GetPriority());
 
@@ -915,7 +915,7 @@ namespace NMib::NWeb
 
 		auto RequestID = NCryptography::fg_FastRandomID(Internal.m_Requests);
 		auto &Request = Internal.m_Requests[RequestID];
-		Request.m_pActor = this;
+		Request.m_pThis = this;
 		Request.m_pCurl = fg_Explicit(curl_easy_init());
 		_Request.m_SendData.f_Visit
 			(
