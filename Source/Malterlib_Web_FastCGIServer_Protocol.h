@@ -169,9 +169,9 @@ namespace NMib::NWeb::NFastCGI
 	/*
 	 * Variable names for FCGI_GET_VALUES / FCGI_GET_VALUES_RESULT records
 	 */
-#define FCGI_MAX_CONNS  "FCGI_MAX_CONNS"
-#define FCGI_MAX_REQS   "FCGI_MAX_REQS"
-#define FCGI_MPXS_CONNS "FCGI_MPXS_CONNS"
+#define DFcgiMaxConns  "FCGI_MAX_CONNS"
+#define DFcgiMaxReqs   "FCGI_MAX_REQS"
+#define DFcgiMpxsConns "FCGI_MPXS_CONNS"
 
 	struct CUnknownTypeBody
 	{

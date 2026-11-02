@@ -80,7 +80,7 @@ namespace NMib::NWeb
 
 		auto fDoRequest = [=, Promise = fg_Move(Promise.m_Promise), this]
 			(
-#if !defined(DCompiler_Workaround_Apple_clang) && !defined(DCompiler_MSVC_Workaround)
+#if !defined(DCompiler_MSVC_Workaround)
 				this
 #endif
 				auto &&_fDoRequest
@@ -88,8 +88,8 @@ namespace NMib::NWeb
 			)
 			-> void
 			{
-#if defined(DCompiler_Workaround_Apple_clang) || defined(DCompiler_MSVC_Workaround)
-#	define _fDoRequest(...) _fDoRequest(_fDoRequest, __VA_ARGS__)
+#if defined(DCompiler_MSVC_Workaround)
+#	define _fDoRequest(...) _fDoRequest(_fDoRequest, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
 #endif
 				auto &Internal = *mp_pInternal;
 
@@ -178,8 +178,8 @@ namespace NMib::NWeb
 				;
 			}
 		;
-#if defined(DCompiler_Workaround_Apple_clang) || defined(DCompiler_MSVC_Workaround)
-#	define fDoRequest(...) fDoRequest(fDoRequest, __VA_ARGS__)
+#if defined(DCompiler_MSVC_Workaround)
+#	define fDoRequest(...) fDoRequest(fDoRequest, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
 #endif
 		fDoRequest("");
 

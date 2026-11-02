@@ -10,7 +10,7 @@
 #include <Mib/Concurrency/WeakActor>
 #include <Mib/Core/IoLoop>
 
-#define CURL_STRICTER
+#define CURL_STRICTER // NOLINT(malterlib-macro-naming)
 
 #include <curl/curl.h>
 #include <curl/external_resolver.h>

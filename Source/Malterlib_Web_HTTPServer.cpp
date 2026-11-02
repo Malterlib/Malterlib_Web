@@ -14,7 +14,7 @@
 #	include <stdlib.h>
 #	include <memory.h>
 #else
-#	define  _WINSOCK_DEPRECATED_NO_WARNINGS
+#	define  _WINSOCK_DEPRECATED_NO_WARNINGS // NOLINT(malterlib-macro-naming)
 #	include <winsock2.h>
 #endif
 
