@@ -4,6 +4,7 @@
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/WeakActor>
 #include <Mib/Concurrency/LogError>
+#include <Mib/Concurrency/AsyncDestroy>
 
 #include "Malterlib_Web_FastCGIServer_Internal.h"
 #include "Malterlib_Web_FastCGIServer_Listen.h"
@@ -37,14 +38,27 @@ namespace NMib::NWeb
 
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> ListenSockets;
 		ListenSockets.f_SetLen(nThreads);
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				for (auto &ListenSocket : ListenSockets)
+		auto Cleanup = co_await NConcurrency::fg_AsyncDestroy
+			(
+				[&]() -> NConcurrency::TCFuture<void>
 				{
-					if (ListenSocket)
-						fg_Move(ListenSocket).f_Destroy().f_DiscardResult();
+					// Allow the start to be retried after a failure
+					mp_pOnRequest.f_Clear();
+
+					auto ListenSocketsToDestroy = fg_Move(ListenSockets);
+
+					NConcurrency::TCFutureVector<void> Destroys;
+					for (auto &ListenSocket : ListenSocketsToDestroy)
+					{
+						if (ListenSocket)
+							fg_Move(ListenSocket).f_Destroy() > Destroys;
+					}
+
+					co_await NConcurrency::fg_AllDoneWrapped(Destroys);
+
+					co_return {};
 				}
-			}
+			)
 		;
 
 		for (umint i = 0; i < nThreads; ++i)
@@ -78,6 +92,7 @@ namespace NMib::NWeb
 		}
 
 		mp_ListenSockets = fg_Move(ListenSockets);
+		Cleanup.f_Clear();
 
 		co_return {};
 	}
