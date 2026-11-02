@@ -40,6 +40,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = '"C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe" -E /DWIN32 /D_WINDOWS -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib';
+$Cpreprocessor = '"C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/bin/Hostx64/x64/cl.exe" -E /DWIN32 /D_WINDOWS -I../../../../../External/curl/include -I../lib -I../../../../../External/curl/lib';
 
 1;

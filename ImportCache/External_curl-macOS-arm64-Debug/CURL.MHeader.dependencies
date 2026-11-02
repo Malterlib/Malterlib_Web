@@ -3,6 +3,7 @@ lib/Makefile.inc.cmake
 src/Makefile.inc.cmake
 tests/certs/Makefile.inc.cmake
 tests/libtest/Makefile.inc.cmake
+tests/perf/Makefile.inc.cmake
 tests/server/Makefile.inc.cmake
 tests/tunit/Makefile.inc.cmake
 tests/unit/Makefile.inc.cmake
@@ -13,8 +14,8 @@ tests/unit/Makefile.inc.cmake
 ../../../../External/curl/CMake/OtherTests.cmake
 ../../../../External/curl/CMake/PickyWarnings.cmake
 ../../../../External/curl/CMake/Utilities.cmake
-../../../../External/curl/CMake/cmake_uninstall.cmake.in
-../../../../External/curl/CMake/curl-config.cmake.in
+../../../../External/curl/CMake/cmake_uninstall.in.cmake
+../../../../External/curl/CMake/curl-config.in.cmake
 ../../../../External/curl/CMakeLists.txt
 ../../../../External/curl/curl-config.in
 ../../../../External/curl/docs/CMakeLists.txt
@@ -22,7 +23,7 @@ tests/unit/Makefile.inc.cmake
 ../../../../External/curl/docs/examples/Makefile.inc
 ../../../../External/curl/lib/CMakeLists.txt
 ../../../../External/curl/lib/Makefile.inc
-../../../../External/curl/lib/curl_config.h.cmake
+../../../../External/curl/lib/curl_config-cmake.h.in
 ../../../../External/curl/libcurl.pc.in
 ../../../../External/curl/scripts/CMakeLists.txt
 ../../../../External/curl/src/CMakeLists.txt
@@ -36,6 +37,8 @@ tests/unit/Makefile.inc.cmake
 ../../../../External/curl/tests/http/config.ini.in
 ../../../../External/curl/tests/libtest/CMakeLists.txt
 ../../../../External/curl/tests/libtest/Makefile.inc
+../../../../External/curl/tests/perf/CMakeLists.txt
+../../../../External/curl/tests/perf/Makefile.inc
 ../../../../External/curl/tests/server/CMakeLists.txt
 ../../../../External/curl/tests/server/Makefile.inc
 ../../../../External/curl/tests/tunit/CMakeLists.txt

@@ -274,8 +274,8 @@ Import.CMake_Variables: [
 	BUILD_LIBCURL_DOCS=OFF,
 	ENABLE_CURL_MANUAL=OFF,
 	CURL_HIDDEN_EXTERN_SYMBOLS=ON,
-	Zstd_LIBRARY=/lib/x64/delayimp.lib,
-	Zstd_INCLUDE_DIR=/External/zstd/lib,
+	ZSTD_LIBRARY=/lib/x64/delayimp.lib,
+	ZSTD_INCLUDE_DIR=/External/zstd/lib,
 	SHARE_LIB_OBJECT=OFF
 ]
 

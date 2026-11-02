@@ -35,19 +35,23 @@ set(UTILS_H )
 
 set(CURLX_C 
   ../../lib/curlx/base64.c 
-  ../../lib/curlx/fopen.c 
+  ../../lib/curlx/win32-fopen.c 
   ../../lib/curlx/inet_ntop.c 
   ../../lib/curlx/inet_pton.c 
   ../../lib/curlx/multibyte.c 
   ../../lib/curlx/nonblock.c 
+  ../../lib/curlx/snprintf.c 
+  ../../lib/curlx/strcopy.c 
   ../../lib/curlx/strerr.c 
   ../../lib/curlx/strparse.c 
   ../../lib/curlx/timediff.c 
   ../../lib/curlx/timeval.c 
-  ../../lib/curlx/version_win32.c 
   ../../lib/curlx/wait.c 
   ../../lib/curlx/warnless.c 
   ../../lib/curlx/winapi.c)
+
+set(TOOLX_C 
+  ../../src/toolx/tool_time.c)
 
 # All test servers
 set(TESTS_C 
