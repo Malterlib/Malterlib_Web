@@ -33,6 +33,13 @@ namespace NMib::NWeb
 			NConcurrency::TCActor<CHTTPRequestHandlerActor> m_HandlerActor;
 		};
 
+		// Immutable: the server publishes a new table for each change, so a request on another actor can keep using the one it got
+		struct CHandlerTable
+		{
+			NContainer::TCMap<int, NContainer::TCVector<CHandlerEntry>> m_Handlers;
+			bool m_bActorHandlers = false;
+		};
+
 		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest, uint32 _Status, NStr::CStr const &_Error)
 		{
 			CHTTPResponseHeader Header;
@@ -53,7 +60,7 @@ namespace NMib::NWeb
 			CHTTPResponseHeader mp_Header;
 			NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 
-			CHTTPServerInternal &mp_Internal;
+			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
 
 		public:
 			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
@@ -61,10 +68,10 @@ namespace NMib::NWeb
 			bool mp_bSentAsyncHeader = false;
 			DMibIfEnableSafeCheck(bool mp_bWroteNonAsync = false);
 
-			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, CHTTPServerInternal &_Internal)
+			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, NStorage::TCSharedPointer<CHandlerTable> &&_pHandlers)
 				: mp_pRequest(fg_Move(_pRequest))
 				, mp_ContentStream(NContainer::CByteVector())
-				, mp_Internal(_Internal)
+				, mp_pHandlers(fg_Move(_pHandlers))
 			{
 			}
 
@@ -274,9 +281,9 @@ namespace NMib::NWeb
 			{
 				NConcurrency::TCPromise<void> Promise;
 
-				auto &Internal = mp_Internal;
+				auto &Handlers = *mp_pHandlers;
 				bool bHandled = false;
-				if (Internal.mp_bActorHandlers)
+				if (Handlers.m_bActorHandlers)
 				{
 					struct CHandlers
 					{
@@ -342,7 +349,7 @@ namespace NMib::NWeb
 						}
 					;
 
-					for (auto &Handler : Internal.mp_Handlers)
+					for (auto &Handler : Handlers.m_Handlers)
 					{
 						for (auto &InnerHandler : Handler)
 						{
@@ -363,7 +370,7 @@ namespace NMib::NWeb
 
 				try
 				{
-					for (auto iHandler = Internal.mp_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+					for (auto iHandler = Handlers.m_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
 					{
 						for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
 						{
@@ -425,38 +432,48 @@ namespace NMib::NWeb
 
 		void f_AddHandlerForPath(NStr::CStr _Path, CHTTPRequestHandler *_pHandler, int _Priority)
 		{
-			if (mp_bActorHandlers)
+			if (mp_pHandlers->m_bActorHandlers)
 				DMibError("Cannot mix actor an non-actor handlers");
 
-			CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
+			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
+			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
 			NewEntry.m_Path = _Path;
 			NewEntry.m_pHandler = _pHandler;
+			mp_pHandlers = fg_Move(pHandlers);
 		}
 
 		void f_AddHandlerActorFunctorForPath(NStr::CStr _Path, FActorRequestHandler _fHandler, int _Priority)
 		{
-			if (!mp_bActorHandlers)
-			{
-				if (!mp_Handlers.f_IsEmpty())
-					DMibError("Cannot mix actor an non-actor handlers");
-				mp_bActorHandlers = true;
-			}
-			CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
+			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
+			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
 			NewEntry.m_Path = _Path;
 			NewEntry.m_pHandleRequest = fg_Construct(fg_Move(_fHandler));
+			mp_pHandlers = fg_Move(pHandlers);
 		}
 
 		void f_AddHandlerActorForPath(NStr::CStr _Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> _HandlerActor, int _Priority)
 		{
-			if (!mp_bActorHandlers)
-			{
-				if (!mp_Handlers.f_IsEmpty())
-					DMibError("Cannot mix actor an non-actor handlers");
-				mp_bActorHandlers = true;
-			}
-			CHandlerEntry &NewEntry = mp_Handlers[_Priority].f_Insert();
+			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
+			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
 			NewEntry.m_Path = _Path;
 			NewEntry.m_HandlerActor = fg_Move(_HandlerActor);
+			mp_pHandlers = fg_Move(pHandlers);
+		}
+
+		NStorage::TCSharedPointer<CHandlerTable> fp_GetHandlers()
+		{
+			return mp_pHandlers;
+		}
+
+		// A copy of the handlers to add an actor handler to
+		NStorage::TCSharedPointer<CHandlerTable> fp_ActorHandlersToChange()
+		{
+			if (!mp_pHandlers->m_bActorHandlers && !mp_pHandlers->m_Handlers.f_IsEmpty())
+				DMibError("Cannot mix actor an non-actor handlers");
+
+			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
+			pHandlers->m_bActorHandlers = true;
+			return pHandlers;
 		}
 
 		bool f_Run(CHTTPServerOptions _Options)
@@ -478,9 +495,11 @@ namespace NMib::NWeb
 			mp_pFastCGIServer = fg_Construct();
 			mp_pFastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
 				(
-					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [this](NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
+					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [ThisWeak = NConcurrency::fg_ThisActor(this).f_Weak()]
+					(NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
 					{
-						auto &Params = _pRequest->f_GetParams();
+						// A copy: the connection clears its parameters when it closes, which it can do while this waits for the handlers
+						auto Params = _pRequest->f_GetParams();
 						auto *pURI = Params.f_FindEqual("DOCUMENT_URI");
 
 						if (!pURI)
@@ -491,8 +510,16 @@ namespace NMib::NWeb
 
 						NStr::CStr URI = *pURI;
 
+						auto ThisActor = ThisWeak.f_Lock();
+						if (!ThisActor)
+						{
+							fsp_ReportRequestError(_pRequest, 503, "Server stopped");
+							co_return {};
+						}
+						NStorage::TCSharedPointer<CHandlerTable> pHandlers = co_await ThisActor(&CHTTPServerInternal::fp_GetHandlers);
+
 						// Check registered handlers
-						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(fg_Move(_pRequest), *this);
+						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(fg_Move(_pRequest), fg_Move(pHandlers));
 
 						co_await pConnection->f_HandleRequest(pConnection, Params);
 
@@ -527,10 +554,9 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
 		NConcurrency::TCActor<CFastCGIServer> mp_pFastCGIServer;
 
-		NContainer::TCMap<int, NContainer::TCVector<CHandlerEntry>> mp_Handlers;
+		NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers = fg_Construct();
 
 		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_LogFunction;
-		bool mp_bActorHandlers = false;
 	};
 
 	// CHTTPServer Public Methods
