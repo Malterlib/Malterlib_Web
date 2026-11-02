@@ -50,7 +50,7 @@ namespace NMib::NWeb
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CConnectionInfo(CDDPServerConnection *_pDDPConnection);
+			CConnectionInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
 			NStorage::TCIndirection<CInternal> mp_Internal;
@@ -76,7 +76,7 @@ namespace NMib::NWeb
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CMethodInfo(CDDPServerConnection *_pDDPConnection);
+			CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
 			NStorage::TCIndirection<CInternal> mp_Internal;
@@ -100,7 +100,7 @@ namespace NMib::NWeb
 
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CSubscribeInfo(CDDPServerConnection *_pDDPConnection);
+			CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
 			NStorage::TCIndirection<CInternal> mp_Internal;

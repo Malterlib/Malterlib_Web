@@ -93,7 +93,7 @@ namespace NMib::NWeb
 				mp_pThis->fp_AcceptConnection(NStr::CStr());
 			else
 			{
-				CConnectionInfo ConnectionInfo{mp_pThis};
+				CConnectionInfo ConnectionInfo{fg_ThisActor(mp_pThis).f_Weak()};
 				auto pSessionID = Json.f_GetMember("session");
 				if (fg_ValidateType(pSessionID, NEncoding::EJsonType_String))
 					ConnectionInfo.m_Session = pSessionID->f_String();
@@ -116,7 +116,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			CMethodInfo MethodInfo(mp_pThis);
+			CMethodInfo MethodInfo(fg_ThisActor(mp_pThis).f_Weak());
 			MethodInfo.m_ID = pMethodID->f_String();
 			MethodInfo.m_Name = pName->f_String();
 
@@ -147,7 +147,7 @@ namespace NMib::NWeb
 				return;
 			}
 
-			CSubscribeInfo SubscribeInfo(mp_pThis);
+			CSubscribeInfo SubscribeInfo(fg_ThisActor(mp_pThis).f_Weak());
 			SubscribeInfo.m_ID = pSubscriptionID->f_String();
 			SubscribeInfo.m_Name = pName->f_String();
 
@@ -217,8 +217,8 @@ namespace NMib::NWeb
 
 	struct CDDPServerConnection::CConnectionInfo::CInternal
 	{
-		CInternal(CDDPServerConnection *_pDDPConnection)
-			: mp_DDPConnection(fg_ThisActor(_pDDPConnection).f_Weak())
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+			: mp_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
@@ -247,23 +247,23 @@ namespace NMib::NWeb
 			Actor.f_Bind<&CDDPServerConnection::fp_RejectConnection>().f_DiscardResult();
 	}
 
-	CDDPServerConnection::CConnectionInfo::CConnectionInfo(CDDPServerConnection *_pDDPConnection)
-		: mp_Internal(_pDDPConnection)
+	CDDPServerConnection::CConnectionInfo::CConnectionInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: mp_Internal(fg_Move(_DDPConnection))
 	{
 	}
 
 	struct CDDPServerConnection::CMethodInfo::CInternal
 	{
-		CInternal(CDDPServerConnection *_pDDPConnection)
-			: mp_DDPConnection(fg_ThisActor(_pDDPConnection).f_Weak())
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+			: mp_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
 		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
 	};
 
-	CDDPServerConnection::CMethodInfo::CMethodInfo(CDDPServerConnection *_pDDPConnection)
-		: mp_Internal(_pDDPConnection)
+	CDDPServerConnection::CMethodInfo::CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: mp_Internal(fg_Move(_DDPConnection))
 	{
 	}
 
@@ -291,16 +291,16 @@ namespace NMib::NWeb
 
 	struct CDDPServerConnection::CSubscribeInfo::CInternal
 	{
-		CInternal(CDDPServerConnection *_pDDPConnection)
-			: mp_DDPConnection(fg_ThisActor(_pDDPConnection).f_Weak())
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+			: mp_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
 		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
 	};
 
-	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(CDDPServerConnection *_pDDPConnection)
-		: mp_Internal(_pDDPConnection)
+	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: mp_Internal(fg_Move(_DDPConnection))
 	{
 	}
 
