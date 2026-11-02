@@ -114,8 +114,8 @@ Import "../../External/nginx/nginx.MTarget"
 		, "BUILD_LIBCURL_DOCS=OFF"
 		, "ENABLE_CURL_MANUAL=OFF"
 		, "CURL_HIDDEN_EXTERN_SYMBOLS=ON"
-		, `Zstd_LIBRARY=@(Malterlib_DummmyLibrary)`
-		, `Zstd_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
+		, `ZSTD_LIBRARY=@(Malterlib_DummmyLibrary)`
+		, `ZSTD_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
 	]
 
 	Import.CMake_Variables =+ "SHARE_LIB_OBJECT=OFF"
@@ -127,6 +127,8 @@ Import "../../External/nginx/nginx.MTarget"
 	{
 		!!CompileDialect "C"
 		PreprocessorDefines += "CURL_CA_EXTERNAL_FALLBACK=1"
+		// The C prefix header must see the same Annex K declarations as curl_setup.h.
+		PreprocessorDefines += "__STDC_WANT_LIB_EXT1__=1"
 
 		Warnings_UnusedVariable false
 		{
