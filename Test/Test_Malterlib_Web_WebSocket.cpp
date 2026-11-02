@@ -3006,6 +3006,7 @@ public:
 				TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
 				TCMap<umint, CConnection> m_Connections;
 				umint m_SocketID = 0;
+				umint m_nCases = 0;
 			};
 
 			TCSharedPointer<CState> pState = fg_Construct();
@@ -3135,22 +3136,22 @@ public:
 				}
 			;
 
-			umint nCases = 0;
 			co_await co_await fg_CallSafe
 				(
 					fOpenConnection
 					, pState
 					, "/getCaseCount"
-					, g_ActorFunctor / [&](CStr _Message) -> TCFuture<void>
+					, g_ActorFunctor / [pState](CStr _Message) -> TCFuture<void>
 					{
 						DMibLog(Info, "Case count message: {}", _Message);
-						nCases = _Message.f_ToInt(0);
+						pState->m_nCases = _Message.f_ToInt(0);
 
 						co_return {};
 					}
 				)
 			;
 
+			umint nCases = pState->m_nCases;
 			for (umint i = 0; i < nCases; ++i)
 				co_await co_await fg_CallSafe(fOpenConnection, pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (i + 1), fg_Default());
 
