@@ -31,7 +31,7 @@ namespace NMib::NWeb::NHTTP
 		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
 
 	public:
-		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> _pD);
+		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		CResponseStage(CResponseStage &&_ToMove);
 		CResponseStage();
 		~CResponseStage();
@@ -53,7 +53,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	public:
 		CResponseTrailer(CResponseTrailer &&_ToMove);
-		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> _pD);
+		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		~CResponseTrailer();
 
 		void f_AddField(NStr::CStr const &_Name, NStr::CStr const &_Value);
@@ -70,7 +70,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	public:
 		CResponseContent(CResponseContent &&_ToMove);
-		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> _pD);
+		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		~CResponseContent();
 
 		void f_SendData(uint8 const *_pData, umint _nBytes);

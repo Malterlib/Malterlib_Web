@@ -24,7 +24,7 @@ namespace NMib::NWeb::NHTTP
 		friend CConnectionWorker;
 
 	public:
-		CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock);
+		CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock);
 		~CConnection();
 
 		bool f_IsConnected() const;

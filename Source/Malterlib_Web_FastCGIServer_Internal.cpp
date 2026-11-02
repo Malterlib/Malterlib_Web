@@ -123,13 +123,13 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> _Connection)
+	void CFastCGIServer::fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection)
 	{
 		auto &Internal = *mp_pInternal;
 		Internal.mp_Connections[fg_Move(_Connection)];
 	}
 
-	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> _Connection)
+	void CFastCGIServer::fp_RemoveConnection(NConcurrency::TCWeakActor<CFastCGIConnectionActor> &&_Connection)
 	{
 		auto Connection = _Connection.f_Lock();
 		auto &Internal = *mp_pInternal;

@@ -34,7 +34,7 @@ namespace NMib::NWeb::NHTTP
 		NContainer::CByteVector mp_Content;
 
 		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
-		EParse fp_ParseHeaderText(NStr::CStr _Text);
+		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
 
 		// If content can be parsed returns true and sets _oNextParseState to the parse state to use
 		// to parse it.

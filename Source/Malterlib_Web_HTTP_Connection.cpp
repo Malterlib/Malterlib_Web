@@ -41,7 +41,7 @@ namespace NMib::NWeb::NHTTP
 		DMibListLinkD_List(CLinkedRequest, mp_Link) mp_OpenRequests;
 
 	public:
-		CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock);
+		CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock);
 		~CDetails();
 
 		bool f_IsConnected() const;
@@ -77,7 +77,7 @@ namespace NMib::NWeb::NHTTP
 	// CConnection::CDetails Public Methods
 	//
 
-	CConnection::CDetails::CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock)
+	CConnection::CDetails::CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock)
 		: mp_State(EState_Connected)
 		, mp_pSocket(fg_Move(_pSock))
 		, mp_bFirstProcess(true)
@@ -188,7 +188,7 @@ namespace NMib::NWeb::NHTTP
 	// CConnection Public Methods
 	//
 
-	CConnection::CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> _pSock)
+	CConnection::CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock)
 		: mp_pD(fg_Construct(fg_Move(_pSock)))
 	{
 	}

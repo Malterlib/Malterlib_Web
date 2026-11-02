@@ -79,7 +79,7 @@ namespace NMib::NWeb
 			{
 			}
 
-			void f_WriteStr(NStr::CStr _Str) override
+			void f_WriteStr(NStr::CStr const &_Str) override
 			{
 				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
 				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
@@ -430,7 +430,7 @@ namespace NMib::NWeb
 			f_Stop();
 		}
 
-		void f_AddHandlerForPath(NStr::CStr _Path, CHTTPRequestHandler *_pHandler, int _Priority)
+		void f_AddHandlerForPath(NStr::CStr &&_Path, CHTTPRequestHandler *_pHandler, int _Priority)
 		{
 			if (mp_pHandlers->m_bActorHandlers)
 				DMibError("Cannot mix actor an non-actor handlers");
@@ -442,7 +442,7 @@ namespace NMib::NWeb
 			mp_pHandlers = fg_Move(pHandlers);
 		}
 
-		void f_AddHandlerActorFunctorForPath(NStr::CStr _Path, FActorRequestHandler _fHandler, int _Priority)
+		void f_AddHandlerActorFunctorForPath(NStr::CStr &&_Path, FActorRequestHandler &&_fHandler, int _Priority)
 		{
 			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
 			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
@@ -451,7 +451,7 @@ namespace NMib::NWeb
 			mp_pHandlers = fg_Move(pHandlers);
 		}
 
-		void f_AddHandlerActorForPath(NStr::CStr _Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> _HandlerActor, int _Priority)
+		void f_AddHandlerActorForPath(NStr::CStr &&_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority)
 		{
 			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
 			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
@@ -476,7 +476,7 @@ namespace NMib::NWeb
 			return pHandlers;
 		}
 
-		bool f_Run(CHTTPServerOptions _Options)
+		bool f_Run(CHTTPServerOptions &&_Options)
 		{
 			if (f_IsRunning())
 				return false;
@@ -1066,7 +1066,7 @@ namespace NMib::NWeb
 		return *this;
 	}
 
-	void CHTTPCachedConnection::f_WriteStr(NStr::CStr _Str)
+	void CHTTPCachedConnection::f_WriteStr(NStr::CStr const &_Str)
 	{
 		mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
 		mp_Present |= EPresent_Content;

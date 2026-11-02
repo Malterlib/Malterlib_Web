@@ -377,7 +377,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// RFC 2616 Section 4 HTTP Message
-	EParse CRequest::CDetails::fp_ParseHeaderText(NStr::CStr _Text)
+	EParse CRequest::CDetails::fp_ParseHeaderText(NStr::CStr const &_Text)
 	{
 		NContainer::TCVector<NStr::CStr> lLines = fg_SplitStringOn(_Text, "\r\n");
 

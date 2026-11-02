@@ -58,7 +58,7 @@ namespace NMib::NWeb
 		{
 		}
 
-		virtual void f_WriteStr(NStr::CStr _Str) = 0;
+		virtual void f_WriteStr(NStr::CStr const &_Str) = 0;
 		virtual void f_WriteBinary(uint8 const *_pData, umint _nBytes) = 0;
 		virtual void f_WriteHeader(CHTTPResponseHeader const &_Header) = 0;
 
@@ -95,7 +95,7 @@ namespace NMib::NWeb
 		CHTTPCachedConnection &operator = (CHTTPCachedConnection const &_ToCopy);
 		CHTTPCachedConnection &operator = (CHTTPCachedConnection &&_ToMove);
 
-		void f_WriteStr(NStr::CStr _Str) override;
+		void f_WriteStr(NStr::CStr const &_Str) override;
 		void f_WriteBinary(uint8 const *_pData, umint _nBytes) override;
 		void f_WriteHeader(CHTTPResponseHeader const &_Header) override;
 

@@ -24,7 +24,7 @@ namespace NMib::NWeb
 		;
 		~CFastCGIConnectionActor();
 
-		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket);
+		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> &&_pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 		NConcurrency::TCFuture<void> f_SendStdOutput(NContainer::CIOByteVector _Data);

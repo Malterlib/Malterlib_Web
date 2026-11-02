@@ -169,16 +169,16 @@ namespace NMib::NWeb
 			-> NConcurrency::TCFuture<NConcurrency::CActorSubscription>
 		;
 
-		void f_SendChanges(NContainer::TCVector<CChange> _Changes);
+		void f_SendChanges(NContainer::TCVector<CChange> &&_Changes);
 
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
-		void fp_AcceptConnection(NStr::CStr _SessionID);
+		void fp_AcceptConnection(NStr::CStr const &_SessionID);
 		void fp_RejectConnection();
-		void fp_MethodResult(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Result, bool _bUpdated);
-		void fp_MethodError(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Error);
-		void fp_SubscriptionError(NStr::CStr _SubscriptionID, NEncoding::CEJsonSorted _Error);
+		void fp_MethodResult(NStr::CStr &&_MethodID, NEncoding::CEJsonSorted &&_Result, bool _bUpdated);
+		void fp_MethodError(NStr::CStr &&_MethodID, NEncoding::CEJsonSorted &&_Error);
+		void fp_SubscriptionError(NStr::CStr &&_SubscriptionID, NEncoding::CEJsonSorted &&_Error);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

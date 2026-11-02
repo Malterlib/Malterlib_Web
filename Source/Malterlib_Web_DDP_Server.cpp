@@ -452,7 +452,7 @@ namespace NMib::NWeb
 		co_return fg_Move(Subscription);
 	}
 
-	void CDDPServerConnection::f_SendChanges(NContainer::TCVector<CChange> _Changes)
+	void CDDPServerConnection::f_SendChanges(NContainer::TCVector<CChange> &&_Changes)
 	{
 		auto &Internal = *mp_pInternal;
 		for (auto &Change : _Changes)
@@ -547,7 +547,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::fp_AcceptConnection(NStr::CStr _SessionID)
+	void CDDPServerConnection::fp_AcceptConnection(NStr::CStr const &_SessionID)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -570,7 +570,7 @@ namespace NMib::NWeb
 		Internal.f_SendMessage(Message);
 	}
 
-	void CDDPServerConnection::fp_MethodResult(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Result, bool _bUpdated)
+	void CDDPServerConnection::fp_MethodResult(NStr::CStr &&_MethodID, NEncoding::CEJsonSorted &&_Result, bool _bUpdated)
 	{
 		auto &Internal = *mp_pInternal;
 		{
@@ -591,7 +591,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::fp_MethodError(NStr::CStr _MethodID, NEncoding::CEJsonSorted _Error)
+	void CDDPServerConnection::fp_MethodError(NStr::CStr &&_MethodID, NEncoding::CEJsonSorted &&_Error)
 	{
 		auto &Internal = *mp_pInternal;
 		{
@@ -610,7 +610,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::fp_SubscriptionError(NStr::CStr _SubscriptionID, NEncoding::CEJsonSorted _Error)
+	void CDDPServerConnection::fp_SubscriptionError(NStr::CStr &&_SubscriptionID, NEncoding::CEJsonSorted &&_Error)
 	{
 		auto &Internal = *mp_pInternal;
 

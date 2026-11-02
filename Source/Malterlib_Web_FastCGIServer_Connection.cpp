@@ -41,7 +41,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket)
+	void CFastCGIConnectionActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> &&_pSocket)
 	{
 		if (f_IsDestroyed())
 			return;

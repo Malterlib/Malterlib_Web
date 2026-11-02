@@ -458,9 +458,9 @@ namespace NMib::NWeb
 
 	auto CDDPClient::f_Observe
 		(
-			NStr::CStr _CollectionName // Leave empty to observe all collections
+			NStr::CStr &&_CollectionName // Leave empty to observe all collections
 			, EObserveNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> &&_Callback
 		)
 		-> NConcurrency::CActorSubscription
 	{

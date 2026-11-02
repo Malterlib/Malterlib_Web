@@ -21,7 +21,7 @@ namespace NMib::NWeb::NFastCGI
 		;
 		~CListenActor();
 
-		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket);
+		void f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> &&_pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
 	private:

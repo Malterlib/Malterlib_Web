@@ -3968,7 +3968,7 @@ namespace NMib::NWeb
 		Internal.m_fOnFinishClientConnection.f_StopDeferring();
 	}
 
-	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptClientConnection(CCallbacks _Callbacks)
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptClientConnection(CCallbacks &&_Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -3978,7 +3978,7 @@ namespace NMib::NWeb
 		return Subscription;
 	}
 
-	void CWebSocketActor::fp_RejectClientConnection(NStr::CStr _Error)
+	void CWebSocketActor::fp_RejectClientConnection(NStr::CStr const &_Error)
 	{
 		fp_TryStopDeferring();
 
@@ -4010,7 +4010,7 @@ namespace NMib::NWeb
 		;
 	}
 
-	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptServerConnection(NStr::CStr _Protocol, NHTTP::CResponseHeader _ResponseHeader, CCallbacks _Callbacks)
+	NConcurrency::CActorSubscription CWebSocketActor::fp_AcceptServerConnection(NStr::CStr &&_Protocol, NHTTP::CResponseHeader &&_ResponseHeader, CCallbacks &&_Callbacks)
 	{
 		auto &Internal = *mp_pInternal;
 		auto Subscription = Internal.f_SetCallbacks(fg_Move(_Callbacks));
@@ -4066,7 +4066,7 @@ namespace NMib::NWeb
 		return Subscription;
 	}
 
-	void CWebSocketActor::fp_RejectServerConnection(NStr::CStr _Error, NHTTP::CResponseHeader _ResponseHeader, NStr::CStr _Content)
+	void CWebSocketActor::fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader, NStr::CStr const &_Content)
 	{
 		auto &Internal = *mp_pInternal;
 		fp_TryStopDeferring();
@@ -4332,7 +4332,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CWebSocketActor::fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket)
+	void CWebSocketActor::fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket)
 	{
 		auto &Internal = *mp_pInternal;
 
@@ -4373,7 +4373,7 @@ namespace NMib::NWeb
 
 	auto CWebSocketActor::fp_OnFinishServerConnection
 		(
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> _fOnFinishConnection
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> &&_fOnFinishConnection
 		)
 		-> NConcurrency::CActorSubscription
 	{
@@ -4397,12 +4397,12 @@ namespace NMib::NWeb
 
 	auto CWebSocketActor::fp_OnFinishClientConnection
 		(
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> _fOnFinishConnection
-			, NHTTP::CRequest _RequestHeader
-			, NStr::CStr _ConnectToAddress
-			, NStr::CStr _URI
-			, NStr::CStr _Origin
-			, NContainer::TCVector<NStr::CStr> _Protocols
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> &&_fOnFinishConnection
+			, NHTTP::CRequest &&_RequestHeader
+			, NStr::CStr &&_ConnectToAddress
+			, NStr::CStr &&_URI
+			, NStr::CStr &&_Origin
+			, NContainer::TCVector<NStr::CStr> &&_Protocols
 		)
 		-> NConcurrency::CActorSubscription
 	{

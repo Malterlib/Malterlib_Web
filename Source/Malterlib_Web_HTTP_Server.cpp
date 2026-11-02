@@ -23,7 +23,7 @@ namespace NMib::NWeb::NHTTP
 		~CConnectionWorker();
 
 		// Thread safe
-		void f_AddConnection(NStorage::TCUniquePointer<CConnection> _pConn);
+		void f_AddConnection(NStorage::TCUniquePointer<CConnection> &&_pConn);
 
 		void f_Start();
 		void f_Stop();
@@ -202,7 +202,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	// Thread safe
-	void CConnectionWorker::f_AddConnection(NStorage::TCUniquePointer<CConnection> _pConn)
+	void CConnectionWorker::f_AddConnection(NStorage::TCUniquePointer<CConnection> &&_pConn)
 	{
 		DMibLock(mp_NewConnectionsLock);
 		mp_NewConnectionsList.f_Insert(_pConn.f_Detach());

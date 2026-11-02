@@ -49,7 +49,7 @@ namespace NMib::NWeb::NHTTP
 		NStr::CStr mp_Errors;
 
 		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
-		EParse fp_ParseHeaderText(NStr::CStr _Text);
+		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
 		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 
 	public:
@@ -67,7 +67,7 @@ namespace NMib::NWeb::NHTTP
 	// CResponseStage Public Methods
 	//
 
-	CResponseStage::CResponseStage(NStorage::TCUniquePointer<CResponseDetails> _pD)
+	CResponseStage::CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
 		: mp_pD(fg_Move(_pD))
 	{
 	}
@@ -199,7 +199,7 @@ namespace NMib::NWeb::NHTTP
 	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const &_Source, NStr::CStr const &_Sep);
 
 	// RFC 2616 Section 4 HTTP Message
-	EParse CResponseDetails::fp_ParseHeaderText(NStr::CStr _Text)
+	EParse CResponseDetails::fp_ParseHeaderText(NStr::CStr const &_Text)
 	{
 		NContainer::TCVector<NStr::CStr> lLines = fg_SplitStringOn(_Text, "\r\n");
 
@@ -349,7 +349,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseContent::CResponseContent(NStorage::TCUniquePointer<CResponseDetails> _pD)
+	CResponseContent::CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
 		: CResponseStage(fg_Move(_pD))
 	{
 	}
@@ -390,7 +390,7 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseTrailer::CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> _pD)
+	CResponseTrailer::CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
 		: CResponseStage(fg_Move(_pD))
 	{
 	}

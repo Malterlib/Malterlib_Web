@@ -237,7 +237,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> _Connection)
+	void CWebSocketServerActor::fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection)
 	{
 		if (f_IsDestroyed() || mp_pInternal->m_bBroken)
 			return;

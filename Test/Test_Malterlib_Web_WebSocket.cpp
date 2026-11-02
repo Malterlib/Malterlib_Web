@@ -163,7 +163,7 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
+		uint16 f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
 
@@ -1487,7 +1487,7 @@ public:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress _ListenAddress, umint _FragmentationSize)
+		uint16 f_StartListen(CNetAddress const &_ListenAddress, umint _FragmentationSize)
 		{
 			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
 			m_ServerActor

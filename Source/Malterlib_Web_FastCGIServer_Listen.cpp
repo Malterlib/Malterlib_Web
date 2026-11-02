@@ -25,7 +25,7 @@ namespace NMib::NWeb::NFastCGI
 	{
 	}
 
-	void CListenActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> _pSocket)
+	void CListenActor::f_SetSocket(NStorage::TCSharedPointer<NNetwork::CSocket> &&_pSocket)
 	{
 		mp_Socket = fg_Move(*_pSocket);
 		fp_ProcessState();

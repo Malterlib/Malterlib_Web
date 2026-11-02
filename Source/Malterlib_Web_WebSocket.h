@@ -304,7 +304,7 @@ namespace NMib::NWeb
 		void fp_StateAdded(NNetwork::ENetTCPState _StateAdded);
 		void fp_Disconnect(EWebSocketStatus _Status, NStr::CStr const &_Reason, bool _bFatal, EWebSocketCloseOrigin _Origin, bool _bRemoteTransportClosed = false);
 		void fp_ReleaseDeferredCloseStates();
-		void fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> _pSocket);
+		void fp_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
 
 		void fp_ScheduleUpdateSend();
 		void fp_FlushSend();
@@ -324,26 +324,26 @@ namespace NMib::NWeb
 		void fp_ProcessState(NNetwork::ENetTCPState _StateAdded);
 		void fp_UpdateSend();
 		void fp_Shutdown();
-		NConcurrency::CActorSubscription fp_AcceptServerConnection(NStr::CStr _Protocol, NHTTP::CResponseHeader _ResponseHeader, CCallbacks _Callbacks);
-		void fp_RejectServerConnection(NStr::CStr _Error, NHTTP::CResponseHeader _ResponseHeader = NHTTP::CResponseHeader(), NStr::CStr _Content = NStr::CStr());
-		NConcurrency::CActorSubscription fp_AcceptClientConnection(CCallbacks _Callbacks);
+		NConcurrency::CActorSubscription fp_AcceptServerConnection(NStr::CStr &&_Protocol, NHTTP::CResponseHeader &&_ResponseHeader, CCallbacks &&_Callbacks);
+		void fp_RejectServerConnection(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader(), NStr::CStr const &_Content = NStr::CStr());
+		NConcurrency::CActorSubscription fp_AcceptClientConnection(CCallbacks &&_Callbacks);
 		void fp_StopDeferring();
 		void fp_TryStopDeferring();
-		void fp_RejectClientConnection(NStr::CStr _Error);
+		void fp_RejectClientConnection(NStr::CStr const &_Error);
 		auto fp_OnFinishServerConnection
 			(
-				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> _fOnFinishConnection
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> &&_fOnFinishConnection
 			)
 			-> NConcurrency::CActorSubscription
 		;
 		auto fp_OnFinishClientConnection
 			(
-				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> _fOnFinishConnection
-				, NHTTP::CRequest _RequestHeader
-				, NStr::CStr _ConnectToAddress
-				, NStr::CStr _URI
-				, NStr::CStr _Origin
-				, NContainer::TCVector<NStr::CStr> _Protocols
+				NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> &&_fOnFinishConnection
+				, NHTTP::CRequest &&_RequestHeader
+				, NStr::CStr &&_ConnectToAddress
+				, NStr::CStr &&_URI
+				, NStr::CStr &&_Origin
+				, NContainer::TCVector<NStr::CStr> &&_Protocols
 			)
 			-> NConcurrency::CActorSubscription
 		;
@@ -552,7 +552,7 @@ namespace NMib::NWeb
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
-		void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> _Connection);
+		void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);
 
 	public:
 		struct CInternal;
