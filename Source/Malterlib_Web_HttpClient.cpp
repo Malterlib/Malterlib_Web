@@ -144,7 +144,7 @@ namespace NMib::NWeb
 		CByteVector m_Body;
 	};
 
-	struct CHttpClientActor::CInternal
+	struct CHttpClientActor::CInternal : public NConcurrency::CActorInternal
 	{
 		CInternal(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout)
 			: m_CertificateConfig(_CertificateConfig)
