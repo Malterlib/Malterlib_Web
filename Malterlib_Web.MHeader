@@ -164,7 +164,7 @@ Import "../../External/nginx/nginx.MTarget"
 
 			Dependency.Indirect true
 		}
-		%Dependency "iphlpapi.lib"
+		%Dependency ["iphlpapi.lib", "bcrypt.lib"]
 		{
 			!!PlatformFamily "Windows"
 
