@@ -10,11 +10,7 @@ namespace NMib::NWeb
 {
 	struct CWebSocketServerActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(CWebSocketServerActor *_pThis, CWebsocketSettings const &_DefaultSettings)
-			: m_pThis(_pThis)
-			, m_DefaultSettings(_DefaultSettings)
-		{
-		}
+		CInternal(CWebSocketServerActor *_pThis, CWebsocketSettings const &_DefaultSettings);
 
 	public:
 		void f_Clear();

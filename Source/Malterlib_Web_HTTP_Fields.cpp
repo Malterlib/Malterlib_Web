@@ -75,4 +75,12 @@ namespace NMib::NWeb::NHTTP
 		else
 			return CStringValue::fs_CreateStaticString("");
 	}
+
+	namespace NPrivate
+	{
+		NStr::CStr TCFieldsBase_GetDefaultValue<NStr::CStr>::fs_Default()
+		{
+			return {};
+		}
+	}
 }

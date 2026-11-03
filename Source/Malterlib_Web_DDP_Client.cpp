@@ -201,6 +201,15 @@ namespace NMib::NWeb
 		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
 
+	CDDPClient::CConnectInfo::CConnectInfo()
+	{
+	}
+
+	CDDPClient::CConnectInfo::CConnectInfo(NStr::CStr const &_SessionID)
+		: m_SessionID(_SessionID)
+	{
+	}
+
 	NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted>::CIteratorConst CDDPClient::CCollectionAccessor::f_GetDocumentIterator() const
 	{
 		return mp_pCollection->m_Documents.f_GetIterator();

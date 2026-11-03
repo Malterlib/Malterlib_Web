@@ -15,6 +15,7 @@ namespace NMib::NWeb
 	struct CDDPServerConnection : public NConcurrency::CActor
 	{
 	private:
+		// Declared before the public section, which uses it.
 		struct CInternal;
 
 	public:

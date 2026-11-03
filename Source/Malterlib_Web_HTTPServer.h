@@ -53,9 +53,7 @@ namespace NMib::NWeb
 
 	struct CHTTPConnection
 	{
-		virtual ~CHTTPConnection()
-		{
-		}
+		virtual ~CHTTPConnection();
 
 		virtual void f_WriteStr(NStr::CStr const &_Str) = 0;
 		virtual void f_WriteBinary(uint8 const *_pData, umint _nBytes) = 0;
@@ -114,9 +112,7 @@ namespace NMib::NWeb
 
 	struct CHTTPRequestHandler
 	{
-		virtual ~CHTTPRequestHandler()
-		{
-		}
+		virtual ~CHTTPRequestHandler();
 
 		// This could be called for any thread - assume nothing.
 		virtual bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req) = 0;
@@ -237,38 +233,13 @@ namespace NMib::NWeb
 		CHTMLTemplate(NStr::CStr const &_Filename, bool _bExeFs);
 		~CHTMLTemplate();
 
-		bool f_IsEmpty() const
-		{
-			return mp_pState->m_Blocks.f_IsEmpty();
-		}
+		bool f_IsEmpty() const;
+		CIteratorConst f_GetIterator() const;
 
-		CIteratorConst f_GetIterator() const
-		{
-			return fg_Const(mp_pState->m_Blocks).f_GetIterator();
-		}
-
-		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
 		template <typename tf_FFunc>
-		void f_WriteTemplate(CHTTPConnection &_Conn, tf_FFunc const &_fFunc)
-		{
-			CHTTPResponseHeader ResponseHeader;
-			f_WriteTemplate(_Conn, ResponseHeader, _fFunc);
-		}
-
-		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
+		void f_WriteTemplate(CHTTPConnection &_Conn, tf_FFunc const &_fFunc);
 		template <typename tf_FFunc>
-		void f_WriteTemplate(CHTTPConnection &_Conn, CHTTPResponseHeader const &_BaseHeader, tf_FFunc const &_fFunc)
-		{
-			_Conn.f_WriteHeader(_BaseHeader);
-
-			for (auto &Block : mp_pState->m_Blocks)
-			{
-				if (Block.m_Type == EBlock_HTML)
-					_Conn.f_WriteStr(Block.m_Text);
-				else if (Block.m_Type == EBlock_UserData)
-					_fFunc(_Conn, Block.m_Text);
-			}
-		}
+		void f_WriteTemplate(CHTTPConnection &_Conn, CHTTPResponseHeader const &_BaseHeader, tf_FFunc const &_fFunc);
 
 		auto f_WriteTemplateAsync
 			(
@@ -304,3 +275,4 @@ namespace NMib::NWeb
 using namespace NMib::NWeb;
 #endif
 
+#include "Malterlib_Web_HTTPServer.hpp"

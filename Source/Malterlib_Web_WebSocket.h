@@ -146,11 +146,7 @@ namespace NMib::NWeb
 
 		struct CConnectionInfo
 		{
-			CConnectionInfo()
-				: m_pRequest(fg_Construct())
-			{
-			}
-
+			CConnectionInfo();
 			CConnectionInfo(CConnectionInfo &&_Other) = default;
 			CConnectionInfo(CConnectionInfo const &_Other) = delete;
 
@@ -169,10 +165,7 @@ namespace NMib::NWeb
 
 		struct CClientConnectionInfo
 		{
-			CClientConnectionInfo()
-				: m_pResponse(fg_Construct())
-			{
-			}
+			CClientConnectionInfo();
 
 			NStr::CStr m_Protocol;
 			NStorage::TCSharedPointer<NHTTP::CResponseHeader> m_pResponse;
@@ -187,43 +180,15 @@ namespace NMib::NWeb
 
 		struct CMaybeSecureByteVector : public NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>
 		{
-			CMaybeSecureByteVector(NContainer::CByteVector &&_Vector)
-				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
-			{
-			}
-
-			CMaybeSecureByteVector(NContainer::CSecureByteVector &&_Vector)
-				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
-			{
-			}
-
-			CMaybeSecureByteVector(NContainer::CSecureByteVector const &_Vector)
-				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
-			{
-			}
-
-			CMaybeSecureByteVector(NContainer::CByteVector const &_Vector)
-				: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
-			{
-			}
+			CMaybeSecureByteVector(NContainer::CByteVector &&_Vector);
+			CMaybeSecureByteVector(NContainer::CSecureByteVector &&_Vector);
+			CMaybeSecureByteVector(NContainer::CSecureByteVector const &_Vector);
+			CMaybeSecureByteVector(NContainer::CByteVector const &_Vector);
 
 			using NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>::operator =;
 
-			umint f_GetLen() const
-			{
-				if (this->f_GetTypeID() == 0)
-					return this->f_Get<0>().f_GetLen();
-				else
-					return this->f_Get<1>().f_GetLen();
-			}
-
-			uint8 const *f_GetArray() const
-			{
-				if (this->f_GetTypeID() == 0)
-					return this->f_Get<0>().f_GetArray();
-				else
-					return this->f_Get<1>().f_GetArray();
-			}
+			umint f_GetLen() const;
+			uint8 const *f_GetArray() const;
 		};
 
 		struct CMessageBuffers
@@ -426,14 +391,7 @@ namespace NMib::NWeb
 			)
 		;
 		~CWebSocketNewServerConnection();
-
-		CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other)
-			: CWebSocketNewConnection(fg_Move(_Other))
-			, m_Info(fg_Move(_Other.m_Info))
-			, m_Protocols(fg_Move(_Other.m_Protocols))
-			, mp_pHelper(fg_Move(_Other.mp_pHelper))
-		{
-		}
+		CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other);
 
 	private:
 		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &_Other);

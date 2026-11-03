@@ -41,32 +41,10 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved = 0;
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream &_Stream)
-		{
-			uint8 Version;
-			_Stream >> Version;
-			m_Version = (ERequestVersion)Version;
-			uint8 Type;
-			_Stream >> Type;
-			m_Type = (ERequestType)Type;
-			_Stream >> m_RequestID;
-			_Stream >> m_ContentLength;
-			_Stream >> m_PaddingLength;
-			_Stream >> m_Reserved;
-		}
+		void f_Consume(tf_CStream &_Stream);
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream &_Stream) const
-		{
-			uint8 Version = m_Version;
-			_Stream << Version;
-			uint8 Type = m_Type;
-			_Stream << Type;
-			_Stream << m_RequestID;
-			_Stream << m_ContentLength;
-			_Stream << m_PaddingLength;
-			_Stream << m_Reserved;
-		}
+		void f_Feed(tf_CStream &_Stream) const;
 	};
 
 	constexpr aint gc_HeaderLen = 8;
@@ -92,26 +70,10 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[5];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream &_Stream)
-		{
-			uint16 Role;
-			_Stream >> Role;
-			m_Role = (ERequestRole)Role;
-			uint8 Flags;
-			_Stream >> Flags;
-			m_Flags = (ERequestBodyFlag)Flags;
-			_Stream.f_ConsumeBytes(m_Reserved, sizeof(m_Reserved));
-		}
+		void f_Consume(tf_CStream &_Stream);
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream &_Stream) const
-		{
-			uint16 Role = m_Role;
-			_Stream << Role;
-			uint8 Flags = m_Flags;
-			_Stream << Flags;
-			_Stream.f_FeedBytes(m_Reserved, sizeof(m_Reserved));
-		}
+		void f_Feed(tf_CStream &_Stream) const;
 	};
 
 	enum EEndRequestStatus : uint8
@@ -124,35 +86,17 @@ namespace NMib::NWeb::NFastCGI
 
 	struct CEndRequestBody
 	{
-		CEndRequestBody()
-			: m_AppStatus(0)
-			, m_ProtocolStatus(EEndRequestStatus_RequestComplete)
-		{
-			NMemory::fg_MemClear(m_Reserved);
-		}
+		CEndRequestBody();
 
 		uint32 m_AppStatus;
 		EEndRequestStatus m_ProtocolStatus;
 		uint8 m_Reserved[3];
 
 		template <typename tf_CStream>
-		void f_Consume(tf_CStream &_Stream)
-		{
-			_Stream >> m_AppStatus;
-			uint8 ProtocolStatus;
-			_Stream >> ProtocolStatus;
-			m_ProtocolStatus = (EEndRequestStatus)ProtocolStatus;
-			_Stream.f_ConsumeBytes(m_Reserved, sizeof(m_Reserved));
-		}
+		void f_Consume(tf_CStream &_Stream);
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream &_Stream) const
-		{
-			_Stream << m_AppStatus;
-			uint8 ProtocolStatus = m_ProtocolStatus;
-			_Stream << ProtocolStatus;
-			_Stream.f_FeedBytes(m_Reserved, sizeof(m_Reserved));
-		}
+		void f_Feed(tf_CStream &_Stream) const;
 	};
 
 	/*
@@ -168,3 +112,5 @@ namespace NMib::NWeb::NFastCGI
 		uint8 m_Reserved[7];
 	};
 }
+
+#include "Malterlib_Web_FastCGIServer_Protocol.hpp"

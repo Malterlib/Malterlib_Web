@@ -50,6 +50,12 @@ namespace NMib::NWeb
 	}
 #endif
 
+	CWebSocketServerActor::CInternal::CInternal(CWebSocketServerActor *_pThis, CWebsocketSettings const &_DefaultSettings)
+		: m_pThis(_pThis)
+		, m_DefaultSettings(_DefaultSettings)
+	{
+	}
+
 	void CWebSocketServerActor::CInternal::f_Clear()
 	{
 		m_ListenSockets.f_Clear();

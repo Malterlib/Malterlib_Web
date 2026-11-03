@@ -558,6 +558,14 @@ namespace NMib::NWeb
 		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_fLogFunction;
 	};
 
+	CHTTPConnection::~CHTTPConnection()
+	{
+	}
+
+	CHTTPRequestHandler::~CHTTPRequestHandler()
+	{
+	}
+
 	// CHTTPServer Public Methods
 
 	CHTTPServer::CHTTPServer()
@@ -1004,6 +1012,16 @@ namespace NMib::NWeb
 
 	CHTMLTemplate::~CHTMLTemplate()
 	{
+	}
+
+	bool CHTMLTemplate::f_IsEmpty() const
+	{
+		return mp_pState->m_Blocks.f_IsEmpty();
+	}
+
+	auto CHTMLTemplate::f_GetIterator() const -> CIteratorConst
+	{
+		return fg_Const(mp_pState->m_Blocks).f_GetIterator();
 	}
 
 	///

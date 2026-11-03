@@ -14,6 +14,7 @@ namespace NMib::NWeb
 	struct CDDPClient : public NConcurrency::CActor
 	{
 	private:
+		// Declared before the public section, which uses them.
 		struct CInternal;
 		struct CCollection;
 
@@ -42,14 +43,8 @@ namespace NMib::NWeb
 
 		struct CConnectInfo
 		{
-			CConnectInfo()
-			{
-			}
-
-			CConnectInfo(NStr::CStr const &_SessionID)
-				: m_SessionID(_SessionID)
-			{
-			}
+			CConnectInfo();
+			CConnectInfo(NStr::CStr const &_SessionID);
 
 			NStr::CStr m_SessionID;
 			NStr::CStr m_UserID;

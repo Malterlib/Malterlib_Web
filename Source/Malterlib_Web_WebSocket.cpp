@@ -107,6 +107,14 @@ namespace NMib::NWeb
 		mp_pHelper.f_Clear();
 	}
 
+	CWebSocketNewServerConnection::CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other)
+		: CWebSocketNewConnection(fg_Move(_Other))
+		, m_Info(fg_Move(_Other.m_Info))
+		, m_Protocols(fg_Move(_Other.m_Protocols))
+		, mp_pHelper(fg_Move(_Other.mp_pHelper))
+	{
+	}
+
 	///
 	/// Client connection
 	/// =================
@@ -152,6 +160,52 @@ namespace NMib::NWeb
 	{
 		if (!m_bRepliedToConnection.f_Exchange(true))
 			m_Connection.f_Bind<&CWebSocketActor::fp_RejectClientConnection>("Abandoned").f_DiscardResult();
+	}
+
+	CWebSocketActor::CConnectionInfo::CConnectionInfo()
+		: m_pRequest(fg_Construct())
+	{
+	}
+
+	CWebSocketActor::CClientConnectionInfo::CClientConnectionInfo()
+		: m_pResponse(fg_Construct())
+	{
+	}
+
+	CWebSocketActor::CMaybeSecureByteVector::CMaybeSecureByteVector(NContainer::CByteVector &&_Vector)
+		: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
+	{
+	}
+
+	CWebSocketActor::CMaybeSecureByteVector::CMaybeSecureByteVector(NContainer::CSecureByteVector &&_Vector)
+		: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{fg_Move(_Vector)}
+	{
+	}
+
+	CWebSocketActor::CMaybeSecureByteVector::CMaybeSecureByteVector(NContainer::CSecureByteVector const &_Vector)
+		: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
+	{
+	}
+
+	CWebSocketActor::CMaybeSecureByteVector::CMaybeSecureByteVector(NContainer::CByteVector const &_Vector)
+		: NStorage::TCVariant<NContainer::CByteVector, NContainer::CSecureByteVector>{_Vector}
+	{
+	}
+
+	umint CWebSocketActor::CMaybeSecureByteVector::f_GetLen() const
+	{
+		if (this->f_GetTypeID() == 0)
+			return this->f_Get<0>().f_GetLen();
+		else
+			return this->f_Get<1>().f_GetLen();
+	}
+
+	uint8 const *CWebSocketActor::CMaybeSecureByteVector::f_GetArray() const
+	{
+		if (this->f_GetTypeID() == 0)
+			return this->f_Get<0>().f_GetArray();
+		else
+			return this->f_Get<1>().f_GetArray();
 	}
 
 	bool CWebSocketActor::fs_IsValidCloseStatus(EWebSocketStatus _Status)
