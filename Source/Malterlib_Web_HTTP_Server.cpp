@@ -33,7 +33,7 @@ namespace NMib::NWeb::NHTTP
 		CDetails(CConfig const &_Config);
 		~CDetails();
 
-		bool f_Start(NStr::CStr &_oError);
+		bool f_Start(NStr::CStr &o_Error);
 		void f_Stop();
 
 	private:
@@ -72,11 +72,11 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	bool CServer::CDetails::f_Start(NStr::CStr &_oError)
+	bool CServer::CDetails::f_Start(NStr::CStr &o_Error)
 	{
 		if (mp_State != EState_Stopped)
 		{
-			_oError = "The server is already running.";
+			o_Error = "The server is already running.";
 			return false;
 		}
 
@@ -176,9 +176,9 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	bool CServer::f_Start(NStr::CStr &_oError)
+	bool CServer::f_Start(NStr::CStr &o_Error)
 	{
-		return mp_pD->f_Start(_oError);
+		return mp_pD->f_Start(o_Error);
 	}
 
 	void CServer::f_Stop()

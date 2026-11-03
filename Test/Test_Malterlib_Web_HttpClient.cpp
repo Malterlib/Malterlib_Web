@@ -42,7 +42,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 	struct CWebServerResults
 	{
 		CWebServerResults() = default;
-		CWebServerResults(CWebServerResults &&) = default;
+		CWebServerResults(CWebServerResults &&_Other) = default;
 		~CWebServerResults()
 		{
 			if (m_Subscription)
@@ -562,19 +562,19 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 
 								curl_external_resolver Override{};
 								Override.user = &Results.m_OverrideResolves;
-								Override.start = [](void *_pUser, CURL *, char const *, int) -> void *
+								Override.start = [](void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) -> void *
 									{
 										++*static_cast<int *>(_pUser);
 
 										return nullptr;
 									}
 								;
-								Override.poll = [](void *, curl_external_address const **, size_t *) -> int
+								Override.poll = [](void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses) -> int
 									{
 										return -1;
 									}
 								;
-								Override.cancel = [](void *)
+								Override.cancel = [](void *_pLookup)
 									{
 									}
 								;
@@ -582,12 +582,12 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 								if (curl_multi_set_external_resolver(pOverrideMulti, &Override) != CURLM_OK)
 									DMibError("Could not install test resolver override");
 
-								auto fWrite = [](char *, size_t _Size, size_t _Count, void *) -> size_t
+								auto fWrite = [](char *_pBuffer, size_t _Size, size_t _Count, void *_pData) -> size_t
 									{
 										return _Size * _Count;
 									}
 								;
-								auto fResolveStart = [](void *, void *, void *_pUser) -> int
+								auto fResolveStart = [](void *_pResolverState, void *_pReserved, void *_pUser) -> int
 									{
 										++*static_cast<int *>(_pUser);
 

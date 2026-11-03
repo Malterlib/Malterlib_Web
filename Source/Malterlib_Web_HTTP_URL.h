@@ -130,7 +130,7 @@ namespace NMib::NWeb::NHTTP
 
 		void f_SetScheme(NStr::CStr const &_Scheme);
 		void f_SetHost(NStr::CStr const &_Host, bool _bRaw = false);
-		void f_SetPort(uint16);
+		void f_SetPort(uint16 _Port);
 		void f_SetUsername(NStr::CStr const &_Username);
 		void f_SetPassword(NStr::CStr const &_Password);
 		void f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path);
@@ -157,7 +157,7 @@ namespace NMib::NWeb::NHTTP
 
 		// _Start can range from 0 -> Len-1
 		// _End can range from 0 -> Len or be -1 which == Len
-		static bool fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
+		static bool fs_PercentDecode(NStr::CStr &o_Result, NStr::CStr const &_Str, aint _Start = 0, aint _End = -1);
 
 		static void fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, EEncodeFlag _Flags = EEncodeFlag_None);
 		static NStr::CStr fs_PercentEncode(NStr::CStr const &_Str, ch8 const *_pReserved = nullptr, EEncodeFlag _Flags = EEncodeFlag_None);

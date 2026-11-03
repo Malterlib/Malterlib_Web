@@ -233,7 +233,7 @@ namespace NMib::NWeb
 			return Events;
 		}
 
-		static int fs_Socket(CURL *, curl_socket_t _Socket, int _What, void *_pUser, void *) noexcept
+		static int fs_Socket(CURL *_pEasy, curl_socket_t _Socket, int _What, void *_pUser, void *_pSocketData) noexcept
 		{
 			try
 			{
@@ -312,7 +312,7 @@ namespace NMib::NWeb
 			return 0;
 		}
 
-		static int fs_Timer(CURLM *, long _Milliseconds, void *_pUser) noexcept
+		static int fs_Timer(CURLM *_pMulti, long _Milliseconds, void *_pUser) noexcept
 		{
 			try
 			{

@@ -9,13 +9,13 @@ namespace NMib::NWeb::NHTTP
 	// Global Utility Methods
 	//
 
-	template <typename t_CEnum>
-	NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<t_CEnum, CFieldValue> const &_Fields)
+	template <typename tf_CEnum>
+	NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<tf_CEnum, CFieldValue> const &_Fields)
 	{
 		NStr::CStr Result;
 		for (auto iField = _Fields.f_GetIterator(); iField; ++iField)
 		{
-			Result += fg_HTTP_GetEnumName<t_CEnum>(iField.f_GetKey());
+			Result += fg_HTTP_GetEnumName<tf_CEnum>(iField.f_GetKey());
 			Result += ": ";
 			Result += fg_GetFieldValueAsString(*iField).f_Get();
 			Result += "\r\n";
@@ -24,15 +24,15 @@ namespace NMib::NWeb::NHTTP
 		return fg_Move(Result);
 	}
 
-	template <typename t_CEnum>
-	void fg_WriteFieldsToData(COutputMethod const &_fOutput, NContainer::TCMap<t_CEnum, CFieldValue> const &_Fields)
+	template <typename tf_CEnum>
+	void fg_WriteFieldsToData(COutputMethod const &_fOutput, NContainer::TCMap<tf_CEnum, CFieldValue> const &_Fields)
 	{
 		char const pNameValueSep[] = {':', ' '};
 		char const pLineSep[] = {'\r', '\n'};
 
 		for (auto iField = _Fields.f_GetIterator(); iField; ++iField)
 		{
-			char const *pStr = fg_HTTP_GetEnumName<t_CEnum>(iField.f_GetKey());
+			char const *pStr = fg_HTTP_GetEnumName<tf_CEnum>(iField.f_GetKey());
 			_fOutput((uint8 const *)pStr, NStr::fg_StrLen(pStr));
 			_fOutput((uint8 const *)pNameValueSep, sizeof(pNameValueSep));
 
@@ -219,13 +219,13 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template <typename t_CSub, typename t_CEnum>
-	template <EFieldType t_FieldType>
-	auto TCFieldsBase<t_CSub, t_CEnum>::fp_GetField(t_CEnum _Field) const -> CFieldValue::TCTypeFromMember<t_FieldType>
+	template <EFieldType tf_FieldType>
+	auto TCFieldsBase<t_CSub, t_CEnum>::fp_GetField(t_CEnum _Field) const -> CFieldValue::TCTypeFromMember<tf_FieldType>
 	{
 		auto const *pValue = mp_Fields.f_FindEqual(_Field);
 		if (pValue)
-			return pValue->template f_Get<t_FieldType>();
+			return pValue->template f_Get<tf_FieldType>();
 		else
-			return NPrivate::TCFieldsBase_GetDefaultValue<CFieldValue::TCTypeFromMember<t_FieldType>>::fs_Default();
+			return NPrivate::TCFieldsBase_GetDefaultValue<CFieldValue::TCTypeFromMember<tf_FieldType>>::fs_Default();
 	}
 }

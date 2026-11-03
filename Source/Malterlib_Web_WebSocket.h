@@ -151,8 +151,8 @@ namespace NMib::NWeb
 			{
 			}
 
-			CConnectionInfo(CConnectionInfo &&) = default;
-			CConnectionInfo(CConnectionInfo const &) = delete;
+			CConnectionInfo(CConnectionInfo &&_Other) = default;
+			CConnectionInfo(CConnectionInfo const &_Other) = delete;
 
 			NStr::CStr m_ID;
 			NStr::CStr m_ProtocolVersion;
@@ -392,8 +392,8 @@ namespace NMib::NWeb
 		CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other);
 
 	private:
-		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection const &);
-		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection &&);
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection const &_Other);
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection &&_Other);
 		CWebSocketNewClientConnection(CWebSocketNewClientConnection const &_Other);
 
 		struct CRepliedHelper
@@ -436,8 +436,8 @@ namespace NMib::NWeb
 		}
 
 	private:
-		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &);
-		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection &&);
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &_Other);
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection &&_Other);
 		CWebSocketNewServerConnection(CWebSocketNewServerConnection const &_Other);
 
 		struct CRepliedHelper

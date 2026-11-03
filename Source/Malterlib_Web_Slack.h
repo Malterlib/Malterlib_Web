@@ -25,8 +25,8 @@ namespace NMib::NWeb
 		struct CPredefinedColor
 		{
 			constexpr CPredefinedColor(EPredefinedColor _Color);
-			CPredefinedColor(CPredefinedColor const &) = default;
-			CPredefinedColor &operator = (CPredefinedColor const &) = default;
+			CPredefinedColor(CPredefinedColor const &_Other) = default;
+			CPredefinedColor &operator = (CPredefinedColor const &_Other) = default;
 
 			auto operator <=> (CPredefinedColor const &_Right) const noexcept = default;
 

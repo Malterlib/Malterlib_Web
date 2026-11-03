@@ -66,8 +66,8 @@ namespace NMib::NWeb::NHTTP
 	// CResponseStage Public Methods
 	//
 
-	CResponseStage::CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
-		: mp_pD(fg_Move(_pD))
+	CResponseStage::CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails)
+		: mp_pD(fg_Move(_pDetails))
 	{
 	}
 
@@ -348,8 +348,8 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseContent::CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
-		: CResponseStage(fg_Move(_pD))
+	CResponseContent::CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails)
+		: CResponseStage(fg_Move(_pDetails))
 	{
 	}
 
@@ -389,8 +389,8 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseTrailer::CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pD)
-		: CResponseStage(fg_Move(_pD))
+	CResponseTrailer::CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails)
+		: CResponseStage(fg_Move(_pDetails))
 	{
 	}
 

@@ -189,25 +189,25 @@ namespace NMib::NWeb::NHTTP
 	// Utility Methods
 	//
 
-	template <typename t_EnumType = umint>
-	static t_EnumType fg_FindInStringList(NStr::CStr const &_FindThis, char const **_pInHere, t_EnumType _ReturnIfNotFound)
+	template <typename tf_CIndex = umint>
+	static tf_CIndex fg_FindInStringList(NStr::CStr const &_FindThis, char const **_pInHere, tf_CIndex _ReturnIfNotFound)
 	{
 		for (char const **pCur = _pInHere; *pCur; ++pCur)
 		{
 			if (_FindThis.f_CmpNoCase(*pCur) == 0)
-				return t_EnumType(pCur - _pInHere);
+				return tf_CIndex(pCur - _pInHere);
 		}
 
 		return _ReturnIfNotFound;
 	}
 
-	template <typename t_EnumType = umint>
-	static t_EnumType fg_FindInStringListNoCase(NStr::CStr const &_FindThis, char const **_pInHere, t_EnumType _ReturnIfNotFound)
+	template <typename tf_CIndex = umint>
+	static tf_CIndex fg_FindInStringListNoCase(NStr::CStr const &_FindThis, char const **_pInHere, tf_CIndex _ReturnIfNotFound)
 	{
 		for (char const **pCur = _pInHere; *pCur; ++pCur)
 		{
 			if (_FindThis.f_CmpNoCase(*pCur) == 0)
-				return t_EnumType(pCur - _pInHere);
+				return tf_CIndex(pCur - _pInHere);
 		}
 
 		return _ReturnIfNotFound;

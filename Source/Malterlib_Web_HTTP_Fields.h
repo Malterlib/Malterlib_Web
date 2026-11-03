@@ -31,7 +31,7 @@ namespace NMib::NWeb::NHTTP
 
 		void f_Clear();
 
-		EParse f_Parse(NStr::CStr const &_RequestLine, NStr::CStr &_oErrors);
+		EParse f_Parse(NStr::CStr const &_RequestLine, NStr::CStr &o_Errors);
 		void f_Write(COutputMethod const &_fOutput);
 
 		void f_Set(EVersion _Version, EMethod _Method, CURL const &_URI);
@@ -54,7 +54,7 @@ namespace NMib::NWeb::NHTTP
 
 		void f_Clear();
 
-		EParse f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &_oErrors);
+		EParse f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &o_Errors);
 
 		EVersion f_GetVersion() const;
 		EStatus f_GetStatus() const;
@@ -119,8 +119,8 @@ namespace NMib::NWeb::NHTTP
 
 	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value);
 
-	template <typename t_CEnum>
-	inline NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<t_CEnum, CFieldValue> const &_Fields);
+	template <typename tf_CEnum>
+	inline NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<tf_CEnum, CFieldValue> const &_Fields);
 
 	template <typename t_CSub, typename t_CEnum>
 	struct TCFieldsBase
@@ -132,8 +132,8 @@ namespace NMib::NWeb::NHTTP
 
 		NContainer::TCMap<CEnum, CFieldValue> mp_Fields;
 
-		template <EFieldType t_FieldType>
-		auto fp_GetField(CEnum _Field) const -> CFieldValue::TCTypeFromMember<t_FieldType>;
+		template <EFieldType tf_FieldType>
+		auto fp_GetField(CEnum _Field) const -> CFieldValue::TCTypeFromMember<tf_FieldType>;
 
 	public:
 		TCFieldsBase();

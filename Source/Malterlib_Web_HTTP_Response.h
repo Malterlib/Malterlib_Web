@@ -23,7 +23,7 @@ namespace NMib::NWeb::NHTTP
 
 	struct CResponseStage
 	{
-		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
+		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails);
 		CResponseStage(CResponseStage &&_ToMove);
 		CResponseStage();
 		~CResponseStage();
@@ -33,9 +33,9 @@ namespace NMib::NWeb::NHTTP
 		void f_Abort();
 
 	private:
-		CResponseStage(CResponseStage const &) = delete;
-		CResponseStage &operator = (CResponseStage const &) = delete;
-		CResponseStage &operator = (CResponseStage &&) = delete;
+		CResponseStage(CResponseStage const &_Other) = delete;
+		CResponseStage &operator = (CResponseStage const &_Other) = delete;
+		CResponseStage &operator = (CResponseStage &&_Other) = delete;
 
 	protected:
 		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
@@ -52,7 +52,7 @@ namespace NMib::NWeb::NHTTP
 	struct CResponseTrailer : public CResponseStage
 	{
 		CResponseTrailer(CResponseTrailer &&_ToMove);
-		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
+		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails);
 		~CResponseTrailer();
 
 		void f_AddField(NStr::CStr const &_Name, NStr::CStr const &_Value);
@@ -68,7 +68,7 @@ namespace NMib::NWeb::NHTTP
 	struct CResponseContent : public CResponseStage
 	{
 		CResponseContent(CResponseContent &&_ToMove);
-		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
+		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pDetails);
 		~CResponseContent();
 
 		void f_SendData(uint8 const *_pData, umint _nBytes);
@@ -105,9 +105,9 @@ namespace NMib::NWeb::NHTTP
 		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
 
 	private:
-		CResponseHeader(CResponseHeader const &) = delete;
-		CResponseHeader &operator = (CResponseHeader const &) = delete;
-		CResponseHeader &operator = (CResponseHeader &&) = delete;
+		CResponseHeader(CResponseHeader const &_Other) = delete;
+		CResponseHeader &operator = (CResponseHeader const &_Other) = delete;
+		CResponseHeader &operator = (CResponseHeader &&_Other) = delete;
 	};
 }
 

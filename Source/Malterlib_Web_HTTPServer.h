@@ -248,16 +248,16 @@ namespace NMib::NWeb
 		}
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
-		template <typename t_FFunc>
-		void f_WriteTemplate(CHTTPConnection &_Conn, t_FFunc const &_Func)
+		template <typename tf_FFunc>
+		void f_WriteTemplate(CHTTPConnection &_Conn, tf_FFunc const &_Func)
 		{
 			CHTTPResponseHeader ResponseHeader;
 			f_WriteTemplate(_Conn, ResponseHeader, _Func);
 		}
 
 		// Lambda Sig: CStr Func(CHTTPConnection & _Conn, CStr const& _BlockName);
-		template <typename t_FFunc>
-		void f_WriteTemplate(CHTTPConnection &_Conn, CHTTPResponseHeader const &_BaseHeader, t_FFunc const &_Func)
+		template <typename tf_FFunc>
+		void f_WriteTemplate(CHTTPConnection &_Conn, CHTTPResponseHeader const &_BaseHeader, tf_FFunc const &_Func)
 		{
 			_Conn.f_WriteHeader(_BaseHeader);
 

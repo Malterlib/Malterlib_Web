@@ -35,7 +35,7 @@ namespace NMib::NWeb::NHTTP
 	// Peeks an ASCII line terminated by CRLF from _Data, starting at _iPos.
 	// On success returns true and sets _iPos to the first byte after the CRLF
 	// On failure returns false and does not alter _iPos
-	bool fg_PeekLine(NContainer::CPagedByteVector const &_Data, umint &_iPos, NStr::CStr &_oLine)
+	bool fg_PeekLine(NContainer::CPagedByteVector const &_Data, umint &_iPos, NStr::CStr &o_Line)
 	{
 		NStr::CStr Result;
 		static uint8 const CRLFCRLF[] = {'\r', '\n', '\r', '\n'};
@@ -63,7 +63,7 @@ namespace NMib::NWeb::NHTTP
 		{
 			// *(Result.f_GetStr() + Result.f_GetLen()) = 0;
 			_iPos = Result.f_GetLen() + sizeof(CRLFCRLF);
-			_oLine = fg_Move(Result);
+			o_Line = fg_Move(Result);
 			return true;
 		}
 		else

@@ -24,7 +24,7 @@ namespace NMib::NWeb::NHTTP
 		mp_ReasonPhrase.f_Clear();
 	}
 
-	EParse CStatusLine::f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &_oErrors)
+	EParse CStatusLine::f_Parse(NStr::CStr const &_StatusLine, NStr::CStr &o_Errors)
 	{
 		NContainer::TCVector<NStr::CStr> lReqParts;
 		lReqParts.f_SetLen(3);
@@ -39,7 +39,7 @@ namespace NMib::NWeb::NHTTP
 
 		if (nFound != 3)
 		{
-			_oErrors = "Status line was malformed. Expected VERSION STATUS REASON as first line.";
+			o_Errors = "Status line was malformed. Expected VERSION STATUS REASON as first line.";
 			return EParse_Invalid;
 		}
 
@@ -47,7 +47,7 @@ namespace NMib::NWeb::NHTTP
 		umint Status = lReqParts[1].f_ToIntExact(TCLimitsInt<umint>::mc_Max);
 		if (Status == TCLimitsInt<umint>::mc_Max)
 		{
-			_oErrors = "Status line was malformed. Expected a valid HTTP status code.";
+			o_Errors = "Status line was malformed. Expected a valid HTTP status code.";
 			return EParse_Invalid;
 		}
 		mp_Status = (EStatus)Status;
@@ -55,7 +55,7 @@ namespace NMib::NWeb::NHTTP
 
 		if (mp_Version == EVersion_Unknown)
 		{
-			_oErrors = NStr::fg_Format("Unknown http version: \"{}\"", lReqParts[0]);
+			o_Errors = NStr::fg_Format("Unknown http version: \"{}\"", lReqParts[0]);
 			return EParse_Invalid;
 		}
 
@@ -65,7 +65,7 @@ namespace NMib::NWeb::NHTTP
 			// We should convert the status to it's class status:
 			// mp_Status = ( ( (uint32)mp_Status ) / 100 ) * 100;
 			//	TODO: Would check the new Status is valid here.
-			_oErrors = NStr::fg_Format("Unknown status: \"{}\"", lReqParts[1]);
+			o_Errors = NStr::fg_Format("Unknown status: \"{}\"", lReqParts[1]);
 			return EParse_Invalid;
 		}
 

@@ -45,14 +45,14 @@ namespace
 
 				curl_external_resolver Resolver{};
 				Resolver.user = &Lookup;
-				Resolver.start = [](void *_pUser, CURL *, char const *, int) -> void *
+				Resolver.start = [](void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) -> void *
 					{
 						++static_cast<CLookup *>(_pUser)->m_Starts;
 
 						return _pUser;
 					}
 				;
-				Resolver.poll = [](void *_pLookup, curl_external_address const **, size_t *) -> int
+				Resolver.poll = [](void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses) -> int
 					{
 						++static_cast<CLookup *>(_pLookup)->m_Polls;
 
@@ -85,7 +85,7 @@ namespace
 					(
 						pEasy
 						, CURLOPT_DEBUGFUNCTION
-						, +[](CURL *, curl_infotype _Type, char *_pText, size_t _nBytes, void *_pUser) -> int
+						, +[](CURL *_pEasy, curl_infotype _Type, char *_pText, size_t _nBytes, void *_pUser) -> int
 						{
 							if (_Type == CURLINFO_TEXT)
 								*static_cast<CStr *>(_pUser) += CStr(_pText, _nBytes);

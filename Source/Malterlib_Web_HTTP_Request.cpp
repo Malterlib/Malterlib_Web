@@ -421,7 +421,7 @@ namespace NMib::NWeb::NHTTP
 		return EParse_OK;
 	}
 
-	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &_oNextParseState)
+	bool CRequest::CDetails::fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &o_NextParseState)
 	{
 		bool bContentExpected = false;
 
@@ -434,7 +434,7 @@ namespace NMib::NWeb::NHTTP
 					bContentExpected = mp_EntityFields.f_GetContentLength() != 0;
 				else
 				{
-					_oNextParseState = EParseState_Invalid;
+					o_NextParseState = EParseState_Invalid;
 					return false;
 				}
 				break;
@@ -478,14 +478,14 @@ namespace NMib::NWeb::NHTTP
 			}
 		case EMethod_Unknown:
 			{
-				_oNextParseState = EParseState_Invalid;
+				o_NextParseState = EParseState_Invalid;
 				return false;
 			}
 		}
 
 		if (!bContentExpected)
 		{
-			_oNextParseState = EParseState_Complete;
+			o_NextParseState = EParseState_Complete;
 			return true;
 		}
 
@@ -496,7 +496,7 @@ namespace NMib::NWeb::NHTTP
 		case ETransferEncoding_Identity:
 		case ETransferEncoding_Unknown: // Default is Identity
 			{
-				_oNextParseState = EParseState_Chunked_Plain;
+				o_NextParseState = EParseState_Chunked_Plain;
 				return true;
 			}
 
@@ -505,7 +505,7 @@ namespace NMib::NWeb::NHTTP
 		case ETransferEncoding_Deflate:
 		case ETransferEncoding_Compress:
 			{
-				_oNextParseState = EParseState_Content_Chunked;
+				o_NextParseState = EParseState_Content_Chunked;
 				return true;
 			}
 

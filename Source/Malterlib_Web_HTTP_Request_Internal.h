@@ -60,9 +60,9 @@ namespace NMib::NWeb::NHTTP
 		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
 
-		// If content can be parsed returns true and sets _oNextParseState to the parse state to use
+		// If content can be parsed returns true and sets o_NextParseState to the parse state to use
 		// to parse it.
-		bool fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &_oNextParseState);
+		bool fp_ParseContent(NContainer::CPagedByteVector const &_Data, EParseState &o_NextParseState);
 
 		EParse fp_ParseChunkedData(NContainer::CPagedByteVector &_Data);
 

@@ -33,8 +33,8 @@ namespace NMib::NWeb::NHTTP
 			return fg_Move(mp_Result);
 		}
 
-		template <typename t_CType>
-		void operator () (t_CType const &_Value)
+		template <typename tf_CType>
+		void operator () (tf_CType const &_Value)
 		{
 			mp_bOK = false;
 		}

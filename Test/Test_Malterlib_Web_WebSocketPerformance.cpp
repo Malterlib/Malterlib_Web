@@ -185,7 +185,7 @@ namespace
 	}
 
 	constexpr umint gc_BenchLocalFragmentationSize = 1024 * 1024 + 4096; // Local frames reduce per-frame overhead; remote frames retain the interleaving bound.
-	template <typename t_CHandler>
+	template <typename tf_CHandler>
 	auto fg_SetupServer
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
@@ -193,7 +193,7 @@ namespace
 			, CNetAddress const &_ListenAddress
 			, FVirtualSocketFactory const &_ServerFactory
 			, bool _bMasked
-			, TCActor<t_CHandler> const &_HandlerActor
+			, TCActor<tf_CHandler> const &_HandlerActor
 		)
 		-> uint16
 	{
@@ -308,7 +308,7 @@ namespace
 				// unmasked frames unless this run measures the masking XOR itself
 				, CWebSocketListenSocketFactory::fs_PerAddress
 				(
-					[ServerFactory = _ServerFactory, _bMasked](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+					[ServerFactory = _ServerFactory, _bMasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
 					{
 						return {.m_Factory = ServerFactory, .m_bNegotiateUnmaskedFrames = !_bMasked};
 					}
@@ -321,7 +321,7 @@ namespace
 		return ListenResult.m_ListenPorts.f_IsEmpty() ? uint16(0) : ListenResult.m_ListenPorts[0];
 	}
 
-	template <typename t_CHandler>
+	template <typename tf_CHandler>
 	void fg_SetupClient
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
@@ -330,7 +330,7 @@ namespace
 			, uint16 _Port
 			, FVirtualSocketFactory const &_ClientFactory
 			, bool _bMasked
-			, TCActor<t_CHandler> const &_HandlerActor
+			, TCActor<tf_CHandler> const &_HandlerActor
 		)
 	{
 		TCWeakPointer<CBenchState> pStateWeak = _pState;
@@ -388,7 +388,7 @@ namespace
 		;
 	}
 
-	template <typename t_CHandler>
+	template <typename tf_CHandler>
 	void fg_SetupConnection
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
@@ -397,7 +397,7 @@ namespace
 			, FVirtualSocketFactory const &_ServerFactory
 			, FVirtualSocketFactory const &_ClientFactory
 			, bool _bMasked
-			, TCActor<t_CHandler> const &_HandlerActor
+			, TCActor<tf_CHandler> const &_HandlerActor
 		)
 	{
 		uint16 ListenPort = fg_SetupServer(_RunLoopHelper, _pState, CSocket::fs_ResolveAddress(_Address, ENetAddressType_TCPv4), _ServerFactory, _bMasked, _HandlerActor);
@@ -498,7 +498,7 @@ namespace
 	using CBenchDriverActor = TCBenchDriverActor<EPriority_Normal>;
 	using CBenchDriverActorHighCpu = TCBenchDriverActor<EPriority_NormalHighCPU>;
 
-	template <typename t_CDriver, typename t_CHandler>
+	template <typename tf_CDriver, typename tf_CHandler>
 	void fg_MeasurePing
 		(
 			CActorRunLoopTestHelper &_RunLoopHelper
@@ -513,17 +513,17 @@ namespace
 		)
 	{
 		TCSharedPointerSupportWeak<CBenchState> pState = fg_Construct(_RunLoopHelper.m_pRunLoop, true, uint64(0));
-		fg_SetupConnection(_RunLoopHelper, pState, _Address, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<t_CHandler>());
+		fg_SetupConnection(_RunLoopHelper, pState, _Address, _ServerFactory, _ClientFactory, _bMasked, fg_ConstructActor<tf_CHandler>());
 
-		TCActor<t_CDriver> Driver = fg_ConstructActor<t_CDriver>();
+		TCActor<tf_CDriver> Driver = fg_ConstructActor<tf_CDriver>();
 
-		Driver(&t_CDriver::f_RunPing, pState, _nPingRoundTrips / 8).f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout);
+		Driver(&tf_CDriver::f_RunPing, pState, _nPingRoundTrips / 8).f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout);
 
 		CTestPerformanceMeasure Time(_Name);
 		for (umint iRepetition = 0; iRepetition < _nRepetitions; ++iRepetition)
 		{
 			Time.f_Start();
-			Driver(&t_CDriver::f_RunPing, pState, _nPingRoundTrips).f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout);
+			Driver(&tf_CDriver::f_RunPing, pState, _nPingRoundTrips).f_CallSync(_RunLoopHelper.m_pRunLoop, g_Timeout);
 			Time.f_Stop(_nPingRoundTrips);
 		}
 		_PerfTest.f_Add(Time);

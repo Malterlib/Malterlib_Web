@@ -172,7 +172,7 @@ private:
 			{
 				ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
 					(
-						[ServerFactory = _ServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint, CNetAddress const &) -> CWebSocketListenAddressConfig
+						[ServerFactory = _ServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
 						{
 							return {.m_Factory = ServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
 						}

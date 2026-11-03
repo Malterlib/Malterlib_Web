@@ -16,7 +16,7 @@ namespace NMib::NWeb::NHTTP
 		CServer(CConfig const &_Config);
 		~CServer();
 
-		bool f_Start(NStr::CStr &_oError);
+		bool f_Start(NStr::CStr &o_Error);
 		void f_Stop();
 
 	private:

@@ -204,10 +204,10 @@ namespace NMib::NWeb::NHTTP
 
 	char const *fg_HTTP_GetReasonPhrase(EStatus _Status);
 
-	template <typename t_CEnum>
-	char const *fg_HTTP_GetEnumName(t_CEnum _Value)
+	template <typename tf_CEnum>
+	char const *fg_HTTP_GetEnumName(tf_CEnum _Value)
 	{
-		static_assert(NTraits::cIsSame<t_CEnum, void>);
+		static_assert(NTraits::cIsSame<tf_CEnum, void>);
 	}
 
 	template <>
@@ -258,10 +258,10 @@ namespace NMib::NWeb::NHTTP
 		return fg_HTTP_GetEntityFieldName(_Value);
 	}
 
-	template <typename t_CEnum>
-	t_CEnum fg_HTTP_LookupEnum(NStr::CStr const &_Name)
+	template <typename tf_CEnum>
+	tf_CEnum fg_HTTP_LookupEnum(NStr::CStr const &_Name)
 	{
-		static_assert(NTraits::cIsSame<t_CEnum, void>);
+		static_assert(NTraits::cIsSame<tf_CEnum, void>);
 	}
 
 	template <>

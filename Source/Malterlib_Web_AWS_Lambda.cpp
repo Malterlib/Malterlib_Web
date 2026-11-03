@@ -57,17 +57,17 @@ namespace NMib::NWeb
 			}
 
 		private:
-			static voidpf ZCALLBACK fsp_FOpenFunc(voidpf opaque, char const *filename, int mode)
+			static voidpf ZCALLBACK fsp_FOpenFunc(voidpf _pOpaque, char const *_pFileName, int _Mode)
 			{
-				CMiniZipAdaptor *pThis = (CMiniZipAdaptor *)opaque;
+				CMiniZipAdaptor *pThis = (CMiniZipAdaptor *)_pOpaque;
 
 				NStream::CBinaryStreamDefault *pFile;
 
-				CStr FileName(filename);
+				CStr FileName(_pFileName);
 
-				if (mode & ZLIB_FILEFUNC_MODE_EXISTING)
+				if (_Mode & ZLIB_FILEFUNC_MODE_EXISTING)
 				{
-					if (!(mode & ZLIB_FILEFUNC_MODE_READ))
+					if (!(_Mode & ZLIB_FILEFUNC_MODE_READ))
 						return nullptr;
 
 					auto *pSourceFile = pThis->mp_Files.f_FindEqual(FileName);
@@ -79,9 +79,9 @@ namespace NMib::NWeb
 					pNewFile->f_OpenRead(pSourceFile->f_GetStr(), pSourceFile->f_GetLen());
 					pFile = pNewFile;
 				}
-				else if (mode & ZLIB_FILEFUNC_MODE_CREATE)
+				else if (_Mode & ZLIB_FILEFUNC_MODE_CREATE)
 				{
-					if (!(mode & ZLIB_FILEFUNC_MODE_WRITE))
+					if (!(_Mode & ZLIB_FILEFUNC_MODE_WRITE))
 						return nullptr;
 					pFile = &pThis->mp_OutFiles[FileName];
 				}
@@ -91,77 +91,77 @@ namespace NMib::NWeb
 				return pFile;
 			}
 
-			static voidpf ZCALLBACK fsp_FOpen64Func(voidpf opaque, void const *filename, int mode)
+			static voidpf ZCALLBACK fsp_FOpen64Func(voidpf _pOpaque, void const *_pFileName, int _Mode)
 			{
-				return fsp_FOpenFunc(opaque, (ch8 const *)filename, mode);
+				return fsp_FOpenFunc(_pOpaque, (ch8 const *)_pFileName, _Mode);
 			}
 
-			static uLong ZCALLBACK fsp_FReadFunc(voidpf opaque, voidpf stream, void *buf, uLong size)
+			static uLong ZCALLBACK fsp_FReadFunc(voidpf _pOpaque, voidpf _pStream, void *_pBuffer, uLong _Size)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
-				pFile->f_ConsumeBytes(buf, size);
-				return size;
+				pFile->f_ConsumeBytes(_pBuffer, _Size);
+				return _Size;
 			}
 
-			static uLong ZCALLBACK fsp_FWriteFunc(voidpf opaque, voidpf stream, void const *buf, uLong size)
+			static uLong ZCALLBACK fsp_FWriteFunc(voidpf _pOpaque, voidpf _pStream, void const *_pBuffer, uLong _Size)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
-				pFile->f_FeedBytes(buf, size);
-				return size;
+				pFile->f_FeedBytes(_pBuffer, _Size);
+				return _Size;
 			}
 
-			static long ZCALLBACK fsp_FTellFunc(voidpf opaque, voidpf stream)
+			static long ZCALLBACK fsp_FTellFunc(voidpf _pOpaque, voidpf _pStream)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static ZPOS64_T ZCALLBACK fsp_FTell64Func(voidpf opaque, voidpf stream)
+			static ZPOS64_T ZCALLBACK fsp_FTell64Func(voidpf _pOpaque, voidpf _pStream)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static long ZCALLBACK fsp_FSeekFunc(voidpf opaque, voidpf stream, uLong offset, int origin)
+			static long ZCALLBACK fsp_FSeekFunc(voidpf _pOpaque, voidpf _pStream, uLong _Offset, int _Origin)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
-				switch (origin)
+				switch (_Origin)
 				{
-				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(offset); break;
-				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(offset); break;
-				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(offset); break;
+				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(_Offset); break;
+				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(_Offset); break;
+				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(_Offset); break;
 				default: return -1;
 				}
 
 				return 0;
 			}
 
-			static long ZCALLBACK fsp_FSeek64Func(voidpf opaque, voidpf stream, ZPOS64_T offset, int origin)
+			static long ZCALLBACK fsp_FSeek64Func(voidpf _pOpaque, voidpf _pStream, ZPOS64_T _Offset, int _Origin)
 			{
-				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
+				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)_pStream;
 
-				switch (origin)
+				switch (_Origin)
 				{
-				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(offset); break;
-				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(offset); break;
-				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(offset); break;
+				case ZLIB_FILEFUNC_SEEK_CUR: pFile->f_AddPosition(_Offset); break;
+				case ZLIB_FILEFUNC_SEEK_END: pFile->f_SetPositionFromEnd(_Offset); break;
+				case ZLIB_FILEFUNC_SEEK_SET: pFile->f_SetPosition(_Offset); break;
 				default: return -1;
 				}
 
 				return 0;
 			}
 
-			static int ZCALLBACK fsp_FCloseFunc(voidpf opaque, voidpf stream)
+			static int ZCALLBACK fsp_FCloseFunc(voidpf _pOpaque, voidpf _pStream)
 			{
 				return 0;
 			}
 
-			static int ZCALLBACK fsp_FErrorFunc(voidpf opaque, voidpf stream)
+			static int ZCALLBACK fsp_FErrorFunc(voidpf _pOpaque, voidpf _pStream)
 			{
 				/* We never return errors */
 				return 0;

@@ -11,7 +11,7 @@ namespace NMib::NWeb::NHTTP
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	static bool fg_ParseU16Base10(uint16 &_oNum, NStr::CStr const &_Str, aint _Start, aint _End);
+	static bool fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End);
 
 	//
 	// CURL Public Methods
@@ -695,14 +695,14 @@ namespace NMib::NWeb::NHTTP
 	// Utility Methods
 	//
 
-	static bool fg_DecodeHexChar(char &_oNum, char _Ch)
+	static bool fg_DecodeHexChar(char &o_Num, char _Ch)
 	{
 		if (_Ch >= '0' && _Ch <= '9')
-			_oNum = _Ch - '0';
+			o_Num = _Ch - '0';
 		else if (_Ch >= 'a' && _Ch <= 'f')
-			_oNum = (_Ch - 'a') + 10;
+			o_Num = (_Ch - 'a') + 10;
 		else if (_Ch >= 'A' && _Ch <= 'F')
-			_oNum = (_Ch - 'A') + 10;
+			o_Num = (_Ch - 'A') + 10;
 		else
 			return false;
 
@@ -796,7 +796,7 @@ namespace NMib::NWeb::NHTTP
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	bool CURL::fs_PercentDecode(NStr::CStr &_oResult, NStr::CStr const &_Str, aint _Start, aint _End)
+	bool CURL::fs_PercentDecode(NStr::CStr &o_Result, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
 		umint StrLen = _Str.f_GetLen();
 
@@ -863,7 +863,7 @@ namespace NMib::NWeb::NHTTP
 				Result += NStr::CStr(pRunStart, pPtr - pRunStart);
 		}
 
-		_oResult = fg_Move(Result);
+		o_Result = fg_Move(Result);
 		return true;
 	}
 
