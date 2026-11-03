@@ -10,9 +10,8 @@
 
 namespace NMib::NWeb
 {
-	class CFastCGIServer::CInternal : public NConcurrency::CActorInternal
+	struct CFastCGIServer::CInternal : public NConcurrency::CActorInternal
 	{
-	public:
 		CInternal(CFastCGIServer *_pThis);
 		~CInternal();
 
@@ -37,9 +36,9 @@ namespace NMib::NWeb
 		void f_Construct();
 
 	private:
-		friend class CFastCGIRequest;
-		friend class CFastCGIConnectionActor;
-		friend class CFastCGIServer;
+		friend struct CFastCGIRequest;
+		friend struct CFastCGIConnectionActor;
+		friend struct CFastCGIServer;
 
 		CFastCGIServer *mp_pThis;
 		NContainer::TCVector<NConcurrency::TCActor<NFastCGI::CListenActor>> mp_ListenSockets;

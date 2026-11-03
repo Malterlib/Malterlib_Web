@@ -12,9 +12,8 @@ using namespace NMib::NWeb;
 // RFC 3986 coverage for NHTTP::CURL. Assertions reflect the parser's documented model:
 //   <scheme>://[<user>[:<pass>]@]<host>[:<port>]/<path>[?<query>][#<fragment>]
 // where the path is a list of percent-decoded segments and an empty path (path-abempty) is valid.
-class CURL_Tests : public NMib::NTest::CTest
+struct CURL_Tests : public NMib::NTest::CTest
 {
-public:
 	void f_DoTests()
 	{
 		DMibTestSuite("Scheme")

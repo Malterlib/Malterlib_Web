@@ -75,10 +75,10 @@ namespace NMib::NWeb
 
 	namespace NWebSocket
 	{
-		class CListenActor;
+		struct CListenActor;
 	}
-	class CWebSocketServerActor;
-	class CWebSocketClientActor;
+	struct CWebSocketServerActor;
+	struct CWebSocketClientActor;
 
 	struct CWebSocketNewConnection;
 	struct CWebSocketNewServerConnection;
@@ -134,9 +134,8 @@ namespace NMib::NWeb
 
 	constexpr ch8 const *gc_pUnmaskedFramesExtension = "x-malterlib-unmasked"; // Private RFC 6455 masking exception; requires agreement over transport without intermediaries.
 
-	class CWebSocketActor : public NConcurrency::CActor
+	struct CWebSocketActor : public NConcurrency::CActor
 	{
-	public:
 		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 
 		struct CCloseInfo
@@ -276,12 +275,12 @@ namespace NMib::NWeb
 		static constexpr umint mc_MaxCloseMessageLength = 125 - 2;
 
 	private:
-		friend class NWebSocket::CListenActor;
-		friend class CWebSocketServerActor;
+		friend struct NWebSocket::CListenActor;
+		friend struct CWebSocketServerActor;
 		friend struct CWebSocketNewConnection;
 		friend struct CWebSocketNewServerConnection;
 		friend struct CWebSocketNewClientConnection;
-		friend class CWebSocketClientActor;
+		friend struct CWebSocketClientActor;
 
 		enum EFinishConnectionResult
 		{
@@ -452,9 +451,8 @@ namespace NMib::NWeb
 		NStorage::TCSharedPointer<CRepliedHelper> mp_pHelper;
 	};
 
-	class CWebSocketClientActor : public NConcurrency::CActor
+	struct CWebSocketClientActor : public NConcurrency::CActor
 	{
-	public:
 		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
 
 		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
@@ -502,11 +500,8 @@ namespace NMib::NWeb
 		CWebsocketSettings mp_DefaultSettings;
 	};
 
-	class CWebSocketServerActor : public NConcurrency::CActor
+	struct CWebSocketServerActor : public NConcurrency::CActor
 	{
-		friend class NWebSocket::CListenActor;
-
-	public:
 		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
 
 		CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings = {});
@@ -558,6 +553,8 @@ namespace NMib::NWeb
 		struct CInternal;
 
 	private:
+		friend struct NWebSocket::CListenActor;
+
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 }

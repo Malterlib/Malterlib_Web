@@ -51,9 +51,8 @@ namespace
 	fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 }
 
-class CWebsocket_Tests : public CTest
+struct CWebsocket_Tests : public CTest
 {
-public:
 	void fp_Test
 		(
 			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories

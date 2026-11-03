@@ -9,8 +9,9 @@
 using namespace NMib;
 using namespace NMib::NWeb::NWebSocketEcho;
 
-class CWebSocketEcho : public CApplication
+struct CWebSocketEcho : public CApplication
 {
+private:
 	aint f_Main()
 	{
 		NConcurrency::CDistributedDaemon Daemon

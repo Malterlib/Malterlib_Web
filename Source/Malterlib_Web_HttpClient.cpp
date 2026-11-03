@@ -110,9 +110,8 @@ namespace NMib::NWeb
 				static_assert(tf_Option >= 0, "Unknown CURLOPTTYPE");
 		}
 
-		class CCurlInit
+		struct CCurlInit
 		{
-		public:
 			CCurlInit()
 			{
 				curl_global_init(CURL_GLOBAL_ALL);

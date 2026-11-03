@@ -17,20 +17,12 @@ namespace NMib::NWeb::NHTTP
 		, EResponseStatus_Complete
 	};
 
-	class CResponseDetails;
+	struct CResponseDetails;
 
 	// Utility class common to all response stages.
 
-	class CResponseStage
+	struct CResponseStage
 	{
-		CResponseStage(CResponseStage const &) = delete;
-		CResponseStage &operator = (CResponseStage const &) = delete;
-		CResponseStage &operator = (CResponseStage &&) = delete;
-
-	protected:
-		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
-
-	public:
 		CResponseStage(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		CResponseStage(CResponseStage &&_ToMove);
 		CResponseStage();
@@ -39,6 +31,14 @@ namespace NMib::NWeb::NHTTP
 		bool f_IsValid() const;
 
 		void f_Abort();
+
+	private:
+		CResponseStage(CResponseStage const &) = delete;
+		CResponseStage &operator = (CResponseStage const &) = delete;
+		CResponseStage &operator = (CResponseStage &&) = delete;
+
+	protected:
+		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
 	};
 
 	// These are in reverse order due to dependencies.
@@ -49,9 +49,8 @@ namespace NMib::NWeb::NHTTP
 	// Represents the optional end of a HTTP response, the trailer fields.
 	//
 
-	class CResponseTrailer : public CResponseStage
+	struct CResponseTrailer : public CResponseStage
 	{
-	public:
 		CResponseTrailer(CResponseTrailer &&_ToMove);
 		CResponseTrailer(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		~CResponseTrailer();
@@ -66,9 +65,8 @@ namespace NMib::NWeb::NHTTP
 	// Represents the content of a HTTP response.
 	//
 
-	class CResponseContent : public CResponseStage
+	struct CResponseContent : public CResponseStage
 	{
-	public:
 		CResponseContent(CResponseContent &&_ToMove);
 		CResponseContent(NStorage::TCUniquePointer<CResponseDetails> &&_pD);
 		~CResponseContent();
@@ -84,13 +82,8 @@ namespace NMib::NWeb::NHTTP
 	// Represents the start of a HTTP response, the header block.
 	//
 
-	class CResponseHeader : public CResponseStage
+	struct CResponseHeader : public CResponseStage
 	{
-		CResponseHeader(CResponseHeader const &) = delete;
-		CResponseHeader &operator = (CResponseHeader const &) = delete;
-		CResponseHeader &operator = (CResponseHeader &&) = delete;
-
-	public:
 		CResponseHeader(CResponseHeader &&_ToMove);
 		CResponseHeader(COutputMethod &&_OutputMethod);
 		CResponseHeader();
@@ -110,6 +103,11 @@ namespace NMib::NWeb::NHTTP
 		CResponseContent f_Complete();
 
 		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
+
+	private:
+		CResponseHeader(CResponseHeader const &) = delete;
+		CResponseHeader &operator = (CResponseHeader const &) = delete;
+		CResponseHeader &operator = (CResponseHeader &&) = delete;
 	};
 }
 

@@ -565,72 +565,8 @@ namespace
 		Driver->f_BlockDestroy(_RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
 	}
 
-	class CWebSocketPerformance_Tests : public CTest
+	struct CWebSocketPerformance_Tests : public CTest
 	{
-#if defined(DMibDebug) || defined(DMibSanitizerEnabled)
-		static constexpr uint64 mc_nTransferBytes = 8ull << 20;
-		static constexpr umint mc_nPingRoundTrips = 128;
-		static constexpr umint mc_nRepetitions = 3;
-#else
-		static constexpr uint64 mc_nTransferBytes = 8 * (1024ull << 20);
-		static constexpr umint mc_nPingRoundTrips = 4 * 16384;
-		static constexpr umint mc_nRepetitions = 5;
-#endif
-		static constexpr uint32 mc_ChunkSize = NFile::gc_IdealIoSize;
-
-		static bool fs_BenchSchemeEnabled(CStr const &_Tag)
-		{
-			CStr Schemes = fg_GetSys()->f_GetEnvironmentVariable("BenchSchemes");
-			if (Schemes.f_IsEmpty())
-				return true;
-
-			return ("," + Schemes + ",").f_Find("," + _Tag + ",") >= 0;
-		}
-
-		template <typename tf_FMeasure>
-		static void fs_MeasureTransports(CStr const &_SuiteTag, CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
-		{
-			CStr RootDirectory = NFile::CFile::fs_GetProgramDirectory() / ("WebSocketPerf_{}"_f << _SuiteTag);
-			fg_TestAddCleanupPath(RootDirectory);
-
-			auto fUnixAddress = [&](CStr const &_Tag)
-				{
-					return "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}_{}.socket"_f << RootDirectory << _SuiteTag << _Tag);
-				}
-			;
-
-			if (fs_BenchSchemeEnabled("ws"))
-				_fMeasure("ws", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
-			if (fs_BenchSchemeEnabled("ws_unix"))
-				_fMeasure("ws_unix", fUnixAddress("ws"), FVirtualSocketFactory(), FVirtualSocketFactory(), false);
-
-			if (fs_BenchSchemeEnabled("ws_masked"))
-				_fMeasure("ws_masked", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
-
-			CSSLSettings ServerSettings;
-			CCertificateOptions Options;
-			Options.m_CommonName = "Malterlib websocket benchmark";
-			Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
-			Options.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
-			CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-			TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-			CSSLSettings ClientSettings;
-			ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-			if (fs_BenchSchemeEnabled("wss"))
-				_fMeasure("wss", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
-			if (fs_BenchSchemeEnabled("wss_unix"))
-				_fMeasure("wss_unix", fUnixAddress("wss"), CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
-			if (fs_BenchSchemeEnabled("wss_masked"))
-				_fMeasure("wss_masked", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
-
-			DMibExpectTrue(_PerfTest);
-		}
-
-	public:
 		void f_DoTests()
 		{
 			DMibTestSuite(CTestCategory("WebSocketPing") << CTestGroup("Performance"))
@@ -812,6 +748,70 @@ namespace
 					DMibExpectTrue(PerfTest);
 				}
 			};
+		}
+
+	private:
+#if defined(DMibDebug) || defined(DMibSanitizerEnabled)
+		static constexpr uint64 mc_nTransferBytes = 8ull << 20;
+		static constexpr umint mc_nPingRoundTrips = 128;
+		static constexpr umint mc_nRepetitions = 3;
+#else
+		static constexpr uint64 mc_nTransferBytes = 8 * (1024ull << 20);
+		static constexpr umint mc_nPingRoundTrips = 4 * 16384;
+		static constexpr umint mc_nRepetitions = 5;
+#endif
+		static constexpr uint32 mc_ChunkSize = NFile::gc_IdealIoSize;
+
+		static bool fs_BenchSchemeEnabled(CStr const &_Tag)
+		{
+			CStr Schemes = fg_GetSys()->f_GetEnvironmentVariable("BenchSchemes");
+			if (Schemes.f_IsEmpty())
+				return true;
+
+			return ("," + Schemes + ",").f_Find("," + _Tag + ",") >= 0;
+		}
+
+		template <typename tf_FMeasure>
+		static void fs_MeasureTransports(CStr const &_SuiteTag, CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
+		{
+			CStr RootDirectory = NFile::CFile::fs_GetProgramDirectory() / ("WebSocketPerf_{}"_f << _SuiteTag);
+			fg_TestAddCleanupPath(RootDirectory);
+
+			auto fUnixAddress = [&](CStr const &_Tag)
+				{
+					return "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}_{}.socket"_f << RootDirectory << _SuiteTag << _Tag);
+				}
+			;
+
+			if (fs_BenchSchemeEnabled("ws"))
+				_fMeasure("ws", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
+			if (fs_BenchSchemeEnabled("ws_unix"))
+				_fMeasure("ws_unix", fUnixAddress("ws"), FVirtualSocketFactory(), FVirtualSocketFactory(), false);
+
+			if (fs_BenchSchemeEnabled("ws_masked"))
+				_fMeasure("ws_masked", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
+
+			CSSLSettings ServerSettings;
+			CCertificateOptions Options;
+			Options.m_CommonName = "Malterlib websocket benchmark";
+			Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
+			Options.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
+			CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+			TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+			CSSLSettings ClientSettings;
+			ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+			if (fs_BenchSchemeEnabled("wss"))
+				_fMeasure("wss", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
+			if (fs_BenchSchemeEnabled("wss_unix"))
+				_fMeasure("wss_unix", fUnixAddress("wss"), CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
+			if (fs_BenchSchemeEnabled("wss_masked"))
+				_fMeasure("wss_masked", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
+
+			DMibExpectTrue(_PerfTest);
 		}
 	};
 

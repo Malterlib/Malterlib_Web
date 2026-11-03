@@ -7,8 +7,17 @@
 
 namespace NMib::NWeb::NHTTP
 {
-	class CConnection::CDetails
+	struct CConnection::CDetails
 	{
+		CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock);
+		~CDetails();
+
+		bool f_IsConnected() const;
+
+		void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
+
+		void f_Process();
+
 	private:
 		enum EState
 		{
@@ -27,9 +36,8 @@ namespace NMib::NWeb::NHTTP
 
 		CRequest mp_PendingRequest; // If a request is awaiting content it is stored here.
 
-		class CLinkedRequest : public CRequest
+		struct CLinkedRequest : public CRequest
 		{
-		public:
 			inline CLinkedRequest();
 			inline CLinkedRequest(CLinkedRequest &&_ToMove);
 			inline CLinkedRequest(CRequest &&_ToMove);
@@ -39,16 +47,6 @@ namespace NMib::NWeb::NHTTP
 		};
 
 		DMibListLinkD_List(CLinkedRequest, mp_Link) mp_OpenRequests;
-
-	public:
-		CDetails(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock);
-		~CDetails();
-
-		bool f_IsConnected() const;
-
-		void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
-
-		void f_Process();
 	};
 
 	//

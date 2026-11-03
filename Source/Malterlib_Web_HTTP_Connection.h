@@ -11,19 +11,10 @@ namespace NMib::NWeb::NHTTP
 		, EConnectionState_Disconnected
 	};
 
-	class CConnectionWorker;
+	struct CConnectionWorker;
 
-	class CConnection
+	struct CConnection
 	{
-	private:
-		class CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pD;
-
-		DMibListLinkD_Link(CConnection, mp_Link);
-
-		friend CConnectionWorker;
-
-	public:
 		CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock);
 		~CConnection();
 
@@ -32,5 +23,13 @@ namespace NMib::NWeb::NHTTP
 		void f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo);
 
 		void f_Process();
+
+	private:
+		struct CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
+
+		DMibListLinkD_Link(CConnection, mp_Link);
+
+		friend CConnectionWorker;
 	};
 }

@@ -8,11 +8,10 @@
 
 namespace NMib::NWeb::NHTTP
 {
-	class CRequest;
+	struct CRequest;
 
-	class IRequestHandler
+	struct IRequestHandler
 	{
-	public:
 		virtual ~IRequestHandler()
 		{
 		}
@@ -24,21 +23,8 @@ namespace NMib::NWeb::NHTTP
 		virtual void f_Handle(NStorage::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response);
 	};
 
-	class CStaticRequestHandler : public IRequestHandler
+	struct CStaticRequestHandler : public IRequestHandler
 	{
-	private:
-		class CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pD;
-
-		struct CLocation
-		{
-			NContainer::TCVector<CStr> mp_Prefix;
-			CStr mp_LocalRoot;
-		};
-
-		NContainer::TCVector<CLocations> mp_lServedLocations;
-
-	public:
 		CStaticRequestHandler();
 		~CStaticRequestHandler();
 
@@ -50,5 +36,17 @@ namespace NMib::NWeb::NHTTP
 		bool f_CanHandle(CRequest const &_Req) override;
 
 		void f_Handle(NStorage::TCUniquePointer<CRequest> _pReq, CResponseHeader _Response) override;
+
+	private:
+		struct CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
+
+		struct CLocation
+		{
+			NContainer::TCVector<CStr> mp_Prefix;
+			CStr mp_LocalRoot;
+		};
+
+		NContainer::TCVector<CLocations> mp_lServedLocations;
 	};
 }

@@ -11,15 +11,14 @@
 
 namespace NMib::NWeb
 {
-	class CFastCGIConnectionActor;
+	struct CFastCGIConnectionActor;
 	namespace NFastCGI
 	{
-		class CListenActor;
+		struct CListenActor;
 	}
 
-	class CFastCGIRequest
+	struct CFastCGIRequest
 	{
-	public:
 		CFastCGIRequest(NConcurrency::TCActor<CFastCGIConnectionActor> const &_ConnectionActor, NStorage::TCSharedPointer<NContainer::TCMap<NStr::CStr, NStr::CStr>> const &_pParams);
 		~CFastCGIRequest();
 
@@ -53,10 +52,9 @@ namespace NMib::NWeb
 		bool mp_bAccepted = false;
 	};
 
-	class CFastCGIServer : public NConcurrency::CActor
+	struct CFastCGIServer : public NConcurrency::CActor
 	{
-	public:
-		class CInternal;
+		struct CInternal;
 
 		CFastCGIServer();
 		~CFastCGIServer();
@@ -80,8 +78,8 @@ namespace NMib::NWeb
 		;
 
 	private:
-		friend class CFastCGIConnectionActor;
-		friend class NFastCGI::CListenActor;
+		friend struct CFastCGIConnectionActor;
+		friend struct NFastCGI::CListenActor;
 
 		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_AddConnection(NConcurrency::TCActor<CFastCGIConnectionActor> &&_Connection);

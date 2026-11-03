@@ -29,9 +29,8 @@ using namespace NMib::NWeb;
 
 static fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
 
-class CDDP_Tests : public CTest
+struct CDDP_Tests : public CTest
 {
-public:
 	struct CServer : public CActor
 	{
 		CServer(FVirtualSocketFactory const &_ServerFactory)

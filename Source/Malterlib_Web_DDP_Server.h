@@ -12,8 +12,9 @@
 
 namespace NMib::NWeb
 {
-	class CDDPServerConnection : public NConcurrency::CActor
+	struct CDDPServerConnection : public NConcurrency::CActor
 	{
+	private:
 		struct CInternal;
 
 	public:

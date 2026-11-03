@@ -26,12 +26,6 @@ namespace NMib::NWeb::NHTTP
 	// Request line fields
 	struct CRequestLine
 	{
-	private:
-		EMethod mp_Method;
-		CURL mp_URI;
-		EVersion mp_Version;
-
-	public:
 		CRequestLine();
 		~CRequestLine();
 
@@ -45,17 +39,16 @@ namespace NMib::NWeb::NHTTP
 		EMethod f_GetMethod() const;
 		CURL const &f_GetURI() const;
 		EVersion f_GetVersion() const;
+
+	private:
+		EMethod mp_Method;
+		CURL mp_URI;
+		EVersion mp_Version;
 	};
 
 	// Status line fields
 	struct CStatusLine
 	{
-	private:
-		EVersion mp_Version;
-		EStatus mp_Status;
-		NStr::CStr mp_ReasonPhrase;
-
-	public:
 		CStatusLine();
 		~CStatusLine();
 
@@ -70,6 +63,11 @@ namespace NMib::NWeb::NHTTP
 		void f_Set(EVersion _Version, EStatus _Status, NStr::CStr const &_CustomReason);
 
 		void f_Write(COutputMethod const &_fOutput);
+
+	private:
+		EVersion mp_Version;
+		EStatus mp_Status;
+		NStr::CStr mp_ReasonPhrase;
 	};
 
 	//
@@ -98,14 +96,6 @@ namespace NMib::NWeb::NHTTP
 	// Static strings are stored as pointers, without allocation.
 	struct CStringValue
 	{
-	private:
-		NStr::CStr mp_Storage;
-		char const *mp_pStr;
-
-		inline CStringValue(NStr::CStr const &_Str);
-		inline CStringValue(char const *_pStr);
-
-	public:
 		inline CStringValue(CStringValue &&_ToMove);
 		inline CStringValue();
 
@@ -118,6 +108,13 @@ namespace NMib::NWeb::NHTTP
 		static inline CStringValue fs_CreateStaticString(char const *_pStr);
 		static inline CStringValue fs_CreateDynamicString(char const *_pStr);
 		static inline CStringValue fs_CreateDynamicString(NStr::CStr const &_Str);
+
+	private:
+		NStr::CStr mp_Storage;
+		char const *mp_pStr;
+
+		inline CStringValue(NStr::CStr const &_Str);
+		inline CStringValue(char const *_pStr);
 	};
 
 	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value);
@@ -126,9 +123,8 @@ namespace NMib::NWeb::NHTTP
 	inline NStr::CStr fg_WriteFieldsToString(NContainer::TCMap<t_CEnum, CFieldValue> const &_Fields);
 
 	template <typename t_CSub, typename t_CEnum>
-	class TCFieldsBase
+	struct TCFieldsBase
 	{
-	public:
 		using CEnum = t_CEnum;
 
 	protected:
@@ -166,7 +162,6 @@ namespace NMib::NWeb::NHTTP
 
 	struct CGeneralFields : public TCFieldsBase<CGeneralFields, EGeneralField>
 	{
-	public:
 		CGeneralFields();
 		~CGeneralFields();
 
@@ -197,7 +192,6 @@ namespace NMib::NWeb::NHTTP
 
 	struct CRequestFields : public TCFieldsBase<CRequestFields, ERequestField>
 	{
-	public:
 		CRequestFields();
 		~CRequestFields();
 
@@ -248,10 +242,6 @@ namespace NMib::NWeb::NHTTP
 	// Header fields
 	struct CEntityFields : public TCFieldsBase<CEntityFields, EEntityField>
 	{
-	private:
-		NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> mp_UnknownFields;
-
-	public:
 		CEntityFields();
 		~CEntityFields();
 
@@ -286,11 +276,13 @@ namespace NMib::NWeb::NHTTP
 
 		NStr::CStr f_WriteToString() const;
 		void f_WriteToData(COutputMethod const &_fOutput) const;
+
+	private:
+		NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> mp_UnknownFields;
 	};
 
 	struct CResponseFields : public TCFieldsBase<CResponseFields, EResponseField>
 	{
-	public:
 		CResponseFields();
 		~CResponseFields();
 

@@ -38,9 +38,8 @@ namespace NMib::NWeb::NHTTP
 	Where:
 		<path> is a string of possibly percent encoded path segments separated by forward slashes.
 	*/
-	class CURL
+	struct CURL
 	{
-	public:
 		struct CQueryEntry
 		{
 			NStr::CStr m_Key;

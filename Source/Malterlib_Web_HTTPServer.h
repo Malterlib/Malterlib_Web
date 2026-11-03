@@ -51,9 +51,8 @@ namespace NMib::NWeb
 		void f_SetMimeTypeFromFilename(NStr::CStr const &_Filename);
 	};
 
-	class CHTTPConnection
+	struct CHTTPConnection
 	{
-	public:
 		virtual ~CHTTPConnection()
 		{
 		}
@@ -69,23 +68,8 @@ namespace NMib::NWeb
 		NStorage::CIntrusiveRefCount m_RefCount;
 	};
 
-	class CHTTPCachedConnection : public CHTTPConnection
+	struct CHTTPCachedConnection : public CHTTPConnection
 	{
-	private:
-		enum EPresent
-		{
-			EPresent_None      = 0
-			, EPresent_Header  = DMibBit(0)
-			, EPresent_Content = DMibBit(1)
-		};
-
-		EPresent mp_Present;
-
-		NTime::CTime mp_Timestamp;
-		CHTTPResponseHeader mp_Header;
-		NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
-
-	public:
 		CHTTPCachedConnection();
 		CHTTPCachedConnection(CHTTPCachedConnection const &_ToCopy);
 		CHTTPCachedConnection(CHTTPCachedConnection &&_ToMove);
@@ -112,11 +96,24 @@ namespace NMib::NWeb
 		bool f_IsValid(fp32 _MaxSecondsOld);
 		void f_Forward(CHTTPConnection &_Dest);
 		void f_Clear();
+
+	private:
+		enum EPresent
+		{
+			EPresent_None      = 0
+			, EPresent_Header  = DMibBit(0)
+			, EPresent_Content = DMibBit(1)
+		};
+
+		EPresent mp_Present;
+
+		NTime::CTime mp_Timestamp;
+		CHTTPResponseHeader mp_Header;
+		NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 	};
 
-	class CHTTPRequestHandler
+	struct CHTTPRequestHandler
 	{
-	public:
 		virtual ~CHTTPRequestHandler()
 		{
 		}
@@ -177,12 +174,8 @@ namespace NMib::NWeb
 		void fp_ParseSettings(tf_CRegistry const &_Params);
 	};
 
-	class CHTTPServer
+	struct CHTTPServer
 	{
-		struct CHTTPServerInternal;
-		NConcurrency::TCActor<CHTTPServerInternal> mp_Internal;
-
-	public:
 		CHTTPServer();
 		~CHTTPServer();
 
@@ -203,6 +196,10 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<bool> f_RunAsync(CHTTPServerOptions _Options);
 		NConcurrency::TCFuture<bool> f_IsRunningAsync();
 		NConcurrency::TCFuture<bool> f_StopAsync();
+
+	private:
+		struct CHTTPServerInternal;
+		NConcurrency::TCActor<CHTTPServerInternal> mp_Internal;
 	};
 
 	/*
@@ -220,9 +217,8 @@ namespace NMib::NWeb
 
 		NOTE: f_WriteTemplate will send a HTTP response header for you.
 	*/
-	class CHTMLTemplate
+	struct CHTMLTemplate
 	{
-	public:
 		enum EBlock
 		{
 			EBlock_HTML

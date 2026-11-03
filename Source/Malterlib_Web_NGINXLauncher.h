@@ -8,9 +8,8 @@
 
 namespace NMib::NWeb
 {
-	class CNGINXLauncher
+	struct CNGINXLauncher
 	{
-	public:
 		CNGINXLauncher(NStr::CStr const &_LaunchPath, NStr::CStr const &_RootDir);
 		~CNGINXLauncher();
 

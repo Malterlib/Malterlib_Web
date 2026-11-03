@@ -10,9 +10,8 @@ namespace NMib::NWeb::NHTTP
 	// The implementation of a response
 	//
 
-	class CResponseDetails
+	struct CResponseDetails
 	{
-	public:
 		CResponseDetails()
 			: m_Stage(EStage_Header)
 			, mp_Status(EResponseStatus_Empty)

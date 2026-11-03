@@ -6,8 +6,17 @@
 
 namespace NMib::NWeb::NHTTP
 {
-	class CConnectionWorker
+	struct CConnectionWorker
 	{
+		CConnectionWorker();
+		~CConnectionWorker();
+
+		// Thread safe
+		void f_AddConnection(NStorage::TCUniquePointer<CConnection> &&_pConn);
+
+		void f_Start();
+		void f_Stop();
+
 	private:
 		DMibListLinkD_List(CConnection, mp_Link) mp_ConnectionsList;
 
@@ -17,20 +26,16 @@ namespace NMib::NWeb::NHTTP
 		NStorage::TCUniquePointer<NThread::CThreadObject> mp_pThread;
 
 		aint fp_Work(NThread::CThreadObject *_pThread);
-
-	public:
-		CConnectionWorker();
-		~CConnectionWorker();
-
-		// Thread safe
-		void f_AddConnection(NStorage::TCUniquePointer<CConnection> &&_pConn);
-
-		void f_Start();
-		void f_Stop();
 	};
 
-	class CServer::CDetails
+	struct CServer::CDetails
 	{
+		CDetails(CConfig const &_Config);
+		~CDetails();
+
+		bool f_Start(NStr::CStr &_oError);
+		void f_Stop();
+
 	private:
 		enum EState
 		{
@@ -51,12 +56,6 @@ namespace NMib::NWeb::NHTTP
 		aint fp_Listen(NThread::CThreadObject *_pThread);
 
 	private:
-	public:
-		CDetails(CConfig const &_Config);
-		~CDetails();
-
-		bool f_Start(NStr::CStr &_oError);
-		void f_Stop();
 	};
 
 	//

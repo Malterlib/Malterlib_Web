@@ -7,9 +7,8 @@
 using namespace NMib;
 using namespace NMib::NWeb;
 
-class CHTTPApp : public NMib::CApplication
+struct CHTTPApp : public NMib::CApplication
 {
-public:
 	aint f_Main()
 	{
 		NHTTP::CServer::CConfig Config;

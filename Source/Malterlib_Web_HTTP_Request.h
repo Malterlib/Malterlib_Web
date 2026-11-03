@@ -16,18 +16,11 @@ namespace NMib::NWeb::NHTTP
 		, ERequestStatus_Complete
 	};
 
-	class CConnection;
+	struct CConnection;
 
 	// Parses HTTP request messages.
-	class CRequest
+	struct CRequest
 	{
-	private:
-		class CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pD;
-
-		friend class CConnection;
-
-	public:
 		CRequest();
 		CRequest(CRequest &&_ToMove);
 		~CRequest();
@@ -66,6 +59,12 @@ namespace NMib::NWeb::NHTTP
 		CGeneralFields &f_GetGeneralFields();
 		CRequestFields &f_GetRequestFields();
 		CEntityFields &f_GetEntityFields();
+
+	private:
+		struct CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
+
+		friend struct CConnection;
 	};
 }
 

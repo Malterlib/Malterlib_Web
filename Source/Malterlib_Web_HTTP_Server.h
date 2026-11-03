@@ -5,13 +5,8 @@
 
 namespace NMib::NWeb::NHTTP
 {
-	class CServer
+	struct CServer
 	{
-	private:
-		class CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pD;
-
-	public:
 		struct CConfig
 		{
 			uint16 m_Port;
@@ -23,5 +18,9 @@ namespace NMib::NWeb::NHTTP
 
 		bool f_Start(NStr::CStr &_oError);
 		void f_Stop();
+
+	private:
+		struct CDetails;
+		NStorage::TCUniquePointer<CDetails> mp_pD;
 	};
 }

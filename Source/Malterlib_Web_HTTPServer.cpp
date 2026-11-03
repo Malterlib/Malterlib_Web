@@ -54,15 +54,8 @@ namespace NMib::NWeb
 			_pRequest->f_FinishRequest();
 		}
 
-		class CConnection : public CHTTPConnection
+		struct CConnection : public CHTTPConnection
 		{
-		private:
-			CHTTPResponseHeader mp_Header;
-			NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
-
-			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
-
-		public:
 			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
 			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
 			bool mp_bSentAsyncHeader = false;
@@ -392,6 +385,12 @@ namespace NMib::NWeb
 
 				return Promise <<= g_Void;
 			}
+
+		private:
+			CHTTPResponseHeader mp_Header;
+			NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
+
+			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
 		};
 
 		static umint fs_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
@@ -887,9 +886,8 @@ namespace NMib::NWeb
 
 	// For Development Use Only
 
-	class CTestHTTPRequestHandler : public CHTTPRequestHandler
+	struct CTestHTTPRequestHandler : public CHTTPRequestHandler
 	{
-	public:
 		CTestHTTPRequestHandler()
 		{
 		}

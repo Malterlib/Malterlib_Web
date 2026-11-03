@@ -11,11 +11,8 @@
 
 namespace NMib::NWeb
 {
-	class CFastCGIConnectionActor : public NConcurrency::CActor
+	struct CFastCGIConnectionActor : public NConcurrency::CActor
 	{
-		friend class CFastCGIRequest;
-
-	public:
 		CFastCGIConnectionActor
 			(
 				NConcurrency::TCActor<CFastCGIServer> const &_ServerActor
@@ -79,6 +76,8 @@ namespace NMib::NWeb
 		};
 
 	private:
+		friend struct CFastCGIRequest;
+
 		NConcurrency::TCActor<CFastCGIServer> mp_ServerActor;
 		NNetwork::CSocket mp_Socket;
 

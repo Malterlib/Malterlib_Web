@@ -11,8 +11,9 @@
 
 namespace NMib::NWeb
 {
-	class CDDPClient : public NConcurrency::CActor
+	struct CDDPClient : public NConcurrency::CActor
 	{
+	private:
 		struct CInternal;
 		struct CCollection;
 

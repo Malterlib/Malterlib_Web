@@ -10,9 +10,8 @@
 
 namespace NMib::NWeb::NFastCGI
 {
-	class CListenActor : public NConcurrency::CActor
+	struct CListenActor : public NConcurrency::CActor
 	{
-	public:
 		CListenActor
 			(
 				NConcurrency::TCActor<CFastCGIServer> const &_Server

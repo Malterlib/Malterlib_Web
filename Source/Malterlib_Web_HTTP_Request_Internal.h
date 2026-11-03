@@ -6,8 +6,32 @@
 
 namespace NMib::NWeb::NHTTP
 {
-	class CRequest::CDetails
+	struct CRequest::CDetails
 	{
+		CDetails();
+		~CDetails();
+
+		void f_Clear();
+
+		ERequestStatus f_GetStatus() const;
+
+		NStr::CStr f_GetErrors() const;
+
+		// See the comment for f_Parse in CRequest in HTTP_Request.h
+		ERequestStatus f_Parse(NContainer::CPagedByteVector &_Data);
+		void f_WriteHeaders(COutputMethod const &_fOutput);
+
+		CRequestLine const &f_GetRequestLine() const;
+		CGeneralFields const &f_GetGeneralFields() const;
+		CRequestFields const &f_GetRequestFields() const;
+		CEntityFields const &f_GetEntityFields() const;
+
+		CRequestLine &f_GetRequestLine();
+		CGeneralFields &f_GetGeneralFields();
+		CRequestFields &f_GetRequestFields();
+		CEntityFields &f_GetEntityFields();
+
+	private:
 		enum EParseState
 		{
 			EParseState_Header
@@ -46,29 +70,5 @@ namespace NMib::NWeb::NHTTP
 		EParse fp_ParseContent_Chunked(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
-
-	public:
-		CDetails();
-		~CDetails();
-
-		void f_Clear();
-
-		ERequestStatus f_GetStatus() const;
-
-		NStr::CStr f_GetErrors() const;
-
-		// See the comment for f_Parse in CRequest in HTTP_Request.h
-		ERequestStatus f_Parse(NContainer::CPagedByteVector &_Data);
-		void f_WriteHeaders(COutputMethod const &_fOutput);
-
-		CRequestLine const &f_GetRequestLine() const;
-		CGeneralFields const &f_GetGeneralFields() const;
-		CRequestFields const &f_GetRequestFields() const;
-		CEntityFields const &f_GetEntityFields() const;
-
-		CRequestLine &f_GetRequestLine();
-		CGeneralFields &f_GetGeneralFields();
-		CRequestFields &f_GetRequestFields();
-		CEntityFields &f_GetEntityFields();
 	};
 }

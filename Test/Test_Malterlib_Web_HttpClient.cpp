@@ -37,9 +37,8 @@ namespace
 	CUniversallyUniqueIdentifier g_SocketPathRootUUID("20D5CFF1-4CD7-4F1A-8B53-3C0252ED5817", EUniversallyUniqueIdentifierFormat_Bare);
 }
 
-class CHttpClient_Tests : public NMib::NTest::CTest
+struct CHttpClient_Tests : public NMib::NTest::CTest
 {
-public:
 	struct CWebServerResults
 	{
 		CWebServerResults() = default;
