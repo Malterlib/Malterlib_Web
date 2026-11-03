@@ -138,45 +138,6 @@ namespace NMib::NWeb
 				mp_pRequest->f_FinishRequest();
 			}
 
-			void fp_ParseVariables(char const *_pData, umint _Len)
-			{
-				if (!_Len)
-					return;
-
-				char const *pCurPos = _pData;
-				char const *pEntryEndPos, *pEqualsPos;
-				char const *pEnd = _pData + _Len;
-
-				while (*pCurPos && pCurPos < pEnd)
-				{
-					pEqualsPos = nullptr;
-					for (pEntryEndPos = pCurPos; *pEntryEndPos && *pEntryEndPos != '&' && pEntryEndPos < pEnd; ++pEntryEndPos)
-					{
-						if (*pEntryEndPos == '=')
-							pEqualsPos = pEntryEndPos;
-					}
-
-					if (!pEqualsPos)
-					{
-						pCurPos = pEntryEndPos + 1;
-						continue;
-					}
-
-					size_t StrLen;
-					NStr::CStr CurKey, CurValue;
-
-					StrLen = (pEqualsPos - pCurPos);
-					fs_URLDecode(pCurPos, StrLen, CurKey.f_GetStr(StrLen), StrLen + 1, true);
-					++pEqualsPos;
-					StrLen = (pEntryEndPos - pEqualsPos);
-					fs_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
-
-					mp_pHTTPRequest->m_Variables[CurKey] = CurValue;
-
-					pCurPos = pEntryEndPos + 1;
-				}
-			}
-
 			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const &_pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
 			{
 				NConcurrency::TCPromise<void> Promise;
@@ -387,13 +348,52 @@ namespace NMib::NWeb
 			}
 
 		private:
+			void fp_ParseVariables(char const *_pData, umint _Len)
+			{
+				if (!_Len)
+					return;
+
+				char const *pCurPos = _pData;
+				char const *pEntryEndPos, *pEqualsPos;
+				char const *pEnd = _pData + _Len;
+
+				while (*pCurPos && pCurPos < pEnd)
+				{
+					pEqualsPos = nullptr;
+					for (pEntryEndPos = pCurPos; *pEntryEndPos && *pEntryEndPos != '&' && pEntryEndPos < pEnd; ++pEntryEndPos)
+					{
+						if (*pEntryEndPos == '=')
+							pEqualsPos = pEntryEndPos;
+					}
+
+					if (!pEqualsPos)
+					{
+						pCurPos = pEntryEndPos + 1;
+						continue;
+					}
+
+					size_t StrLen;
+					NStr::CStr CurKey, CurValue;
+
+					StrLen = (pEqualsPos - pCurPos);
+					fsp_URLDecode(pCurPos, StrLen, CurKey.f_GetStr(StrLen), StrLen + 1, true);
+					++pEqualsPos;
+					StrLen = (pEntryEndPos - pEqualsPos);
+					fsp_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
+
+					mp_pHTTPRequest->m_Variables[CurKey] = CurValue;
+
+					pCurPos = pEntryEndPos + 1;
+				}
+			}
+
 			CHTTPResponseHeader mp_Header;
 			NStream::TCBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 
 			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
 		};
 
-		static umint fs_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
+		static umint fsp_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
 		{
 			umint j = 0;
 			for (umint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
@@ -457,22 +457,6 @@ namespace NMib::NWeb
 			NewEntry.m_Path = _Path;
 			NewEntry.m_HandlerActor = fg_Move(_HandlerActor);
 			mp_pHandlers = fg_Move(pHandlers);
-		}
-
-		NStorage::TCSharedPointer<CHandlerTable> fp_GetHandlers()
-		{
-			return mp_pHandlers;
-		}
-
-		// A copy of the handlers to add an actor handler to
-		NStorage::TCSharedPointer<CHandlerTable> fp_ActorHandlersToChange()
-		{
-			if (!mp_pHandlers->m_bActorHandlers && !mp_pHandlers->m_Handlers.f_IsEmpty())
-				DMibError("Cannot mix actor an non-actor handlers");
-
-			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
-			pHandlers->m_bActorHandlers = true;
-			return pHandlers;
 		}
 
 		bool f_Run(CHTTPServerOptions &&_Options)
@@ -549,6 +533,22 @@ namespace NMib::NWeb
 		}
 
 	private:
+		NStorage::TCSharedPointer<CHandlerTable> fp_GetHandlers()
+		{
+			return mp_pHandlers;
+		}
+
+		// A copy of the handlers to add an actor handler to
+		NStorage::TCSharedPointer<CHandlerTable> fp_ActorHandlersToChange()
+		{
+			if (!mp_pHandlers->m_bActorHandlers && !mp_pHandlers->m_Handlers.f_IsEmpty())
+				DMibError("Cannot mix actor an non-actor handlers");
+
+			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
+			pHandlers->m_bActorHandlers = true;
+			return pHandlers;
+		}
+
 		CHTTPServerOptions mp_Options;
 		NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
 		NConcurrency::TCActor<CFastCGIServer> mp_pFastCGIServer;

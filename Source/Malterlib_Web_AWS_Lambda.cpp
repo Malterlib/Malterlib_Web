@@ -26,25 +26,25 @@ namespace NMib::NWeb
 
 			void f_SetFunctions(zlib_filefunc_def *_pFileFunc)
 			{
-				_pFileFunc->zopen_file = fp_fopen_func;
-				_pFileFunc->zread_file = fp_fread_func;
-				_pFileFunc->zwrite_file = fp_fwrite_func;
-				_pFileFunc->ztell_file = fp_ftell_func;
-				_pFileFunc->zseek_file = fp_fseek_func;
-				_pFileFunc->zclose_file = fp_fclose_func;
-				_pFileFunc->zerror_file = fp_ferror_func;
+				_pFileFunc->zopen_file = fsp_FOpenFunc;
+				_pFileFunc->zread_file = fsp_FReadFunc;
+				_pFileFunc->zwrite_file = fsp_FWriteFunc;
+				_pFileFunc->ztell_file = fsp_FTellFunc;
+				_pFileFunc->zseek_file = fsp_FSeekFunc;
+				_pFileFunc->zclose_file = fsp_FCloseFunc;
+				_pFileFunc->zerror_file = fsp_FErrorFunc;
 				_pFileFunc->opaque = this;
 			}
 
 			void f_SetFunctions(zlib_filefunc64_def *_pFileFunc)
 			{
-				_pFileFunc->zopen64_file = fp_fopen64_func;
-				_pFileFunc->zread_file = fp_fread_func;
-				_pFileFunc->zwrite_file = fp_fwrite_func;
-				_pFileFunc->ztell64_file = fp_ftell64_func;
-				_pFileFunc->zseek64_file = fp_fseek64_func;
-				_pFileFunc->zclose_file = fp_fclose_func;
-				_pFileFunc->zerror_file = fp_ferror_func;
+				_pFileFunc->zopen64_file = fsp_FOpen64Func;
+				_pFileFunc->zread_file = fsp_FReadFunc;
+				_pFileFunc->zwrite_file = fsp_FWriteFunc;
+				_pFileFunc->ztell64_file = fsp_FTell64Func;
+				_pFileFunc->zseek64_file = fsp_FSeek64Func;
+				_pFileFunc->zclose_file = fsp_FCloseFunc;
+				_pFileFunc->zerror_file = fsp_FErrorFunc;
 				_pFileFunc->opaque = this;
 			}
 
@@ -57,7 +57,7 @@ namespace NMib::NWeb
 			}
 
 		private:
-			static voidpf ZCALLBACK fp_fopen_func(voidpf opaque, char const *filename, int mode)
+			static voidpf ZCALLBACK fsp_FOpenFunc(voidpf opaque, char const *filename, int mode)
 			{
 				CMiniZipAdaptor *pThis = (CMiniZipAdaptor *)opaque;
 
@@ -91,12 +91,12 @@ namespace NMib::NWeb
 				return pFile;
 			}
 
-			static voidpf ZCALLBACK fp_fopen64_func(voidpf opaque, void const *filename, int mode)
+			static voidpf ZCALLBACK fsp_FOpen64Func(voidpf opaque, void const *filename, int mode)
 			{
-				return fp_fopen_func(opaque, (ch8 const *)filename, mode);
+				return fsp_FOpenFunc(opaque, (ch8 const *)filename, mode);
 			}
 
-			static uLong ZCALLBACK fp_fread_func(voidpf opaque, voidpf stream, void *buf, uLong size)
+			static uLong ZCALLBACK fsp_FReadFunc(voidpf opaque, voidpf stream, void *buf, uLong size)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -104,7 +104,7 @@ namespace NMib::NWeb
 				return size;
 			}
 
-			static uLong ZCALLBACK fp_fwrite_func(voidpf opaque, voidpf stream, void const *buf, uLong size)
+			static uLong ZCALLBACK fsp_FWriteFunc(voidpf opaque, voidpf stream, void const *buf, uLong size)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -112,21 +112,21 @@ namespace NMib::NWeb
 				return size;
 			}
 
-			static long ZCALLBACK fp_ftell_func(voidpf opaque, voidpf stream)
+			static long ZCALLBACK fsp_FTellFunc(voidpf opaque, voidpf stream)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static ZPOS64_T ZCALLBACK fp_ftell64_func(voidpf opaque, voidpf stream)
+			static ZPOS64_T ZCALLBACK fsp_FTell64Func(voidpf opaque, voidpf stream)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
 				return pFile->f_GetPosition();
 			}
 
-			static long ZCALLBACK fp_fseek_func(voidpf opaque, voidpf stream, uLong offset, int origin)
+			static long ZCALLBACK fsp_FSeekFunc(voidpf opaque, voidpf stream, uLong offset, int origin)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -141,7 +141,7 @@ namespace NMib::NWeb
 				return 0;
 			}
 
-			static long ZCALLBACK fp_fseek64_func(voidpf opaque, voidpf stream, ZPOS64_T offset, int origin)
+			static long ZCALLBACK fsp_FSeek64Func(voidpf opaque, voidpf stream, ZPOS64_T offset, int origin)
 			{
 				NStream::CBinaryStreamDefault *pFile = (NStream::CBinaryStreamDefault *)stream;
 
@@ -156,12 +156,12 @@ namespace NMib::NWeb
 				return 0;
 			}
 
-			static int ZCALLBACK fp_fclose_func(voidpf opaque, voidpf stream)
+			static int ZCALLBACK fsp_FCloseFunc(voidpf opaque, voidpf stream)
 			{
 				return 0;
 			}
 
-			static int ZCALLBACK fp_ferror_func(voidpf opaque, voidpf stream)
+			static int ZCALLBACK fsp_FErrorFunc(voidpf opaque, voidpf stream)
 			{
 				/* We never return errors */
 				return 0;
@@ -265,6 +265,7 @@ namespace NMib::NWeb
 			return fg_DoAWSRequestJson("Get function", m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, m_Credentials, {}, "lambda");
 		}
 
+	private:
 		static CStr fsp_TracingConfigToString(CFunctionConfiguration::ETracingMode _Mode)
 		{
 			switch (_Mode)
@@ -328,7 +329,8 @@ namespace NMib::NWeb
 				o_Request["Timeout"] = *_Config.m_TimeoutSeconds;
 		}
 
-		static CFunctionConfiguration fsp_FunctionConfigFromJson(CJsonSorted const &_Json)
+	public:
+		static CFunctionConfiguration fs_FunctionConfigFromJson(CJsonSorted const &_Json)
 		{
 			auto &JsonConfig = _Json["Configuration"];
 
@@ -600,7 +602,7 @@ namespace NMib::NWeb
 		{
 			auto CaptureScope = co_await (g_CaptureExceptions % "Unexpected return from get function");
 
-			CFunctionConfiguration ExistingConfig = CInternal::fsp_FunctionConfigFromJson(ExistingFunction);
+			CFunctionConfiguration ExistingConfig = CInternal::fs_FunctionConfigFromJson(ExistingFunction);
 
 			bool bChangedConfig = false;
 			if (_Config.m_DeadLetterConfig.m_TargetArn && _Config.m_DeadLetterConfig.m_TargetArn != ExistingConfig.m_DeadLetterConfig.m_TargetArn)

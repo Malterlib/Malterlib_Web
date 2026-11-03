@@ -38,17 +38,17 @@ namespace NMib::NWeb
 		{
 			//auto pRoot = PostDocument.f_GetRootNode();
 			auto pBatch = PostDocument.f_CreateDefaultDocument("InvalidationBatch");
-			PostDocument.f_SetAttribute(pBatch, "xmlns", "http://cloudfront.amazonaws.com/doc/2017-10-30/");
+			PostDocument.fs_SetAttribute(pBatch, "xmlns", "http://cloudfront.amazonaws.com/doc/2017-10-30/");
 
-			PostDocument.f_SetText(PostDocument.f_CreateElement(pBatch, "CallerReference"), NCryptography::fg_RandomID());
+			PostDocument.fs_SetText(PostDocument.fs_CreateElement(pBatch, "CallerReference"), NCryptography::fg_RandomID());
 
-			auto pPaths = PostDocument.f_CreateElement(pBatch, "Paths");
-			auto pItems = PostDocument.f_CreateElement(pPaths, "Items");
+			auto pPaths = PostDocument.fs_CreateElement(pBatch, "Paths");
+			auto pItems = PostDocument.fs_CreateElement(pPaths, "Items");
 
 			for (auto &Path : _Paths)
-				PostDocument.f_SetText(PostDocument.f_CreateElement(pItems, "Path"), Path);
+				PostDocument.fs_SetText(PostDocument.fs_CreateElement(pItems, "Path"), Path);
 
-			PostDocument.f_SetText(PostDocument.f_CreateElement(pPaths, "Quantity"), "{}"_f << _Paths.f_GetLen());
+			PostDocument.fs_SetText(PostDocument.fs_CreateElement(pPaths, "Quantity"), "{}"_f << _Paths.f_GetLen());
 		}
 
 		auto Result = co_await fg_DoAWSRequestXML
@@ -73,15 +73,15 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto pInvalidation = Results.f_GetChildNode(Results.f_GetRootNode(), "Invalidation");
+		auto pInvalidation = Results.fs_GetChildNode(Results.f_GetRootNode(), "Invalidation");
 		if (!pInvalidation)
 			co_return fReportInvalidXML("Invalidation");
 
-		auto pID = Results.f_GetChildNode(pInvalidation, "Id");
+		auto pID = Results.fs_GetChildNode(pInvalidation, "Id");
 		if (!pID)
 			co_return fReportInvalidXML("Invalidation.Id");
 
-		CStr ID = Results.f_GetNodeText(pID, "");
+		CStr ID = Results.fs_GetNodeText(pID, "");
 		if (ID.f_IsEmpty())
 			co_return fReportInvalidXML("Invalidation.Id text");
 
@@ -104,7 +104,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		auto pDistributionConfig = Results.f_GetChildNode(Results.f_GetRootNode(), "DistributionConfig");
+		auto pDistributionConfig = Results.fs_GetChildNode(Results.f_GetRootNode(), "DistributionConfig");
 		if (!pDistributionConfig)
 			co_return fReportInvalidXML("DistributionConfig");
 
@@ -112,13 +112,13 @@ namespace NMib::NWeb
 
 		auto fUpdateCacheBehavior = [&](NXML::CXMLNode *_pBehaviour)
 			{
-				auto pAssociations = Results.f_GetChildNode(_pBehaviour, "LambdaFunctionAssociations");
+				auto pAssociations = Results.fs_GetChildNode(_pBehaviour, "LambdaFunctionAssociations");
 				if (!pAssociations)
-					pAssociations = Results.f_CreateElement(_pBehaviour, "LambdaFunctionAssociations");
+					pAssociations = Results.fs_CreateElement(_pBehaviour, "LambdaFunctionAssociations");
 
-				auto pAssociationsItems = Results.f_GetChildNode(pAssociations, "Items");
+				auto pAssociationsItems = Results.fs_GetChildNode(pAssociations, "Items");
 				if (!pAssociationsItems)
-					pAssociationsItems = Results.f_CreateElement(pAssociations, "Items");
+					pAssociationsItems = Results.fs_CreateElement(pAssociations, "Items");
 
 				TCMap<CStr, CStr> AssociationsToUpdate;
 
@@ -136,48 +136,48 @@ namespace NMib::NWeb
 				}
 
 				int64 nAssociations = 0;
-				auto pQuantity = Results.f_GetChildNode(pAssociations, "Quantity");
+				auto pQuantity = Results.fs_GetChildNode(pAssociations, "Quantity");
 				if (!pQuantity)
-					pQuantity = Results.f_CreateElement(pAssociations, "Quantity");
+					pQuantity = Results.fs_CreateElement(pAssociations, "Quantity");
 				else
-					nAssociations = Results.f_GetNodeText(pQuantity, "0").f_ToInt(0);
+					nAssociations = Results.fs_GetNodeText(pQuantity, "0").f_ToInt(0);
 
 				bool bChanged = false;
 
 				for (NXML::CXMLDocument::CNodeIterator iAssociationItem(pAssociationsItems); iAssociationItem; ++iAssociationItem)
 				{
-					auto pEventType = Results.f_GetChildNode(iAssociationItem, "EventType");
+					auto pEventType = Results.fs_GetChildNode(iAssociationItem, "EventType");
 					if (!pEventType)
 						continue;
 
-					CStr Type = Results.f_GetNodeText(pEventType);
+					CStr Type = Results.fs_GetNodeText(pEventType);
 
 					auto pFunction = AssociationsToUpdate.f_FindEqual(Type);
 					if (!pFunction)
 						continue;
 
-					auto pLambdaARN = Results.f_GetChildNode(iAssociationItem, "LambdaFunctionARN");
+					auto pLambdaARN = Results.fs_GetChildNode(iAssociationItem, "LambdaFunctionARN");
 					if (pLambdaARN)
 					{
-						if (Results.f_GetNodeText(pLambdaARN) == *pFunction)
+						if (Results.fs_GetNodeText(pLambdaARN) == *pFunction)
 						{
 							AssociationsToUpdate.f_Remove(Type);
 							continue;
 						}
 					}
 					else
-						pLambdaARN = Results.f_CreateElement(iAssociationItem, "LambdaFunctionARN");
+						pLambdaARN = Results.fs_CreateElement(iAssociationItem, "LambdaFunctionARN");
 
 					bChanged = true;
-					Results.f_SetText(pLambdaARN, *pFunction);
+					Results.fs_SetText(pLambdaARN, *pFunction);
 					AssociationsToUpdate.f_Remove(Type);
 				}
 
 				for (auto &Function : AssociationsToUpdate)
 				{
-					auto pAssociationItem = Results.f_CreateElement(pAssociationsItems, "LambdaFunctionAssociation");
-					Results.f_SetText(Results.f_CreateElement(pAssociationItem, "EventType"), AssociationsToUpdate.fs_GetKey(Function));
-					Results.f_SetText(Results.f_CreateElement(pAssociationItem, "LambdaFunctionARN"), Function);
+					auto pAssociationItem = Results.fs_CreateElement(pAssociationsItems, "LambdaFunctionAssociation");
+					Results.fs_SetText(Results.fs_CreateElement(pAssociationItem, "EventType"), AssociationsToUpdate.fs_GetKey(Function));
+					Results.fs_SetText(Results.fs_CreateElement(pAssociationItem, "LambdaFunctionARN"), Function);
 					++nAssociations;
 					bChanged = true;
 				}
@@ -185,21 +185,21 @@ namespace NMib::NWeb
 				if (bChanged)
 				{
 					bNeedUpdate = true;
-					Results.f_SetText(pQuantity, CStr::fs_ToStr(nAssociations));
+					Results.fs_SetText(pQuantity, CStr::fs_ToStr(nAssociations));
 				}
 			}
 		;
 
-		if (auto pBehavior = Results.f_GetChildNode(pDistributionConfig, "DefaultCacheBehavior"))
+		if (auto pBehavior = Results.fs_GetChildNode(pDistributionConfig, "DefaultCacheBehavior"))
 			fUpdateCacheBehavior(pBehavior);
 
-		if (auto pCacheBehaviors = Results.f_GetChildNode(pDistributionConfig, "CacheBehaviors"))
+		if (auto pCacheBehaviors = Results.fs_GetChildNode(pDistributionConfig, "CacheBehaviors"))
 		{
-			if (auto pCacheBehaviorsItems = Results.f_GetChildNode(pCacheBehaviors, "Items"))
+			if (auto pCacheBehaviorsItems = Results.fs_GetChildNode(pCacheBehaviors, "Items"))
 			{
 				for (NXML::CXMLDocument::CNodeIterator iBehaviorItem(pCacheBehaviorsItems); iBehaviorItem; ++iBehaviorItem)
 				{
-					if (Results.f_GetValue(iBehaviorItem) != "CacheBehavior")
+					if (Results.fs_GetValue(iBehaviorItem) != "CacheBehavior")
 						continue;
 
 					fUpdateCacheBehavior(iBehaviorItem);

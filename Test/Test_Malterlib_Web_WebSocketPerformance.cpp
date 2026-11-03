@@ -575,7 +575,7 @@ namespace
 
 				CTestPerformance PerfTest(0.015);
 
-				fs_MeasureTransports
+				fsp_MeasureTransports
 					(
 						"Ping"
 						, PerfTest
@@ -624,7 +624,7 @@ namespace
 				uint32 ChunkSize = fg_GetSys()->f_GetEnvironmentVariable("ChunkSize").f_ToInt(mc_ChunkSize);
 				uint64 TransferBytes = fg_GetSys()->f_GetEnvironmentVariable("TransferBytes").f_ToInt(mc_nTransferBytes);
 
-				fs_MeasureTransports
+				fsp_MeasureTransports
 					(
 						"Thr"
 						, PerfTest
@@ -762,7 +762,7 @@ namespace
 #endif
 		static constexpr uint32 mc_ChunkSize = NFile::gc_IdealIoSize;
 
-		static bool fs_BenchSchemeEnabled(CStr const &_Tag)
+		static bool fsp_BenchSchemeEnabled(CStr const &_Tag)
 		{
 			CStr Schemes = fg_GetSys()->f_GetEnvironmentVariable("BenchSchemes");
 			if (Schemes.f_IsEmpty())
@@ -772,7 +772,7 @@ namespace
 		}
 
 		template <typename tf_FMeasure>
-		static void fs_MeasureTransports(CStr const &_SuiteTag, CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
+		static void fsp_MeasureTransports(CStr const &_SuiteTag, CTestPerformance &_PerfTest, tf_FMeasure const &_fMeasure)
 		{
 			CStr RootDirectory = NFile::CFile::fs_GetProgramDirectory() / ("WebSocketPerf_{}"_f << _SuiteTag);
 			fg_TestAddCleanupPath(RootDirectory);
@@ -783,12 +783,12 @@ namespace
 				}
 			;
 
-			if (fs_BenchSchemeEnabled("ws"))
+			if (fsp_BenchSchemeEnabled("ws"))
 				_fMeasure("ws", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), false);
-			if (fs_BenchSchemeEnabled("ws_unix"))
+			if (fsp_BenchSchemeEnabled("ws_unix"))
 				_fMeasure("ws_unix", fUnixAddress("ws"), FVirtualSocketFactory(), FVirtualSocketFactory(), false);
 
-			if (fs_BenchSchemeEnabled("ws_masked"))
+			if (fsp_BenchSchemeEnabled("ws_masked"))
 				_fMeasure("ws_masked", "localhost", FVirtualSocketFactory(), FVirtualSocketFactory(), true);
 
 			CSSLSettings ServerSettings;
@@ -804,11 +804,11 @@ namespace
 			ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
 			TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
-			if (fs_BenchSchemeEnabled("wss"))
+			if (fsp_BenchSchemeEnabled("wss"))
 				_fMeasure("wss", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
-			if (fs_BenchSchemeEnabled("wss_unix"))
+			if (fsp_BenchSchemeEnabled("wss_unix"))
 				_fMeasure("wss_unix", fUnixAddress("wss"), CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), false);
-			if (fs_BenchSchemeEnabled("wss_masked"))
+			if (fsp_BenchSchemeEnabled("wss_masked"))
 				_fMeasure("wss_masked", "localhost", CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext), true);
 
 			DMibExpectTrue(_PerfTest);

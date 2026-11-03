@@ -37,8 +37,10 @@ namespace NMib::NWeb
 
 		void f_SendMessage(NEncoding::CEJsonSorted const &_Data);
 
-		void fp_ReceiveMessage(NStr::CStr const &_Message);
-		void fp_ReceiveMessage(NEncoding::CEJsonSorted const &_Message);
+		void f_ReceiveMessage(NStr::CStr const &_Message);
+		void f_ReceiveMessage(NEncoding::CEJsonSorted const &_Message);
+
+	private:
 		void fp_OnError(NStr::CStr const &_Message);
 	};
 
@@ -57,7 +59,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	void CDDPServerConnection::CInternal::fp_ReceiveMessage(NEncoding::CEJsonSorted const &_Message)
+	void CDDPServerConnection::CInternal::f_ReceiveMessage(NEncoding::CEJsonSorted const &_Message)
 	{
 		NEncoding::CEJsonSorted const &Json = _Message;
 
@@ -184,23 +186,23 @@ namespace NMib::NWeb
 			fp_OnError(fg_Format("Unknown message: {}\n", MessageType));
 	}
 
-	void CDDPServerConnection::CInternal::fp_ReceiveMessage(NStr::CStr const &_Message)
+	void CDDPServerConnection::CInternal::f_ReceiveMessage(NStr::CStr const &_Message)
 	{
 		try
 		{
 			NEncoding::CEJsonSorted Json = NEncoding::CEJsonSorted::fs_FromString(_Message);
 
 			if (m_ConnectionType != EConnectionType_SockJSWebsocket)
-				fp_ReceiveMessage(Json);
+				f_ReceiveMessage(Json);
 			else
 			{
 				if (Json.f_IsArray())
 				{
 					for (auto &Message : Json.f_Array())
-						fp_ReceiveMessage(NEncoding::CEJsonSorted::fs_FromString(Message.f_String()));
+						f_ReceiveMessage(NEncoding::CEJsonSorted::fs_FromString(Message.f_String()));
 				}
 				else
-					fp_ReceiveMessage(Json);
+					f_ReceiveMessage(Json);
 			}
 		}
 		catch (NException::CException const &_Exception)
@@ -407,7 +409,7 @@ namespace NMib::NWeb
 		auto pInternal = &Internal;
 		Internal.m_pNewWebsocketConnection->m_fOnReceiveTextMessage = NConcurrency::g_ActorFunctorWeak / [pInternal](NStr::CStr _Message) -> NConcurrency::TCFuture<void>
 			{
-				pInternal->fp_ReceiveMessage(_Message);
+				pInternal->f_ReceiveMessage(_Message);
 
 				co_return {};
 			}

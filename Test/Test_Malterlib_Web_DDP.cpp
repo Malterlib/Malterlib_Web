@@ -108,6 +108,7 @@ struct CDDP_Tests : public CTest
 
 		TCLinkedList<CConnection> m_Connections;
 
+	private:
 		CEJsonSorted fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details = "")
 		{
 			CEJsonSorted Ret;
@@ -119,6 +120,7 @@ struct CDDP_Tests : public CTest
 			return Ret;
 		}
 
+	public:
 		TCFuture<CServer *> f_Start()
 		{
 			TCPromise<CServer *> Promise;
@@ -330,6 +332,7 @@ struct CDDP_Tests : public CTest
 		}
 	};
 
+private:
 	void fp_Test(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
 	{
 		DMibTestPath("Connection");
@@ -563,6 +566,7 @@ struct CDDP_Tests : public CTest
 		DMibExpect(ServerInternal.f_GetError(), ==, "");
 	}
 
+public:
 	void f_DoTests()
 	{
 		DMibTestSuite("Tests")

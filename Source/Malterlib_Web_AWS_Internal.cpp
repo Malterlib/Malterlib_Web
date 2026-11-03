@@ -178,23 +178,23 @@ namespace NMib::NWeb
 			if (!ErrorReturn.f_ParseString(_Result.m_Body))
 				break;
 
-			auto pErrorRoot = ErrorReturn.f_GetChildNode(ErrorReturn.f_GetRootNode(), "ErrorResponse");
+			auto pErrorRoot = ErrorReturn.fs_GetChildNode(ErrorReturn.f_GetRootNode(), "ErrorResponse");
 
 			if (!pErrorRoot)
 				pErrorRoot = ErrorReturn.f_GetRootNode();
 
-			auto pErrorNode = ErrorReturn.f_GetChildNode(pErrorRoot, "Error");
+			auto pErrorNode = ErrorReturn.fs_GetChildNode(pErrorRoot, "Error");
 
 			if (!pErrorNode)
 				break;
 
-			auto pCodeNode = ErrorReturn.f_GetChildNode(pErrorNode, "Code");
-			auto pMessageNode = ErrorReturn.f_GetChildNode(pErrorNode, "Message");
+			auto pCodeNode = ErrorReturn.fs_GetChildNode(pErrorNode, "Code");
+			auto pMessageNode = ErrorReturn.fs_GetChildNode(pErrorNode, "Message");
 			if (!pCodeNode || !pMessageNode)
 				break;
 
-			auto Code = ErrorReturn.f_GetNodeText(pCodeNode);
-			auto Message = ErrorReturn.f_GetNodeText(pMessageNode);
+			auto Code = ErrorReturn.fs_GetNodeText(pCodeNode);
+			auto Message = ErrorReturn.fs_GetNodeText(pMessageNode);
 			if (!Code || !Message)
 				break;
 

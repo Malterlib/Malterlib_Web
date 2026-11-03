@@ -108,22 +108,22 @@ namespace NMib::NWeb
 							}
 						;
 
-						auto pListBucketResult = Results.f_GetChildNode(Results.f_GetRootNode(), "ListBucketResult");
+						auto pListBucketResult = Results.fs_GetChildNode(Results.f_GetRootNode(), "ListBucketResult");
 						if (!pListBucketResult)
 							return fReportInvalidXML("ListBucketResult");
 
 						for (NXML::CXMLDocument::CConstNodeIterator iNode = pListBucketResult; iNode; ++iNode)
 						{
-							if (Results.f_GetValue(iNode) != "Contents")
+							if (Results.fs_GetValue(iNode) != "Contents")
 								continue;
-							auto Key = Results.f_GetChildValue(iNode, "Key", CStr{});
+							auto Key = Results.fs_GetChildValue(iNode, "Key", CStr{});
 							if (!Key)
 								continue;
 
 							auto &Object = pResult->m_Objects.f_Insert();
 							Object.m_Key = Key;
 
-							if (auto Value = Results.f_GetChildValue(iNode, "LastModified", CStr{}))
+							if (auto Value = Results.fs_GetChildValue(iNode, "LastModified", CStr{}))
 							{
 								int64 Year;
 								int32 Month;
@@ -137,7 +137,7 @@ namespace NMib::NWeb
 								if (nParsed == 7)
 									Object.m_LastModified = NTime::CTimeConvert::fs_CreateTime(Year, Month, Day, Hour, Minute, Second, fp64(Millisecond) / fp64(1000.0));
 							}
-							if (auto Value = Results.f_GetChildValue(iNode, "ETag", CStr{}))
+							if (auto Value = Results.fs_GetChildValue(iNode, "ETag", CStr{}))
 							{
 								CStr ParsedValue;
 								(CStr::CParse("\"{}\"") >> ParsedValue).f_Parse(Value);
@@ -146,8 +146,8 @@ namespace NMib::NWeb
 								else
 									Object.m_ETag = Value;
 							}
-							Object.m_Size = Results.f_GetChildValue(iNode, "Size", int64(0));
-							if (auto Value = Results.f_GetChildValue(iNode, "StorageClass", CStr{}))
+							Object.m_Size = Results.fs_GetChildValue(iNode, "Size", int64(0));
+							if (auto Value = Results.fs_GetChildValue(iNode, "StorageClass", CStr{}))
 							{
 								if (Value == "STANDARD")
 									Object.m_StorageClass = EStorageClass_Standard;
@@ -162,16 +162,16 @@ namespace NMib::NWeb
 							}
 						}
 
-						if (Results.f_GetChildValue(pListBucketResult, "IsTruncated", false))
+						if (Results.fs_GetChildValue(pListBucketResult, "IsTruncated", false))
 						{
-							CStr ContinuationToken = Results.f_GetChildValue(pListBucketResult, "NextContinuationToken", CStr{});
+							CStr ContinuationToken = Results.fs_GetChildValue(pListBucketResult, "NextContinuationToken", CStr{});
 							if (!ContinuationToken)
 								return fReportInvalidXML("NextContinuationToken");
 
 							_fDoRequest(ContinuationToken);
 							return;
 						}
-						pResult->m_BucketName = Results.f_GetChildValue(pListBucketResult, "Name", _BucketName);
+						pResult->m_BucketName = Results.fs_GetChildValue(pListBucketResult, "Name", _BucketName);
 
 						Promise.f_SetResult(*pResult);
 					}

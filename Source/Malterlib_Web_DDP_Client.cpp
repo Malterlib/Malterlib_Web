@@ -175,15 +175,8 @@ namespace NMib::NWeb
 
 		bool m_bDestructorCalled = false;
 
-		void fp_OnError(NStr::CStr const &_Error);
-		void fp_ReceiveMessage(NStr::CStr const &_Message);
-		void fp_HandleRemoved(NEncoding::CEJsonSorted const &_Message);
-		void fp_HandleAddedChanged(NEncoding::CEJsonSorted const &_Message, EChangeOperation _Operation);
-		void fp_HandleReady(NEncoding::CEJsonSorted const &_Message);
-		void fp_HandleUpdated(NEncoding::CEJsonSorted const &_Message);
-		void fp_HandleNoSub(NEncoding::CEJsonSorted const &_Message);
-		void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJsonSorted const &_Message, EObserveNotification _Notification);
-		auto fp_SendMethod
+		void f_ReceiveMessage(NStr::CStr const &_Message);
+		auto f_SendMethod
 			(
 				NStr::CStr const &_MethodName
 				, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
@@ -191,10 +184,19 @@ namespace NMib::NWeb
 			)
 			-> uint64
 		;
+		void f_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
+		void f_SendMessage(NEncoding::CEJsonSorted const &_Message);
+
+	private:
+		void fp_OnError(NStr::CStr const &_Error);
+		void fp_HandleRemoved(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleAddedChanged(NEncoding::CEJsonSorted const &_Message, EChangeOperation _Operation);
+		void fp_HandleReady(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleUpdated(NEncoding::CEJsonSorted const &_Message);
+		void fp_HandleNoSub(NEncoding::CEJsonSorted const &_Message);
+		void fp_NotifyObserve(NStr::CStr const &_Collection, NEncoding::CEJsonSorted const &_Message, EObserveNotification _Notification);
 		void fp_SendLoginResumeMessage();
 		void fp_SendLoginMessage();
-		void fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
-		void fp_SendMessage(NEncoding::CEJsonSorted const &_Message);
 
 		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
@@ -351,7 +353,7 @@ namespace NMib::NWeb
 
 		Result.m_fOnReceiveTextMessage = NConcurrency::g_ActorFunctorWeak / [this](NStr::CStr _Message) -> NConcurrency::TCFuture<void>
 			{
-				mp_pInternal->fp_ReceiveMessage(_Message);
+				mp_pInternal->f_ReceiveMessage(_Message);
 
 				co_return {};
 			}
@@ -385,7 +387,7 @@ namespace NMib::NWeb
 			)
 		;
 
-		Internal.fp_SendConnect(_Timeout, _SessionID);
+		Internal.f_SendConnect(_Timeout, _SessionID);
 
 		co_return co_await Internal.m_ConnectPromise.f_Future();
 	}
@@ -411,7 +413,7 @@ namespace NMib::NWeb
 	{
 		NConcurrency::TCPromiseFuturePair<NEncoding::CEJsonSorted> Promise;
 		auto &Internal = *mp_pInternal;
-		Internal.fp_SendMethod
+		Internal.f_SendMethod
 			(
 				_MethodName
 				, _Params
@@ -437,7 +439,7 @@ namespace NMib::NWeb
 	{
 		NConcurrency::TCPromiseFuturePair<NEncoding::CEJsonSorted> Promise;
 		auto &Internal = *mp_pInternal;
-		uint64 MethodID = Internal.fp_SendMethod
+		uint64 MethodID = Internal.f_SendMethod
 			(
 				_MethodName
 				, _Params
@@ -527,7 +529,7 @@ namespace NMib::NWeb
 		if (_Params.f_IsValid())
 			Message["params"] = fg_Move(_Params);
 
-		Internal.fp_SendMessage(Message);
+		Internal.f_SendMessage(Message);
 
 		Subscription.m_fCallback = fg_Move(_Callback);
 
@@ -546,7 +548,7 @@ namespace NMib::NWeb
 					Message["msg"] = "unsub";
 					Message["id"] = pSubscription->f_GetID();
 
-					Internal.fp_SendMessage(Message);
+					Internal.f_SendMessage(Message);
 				}
 
 				auto ToDestroy = fg_Move(pSubscription->m_fCallback);
@@ -591,7 +593,7 @@ namespace NMib::NWeb
 			m_ConnectPromise.f_SetException(DMibErrorInstance(_Error));
 	}
 
-	void CDDPClient::CInternal::fp_SendMessage(NEncoding::CEJsonSorted const &_Message)
+	void CDDPClient::CInternal::f_SendMessage(NEncoding::CEJsonSorted const &_Message)
 	{
 		if (m_WebSocket)
 			m_WebSocket.f_Bind<&CWebSocketActor::f_SendText>(_Message.f_ToString(nullptr), 0).f_DiscardResult();
@@ -803,7 +805,7 @@ namespace NMib::NWeb
 			fp_NotifyObserve(NStr::CStr(), _Message, EObserveNotification_NoSub);
 	}
 
-	void CDDPClient::CInternal::fp_ReceiveMessage(NStr::CStr const &_Message)
+	void CDDPClient::CInternal::f_ReceiveMessage(NStr::CStr const &_Message)
 	{
 		try
 		{
@@ -877,7 +879,7 @@ namespace NMib::NWeb
 				if (auto pID = Json.f_GetMember("id"))
 					Reply["id"] = *pID;
 
-				fp_SendMessage(Reply);
+				f_SendMessage(Reply);
 			}
 			else if (MessageType == "connected")
 			{
@@ -931,7 +933,7 @@ namespace NMib::NWeb
 		}
 	}
 
-	auto CDDPClient::CInternal::fp_SendMethod
+	auto CDDPClient::CInternal::f_SendMethod
 		(
 			NStr::CStr const &_MethodName
 			, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
@@ -948,7 +950,7 @@ namespace NMib::NWeb
 		Message["params"] = _Params;
 		Message["id"] = NStr::CStr::fs_ToStr(MethodID);
 
-		fp_SendMessage(Message);
+		f_SendMessage(Message);
 
 		m_PendingMethodCalls[MethodID] = fg_Move(_fOnResult);
 
@@ -979,7 +981,7 @@ namespace NMib::NWeb
 		NEncoding::CEJsonSorted LoginParams;
 		LoginParams["resume"] = m_LoginToken;
 
-		fp_SendMethod
+		f_SendMethod
 			(
 				"login"
 				, NContainer::fg_CreateVector<NEncoding::CEJsonSorted>(LoginParams)
@@ -1002,7 +1004,7 @@ namespace NMib::NWeb
 		Password["digest"] = NCryptography::CHash_SHA256::fs_DigestFromData((uint8 const *)m_Password.f_GetStr(), m_Password.f_GetLen()).f_GetString();
 		Password["algorithm"] = "sha-256";
 
-		fp_SendMethod
+		f_SendMethod
 			(
 				"login"
 				, NContainer::fg_CreateVector<NEncoding::CEJsonSorted>(LoginParams)
@@ -1020,7 +1022,7 @@ namespace NMib::NWeb
 		;
 	}
 
-	void CDDPClient::CInternal::fp_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID)
+	void CDDPClient::CInternal::f_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID)
 	{
 		NEncoding::CEJsonSorted Message;
 
@@ -1059,7 +1061,7 @@ namespace NMib::NWeb
 			}
 		;
 
-		fp_SendMessage(Message);
+		f_SendMessage(Message);
 	}
 
 	NStr::CStr CDDPClient::fs_RandomID()

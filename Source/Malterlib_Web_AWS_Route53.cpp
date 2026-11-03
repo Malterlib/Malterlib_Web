@@ -126,11 +126,11 @@ namespace NMib::NWeb
 				}
 			;
 
-			auto pListResourceRecordSetsResponse = ResultsXML.f_GetChildNode(ResultsXML.f_GetRootNode(), "ListResourceRecordSetsResponse");
+			auto pListResourceRecordSetsResponse = ResultsXML.fs_GetChildNode(ResultsXML.f_GetRootNode(), "ListResourceRecordSetsResponse");
 			if (!pListResourceRecordSetsResponse)
 				co_return fReportInvalidXML("ListResourceRecordSetsResponse");
 
-			auto pResourceRecordSets = ResultsXML.f_GetChildNode(pListResourceRecordSetsResponse, "ResourceRecordSets");
+			auto pResourceRecordSets = ResultsXML.fs_GetChildNode(pListResourceRecordSetsResponse, "ResourceRecordSets");
 			if (!pResourceRecordSets)
 				co_return fReportInvalidXML("ListResourceRecordSetsResponse.ResourceRecordSets");
 
@@ -138,68 +138,68 @@ namespace NMib::NWeb
 
 			for (NXML::CXMLDocument::CConstNodeIterator iNode = pResourceRecordSets; iNode; ++iNode)
 			{
-				if (ResultsXML.f_GetValue(iNode) != "ResourceRecordSet")
+				if (ResultsXML.fs_GetValue(iNode) != "ResourceRecordSet")
 					continue;
 
 				CAwsRoute53Actor::CResourceRecordSet ReturnedEntry;
 
-				ReturnedEntry.m_Name = ResultsXML.f_GetChildValue(iNode, "Name", CStr{});
+				ReturnedEntry.m_Name = ResultsXML.fs_GetChildValue(iNode, "Name", CStr{});
 				{
 					auto CaptureScope = co_await g_CaptureExceptions;
-					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.f_GetChildValue(iNode, "Type", CStr{}));
+					ReturnedEntry.m_Type = fs_ResourceRecordTypeFromStr(ResultsXML.fs_GetChildValue(iNode, "Type", CStr{}));
 				}
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "TTL"))
-					ReturnedEntry.m_TTL = ResultsXML.f_GetNodeInt(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "TTL"))
+					ReturnedEntry.m_TTL = ResultsXML.fs_GetNodeInt(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "Weight"))
-					ReturnedEntry.m_Weight = ResultsXML.f_GetNodeInt(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "Weight"))
+					ReturnedEntry.m_Weight = ResultsXML.fs_GetNodeInt(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "MultiValueAnswer"))
-					ReturnedEntry.m_MultiValueAnswer = ResultsXML.f_GetNodeBool(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "MultiValueAnswer"))
+					ReturnedEntry.m_MultiValueAnswer = ResultsXML.fs_GetNodeBool(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "Failover"))
-					ReturnedEntry.m_Failover = ResultsXML.f_GetNodeText(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "Failover"))
+					ReturnedEntry.m_Failover = ResultsXML.fs_GetNodeText(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "HealthCheckID"))
-					ReturnedEntry.m_HealthCheckID = ResultsXML.f_GetNodeText(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "HealthCheckID"))
+					ReturnedEntry.m_HealthCheckID = ResultsXML.fs_GetNodeText(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "Region"))
-					ReturnedEntry.m_Region = ResultsXML.f_GetNodeText(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "Region"))
+					ReturnedEntry.m_Region = ResultsXML.fs_GetNodeText(pValue);
 
-				if (auto pValue = ResultsXML.f_GetChildNode(iNode, "SetIdentifier"))
-					ReturnedEntry.m_SetIdentifier = ResultsXML.f_GetNodeText(pValue);
+				if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "SetIdentifier"))
+					ReturnedEntry.m_SetIdentifier = ResultsXML.fs_GetNodeText(pValue);
 
-				if (auto pAliasTarget = ResultsXML.f_GetChildNode(iNode, "AliasTarget"))
+				if (auto pAliasTarget = ResultsXML.fs_GetChildNode(iNode, "AliasTarget"))
 				{
 					CAwsRoute53Actor::CResourceRecordSet::CAliasTarget Target;
 
-					Target.m_DNSName = ResultsXML.f_GetChildValue(pAliasTarget, "DNSName", CStr{});
-					Target.m_EvaluateTargetHealth = ResultsXML.f_GetChildValue(pAliasTarget, "EvaluateTargetHealth", CStr{});
-					Target.m_HostedZoneID = ResultsXML.f_GetChildValue(pAliasTarget, "HostedZoneID", CStr{});
+					Target.m_DNSName = ResultsXML.fs_GetChildValue(pAliasTarget, "DNSName", CStr{});
+					Target.m_EvaluateTargetHealth = ResultsXML.fs_GetChildValue(pAliasTarget, "EvaluateTargetHealth", CStr{});
+					Target.m_HostedZoneID = ResultsXML.fs_GetChildValue(pAliasTarget, "HostedZoneID", CStr{});
 
 					ReturnedEntry.m_AliasTarget = fg_Move(Target);
 				}
 
-				if (auto pGeoLocation = ResultsXML.f_GetChildNode(iNode, "GeoLocation"))
+				if (auto pGeoLocation = ResultsXML.fs_GetChildNode(iNode, "GeoLocation"))
 				{
 					CAwsRoute53Actor::CResourceRecordSet::CGeoLocation GeoLocation;
 
-					GeoLocation.m_ContinentCode = ResultsXML.f_GetChildValue(pGeoLocation, "ContinentCode", CStr{});
-					GeoLocation.m_CountryCode = ResultsXML.f_GetChildValue(pGeoLocation, "CountryCode", CStr{});
-					GeoLocation.m_SubdivisionCode = ResultsXML.f_GetChildValue(pGeoLocation, "SubdivisionCode", CStr{});
+					GeoLocation.m_ContinentCode = ResultsXML.fs_GetChildValue(pGeoLocation, "ContinentCode", CStr{});
+					GeoLocation.m_CountryCode = ResultsXML.fs_GetChildValue(pGeoLocation, "CountryCode", CStr{});
+					GeoLocation.m_SubdivisionCode = ResultsXML.fs_GetChildValue(pGeoLocation, "SubdivisionCode", CStr{});
 
 					ReturnedEntry.m_GeoLocation = fg_Move(GeoLocation);
 				}
 
-				if (auto pResourceRecords = ResultsXML.f_GetChildNode(iNode, "ResourceRecords"))
+				if (auto pResourceRecords = ResultsXML.fs_GetChildNode(iNode, "ResourceRecords"))
 				{
 					for (NXML::CXMLDocument::CConstNodeIterator iNode = pResourceRecords; iNode; ++iNode)
 					{
-						if (ResultsXML.f_GetValue(iNode) != "ResourceRecord")
+						if (ResultsXML.fs_GetValue(iNode) != "ResourceRecord")
 							continue;
-						if (auto pValue = ResultsXML.f_GetChildNode(iNode, "Value"))
-							ReturnedEntry.m_ResourceRecords.f_Insert(ResultsXML.f_GetNodeText(pValue));
+						if (auto pValue = ResultsXML.fs_GetChildNode(iNode, "Value"))
+							ReturnedEntry.m_ResourceRecords.f_Insert(ResultsXML.fs_GetNodeText(pValue));
 					}
 				}
 
@@ -227,15 +227,15 @@ namespace NMib::NWeb
 			if (bFinished)
 				break;
 
-			if (ResultsXML.f_GetChildValue(pListResourceRecordSetsResponse, "IsTruncated", false))
+			if (ResultsXML.fs_GetChildValue(pListResourceRecordSetsResponse, "IsTruncated", false))
 			{
-				CStr NextRecordName = ResultsXML.f_GetChildValue(pListResourceRecordSetsResponse, "NextRecordName", CStr{});
+				CStr NextRecordName = ResultsXML.fs_GetChildValue(pListResourceRecordSetsResponse, "NextRecordName", CStr{});
 				if (NextRecordName.f_IsEmpty())
 					fReportInvalidXML("ListResourceRecordSetsResponse.NextRecordName");
 
 				CurrentURL.f_AddQueryEntry({"name", NextRecordName});
 
-				CStr NextRecordType = ResultsXML.f_GetChildValue(pListResourceRecordSetsResponse, "NextRecordType", CStr{});
+				CStr NextRecordType = ResultsXML.fs_GetChildValue(pListResourceRecordSetsResponse, "NextRecordType", CStr{});
 				if (NextRecordType.f_IsEmpty())
 					fReportInvalidXML("ListResourceRecordSetsResponse.NextRecordType");
 
@@ -287,11 +287,11 @@ namespace NMib::NWeb
 				}
 			;
 
-			auto pListHostedZonesByNameResponse = ResultsXML.f_GetChildNode(ResultsXML.f_GetRootNode(), "ListHostedZonesByNameResponse");
+			auto pListHostedZonesByNameResponse = ResultsXML.fs_GetChildNode(ResultsXML.f_GetRootNode(), "ListHostedZonesByNameResponse");
 			if (!pListHostedZonesByNameResponse)
 				co_return fReportInvalidXML("ListHostedZonesByNameResponse");
 
-			auto pHostedZones = ResultsXML.f_GetChildNode(pListHostedZonesByNameResponse, "HostedZones");
+			auto pHostedZones = ResultsXML.fs_GetChildNode(pListHostedZonesByNameResponse, "HostedZones");
 			if (!pHostedZones)
 				co_return fReportInvalidXML("ListHostedZonesByNameResponse.HostedZones");
 
@@ -299,34 +299,34 @@ namespace NMib::NWeb
 
 			for (NXML::CXMLDocument::CConstNodeIterator iNode = pHostedZones; iNode; ++iNode)
 			{
-				if (ResultsXML.f_GetValue(iNode) != "HostedZone")
+				if (ResultsXML.fs_GetValue(iNode) != "HostedZone")
 					continue;
 
 				CAwsRoute53Actor::CHostedZone ReturnedEntry;
 
-				if (auto Value = ResultsXML.f_GetChildValue(iNode, "Id", CStr{}))
+				if (auto Value = ResultsXML.fs_GetChildValue(iNode, "Id", CStr{}))
 					ReturnedEntry.m_ID = Value.f_RemovePrefix("/hostedzone/");
 
-				ReturnedEntry.m_CallerReference = ResultsXML.f_GetChildValue(iNode, "Id", CStr{});
-				ReturnedEntry.m_Name = ResultsXML.f_GetChildValue(iNode, "Name", CStr{});
+				ReturnedEntry.m_CallerReference = ResultsXML.fs_GetChildValue(iNode, "Id", CStr{});
+				ReturnedEntry.m_Name = ResultsXML.fs_GetChildValue(iNode, "Name", CStr{});
 
-				if (ResultsXML.f_GetChildNode(iNode, "ResourceRecordSetCount"))
-					ReturnedEntry.m_ResourceRecordSetCount = ResultsXML.f_GetChildValue(iNode, "ResourceRecordSetCount", int64(0));
+				if (ResultsXML.fs_GetChildNode(iNode, "ResourceRecordSetCount"))
+					ReturnedEntry.m_ResourceRecordSetCount = ResultsXML.fs_GetChildValue(iNode, "ResourceRecordSetCount", int64(0));
 
-				if (auto pConfig = ResultsXML.f_GetChildNode(iNode, "Config"))
+				if (auto pConfig = ResultsXML.fs_GetChildNode(iNode, "Config"))
 				{
-					if (auto pValue = ResultsXML.f_GetChildNode(pConfig, "Comment"))
-						ReturnedEntry.m_Config.m_Comment = ResultsXML.f_GetNodeText(pValue);
-					if (auto pValue = ResultsXML.f_GetChildNode(pConfig, "PrivateZone"))
-						ReturnedEntry.m_Config.m_Private = ResultsXML.f_GetNodeBool(pValue);
+					if (auto pValue = ResultsXML.fs_GetChildNode(pConfig, "Comment"))
+						ReturnedEntry.m_Config.m_Comment = ResultsXML.fs_GetNodeText(pValue);
+					if (auto pValue = ResultsXML.fs_GetChildNode(pConfig, "PrivateZone"))
+						ReturnedEntry.m_Config.m_Private = ResultsXML.fs_GetNodeBool(pValue);
 				}
 
-				if (auto pLinkedService = ResultsXML.f_GetChildNode(iNode, "LinkedService"))
+				if (auto pLinkedService = ResultsXML.fs_GetChildNode(iNode, "LinkedService"))
 				{
-					if (auto pValue = ResultsXML.f_GetChildNode(pLinkedService, "Description"))
-						ReturnedEntry.m_LinkedService.m_Description = ResultsXML.f_GetNodeText(pValue);
-					if (auto pValue = ResultsXML.f_GetChildNode(pLinkedService, "ServicePrincipal"))
-						ReturnedEntry.m_LinkedService.m_ServicePrincipal = ResultsXML.f_GetNodeText(pValue);
+					if (auto pValue = ResultsXML.fs_GetChildNode(pLinkedService, "Description"))
+						ReturnedEntry.m_LinkedService.m_Description = ResultsXML.fs_GetNodeText(pValue);
+					if (auto pValue = ResultsXML.fs_GetChildNode(pLinkedService, "ServicePrincipal"))
+						ReturnedEntry.m_LinkedService.m_ServicePrincipal = ResultsXML.fs_GetNodeText(pValue);
 				}
 
 				if (_Params.m_DNSName && ReturnedEntry.m_Name != *_Params.m_DNSName)
@@ -347,15 +347,15 @@ namespace NMib::NWeb
 			if (bFinished)
 				break;
 
-			if (ResultsXML.f_GetChildValue(pListHostedZonesByNameResponse, "IsTruncated", false))
+			if (ResultsXML.fs_GetChildValue(pListHostedZonesByNameResponse, "IsTruncated", false))
 			{
-				CStr NextDNSName = ResultsXML.f_GetChildValue(pListHostedZonesByNameResponse, "NextDNSName", CStr{});
+				CStr NextDNSName = ResultsXML.fs_GetChildValue(pListHostedZonesByNameResponse, "NextDNSName", CStr{});
 				if (NextDNSName.f_IsEmpty())
 					fReportInvalidXML("ListHostedZonesByNameResponse.NextDNSName");
 
 				CurrentURL.f_AddQueryEntry({"dnsname", NextDNSName});
 
-				CStr NextHostedZoneID = ResultsXML.f_GetChildValue(pListHostedZonesByNameResponse, "NextHostedZoneId", CStr{});
+				CStr NextHostedZoneID = ResultsXML.fs_GetChildValue(pListHostedZonesByNameResponse, "NextHostedZoneId", CStr{});
 				if (NextHostedZoneID.f_IsEmpty())
 					fReportInvalidXML("ListHostedZonesByNameResponse.NextHostedZoneId");
 
@@ -378,14 +378,14 @@ namespace NMib::NWeb
 		NXML::CXMLDocument PostDocument(false);
 		{
 			auto pRequest = PostDocument.f_CreateDefaultDocument("ChangeResourceRecordSetsRequest");
-			PostDocument.f_SetAttribute(pRequest, "xmlns", gc_Route53XmlNamespace);
+			PostDocument.fs_SetAttribute(pRequest, "xmlns", gc_Route53XmlNamespace);
 
-			auto pChangeBatch = PostDocument.f_CreateElement(pRequest, "ChangeBatch");
-			auto pChanges = PostDocument.f_CreateElement(pChangeBatch, "Changes");
+			auto pChangeBatch = PostDocument.fs_CreateElement(pRequest, "ChangeBatch");
+			auto pChanges = PostDocument.fs_CreateElement(pChangeBatch, "Changes");
 
 			for (auto &Change : _Params.m_Changes)
 			{
-				auto pChange = PostDocument.f_CreateElement(pChanges, "Change");
+				auto pChange = PostDocument.fs_CreateElement(pChanges, "Change");
 				{
 					CStr Action;
 					switch (Change.m_Action)
@@ -394,67 +394,67 @@ namespace NMib::NWeb
 					case EChangeResourceRecordSetsChangeAction_Delete: Action = "DELETE"; break;
 					case EChangeResourceRecordSetsChangeAction_Upsert: Action = "UPSERT"; break;
 					}
-					PostDocument.f_AddElementAndText(pChange, "Action", Action);
+					PostDocument.fs_AddElementAndText(pChange, "Action", Action);
 				}
 				{
-					auto pResourceRecordSet = PostDocument.f_CreateElement(pChange, "ResourceRecordSet");
+					auto pResourceRecordSet = PostDocument.fs_CreateElement(pChange, "ResourceRecordSet");
 
-					PostDocument.f_AddElementAndText(pResourceRecordSet, "Name", Change.m_RecordSet.m_Name);
-					PostDocument.f_AddElementAndText(pResourceRecordSet, "Type", fs_ResourceRecordTypeToStr(Change.m_RecordSet.m_Type));
+					PostDocument.fs_AddElementAndText(pResourceRecordSet, "Name", Change.m_RecordSet.m_Name);
+					PostDocument.fs_AddElementAndText(pResourceRecordSet, "Type", fs_ResourceRecordTypeToStr(Change.m_RecordSet.m_Type));
 
 					if (!Change.m_RecordSet.m_ResourceRecords.f_IsEmpty())
 					{
-						auto pResourceRecords = PostDocument.f_CreateElement(pResourceRecordSet, "ResourceRecords");
+						auto pResourceRecords = PostDocument.fs_CreateElement(pResourceRecordSet, "ResourceRecords");
 						for (auto &Record : Change.m_RecordSet.m_ResourceRecords)
-							PostDocument.f_AddElementAndText(PostDocument.f_CreateElement(pResourceRecords, "ResourceRecord"), "Value", Record);
+							PostDocument.fs_AddElementAndText(PostDocument.fs_CreateElement(pResourceRecords, "ResourceRecord"), "Value", Record);
 					}
 
 					if (Change.m_RecordSet.m_AliasTarget)
 					{
-						auto pAliasTarget = PostDocument.f_CreateElement(pResourceRecordSet, "AliasTarget");
+						auto pAliasTarget = PostDocument.fs_CreateElement(pResourceRecordSet, "AliasTarget");
 						auto &AliasTarget = *Change.m_RecordSet.m_AliasTarget;
-						PostDocument.f_AddElementAndText(pAliasTarget, "DNSName", AliasTarget.m_DNSName);
-						PostDocument.f_AddElementAndText(pAliasTarget, "EvaluateTargetHealth", AliasTarget.m_EvaluateTargetHealth);
-						PostDocument.f_AddElementAndText(pAliasTarget, "HostedZoneId", AliasTarget.m_HostedZoneID);
+						PostDocument.fs_AddElementAndText(pAliasTarget, "DNSName", AliasTarget.m_DNSName);
+						PostDocument.fs_AddElementAndText(pAliasTarget, "EvaluateTargetHealth", AliasTarget.m_EvaluateTargetHealth);
+						PostDocument.fs_AddElementAndText(pAliasTarget, "HostedZoneId", AliasTarget.m_HostedZoneID);
 					}
 
 					if (Change.m_RecordSet.m_GeoLocation)
 					{
-						auto pGeoLocation = PostDocument.f_CreateElement(pResourceRecordSet, "GeoLocation");
+						auto pGeoLocation = PostDocument.fs_CreateElement(pResourceRecordSet, "GeoLocation");
 						auto &GeoLocation = *Change.m_RecordSet.m_GeoLocation;
-						PostDocument.f_AddElementAndText(pGeoLocation, "ContinentCode", GeoLocation.m_ContinentCode);
-						PostDocument.f_AddElementAndText(pGeoLocation, "CountryCode", GeoLocation.m_CountryCode);
-						PostDocument.f_AddElementAndText(pGeoLocation, "SubdivisionCode", GeoLocation.m_SubdivisionCode);
+						PostDocument.fs_AddElementAndText(pGeoLocation, "ContinentCode", GeoLocation.m_ContinentCode);
+						PostDocument.fs_AddElementAndText(pGeoLocation, "CountryCode", GeoLocation.m_CountryCode);
+						PostDocument.fs_AddElementAndText(pGeoLocation, "SubdivisionCode", GeoLocation.m_SubdivisionCode);
 					}
 
 					if (Change.m_RecordSet.m_Failover)
-						PostDocument.f_AddElementAndText(pResourceRecordSet, "Failover", *Change.m_RecordSet.m_Failover);
+						PostDocument.fs_AddElementAndText(pResourceRecordSet, "Failover", *Change.m_RecordSet.m_Failover);
 
 					if (Change.m_RecordSet.m_HealthCheckID)
-						PostDocument.f_AddElementAndText(pResourceRecordSet, "HealthCheckID", *Change.m_RecordSet.m_HealthCheckID);
+						PostDocument.fs_AddElementAndText(pResourceRecordSet, "HealthCheckID", *Change.m_RecordSet.m_HealthCheckID);
 
 					if (Change.m_RecordSet.m_MultiValueAnswer)
-						PostDocument.f_AddElementAndBool(pResourceRecordSet, "MultiValueAnswer", *Change.m_RecordSet.m_MultiValueAnswer);
+						PostDocument.fs_AddElementAndBool(pResourceRecordSet, "MultiValueAnswer", *Change.m_RecordSet.m_MultiValueAnswer);
 
 					if (Change.m_RecordSet.m_Region)
-						PostDocument.f_AddElementAndText(pResourceRecordSet, "Region", *Change.m_RecordSet.m_Region);
+						PostDocument.fs_AddElementAndText(pResourceRecordSet, "Region", *Change.m_RecordSet.m_Region);
 
 					if (Change.m_RecordSet.m_SetIdentifier)
-						PostDocument.f_AddElementAndText(pResourceRecordSet, "SetIdentifier", *Change.m_RecordSet.m_SetIdentifier);
+						PostDocument.fs_AddElementAndText(pResourceRecordSet, "SetIdentifier", *Change.m_RecordSet.m_SetIdentifier);
 
 					if (Change.m_RecordSet.m_TrafficPolicyInstanceID)
-						PostDocument.f_AddElementAndText(pResourceRecordSet, "TrafficPolicyInstanceId", *Change.m_RecordSet.m_TrafficPolicyInstanceID);
+						PostDocument.fs_AddElementAndText(pResourceRecordSet, "TrafficPolicyInstanceId", *Change.m_RecordSet.m_TrafficPolicyInstanceID);
 
 					if (Change.m_RecordSet.m_TTL)
-						PostDocument.f_AddElementAndInt(pResourceRecordSet, "TTL", *Change.m_RecordSet.m_TTL);
+						PostDocument.fs_AddElementAndInt(pResourceRecordSet, "TTL", *Change.m_RecordSet.m_TTL);
 
 					if (Change.m_RecordSet.m_Weight)
-						PostDocument.f_AddElementAndInt(pResourceRecordSet, "Weight", *Change.m_RecordSet.m_Weight);
+						PostDocument.fs_AddElementAndInt(pResourceRecordSet, "Weight", *Change.m_RecordSet.m_Weight);
 				}
 			}
 
 			if (_Params.m_Comment)
-				PostDocument.f_AddElementAndText(pChangeBatch, "Comment", *_Params.m_Comment);
+				PostDocument.fs_AddElementAndText(pChangeBatch, "Comment", *_Params.m_Comment);
 		}
 
 		auto Results = co_await fg_DoAWSRequestXML
@@ -482,23 +482,23 @@ namespace NMib::NWeb
 		if (!_Params.m_bWaitForPropagation)
 			co_return {};
 
-		auto pChangeResourceRecordSetsResponse = ResultsXML.f_GetChildNode(ResultsXML.f_GetRootNode(), "ChangeResourceRecordSetsResponse");
+		auto pChangeResourceRecordSetsResponse = ResultsXML.fs_GetChildNode(ResultsXML.f_GetRootNode(), "ChangeResourceRecordSetsResponse");
 		if (!pChangeResourceRecordSetsResponse)
 			co_return fReportInvalidXML("ChangeResourceRecordSetsResponse");
 
-		auto pChangeInfo = ResultsXML.f_GetChildNode(pChangeResourceRecordSetsResponse, "ChangeInfo");
+		auto pChangeInfo = ResultsXML.fs_GetChildNode(pChangeResourceRecordSetsResponse, "ChangeInfo");
 		if (!pChangeInfo)
 			co_return fReportInvalidXML("ChangeResourceRecordSetsResponse.ChangeInfo");
 
 		{
-			NStr::CStr Status = ResultsXML.f_GetChildValue(pChangeInfo, "Status", CStr());
+			NStr::CStr Status = ResultsXML.fs_GetChildValue(pChangeInfo, "Status", CStr());
 			if (Status == "INSYNC")
 				co_return {};
 			else if (Status != "PENDING")
 				co_return DMibErrorInstance("Unexpected ChangeInfo status: {}"_f << Status);
 		}
 
-		NStr::CStr Id = ResultsXML.f_GetChildValue(pChangeInfo, "Id", CStr()).f_RemovePrefix("/change/");
+		NStr::CStr Id = ResultsXML.fs_GetChildValue(pChangeInfo, "Id", CStr()).f_RemovePrefix("/change/");
 		if (!Id)
 			co_return fReportInvalidXML("ChangeResourceRecordSetsResponse.ChangeInfo.Id");
 
@@ -533,16 +533,16 @@ namespace NMib::NWeb
 
 			auto &ResultsXML = fg_Get<0>(*Results);
 
-			auto pGetChangeResponse = ResultsXML.f_GetChildNode(ResultsXML.f_GetRootNode(), "GetChangeResponse");
+			auto pGetChangeResponse = ResultsXML.fs_GetChildNode(ResultsXML.f_GetRootNode(), "GetChangeResponse");
 			if (!pGetChangeResponse)
 				co_return fReportInvalidXML("GetChangeResponse");
 
-			auto pChangeInfo = ResultsXML.f_GetChildNode(pGetChangeResponse, "ChangeInfo");
+			auto pChangeInfo = ResultsXML.fs_GetChildNode(pGetChangeResponse, "ChangeInfo");
 			if (!pChangeInfo)
 				co_return fReportInvalidXML("GetChangeResponse.ChangeInfo");
 
 			{
-				NStr::CStr Status = ResultsXML.f_GetChildValue(pChangeInfo, "Status", CStr());
+				NStr::CStr Status = ResultsXML.fs_GetChildValue(pChangeInfo, "Status", CStr());
 				if (Status == "INSYNC")
 					co_return {};
 				else if (Status != "PENDING")

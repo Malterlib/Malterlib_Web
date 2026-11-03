@@ -53,6 +53,7 @@ namespace
 
 struct CWebsocket_Tests : public CTest
 {
+private:
 	void fp_Test
 		(
 			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
@@ -2841,6 +2842,7 @@ struct CWebsocket_Tests : public CTest
 		}
 	}
 
+public:
 	void f_DoTests()
 	{
 		DMibTestCategory("Tests")
