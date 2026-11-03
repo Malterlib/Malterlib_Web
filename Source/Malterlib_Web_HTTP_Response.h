@@ -85,11 +85,11 @@ namespace NMib::NWeb::NHTTP
 	struct CResponseHeader : public CResponseStage
 	{
 		CResponseHeader(CResponseHeader &&_ToMove);
-		CResponseHeader(COutputMethod &&_OutputMethod);
+		CResponseHeader(COutputMethod &&_fOutputMethod);
 		CResponseHeader();
 		~CResponseHeader();
 
-		void f_SetOutputMethod(COutputMethod &&_OutputMethod);
+		void f_SetOutputMethod(COutputMethod &&_fOutputMethod);
 		void f_SetStatus(EStatus _Status, NStr::CStr const &_CustomReason = NStr::CStr(), EVersion _Version = EVersion_HTTP_1_1);
 
 		CStatusLine const &f_GetStatusLine() const;

@@ -225,16 +225,16 @@ namespace NMib::NWeb::NHTTP
 	{
 		TCFieldsBase<CEntityFields, EEntityField>::f_WriteToData(_fOutput);
 
-		char const pNameValueSep[] = {':', ' '};
-		char const pLineSep[] = {'\r', '\n'};
+		char const NameValueSep[] = {':', ' '};
+		char const LineSep[] = {'\r', '\n'};
 
 		for (auto iField = mp_UnknownFields.f_GetIterator(); iField; ++iField)
 		{
 			_fOutput((uint8 const *)iField.f_GetKey().f_GetStr(), iField.f_GetKey().f_GetLen());
-			_fOutput((uint8 const *)pNameValueSep, sizeof(pNameValueSep));
+			_fOutput((uint8 const *)NameValueSep, sizeof(NameValueSep));
 
 			_fOutput((uint8 const *)iField->f_GetStr(), iField->f_GetLen());
-			_fOutput((uint8 const *)pLineSep, sizeof(pLineSep));
+			_fOutput((uint8 const *)LineSep, sizeof(LineSep));
 		}
 	}
 

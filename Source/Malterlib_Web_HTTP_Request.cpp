@@ -395,9 +395,9 @@ namespace NMib::NWeb::NHTTP
 
 		// Parse the remaining header lines
 
-		for (auto LIter = ++Lines.f_GetIterator(); LIter; ++LIter)
+		for (auto iLine = ++Lines.f_GetIterator(); iLine; ++iLine)
 		{
-			NStr::CStr const &CurLine = *LIter;
+			NStr::CStr const &CurLine = *iLine;
 
 			if (CurLine == "")
 				break;

@@ -35,13 +35,13 @@ namespace NMib::NWeb
 	{
 	}
 
-	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory)
-		: m_Factory(fg_Move(_Factory))
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_fFactory)
+		: m_fFactory(fg_Move(_fFactory))
 	{
 	}
 
-	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory)
-		: m_Factory(_Factory)
+	CWebSocketListenSocketFactory::CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_fFactory)
+		: m_fFactory(_fFactory)
 	{
 	}
 
@@ -65,7 +65,7 @@ namespace NMib::NWeb
 		if (m_fSelector)
 			return m_fSelector(_iAddress, _Address);
 
-		return CWebSocketListenAddressConfig{.m_Factory = m_Factory};
+		return CWebSocketListenAddressConfig{.m_fFactory = m_fFactory};
 	}
 
 	///

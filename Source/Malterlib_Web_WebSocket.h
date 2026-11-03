@@ -87,7 +87,7 @@ namespace NMib::NWeb
 	// Both endpoints must agree on unmasked framing, which requires a confidential point-to-point transport.
 	struct CWebSocketListenAddressConfig
 	{
-		NNetwork::FVirtualSocketFactory m_Factory;
+		NNetwork::FVirtualSocketFactory m_fFactory;
 		bool m_bAllowUnmaskedFrames = false;
 		bool m_bNegotiateUnmaskedFrames = false; // Negotiate unmasked frames; peers without the extension keep masking.
 		uint32 m_FragmentationSize = 0;          // Zero selects server defaults for each frame limit.
@@ -99,8 +99,8 @@ namespace NMib::NWeb
 	struct CWebSocketListenSocketFactory
 	{
 		CWebSocketListenSocketFactory() = default;
-		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_Factory);
-		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_Factory);
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory &&_fFactory);
+		CWebSocketListenSocketFactory(NNetwork::FVirtualSocketFactory const &_fFactory);
 
 		static CWebSocketListenSocketFactory fs_PerAddress(NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> &&_fSelector);
 
@@ -108,7 +108,7 @@ namespace NMib::NWeb
 
 		CWebSocketListenAddressConfig f_GetConfig(umint _iAddress, NMib::NNetwork::CNetAddress const &_Address) const;
 
-		NNetwork::FVirtualSocketFactory m_Factory;
+		NNetwork::FVirtualSocketFactory m_fFactory;
 		NFunction::TCFunction<CWebSocketListenAddressConfig (umint _iAddress, NMib::NNetwork::CNetAddress const &_Address)> m_fSelector;
 	};
 
@@ -257,8 +257,8 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<void> f_SendText(NStr::CStr _Data, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendTextBuffer(NStorage::TCSharedPointer<CMaybeSecureByteVector const> _pMessage, uint32 _Priority);
 		NConcurrency::TCFuture<void> f_SendTextBuffers(NStorage::TCSharedPointer<CMessageBuffers const> _pMessageBuffers, uint32 _Priority);
-		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData);
-		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData);
+		NConcurrency::TCFuture<void> f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData);
+		NConcurrency::TCFuture<void> f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData);
 
 		NConcurrency::TCFuture<CCloseInfo> f_Close(EWebSocketStatus _Status, NStr::CStr _Reason);
 		NConcurrency::TCFuture<CCloseInfo> f_CloseWithLinger(EWebSocketStatus _Status, NStr::CStr _Reason, fp64 _MaxLingerTime);
@@ -292,8 +292,8 @@ namespace NMib::NWeb
 		{
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage)> m_fOnReceiveBinaryMessage;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePing;
-			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePong;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)> m_fOnReceivePing;
+			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)> m_fOnReceivePong;
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		};
 
@@ -465,19 +465,19 @@ namespace NMib::NWeb
 		struct CConnectSettings
 		{
 			NStr::CStr m_ConnectToAddress;
-			NStr::CStr m_BindAddress;                        // Empty leaves source address selection to the platform.
+			NStr::CStr m_BindAddress;                         // Empty leaves source address selection to the platform.
 			NMib::NNetwork::ENetAddressType m_PreferAddress = NMib::NNetwork::ENetAddressType_None;
-			uint16 m_Port = 0;                               // Zero preserves the resolved address's port.
+			uint16 m_Port = 0;                                // Zero preserves the resolved address's port.
 			NStr::CStr m_URI;
 			NStr::CStr m_Origin;
 			NContainer::TCVector<NStr::CStr> m_Protocols;
-			NHTTP::CRequest m_Request;                       // Additional handshake fields; the request line is ignored.
-			NNetwork::FVirtualSocketFactory m_SocketFactory; // Empty selects CSocket_TCP::fs_GetFactory().
-			bool m_bAllowUnmaskedFrames = false;             // Both peers must agree; requires a confidential point-to-point transport.
-			bool m_bNegotiateUnmaskedFrames = false;         // Unsupported peers retain masking.
-			uint32 m_FragmentationSize = 0;                  // Zero selects the connector default.
-			uint32 m_MaxFragmentSize = 0;                    // Zero selects the connector default; must accommodate the server's outgoing fragments.
-			uint64 m_SendWindowBytes = 0;                    // Zero selects the connector's send-window default.
+			NHTTP::CRequest m_Request;                        // Additional handshake fields; the request line is ignored.
+			NNetwork::FVirtualSocketFactory m_fSocketFactory; // Empty selects CSocket_TCP::fs_GetFactory().
+			bool m_bAllowUnmaskedFrames = false;              // Both peers must agree; requires a confidential point-to-point transport.
+			bool m_bNegotiateUnmaskedFrames = false;          // Unsupported peers retain masking.
+			uint32 m_FragmentationSize = 0;                   // Zero selects the connector default.
+			uint32 m_MaxFragmentSize = 0;                     // Zero selects the connector default; must accommodate the server's outgoing fragments.
+			uint64 m_SendWindowBytes = 0;                     // Zero selects the connector's send-window default.
 		};
 
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings);
@@ -520,7 +520,7 @@ namespace NMib::NWeb
 				, NMib::NNetwork::ENetFlag _ListenFlags
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
 				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
-				, NNetwork::FVirtualSocketFactory _SocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
+				, NNetwork::FVirtualSocketFactory _fSocketFactory // The factory to use for creating the sockets. If empty/nullptr it will default to CSocket_TCP::fs_GetFactory()
 			)
 			-> NConcurrency::TCFuture<CListenResult>
 		;

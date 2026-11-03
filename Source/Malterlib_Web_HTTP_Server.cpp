@@ -244,24 +244,24 @@ namespace NMib::NWeb::NHTTP
 				}
 			}
 
-			for (auto ConnIter = mp_ConnectionsList.f_GetIterator(); ConnIter;)
+			for (auto iConnection = mp_ConnectionsList.f_GetIterator(); iConnection;)
 			{
-				if ((*ConnIter).f_IsConnected())
+				if ((*iConnection).f_IsConnected())
 				{
 					DMibTraceRaw("Processing Connection\n");
 
-					(*ConnIter).f_Process();
-					++ConnIter;
+					(*iConnection).f_Process();
+					++iConnection;
 				}
 				else
 				{
 					DMibTraceRaw("Removing Connection\n");
 
-					auto CurIter = ConnIter;
-					++ConnIter;
+					auto iCurrent = iConnection;
+					++iConnection;
 
-					NStorage::TCUniquePointer<CConnection> pConn = NStorage::TCUniquePointer<CConnection>(&*CurIter);
-					mp_ConnectionsList.f_Remove(*CurIter);
+					NStorage::TCUniquePointer<CConnection> pConn = NStorage::TCUniquePointer<CConnection>(&*iCurrent);
+					mp_ConnectionsList.f_Remove(*iCurrent);
 				}
 			}
 

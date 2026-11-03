@@ -33,8 +33,8 @@ struct CDDP_Tests : public CTest
 {
 	struct CServer : public CActor
 	{
-		CServer(FVirtualSocketFactory const &_ServerFactory)
-			: m_ServerFactory(_ServerFactory)
+		CServer(FVirtualSocketFactory const &_fServerFactory)
+			: m_fServerFactory(_fServerFactory)
 		{
 			auto &Collection = m_Data["testCollection"];
 
@@ -59,7 +59,7 @@ struct CDDP_Tests : public CTest
 			co_return {};
 		}
 
-		FVirtualSocketFactory m_ServerFactory;
+		FVirtualSocketFactory m_fServerFactory;
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
 
 		mutable CMutual m_Lock;
@@ -306,7 +306,7 @@ struct CDDP_Tests : public CTest
 
 						co_return {};
 					}
-					, fg_TempCopy(m_ServerFactory)
+					, fg_TempCopy(m_fServerFactory)
 				)
 				> [this, Promise](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
 				{
@@ -339,9 +339,9 @@ private:
 		CActorRunLoopTestHelper RunLoopHelper;
 
 		auto Factories = _fGetFactories();
-		auto ServerFactory = fg_Get<0>(Factories);
-		auto ClientFactory = fg_Get<1>(Factories);
-		TCActor<CServer> Server = fg_ConstructActor<CServer>(ServerFactory);
+		auto fServerFactory = fg_Get<0>(Factories);
+		auto fClientFactory = fg_Get<1>(Factories);
+		TCActor<CServer> Server = fg_ConstructActor<CServer>(fServerFactory);
 
 		auto Cleanup = g_OnScopeExit / [&]
 			{
@@ -354,12 +354,12 @@ private:
 		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout));
 
 		CStr ConnectToURLString;
-		if (ServerFactory)
+		if (fServerFactory)
 			ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
 		else
 			ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
 
-		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
+		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", fClientFactory);
 
 		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
 

@@ -27,18 +27,18 @@ namespace NMib::NWeb::NHTTP
 	template <typename tf_CEnum>
 	void fg_WriteFieldsToData(COutputMethod const &_fOutput, NContainer::TCMap<tf_CEnum, CFieldValue> const &_Fields)
 	{
-		char const pNameValueSep[] = {':', ' '};
-		char const pLineSep[] = {'\r', '\n'};
+		char const NameValueSep[] = {':', ' '};
+		char const LineSep[] = {'\r', '\n'};
 
 		for (auto iField = _Fields.f_GetIterator(); iField; ++iField)
 		{
 			char const *pStr = fg_HTTP_GetEnumName<tf_CEnum>(iField.f_GetKey());
 			_fOutput((uint8 const *)pStr, NStr::fg_StrLen(pStr));
-			_fOutput((uint8 const *)pNameValueSep, sizeof(pNameValueSep));
+			_fOutput((uint8 const *)NameValueSep, sizeof(NameValueSep));
 
 			CStringValue Value = fg_GetFieldValueAsString(*iField);
 			_fOutput((uint8 const *)Value.f_Get(), NStr::fg_StrLen(Value.f_Get()));
-			_fOutput((uint8 const *)pLineSep, sizeof(pLineSep));
+			_fOutput((uint8 const *)LineSep, sizeof(LineSep));
 		}
 	}
 

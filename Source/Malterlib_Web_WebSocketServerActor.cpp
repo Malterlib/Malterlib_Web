@@ -133,7 +133,7 @@ namespace NMib::NWeb
 					if (AddressConfig.m_SendWindowBytes)
 						Settings.m_SendWindowBytes = (umint)fg_Min(AddressConfig.m_SendWindowBytes, uint64(TCLimitsInt<umint>::mc_Max));
 
-					NNetwork::FVirtualSocketFactory fAddressFactory = fg_Move(AddressConfig.m_Factory);
+					NNetwork::FVirtualSocketFactory fAddressFactory = fg_Move(AddressConfig.m_fFactory);
 					if (!fAddressFactory)
 						fAddressFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
@@ -142,10 +142,10 @@ namespace NMib::NWeb
 				else
 				{
 					// Retain one factory instance; copying TCFunction would reset its captured state for each address.
-					if (!SocketFactory.m_Factory)
-						SocketFactory.m_Factory = NNetwork::CSocket_TCP::fs_GetFactory();
+					if (!SocketFactory.m_fFactory)
+						SocketFactory.m_fFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
-					pListenSocket = SocketFactory.m_Factory("");
+					pListenSocket = SocketFactory.m_fFactory("");
 				}
 
 				// Set before listening so accepted sockets inherit the configured buffers.
@@ -195,7 +195,7 @@ namespace NMib::NWeb
 			, NMib::NNetwork::ENetFlag _ListenFlags
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketNewServerConnection _Connection)> _fNewConnection
 			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (CWebSocketActor::CConnectionInfo _ConnectionInfo)> _fFailedConnection
-			, NNetwork::FVirtualSocketFactory _SocketFactory
+			, NNetwork::FVirtualSocketFactory _fSocketFactory
 		)
 		-> NConcurrency::TCFuture<CListenResult>
 	{
@@ -208,7 +208,7 @@ namespace NMib::NWeb
 			Address.f_Set(AnyAddress);
 			AddressesToListenTo.f_Insert(fg_Move(Address));
 		}
-		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_SocketFactory));
+		return f_StartListenAddress(fg_Move(AddressesToListenTo), _ListenFlags, fg_Move(_fNewConnection), fg_Move(_fFailedConnection), fg_Move(_fSocketFactory));
 	}
 
 	NConcurrency::TCFuture<void> CWebSocketServerActor::fp_Destroy()

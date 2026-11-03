@@ -163,7 +163,7 @@ private:
 			}
 		}
 
-		uint16 f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_ServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
+		uint16 f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_fServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
 
@@ -172,15 +172,15 @@ private:
 			{
 				ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
 					(
-						[ServerFactory = _ServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
+						[fServerFactory = _fServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
 						{
-							return {.m_Factory = ServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
+							return {.m_fFactory = fServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
 						}
 					)
 				;
 			}
 			else
-				ListenFactory = _ServerFactory;
+				ListenFactory = _fServerFactory;
 
 			m_ServerActor
 				(
@@ -313,7 +313,7 @@ private:
 			return pState->m_ListenPort;
 		}
 
-		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_ClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
+		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_fClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
 		{
 			TCSharedPointer<CState> pState = fg_Explicit(this);
 
@@ -327,7 +327,7 @@ private:
 						, .m_URI = "/Test"
 						, .m_Origin = fg_Format("http://{}", _Address)
 						, .m_Protocols = fg_CreateVector<CStr>("Test")
-						, .m_SocketFactory = _ClientFactory
+						, .m_fSocketFactory = _fClientFactory
 						, .m_bAllowUnmaskedFrames = _bAllowUnmasked
 						, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked
 					}
@@ -490,8 +490,8 @@ private:
 				CActorRunLoopTestHelper RunLoopHelper;
 
 				auto Factories = _fGetFactories();
-				auto ServerFactory = fg_Get<0>(Factories);
-				auto ClientFactory = fg_Get<1>(Factories);
+				auto fServerFactory = fg_Get<0>(Factories);
+				auto fClientFactory = fg_Get<1>(Factories);
 
 				CNetAddressTCPv4 Address;
 				Address.f_SetLocalhost();
@@ -506,10 +506,10 @@ private:
 				;
 
 				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, false, bServer);
+				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, false, bServer);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->f_Connect("localhost", ClientFactory, ListenPort, false, bClient);
+				pState->f_Connect("localhost", fClientFactory, ListenPort, false, bClient);
 
 				if (!fp_TestConnect(pState, CStr(), CStr()))
 					continue;
@@ -554,8 +554,8 @@ private:
 			CActorRunLoopTestHelper RunLoopHelper;
 
 			auto Factories = _fGetFactories();
-			auto ServerFactory = fg_Get<0>(Factories);
-			auto ClientFactory = fg_Get<1>(Factories);
+			auto fServerFactory = fg_Get<0>(Factories);
+			auto fClientFactory = fg_Get<1>(Factories);
 
 			CNetAddress ListenAddress;
 			if (_Address == "localhost")
@@ -579,13 +579,13 @@ private:
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
-				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
+				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
-				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
+				pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
@@ -681,7 +681,7 @@ private:
 			if (_bTestTimeout)
 			{
 				DMibTestPath("Timeout");
-				bool bTimerDrivenKeepalive = ServerFactory.f_IsEmpty() && ClientFactory.f_IsEmpty();
+				bool bTimerDrivenKeepalive = fServerFactory.f_IsEmpty() && fClientFactory.f_IsEmpty();
 				// The timer pings every half timeout, so a healthy connection times out when a loaded runner delays both peers' timers that long
 				fp64 Timeout = (bTimerDrivenKeepalive ? 4.0 : 5.0) * gc_TimeoutMultiplier;
 				TCSharedPointer<CState> pState = fg_Construct();
@@ -696,14 +696,14 @@ private:
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				auto ListenPort = pState->f_StartListen(ListenAddress, ServerFactory, _bAllowUnmasked);
+				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
 
 				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
 					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
 				;
 				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				pState->f_Connect(_Address, ClientFactory, ListenPort, _bAllowUnmasked);
+				pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
 
 				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
 					return;
@@ -1517,12 +1517,12 @@ private:
 						;
 
 						ConnectionInfo.m_fOnReceivePing = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+							(TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 							{
 								// Automatically respond with pong
 								DMibLock(pState->m_Lock);
 								if (!*pDeleted && !pState->m_ServerConnections.f_IsEmpty())
-									pServerConnection->m_Actor(&CWebSocketActor::f_SendPong, _ApplicationData).f_DiscardResult();
+									pServerConnection->m_Actor(&CWebSocketActor::f_SendPong, _pApplicationData).f_DiscardResult();
 
 								co_return {};
 							}
@@ -1653,7 +1653,7 @@ private:
 							}
 						;
 
-						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 							{
 								DMibLock(pState->m_Lock);
 								pState->m_PongReceived.f_Insert(pState->m_Messages.f_GetLen()); // Record how many messages before pong
@@ -3061,19 +3061,19 @@ public:
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 						{
-							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
 							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
 							if (pClient)
-								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _ApplicationData);
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _pApplicationData);
 
 							co_return {};
 						}
 					;
-					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 						{
-							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
 							co_return {};
 						}
 					;

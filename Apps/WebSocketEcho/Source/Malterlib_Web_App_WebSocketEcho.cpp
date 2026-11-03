@@ -63,19 +63,19 @@ namespace NMib::NWeb::NWebSocketEcho
 							co_return {};
 						}
 					;
-					_Connection.m_fOnReceivePing = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+					_Connection.m_fOnReceivePing = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 						{
-							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
 							auto *pClient = m_Clients.f_FindEqual(SocketID);
 							if (pClient)
-								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _ApplicationData);
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _pApplicationData);
 
 							co_return {};
 						}
 					;
-					_Connection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _ApplicationData) -> TCFuture<void>
+					_Connection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 						{
-							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _ApplicationData->f_GetLen());
+							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
 							co_return {};
 						}
 					;

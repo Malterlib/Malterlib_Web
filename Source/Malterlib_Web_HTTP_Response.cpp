@@ -19,11 +19,11 @@ namespace NMib::NWeb::NHTTP
 		{
 		}
 
-		CResponseDetails(COutputMethod &&_OutputMethod)
+		CResponseDetails(COutputMethod &&_fOutputMethod)
 			: m_Stage(EStage_Header)
 			, mp_Status(EResponseStatus_Empty)
 			, mp_ParseState(EParseState_Header)
-			, m_OutputMethod(fg_Move(_OutputMethod))
+			, m_fOutputMethod(fg_Move(_fOutputMethod))
 		{
 		}
 
@@ -53,7 +53,7 @@ namespace NMib::NWeb::NHTTP
 
 	public:
 		EStage m_Stage;
-		COutputMethod m_OutputMethod;
+		COutputMethod m_fOutputMethod;
 		CResponseFields m_ResponseFields;
 		CGeneralFields m_GeneralFields;
 		CEntityFields m_EntityFields;
@@ -102,8 +102,8 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	CResponseHeader::CResponseHeader(COutputMethod &&_OutputMethod)
-		: CResponseStage(fg_Construct(fg_Move(_OutputMethod)))
+	CResponseHeader::CResponseHeader(COutputMethod &&_fOutputMethod)
+		: CResponseStage(fg_Construct(fg_Move(_fOutputMethod)))
 	{
 	}
 
@@ -116,9 +116,9 @@ namespace NMib::NWeb::NHTTP
 	{
 	}
 
-	void CResponseHeader::f_SetOutputMethod(COutputMethod &&_OutputMethod)
+	void CResponseHeader::f_SetOutputMethod(COutputMethod &&_fOutputMethod)
 	{
-		mp_pDetails->m_OutputMethod = fg_Move(_OutputMethod);
+		mp_pDetails->m_fOutputMethod = fg_Move(_fOutputMethod);
 	}
 
 	void CResponseHeader::f_SetStatus(EStatus _Status, NStr::CStr const &_CustomReason, EVersion _Version)
@@ -153,11 +153,11 @@ namespace NMib::NWeb::NHTTP
 	CResponseContent CResponseHeader::f_Complete()
 	{
 		DMibRequire(mp_pDetails->m_Status.f_GetStatus() != EStatus_Unknown);
-		mp_pDetails->m_Status.f_Write(mp_pDetails->m_OutputMethod);
-		mp_pDetails->m_ResponseFields.f_WriteToData(mp_pDetails->m_OutputMethod);
-		mp_pDetails->m_GeneralFields.f_WriteToData(mp_pDetails->m_OutputMethod);
-		mp_pDetails->m_EntityFields.f_WriteToData(mp_pDetails->m_OutputMethod);
-		mp_pDetails->m_OutputMethod((uint8 const *)"\r\n", 2);
+		mp_pDetails->m_Status.f_Write(mp_pDetails->m_fOutputMethod);
+		mp_pDetails->m_ResponseFields.f_WriteToData(mp_pDetails->m_fOutputMethod);
+		mp_pDetails->m_GeneralFields.f_WriteToData(mp_pDetails->m_fOutputMethod);
+		mp_pDetails->m_EntityFields.f_WriteToData(mp_pDetails->m_fOutputMethod);
+		mp_pDetails->m_fOutputMethod((uint8 const *)"\r\n", 2);
 		return CResponseContent(fg_Move(mp_pDetails));
 	}
 
@@ -216,9 +216,9 @@ namespace NMib::NWeb::NHTTP
 
 		// Parse the remaining header lines
 
-		for (auto LIter = ++Lines.f_GetIterator(); LIter; ++LIter)
+		for (auto iLine = ++Lines.f_GetIterator(); iLine; ++iLine)
 		{
-			NStr::CStr const &CurLine = *LIter;
+			NStr::CStr const &CurLine = *iLine;
 
 			if (CurLine == "")
 				break;
@@ -371,13 +371,13 @@ namespace NMib::NWeb::NHTTP
 
 	void CResponseContent::f_SendData(uint8 const *_pData, umint _nBytes)
 	{
-		mp_pDetails->m_OutputMethod(_pData, _nBytes);
+		mp_pDetails->m_fOutputMethod(_pData, _nBytes);
 	}
 
 	void CResponseContent::f_SendString(NStr::CStr const &_String)
 	{
 		NStr::CStr Data = _String;
-		mp_pDetails->m_OutputMethod((uint8 const *)Data.f_GetStr(), Data.f_GetLen());
+		mp_pDetails->m_fOutputMethod((uint8 const *)Data.f_GetStr(), Data.f_GetLen());
 	}
 
 	//

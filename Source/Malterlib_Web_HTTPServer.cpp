@@ -475,8 +475,8 @@ namespace NMib::NWeb
 				mp_pNGINXLauncher->f_Launch();
 			}
 
-			mp_pFastCGIServer = fg_Construct();
-			mp_pFastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
+			mp_FastCGIServer = fg_Construct();
+			mp_FastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
 				(
 					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [ThisWeak = NConcurrency::fg_ThisActor(this).f_Weak()]
 					(NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
@@ -517,16 +517,16 @@ namespace NMib::NWeb
 
 		bool f_IsRunning()
 		{
-			return !mp_pFastCGIServer.f_IsEmpty();
+			return !mp_FastCGIServer.f_IsEmpty();
 		}
 
 		bool f_Stop()
 		{
 			mp_pNGINXLauncher.f_Clear();
-			if (mp_pFastCGIServer)
+			if (mp_FastCGIServer)
 			{
-				mp_pFastCGIServer->f_BlockDestroy();
-				mp_pFastCGIServer.f_Clear();
+				mp_FastCGIServer->f_BlockDestroy();
+				mp_FastCGIServer.f_Clear();
 			}
 
 			return true;
@@ -551,11 +551,11 @@ namespace NMib::NWeb
 
 		CHTTPServerOptions mp_Options;
 		NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
-		NConcurrency::TCActor<CFastCGIServer> mp_pFastCGIServer;
+		NConcurrency::TCActor<CFastCGIServer> mp_FastCGIServer;
 
 		NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers = fg_Construct();
 
-		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_LogFunction;
+		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_fLogFunction;
 	};
 
 	// CHTTPServer Public Methods
@@ -789,52 +789,52 @@ namespace NMib::NWeb
 	{
 		// Process command line args.
 		NStr::CStr CurArg;
-		for (auto PIter = _Params.f_GetChildIterator(); PIter; ++PIter)
+		for (auto iChild = _Params.f_GetChildIterator(); iChild; ++iChild)
 		{
-			NContainer::CRegistry const &CurChild = *PIter;
+			NContainer::CRegistry const &CurChild = *iChild;
 			CurArg = CurChild.f_GetThisValue();
 
 			if (CurArg.f_CmpNoCase("-http_port") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_ListeningPort = (*PIter).f_GetThisValue().f_ToInt(8080);
+				m_ListeningPort = (*iChild).f_GetThisValue().f_ToInt(8080);
 			}
 			else if (CurArg.f_CmpNoCase("-fastcgi_listen") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_FastCGIListenStartPort = (*PIter).f_GetThisValue().f_ToInt(9000);
+				m_FastCGIListenStartPort = (*iChild).f_GetThisValue().f_ToInt(9000);
 			}
 			else if (CurArg.f_CmpNoCase("-http_threads") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_nMaxThreads = (*PIter).f_GetThisValue().f_ToInt(1);
+				m_nMaxThreads = (*iChild).f_GetThisValue().f_ToInt(1);
 			}
 			else if (CurArg.f_CmpNoCase("-http_root") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_StaticRoot = (*PIter).f_GetThisValue();
+				m_StaticRoot = (*iChild).f_GetThisValue();
 			}
 			else if (CurArg.f_CmpNoCase("-http_webroot") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_WebRoot = (*PIter).f_GetThisValue();
+				m_WebRoot = (*iChild).f_GetThisValue();
 			}
 			else if (CurArg.f_CmpNoCase("-nginx_path") == 0)
 			{
-				++PIter;
-				if (!PIter)
+				++iChild;
+				if (!iChild)
 					break;
-				m_NGINXPath = (*PIter).f_GetThisValue();
+				m_NGINXPath = (*iChild).f_GetThisValue();
 			}
 		}
 	}
@@ -853,9 +853,9 @@ namespace NMib::NWeb
 	void CHTTPServerOptions::fp_ParseSettings(tf_CRegistry const &_Params)
 	{
 		// Process settings
-		for (auto PIter = _Params.f_GetChildIterator(); PIter; ++PIter)
+		for (auto iChild = _Params.f_GetChildIterator(); iChild; ++iChild)
 		{
-			auto const &CurChild = *PIter;
+			auto const &CurChild = *iChild;
 			auto CurArg = CurChild.f_GetName();
 			auto CurValue = CurChild.f_GetThisValue();
 

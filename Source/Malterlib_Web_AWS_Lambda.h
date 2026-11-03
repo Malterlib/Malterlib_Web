@@ -59,7 +59,7 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NStr::CStr> m_KMSKeyArn;
 			NStorage::TCOptional<uint32> m_MemorySizeMB;
 			NStorage::TCOptional<uint32> m_TimeoutSeconds;
-			NStorage::TCOptional<bool> m_bPublish;
+			NStorage::TCOptional<bool> m_Publish;
 		};
 
 		struct CFunctionInfo

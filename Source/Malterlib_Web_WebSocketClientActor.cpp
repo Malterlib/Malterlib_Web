@@ -51,8 +51,8 @@ namespace NMib::NWeb
 
 	NConcurrency::TCFuture<CWebSocketNewClientConnection> CWebSocketClientActor::f_Connect(CConnectSettings _Settings)
 	{
-		if (!_Settings.m_SocketFactory)
-			_Settings.m_SocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
+		if (!_Settings.m_fSocketFactory)
+			_Settings.m_fSocketFactory = NNetwork::CSocket_TCP::fs_GetFactory();
 
 		if (_Settings.m_ConnectToAddress.f_IsEmpty())
 			co_return DMibErrorInstance("Connect to address cannot be empty");
@@ -104,7 +104,7 @@ namespace NMib::NWeb
 			CPendingConnection &Pending = mp_PendingConnects.f_Insert();
 			pPending = &Pending;
 			Pending.m_IoBinding = IoBinding;
-			Pending.m_pSocket = _Settings.m_SocketFactory(ConnectToAddress);
+			Pending.m_pSocket = _Settings.m_fSocketFactory(ConnectToAddress);
 		}
 
 		auto CleanupPending = NConcurrency::g_OnScopeExitActor / [this, pPendingDeleted = pPending->m_pDeleted, pPending]
@@ -145,7 +145,7 @@ namespace NMib::NWeb
 						{
 							if (!pReplied->f_Exchange(true))
 							{
-								auto pCleanupPromise = g_OnScopeExitShared / [Promise]
+								auto CleanupPromise = g_OnScopeExitShared / [Promise]
 									{
 										if (!Promise.f_IsSet())
 											Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
@@ -155,7 +155,7 @@ namespace NMib::NWeb
 								auto This = WeakThis.f_Lock();
 								if (This)
 								{
-									NConcurrency::g_Dispatch(This) / [pPendingDeleted, pPending, Promise, CleanupPending, pCleanupPromise]
+									NConcurrency::g_Dispatch(This) / [pPendingDeleted, pPending, Promise, CleanupPending, CleanupPromise]
 										{
 											NStr::CStr Error;
 											if (!pPendingDeleted->f_Load())
@@ -177,7 +177,7 @@ namespace NMib::NWeb
 							if (pReplied->f_Exchange(true))
 								return (void)CleanupPending.f_Clear();
 
-							auto pCleanupPromise = g_OnScopeExitShared / [Promise]
+							auto CleanupPromise = g_OnScopeExitShared / [Promise]
 								{
 									if (!Promise.f_IsSet())
 										Promise.f_SetException(DMibErrorInstance("Client connection actor was deleted"));
@@ -186,14 +186,14 @@ namespace NMib::NWeb
 
 							auto This = WeakThis.f_Lock();
 							if (!This || pPendingDeleted->f_Load())
-								return (void)pCleanupPromise.f_Clear();
+								return (void)CleanupPromise.f_Clear();
 
 							NConcurrency::g_Dispatch(This) /
 								[
 									pPendingDeleted
 									, pPending
 									, Promise
-									, pCleanupPromise
+									, CleanupPromise
 									, CleanupPending = fg_Move(CleanupPending)
 									, Settings
 									, pRequest = fg_Move(pRequest)
@@ -206,7 +206,7 @@ namespace NMib::NWeb
 								() mutable
 								{
 									if (pPendingDeleted->f_Load())
-										return (void)pCleanupPromise.f_Clear();
+										return (void)CleanupPromise.f_Clear();
 
 									NStorage::TCUniquePointer<NNetwork::ICSocket> pNewSocket = fg_Move(pPending->m_pSocket);
 
@@ -235,7 +235,7 @@ namespace NMib::NWeb
 													, NConcurrency::g_ActorFunctorWeak(pConnectionManager->f_GetThisConcurrentActor()) /
 													[
 														Promise
-														, pCleanupPromise
+														, CleanupPromise
 														, ConnectionActor
 														, CleanupPending = fg_Move(CleanupPending)
 														, AllowDestroy = NConcurrency::g_AllowWrongThreadDestroy

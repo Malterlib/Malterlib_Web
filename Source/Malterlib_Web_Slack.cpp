@@ -73,18 +73,18 @@ namespace NMib::NWeb
 			if (_Message.m_IconURL)
 				SlackMessage["icon_url"] = *_Message.m_IconURL->f_Encode();
 
-			if (_Message.m_bMarkdown)
-				SlackMessage["mrkdwn"] = *_Message.m_bMarkdown;
-			if (_Message.m_bLinkNames)
-				SlackMessage["link_names"] = *_Message.m_bLinkNames;
-			if (_Message.m_bReplyBroadcast)
-				SlackMessage["reply_broadcast"] = *_Message.m_bReplyBroadcast;
-			if (_Message.m_bUnfurlLinks)
-				SlackMessage["unfurl_links"] = *_Message.m_bUnfurlLinks;
-			if (_Message.m_bUnfurlMedia)
-				SlackMessage["unfurl_media"] = *_Message.m_bUnfurlMedia;
-			if (_Message.m_bFullParse)
-				SlackMessage["unfurl_media"] = *_Message.m_bFullParse ? "full" : "none";
+			if (_Message.m_Markdown)
+				SlackMessage["mrkdwn"] = *_Message.m_Markdown;
+			if (_Message.m_LinkNames)
+				SlackMessage["link_names"] = *_Message.m_LinkNames;
+			if (_Message.m_ReplyBroadcast)
+				SlackMessage["reply_broadcast"] = *_Message.m_ReplyBroadcast;
+			if (_Message.m_UnfurlLinks)
+				SlackMessage["unfurl_links"] = *_Message.m_UnfurlLinks;
+			if (_Message.m_UnfurlMedia)
+				SlackMessage["unfurl_media"] = *_Message.m_UnfurlMedia;
+			if (_Message.m_FullParse)
+				SlackMessage["unfurl_media"] = *_Message.m_FullParse ? "full" : "none";
 
 			if (_Message.m_ThreadTimestamp)
 				SlackMessage["thread_ts"] = *_Message.m_ThreadTimestamp;
@@ -99,11 +99,11 @@ namespace NMib::NWeb
 					}
 				;
 
-				if (Attachment.m_bPretextMarkdown && *Attachment.m_bPretextMarkdown)
+				if (Attachment.m_PretextMarkdown && *Attachment.m_PretextMarkdown)
 					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("pretext");
-				if (Attachment.m_bTextMarkdown && *Attachment.m_bTextMarkdown)
+				if (Attachment.m_TextMarkdown && *Attachment.m_TextMarkdown)
 					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("text");
-				if (Attachment.m_bFieldsMarkdown && *Attachment.m_bFieldsMarkdown)
+				if (Attachment.m_FieldsMarkdown && *Attachment.m_FieldsMarkdown)
 					OutputAttachment["mrkdwn_in"].f_Array().f_Insert("fields");
 
 				if (Attachment.m_PreText)
@@ -158,8 +158,8 @@ namespace NMib::NWeb
 						}
 					;
 
-					if (Field.m_bShort)
-						OutputField["short"] = *Field.m_bShort;
+					if (Field.m_Short)
+						OutputField["short"] = *Field.m_Short;
 				}
 			}
 

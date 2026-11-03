@@ -16,17 +16,17 @@ namespace NMib::NWeb
 
 		Utils.f_TitledValue("Fallback", m_Fallback);
 		Utils.f_TitledValue("PreText", m_PreText);
-		Utils.f_TitledValue("PretextMarkdown", m_bPretextMarkdown);
+		Utils.f_TitledValue("PretextMarkdown", m_PretextMarkdown);
 		Utils.f_TitledValue("Title", m_Title);
 		Utils.f_TitledValue("TitleLink", m_TitleLink);
 		Utils.f_TitledValue("Text", m_Text);
-		Utils.f_TitledValue("TextMarkdown", m_bTextMarkdown);
+		Utils.f_TitledValue("TextMarkdown", m_TextMarkdown);
 		Utils.f_TitledValue("Color", m_Color);
 		Utils.f_TitledValue("AuthorName", m_AuthorName);
 		Utils.f_TitledValue("AuthorLink", m_AuthorLink);
 		Utils.f_TitledValue("AuthorIcon", m_AuthorIcon);
 		Utils.f_TitledValue("Fields", m_Fields);
-		Utils.f_TitledValue("FieldsMarkdown", m_bFieldsMarkdown);
+		Utils.f_TitledValue("FieldsMarkdown", m_FieldsMarkdown);
 		Utils.f_TitledValue("ImageURL", m_ImageURL);
 		Utils.f_TitledValue("ThumbURL", m_ThumbURL);
 		Utils.f_TitledValue("Footer", m_Footer);
@@ -45,12 +45,12 @@ namespace NMib::NWeb
 		Utils.f_TitledValue("UserName", m_UserName);
 		Utils.f_TitledValue("IconEmoji", m_IconEmoji);
 		Utils.f_TitledValue("IconURL", m_IconURL);
-		Utils.f_TitledValue("Markdown", m_bMarkdown);
-		Utils.f_TitledValue("LinkNames", m_bLinkNames);
-		Utils.f_TitledValue("ReplyBroadcast", m_bReplyBroadcast);
-		Utils.f_TitledValue("UnfurlLinks", m_bUnfurlLinks);
-		Utils.f_TitledValue("UnfurlMedia", m_bUnfurlMedia);
-		Utils.f_TitledValue("FullParse", m_bFullParse);
+		Utils.f_TitledValue("Markdown", m_Markdown);
+		Utils.f_TitledValue("LinkNames", m_LinkNames);
+		Utils.f_TitledValue("ReplyBroadcast", m_ReplyBroadcast);
+		Utils.f_TitledValue("UnfurlLinks", m_UnfurlLinks);
+		Utils.f_TitledValue("UnfurlMedia", m_UnfurlMedia);
+		Utils.f_TitledValue("FullParse", m_FullParse);
 		Utils.f_TitledValue("ThreadTimestamp", m_ThreadTimestamp);
 		Utils.f_TitledValue("Attachments", m_Attachments);
 	}
@@ -63,7 +63,7 @@ namespace NMib::NWeb
 
 		Utils.f_TitledValue("Title", m_Title);
 		Utils.f_TitledValue("Value", m_Value);
-		Utils.f_TitledValue("Short", m_bShort);
+		Utils.f_TitledValue("Short", m_Short);
 	}
 
 	constexpr CSlackActor::CPredefinedColor::CPredefinedColor(EPredefinedColor _Color)

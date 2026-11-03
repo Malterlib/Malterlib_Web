@@ -313,7 +313,7 @@ namespace NMib::NWeb
 		}
 
 	private:
-		NContainer::TCVector<NFunction::TCFunctionMovable<void (NConcurrency::TCActorFunctorWeak<t_CCallback> const &_Callback)>> mp_DeferredCalls;
+		NContainer::TCVector<NFunction::TCFunctionMovable<void (NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback)>> mp_DeferredCalls;
 		bool mp_bDoDefer = false;
 		NConcurrency::TCActorFunctorWeak<t_CCallback> mp_fCallback;
 	};
@@ -477,8 +477,8 @@ namespace NMib::NWeb
 
 		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NStream::CBinaryStorage const> _pMessage)> m_fOnReceiveBinaryMessage;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (NStr::CStr _Message)> m_fOnReceiveTextMessage;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePing;
-		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)> m_fOnReceivePong;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)> m_fOnReceivePing;
+		TCDeferredCallback<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)> m_fOnReceivePong;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EWebSocketStatus _Status, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CConnectionInfo _ConnectionInfo)> m_fOnFinishConnection;
 		TCDeferredCallback<NConcurrency::TCFuture<void> (EFinishConnectionResult _Result, CClientConnectionInfo _ConnectionInfo)> m_fOnFinishClientConnection;
@@ -2364,17 +2364,17 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPing(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		umint nBytes = _ApplicationData->f_GetLen();
+		umint nBytes = _pApplicationData->f_GetLen();
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
-		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Ping, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
+		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Ping, _pApplicationData, TCLimitsInt<uint32>::mc_Max);
 		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
 
 		fp_ScheduleUpdateSend();
@@ -2384,17 +2384,17 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Future);
 	}
 
-	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _ApplicationData)
+	NConcurrency::TCFuture<void> CWebSocketActor::f_SendPong(NStorage::TCSharedPointer<NContainer::CIOByteVector const> _pApplicationData)
 	{
 		if (f_IsDestroyed())
 			co_return DMibErrorInstance("Destroying websocket");
 
 		auto &Internal = *mp_pInternal;
-		umint nBytes = _ApplicationData->f_GetLen();
+		umint nBytes = _pApplicationData->f_GetLen();
 		if (nBytes > Internal.m_Settings.m_MaxMessageSize)
 			co_return DMibErrorInstance("Message is bigger than max message size");
 
-		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Pong, _ApplicationData, TCLimitsInt<uint32>::mc_Max);
+		auto &NewMessage = Internal.f_QueueMessage(EOpcode_Pong, _pApplicationData, TCLimitsInt<uint32>::mc_Max);
 		auto Future = NewMessage.m_Promise.f_CreateNew().f_Future();
 
 		fp_ScheduleUpdateSend();
@@ -3108,7 +3108,7 @@ namespace NMib::NWeb
 		auto &Message = Internal.m_NextMessage;
 		CHeader &Header = Message.m_Header;
 		uint64 &Length = Message.m_Length;
-		uint8 *Mask = Message.m_Mask;
+		uint8 *pMask = Message.m_Mask;
 
 		if (!Message.m_bHeaderFinished)
 		{
@@ -3243,7 +3243,7 @@ namespace NMib::NWeb
 							, 4
 							, [&](umint _iStart, uint8 const *_pData, umint _nBytes) -> bool
 							{
-								NMemory::fg_MemCopy(Mask + (_iStart - Position), _pData, _nBytes);
+								NMemory::fg_MemCopy(pMask + (_iStart - Position), _pData, _nBytes);
 								return (_iStart + _nBytes) < (Position + 4);
 							}
 						)
@@ -3447,7 +3447,7 @@ namespace NMib::NWeb
 		}
 
 		if (Header.m_bMask)
-			CInternal::fs_ApplyMask(pMaskStart, 0, Length, Mask);
+			CInternal::fs_ApplyMask(pMaskStart, 0, Length, pMask);
 
 		if (bControlMessage)
 		{

@@ -116,10 +116,10 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 		SourceVirtualFS.f_CopyFiles("NodeWebServer/*", DestinationFS, _DestinationDirectory);
 #ifdef DPlatformFamily_macOS
 		auto CurrentPath = fg_GetSys()->f_GetEnvironmentVariable("PATH", "").f_Split(":");
-		for (auto ExpectedPath : {"/opt/local/bin", "/opt/homebrew/bin"})
+		for (auto pExpectedPath : {"/opt/local/bin", "/opt/homebrew/bin"})
 		{
-			if (CurrentPath.f_Contains(ExpectedPath) < 0)
-				CurrentPath.f_InsertFirst(ExpectedPath);
+			if (CurrentPath.f_Contains(pExpectedPath) < 0)
+				CurrentPath.f_InsertFirst(pExpectedPath);
 		}
 		fg_GetSys()->f_SetEnvironmentVariable("PATH", CStr::fs_Join(CurrentPath, ":"));
 #endif
@@ -656,9 +656,9 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 			WebServerResults.m_Subscription.f_Clear();
 
 			// Node does not unlink its Unix listener files at shutdown.
-			for (auto const &SocketFile : {"http.sock", "https.sock"})
+			for (auto const &pSocketFile : {"http.sock", "https.sock"})
 			{
-				CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / SocketFile);
+				CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / pSocketFile);
 				if (CFile::fs_FileExists(SocketPath))
 					CFile::fs_DeleteFile(SocketPath);
 			}

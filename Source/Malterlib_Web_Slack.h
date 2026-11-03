@@ -59,7 +59,7 @@ namespace NMib::NWeb
 
 			NStr::CStr m_Title;
 			NStr::CStr m_Value;
-			NStorage::TCOptional<bool> m_bShort;
+			NStorage::TCOptional<bool> m_Short;
 		};
 
 		struct CAttachment
@@ -72,13 +72,13 @@ namespace NMib::NWeb
 			NStr::CStr m_Fallback;
 
 			NStorage::TCOptional<NStr::CStr> m_PreText;
-			NStorage::TCOptional<bool> m_bPretextMarkdown;
+			NStorage::TCOptional<bool> m_PretextMarkdown;
 
 			NStr::CStr m_Title;
 			NStorage::TCOptional<NStr::CStr> m_TitleLink;
 
 			NStr::CStr m_Text;
-			NStorage::TCOptional<bool> m_bTextMarkdown;
+			NStorage::TCOptional<bool> m_TextMarkdown;
 
 			NStorage::TCOptional<CColor> m_Color;
 
@@ -87,7 +87,7 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NHTTP::CURL> m_AuthorIcon;
 
 			NContainer::TCVector<CField> m_Fields;
-			NStorage::TCOptional<bool> m_bFieldsMarkdown;
+			NStorage::TCOptional<bool> m_FieldsMarkdown;
 
 			NStorage::TCOptional<NHTTP::CURL> m_ImageURL;
 			NStorage::TCOptional<NHTTP::CURL> m_ThumbURL;
@@ -113,12 +113,12 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NStr::CStr> m_IconEmoji;
 			NStorage::TCOptional<NHTTP::CURL> m_IconURL;
 
-			NStorage::TCOptional<bool> m_bMarkdown;
-			NStorage::TCOptional<bool> m_bLinkNames;
-			NStorage::TCOptional<bool> m_bReplyBroadcast;
-			NStorage::TCOptional<bool> m_bUnfurlLinks;
-			NStorage::TCOptional<bool> m_bUnfurlMedia;
-			NStorage::TCOptional<bool> m_bFullParse;
+			NStorage::TCOptional<bool> m_Markdown;
+			NStorage::TCOptional<bool> m_LinkNames;
+			NStorage::TCOptional<bool> m_ReplyBroadcast;
+			NStorage::TCOptional<bool> m_UnfurlLinks;
+			NStorage::TCOptional<bool> m_UnfurlMedia;
+			NStorage::TCOptional<bool> m_FullParse;
 
 			NContainer::TCVector<CAttachment> m_Attachments;
 		};

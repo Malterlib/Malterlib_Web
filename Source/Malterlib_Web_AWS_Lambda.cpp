@@ -406,8 +406,8 @@ namespace NMib::NWeb
 			Request["Code"]["ZipFile"] = _CodeBlob.m_Base64;
 			Request["FunctionName"] = _FunctionName;
 
-			if (_Config.m_bPublish)
-				Request["Publish"] = *_Config.m_bPublish;
+			if (_Config.m_Publish)
+				Request["Publish"] = *_Config.m_Publish;
 
 			if (_Config.m_Tags)
 			{
@@ -468,8 +468,8 @@ namespace NMib::NWeb
 			CJsonSorted Request;
 			Request["ZipFile"] = _CodeBlob.m_Base64;
 
-			if (_Config.m_bPublish)
-				Request["Publish"] = *_Config.m_bPublish;
+			if (_Config.m_Publish)
+				Request["Publish"] = *_Config.m_Publish;
 
 			CJsonSorted Results = co_await fg_DoAWSRequestJson("Update function code", m_HttpClientActor, 200, AWSUrl, Request, CHttpClientActor::EMethod_PUT, m_Credentials, {}, "lambda");
 
@@ -670,7 +670,7 @@ namespace NMib::NWeb
 					}
 					if (!bAlreadyLatest)
 					{
-						if (_Config.m_bPublish && *_Config.m_bPublish)
+						if (_Config.m_Publish && *_Config.m_Publish)
 							FunctionInfo = co_await Internal.f_PublishVersion(_FunctionName);
 						else
 							FunctionInfo = CFunctionInfo{ExistingConfigJson.f_GetMemberValue("FunctionArn", "").f_String(), ExistingConfigJson.f_GetMemberValue("Version", "").f_String()};

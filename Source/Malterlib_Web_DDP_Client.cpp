@@ -94,25 +94,25 @@ namespace NMib::NWeb
 				, NStr::CStr const &_BindTo
 				, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 				, NStr::CStr const &_Origin
-				, NNetwork::FVirtualSocketFactory const &_SocketFactory
+				, NNetwork::FVirtualSocketFactory const &_fSocketFactory
 				, EClientOption _ClientOptions
 			)
 			: m_pThis(_pThis)
 			, m_ConnectTo(_ConnectTo)
 			, m_BindTo(_BindTo)
 			, m_ConnectionFactory(_ConnectionFactory)
-			, m_SocketFactory(_SocketFactory)
+			, m_fSocketFactory(_fSocketFactory)
 			, m_ClientOptions(_ClientOptions)
 		{
 			if (!_ConnectionFactory)
 				m_ConnectionFactory = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
 
-			if (!_SocketFactory && _ConnectTo.f_GetScheme() == "wss")
+			if (!_fSocketFactory && _ConnectTo.f_GetScheme() == "wss")
 			{
 				NNetwork::CSSLSettings ClientSettings;
 				ClientSettings.m_VerificationFlags |= NNetwork::CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
 				NStorage::TCSharedPointer<NNetwork::CSSLContext> pClientContext = fg_Construct(NNetwork::CSSLContext::EType_Client, ClientSettings);
-				m_SocketFactory = NNetwork::CSocket_SSL::fs_GetFactory(pClientContext);
+				m_fSocketFactory = NNetwork::CSocket_SSL::fs_GetFactory(pClientContext);
 			}
 
 			// wsa requires a caller-supplied authenticated factory with pinned trust; no safe default can infer the server identity.
@@ -144,7 +144,7 @@ namespace NMib::NWeb
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
 		NConcurrency::CActorSubscription m_WebSocketCallbackSubscription;
 		NConcurrency::TCActor<CWebSocketClientActor> m_ConnectionFactory;
-		NNetwork::FVirtualSocketFactory m_SocketFactory;
+		NNetwork::FVirtualSocketFactory m_fSocketFactory;
 		NConcurrency::TCPromise<CConnectInfo> m_ConnectPromise;
 
 		NStr::CStr m_UserName;
@@ -279,10 +279,10 @@ namespace NMib::NWeb
 			, NStr::CStr const &_BindTo
 			, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 			, NStr::CStr const &_Origin
-			, NNetwork::FVirtualSocketFactory const &_SocketFactory
+			, NNetwork::FVirtualSocketFactory const &_fSocketFactory
 			, EClientOption _ClientOptions
 		)
-		: mp_pInternal(fg_Construct(this, _ConnectTo, _BindTo, _ConnectionFactory, _Origin, _SocketFactory, _ClientOptions))
+		: mp_pInternal(fg_Construct(this, _ConnectTo, _BindTo, _ConnectionFactory, _Origin, _fSocketFactory, _ClientOptions))
 	{
 	}
 
@@ -318,7 +318,7 @@ namespace NMib::NWeb
 				co_return DMibErrorInstance("wsa connections require a unix socket address");
 
 			// The caller must supply an authenticated factory with pinned server trust. Type erasure permits checking presence only.
-			if (!Internal.m_SocketFactory)
+			if (!Internal.m_fSocketFactory)
 				co_return DMibErrorInstance("wsa connections require an explicit socket factory that pins the server certificate");
 		}
 
@@ -339,7 +339,7 @@ namespace NMib::NWeb
 					, .m_Port = Internal.m_ConnectTo.f_GetPortFromScheme()
 					, .m_URI = Internal.m_ConnectTo.f_GetFullPath()
 					, .m_Origin = Internal.m_Origin
-					, .m_SocketFactory = Internal.m_SocketFactory
+					, .m_fSocketFactory = Internal.m_fSocketFactory
 					, .m_bAllowUnmaskedFrames = fg_IsAuthenticatedUnixScheme(Internal.m_ConnectTo.f_GetScheme()) // wsa unix connections are a confidential point to point link
 				}
 			)
@@ -462,7 +462,7 @@ namespace NMib::NWeb
 		(
 			NStr::CStr &&_CollectionName // Leave empty to observe all collections
 			, EObserveNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> &&_Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> &&_fCallback
 		)
 		-> NConcurrency::CActorSubscription
 	{
@@ -470,12 +470,12 @@ namespace NMib::NWeb
 		auto &CollectionObservations = Internal.m_Observations[_CollectionName];
 		auto &Observation = CollectionObservations.m_Observations.f_Insert();
 
-		if (_Callback)
+		if (_fCallback)
 			Observation.m_NotifyOn = _NotifyOn;
 		else
 			Observation.m_NotifyOn = EObserveNotification_None;
 
-		Observation.m_fCallback = fg_Move(_Callback);
+		Observation.m_fCallback = fg_Move(_fCallback);
 
 		return NConcurrency::g_ActorSubscription / [this, pDestroyed = Observation.m_pDestroyed, pObservation = &Observation, pCollectionObservations = &CollectionObservations]
 			() -> NConcurrency::TCFuture<void>
@@ -485,13 +485,13 @@ namespace NMib::NWeb
 
 				auto &Internal = *mp_pInternal;
 
-				auto ToDestroy = fg_Move(pObservation->m_fCallback);
+				auto fToDestroy = fg_Move(pObservation->m_fCallback);
 
 				pCollectionObservations->m_Observations.f_Remove(*pObservation);
 				if (pCollectionObservations->m_Observations.f_IsEmpty())
 					Internal.m_Observations.f_Remove(pCollectionObservations);
 
-				co_await fg_Move(ToDestroy).f_Destroy();
+				co_await fg_Move(fToDestroy).f_Destroy();
 
 				co_return {};
 			}
@@ -504,7 +504,7 @@ namespace NMib::NWeb
 			, NStr::CStr _SubscriptionID
 			, NEncoding::CEJsonSorted _Params
 			, ESubscriptionNotification _NotifyOn
-			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
+			, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _fCallback
 			, bool _bWaitForResponse
 		)
 		-> NConcurrency::TCFuture<NConcurrency::CActorSubscription>
@@ -516,7 +516,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 		auto &Subscription = *Internal.m_Subscriptions(SubscriptionID);
 
-		if (_Callback)
+		if (_fCallback)
 			Subscription.m_NotifyOn = _NotifyOn;
 		else
 			Subscription.m_NotifyOn = ESubscriptionNotification_None;
@@ -531,7 +531,7 @@ namespace NMib::NWeb
 
 		Internal.f_SendMessage(Message);
 
-		Subscription.m_fCallback = fg_Move(_Callback);
+		Subscription.m_fCallback = fg_Move(_fCallback);
 
 		NConcurrency::CActorSubscription CleanupSubscription = NConcurrency::g_ActorSubscription / [this, pDestroyed = Subscription.m_pDestroyed, pSubscription = &Subscription]
 			() -> NConcurrency::TCFuture<void>
@@ -551,11 +551,11 @@ namespace NMib::NWeb
 					Internal.f_SendMessage(Message);
 				}
 
-				auto ToDestroy = fg_Move(pSubscription->m_fCallback);
+				auto fToDestroy = fg_Move(pSubscription->m_fCallback);
 
 				Internal.m_Subscriptions.f_Remove(pSubscription);
 
-				co_await fg_Move(ToDestroy).f_Destroy();
+				co_await fg_Move(fToDestroy).f_Destroy();
 
 				co_return {};
 			}
@@ -582,9 +582,9 @@ namespace NMib::NWeb
 		co_return co_await fg_Move(Promise.m_Future);
 	}
 
-	void CDDPClient::f_AccessData(NFunction::TCFunctionMovable<void (CDataAccessor const &_Accessor)> &&_ProcessData)
+	void CDDPClient::f_AccessData(NFunction::TCFunctionMovable<void (CDataAccessor const &_Accessor)> &&_fProcessData)
 	{
-		_ProcessData(CDataAccessor(mp_pInternal.f_Get()));
+		_fProcessData(CDataAccessor(mp_pInternal.f_Get()));
 	}
 
 	void CDDPClient::CInternal::fp_OnError(NStr::CStr const &_Error)

@@ -92,7 +92,7 @@ namespace NMib::NWeb
 				, NStr::CStr const &_BindTo
 				, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory = fg_Default()
 				, NStr::CStr const &_Origin = NStr::CStr()
-				, NNetwork::FVirtualSocketFactory const &_SocketFactory = nullptr
+				, NNetwork::FVirtualSocketFactory const &_fSocketFactory = nullptr
 				, EClientOption _ClientOptions = EClientOption_MaintainDatabase
 			)
 		;
@@ -119,7 +119,7 @@ namespace NMib::NWeb
 				, NStr::CStr _SubscriptionID
 				, NEncoding::CEJsonSorted _Params
 				, ESubscriptionNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> _fCallback
 				, bool _bWaitForResponse
 			)
 			-> NConcurrency::TCFuture<NConcurrency::CActorSubscription>
@@ -128,12 +128,12 @@ namespace NMib::NWeb
 			(
 				NStr::CStr &&_CollectionName // Leave empty to observe all collections
 				, EObserveNotification _NotifyOn
-				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> &&_Callback
+				, NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> &&_fCallback
 			)
 			-> NConcurrency::CActorSubscription
 		;
 
-		void f_AccessData(NFunction::TCFunctionMovable<void (CDataAccessor const &_Accessor)> &&_ProcessData);
+		void f_AccessData(NFunction::TCFunctionMovable<void (CDataAccessor const &_Accessor)> &&_fProcessData);
 
 		static NStr::CStr fs_RandomID();
 		static NStr::CStr fs_HighEntropyRandomID();
