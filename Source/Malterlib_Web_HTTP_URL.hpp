@@ -51,7 +51,7 @@ namespace NMib::NWeb::NHTTP
 	{
 		uint32 Version;
 		_Stream >> Version;
-		if (Version > EVersion)
+		if (Version > mc_Version)
 			DMibError("Invalid URL version");
 		_Stream >> mp_Flags;
 

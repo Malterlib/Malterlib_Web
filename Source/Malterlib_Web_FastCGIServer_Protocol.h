@@ -69,19 +69,8 @@ namespace NMib::NWeb::NFastCGI
 		}
 	};
 
-	enum
-	{
-		//
-		// Number of bytes in a FCGI_Header.  Future versions of the protocol
-		// will not reduce this number.
-		//
-		EHeaderLen = 8
-
-		//
-		// Value for requestId component of FCGI_Header
-		//
-		, ENullRequestID = 0
-	};
+	constexpr aint gc_HeaderLen = 8;
+	constexpr aint gc_NullRequestID = 0;
 
 	enum ERequestBodyFlag : uint8
 	{

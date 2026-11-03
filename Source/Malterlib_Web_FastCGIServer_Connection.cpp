@@ -121,7 +121,7 @@ namespace NMib::NWeb
 		while (ToSend)
 		{
 			umint ThisTime = fg_Min(ToSend, 64 * 1024 - (sizeof(CHeader)));
-			NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+			NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 			Stream.f_OpenReadWrite(HeaderData, 8, 0);
 
 			umint PaddingSize = 0;
@@ -190,7 +190,7 @@ namespace NMib::NWeb
 
 	void CFastCGIConnectionActor::f_FinishRequest()
 	{
-		NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
+		NStream::TCBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 
 		// Send end of stream for std out and std err
 
@@ -273,7 +273,7 @@ namespace NMib::NWeb
 		{
 			mp_RecordInfo.m_bInvalid = true; // Don't receive any more data, and close connection after all outstanding data has been sent
 
-			NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
+			NStream::TCBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 
 			CHeader Header;
 			Header.m_Type = ERequestType_EndRequest;
@@ -291,7 +291,7 @@ namespace NMib::NWeb
 
 		mp_RecordInfo.m_ID = _Header.m_RequestID;
 
-		NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+		NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 		Stream.f_OpenRead(_pData, _DataLen);
 
 		CBeginRequestBody Request;
@@ -338,7 +338,7 @@ namespace NMib::NWeb
 				{
 					try
 					{
-						NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+						NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 						Stream.f_OpenRead(_pData, _DataLen);
 
 						while (!Stream.f_IsAtEndOfStream())
@@ -530,7 +530,7 @@ namespace NMib::NWeb
 					if (Available >= 8)
 					{
 						// We have enough for header
-						NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+						NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 						Stream.f_OpenRead(mp_IncomingData.f_GetArray() + mp_IncomingPosition, 8);
 						Stream >> mp_CurrentHeader;
 						mp_NeededData = mp_CurrentHeader.m_ContentLength + mp_CurrentHeader.m_PaddingLength;

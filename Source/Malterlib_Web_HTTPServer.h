@@ -109,7 +109,7 @@ namespace NMib::NWeb
 
 		NTime::CTime mp_Timestamp;
 		CHTTPResponseHeader mp_Header;
-		NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
+		NStream::TCBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 	};
 
 	struct CHTTPRequestHandler

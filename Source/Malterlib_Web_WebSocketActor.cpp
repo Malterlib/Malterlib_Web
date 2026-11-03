@@ -29,7 +29,7 @@
 #endif
 
 #ifdef DEnableVector
-using vec4uint32 = uint32 __attribute__((ext_vector_type(4)));
+using CVec4Uint32 = uint32 __attribute__((ext_vector_type(4)));
 #endif
 
 namespace NMib::NWeb
@@ -2680,7 +2680,7 @@ namespace NMib::NWeb
 				if (_Status != EWebSocketStatus_NoStatusReceived)
 				{
 					DMibLog(DebugVerbose3, " ++++ {} {} CWebSocketActor::fp_Disconnect 3 {}", fg_ThisActor(this), !Internal.m_bClient, _Reason);
-					NStream::CBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
+					NStream::TCBinaryStreamMemory<NStream::CBinaryStreamBigEndian> Stream;
 					Stream << uint16(_Status);
 
 					NStr::CStr Reason = _Reason;
@@ -3083,9 +3083,9 @@ namespace NMib::NWeb
 		for (; pCurrent < pAlignedVectorStart; pCurrent += 4)
 			*((uint32 *)pCurrent) ^= AlignedMask;
 
-		vec4uint32 VectorMask = {AlignedMask, AlignedMask, AlignedMask, AlignedMask};
+		CVec4Uint32 VectorMask = {AlignedMask, AlignedMask, AlignedMask, AlignedMask};
 		for (; pCurrent < pAlignedVectorEnd; pCurrent += 16)
-			*((vec4uint32 *)pCurrent) ^= VectorMask;
+			*((CVec4Uint32 *)pCurrent) ^= VectorMask;
 #endif
 
 		for (; pCurrent < pAlignedEnd; pCurrent += 4)
@@ -3527,7 +3527,7 @@ namespace NMib::NWeb
 				NStr::CStr Reason;
 				if (_Message.m_Data.f_GetLen() >= 2)
 				{
-					NStream::CBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
+					NStream::TCBinaryStreamMemoryPtr<NStream::CBinaryStreamBigEndian> Stream;
 					Stream.f_OpenRead(_Message.m_Data);
 
 					uint16 ErrorCode;

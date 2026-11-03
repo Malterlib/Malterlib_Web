@@ -74,7 +74,7 @@ namespace NMib::NWeb
 					if (!pSourceFile)
 						return nullptr;
 
-					NStream::CBinaryStreamMemoryPtr<> *pNewFile = &pThis->mp_InFiles.f_Insert();
+					NStream::TCBinaryStreamMemoryPtr<> *pNewFile = &pThis->mp_InFiles.f_Insert();
 
 					pNewFile->f_OpenRead(pSourceFile->f_GetStr(), pSourceFile->f_GetLen());
 					pFile = pNewFile;
@@ -168,8 +168,8 @@ namespace NMib::NWeb
 			}
 
 			TCMap<CStr, CStr> const &mp_Files;
-			TCLinkedList<NStream::CBinaryStreamMemoryPtr<>> mp_InFiles;
-			TCMap<CStr, NStream::CBinaryStreamMemory<>> mp_OutFiles;
+			TCLinkedList<NStream::TCBinaryStreamMemoryPtr<>> mp_InFiles;
+			TCMap<CStr, NStream::TCBinaryStreamMemory<>> mp_OutFiles;
 		};
 	}
 

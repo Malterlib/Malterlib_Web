@@ -388,7 +388,7 @@ namespace NMib::NWeb
 
 		private:
 			CHTTPResponseHeader mp_Header;
-			NStream::CBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
+			NStream::TCBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 
 			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
 		};

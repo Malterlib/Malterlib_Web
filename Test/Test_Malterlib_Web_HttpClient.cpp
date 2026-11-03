@@ -133,7 +133,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 		CStr CaCertificateKeyFile = _DestinationDirectory + "/web_ca.key";
 
 		{
-			CPublicKeySetting KeySettings = CPublicKeySettings_EC_secp384r1{};
+			CPublicKeySetting KeySettings = CPublicKeySettings_EC_Secp384r1{};
 
 			TCMap<CStr, CStr> RelativeDistinguishedNames;
 			RelativeDistinguishedNames["O"] = "malterlib.org";

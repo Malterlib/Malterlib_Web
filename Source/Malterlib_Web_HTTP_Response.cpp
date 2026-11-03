@@ -359,7 +359,7 @@ namespace NMib::NWeb::NHTTP
 
 	// Content related
 	/*
-	NStream::CBinaryStreamMemory<>& CResponseContent::f_ContentStream()
+	NStream::TCBinaryStreamMemory<>& CResponseContent::f_ContentStream()
 	{
 	}
 	*/

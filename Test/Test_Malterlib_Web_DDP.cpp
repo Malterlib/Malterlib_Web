@@ -589,7 +589,7 @@ struct CDDP_Tests : public CTest
 							CCertificateOptions ServerOptions;
 							ServerOptions.m_CommonName = "Malterlib test Self Signed";
 							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
+							ServerOptions.m_KeySetting = CPublicKeySettings_EC_Secp256r1{};
 
 							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 

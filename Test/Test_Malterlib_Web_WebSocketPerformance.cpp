@@ -664,7 +664,7 @@ namespace
 						CCertificateOptions Options;
 						Options.m_CommonName = "Malterlib websocket benchmark";
 						Options.m_Hostnames = fg_CreateVector<CStr>(Host);
-						Options.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
+						Options.m_KeySetting = CPublicKeySettings_EC_Secp256r1{};
 						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 						ServerFactory = CSocket_SSL::fs_GetFactory(pServerContext);
@@ -795,7 +795,7 @@ namespace
 			CCertificateOptions Options;
 			Options.m_CommonName = "Malterlib websocket benchmark";
 			Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
-			Options.m_KeySetting = CPublicKeySettings_EC_secp256r1{};
+			Options.m_KeySetting = CPublicKeySettings_EC_Secp256r1{};
 			CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 			TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 

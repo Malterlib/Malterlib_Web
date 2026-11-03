@@ -38,7 +38,7 @@ using namespace NMib::NWeb;
 
 namespace
 {
-	CPublicKeySetting gc_TestTestKeySetting = CPublicKeySettings_EC_secp256r1{};
+	CPublicKeySetting gc_TestTestKeySetting = CPublicKeySettings_EC_Secp256r1{};
 	static constexpr auto gc_CloseMessage = gc_Str<"Malterlib Web closed connection">;
 	static constexpr auto gc_CloseMessageTooLong = gc_Str
 		<

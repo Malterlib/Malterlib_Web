@@ -72,10 +72,7 @@ namespace NMib::NWeb::NHTTP
 		void fp_Parse(NStr::CStr const &_Str);
 
 	public:
-		enum
-		{
-			EVersion = 0x102
-		};
+		static constexpr uint32 mc_Version = 0x102;
 
 		CURL();
 		CURL(NStr::CStr const &_URL);
@@ -167,7 +164,7 @@ namespace NMib::NWeb::NHTTP
 		static NStr::CStr fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags = EEncodeFlag_None);
 
 		template <typename tf_CStream>
-		void f_Feed(tf_CStream &_Stream, uint32 _Version = EVersion) const;
+		void f_Feed(tf_CStream &_Stream, uint32 _Version = mc_Version) const;
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
 
