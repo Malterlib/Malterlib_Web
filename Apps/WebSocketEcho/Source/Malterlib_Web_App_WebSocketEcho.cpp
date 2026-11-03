@@ -29,8 +29,8 @@ namespace NMib::NWeb::NWebSocketEcho
 			)
 		;
 
-		m_WebsocketServer = fg_Construct();
-		auto ListenResult = co_await m_WebsocketServer
+		mp_WebsocketServer = fg_Construct();
+		auto ListenResult = co_await mp_WebsocketServer
 			(
 				&CWebSocketServerActor::f_StartListen
 				, 9001
@@ -40,13 +40,13 @@ namespace NMib::NWeb::NWebSocketEcho
 				{
 					DMibLog(Info, "New connection '{}': {vs}", _Connection.m_Info.m_PeerAddress, _Connection.m_Protocols);
 
-					auto SocketID = m_iSocketId++;
+					auto SocketID = mp_iSocketId++;
 					auto Address = _Connection.m_Info.m_PeerAddress;
 
 					_Connection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetTotalLength());
-							auto *pClient = m_Clients.f_FindEqual(SocketID);
+							auto *pClient = mp_Clients.f_FindEqual(SocketID);
 							if (pClient)
 								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinaryStorage, _pMessage, 0);
 
@@ -56,7 +56,7 @@ namespace NMib::NWeb::NWebSocketEcho
 					_Connection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [this, SocketID, Address](CStr _Message) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
-							auto *pClient = m_Clients.f_FindEqual(SocketID);
+							auto *pClient = mp_Clients.f_FindEqual(SocketID);
 							if (pClient)
 								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendText, _Message, 0);
 
@@ -66,7 +66,7 @@ namespace NMib::NWeb::NWebSocketEcho
 					_Connection.m_fOnReceivePing = g_ActorFunctorWeak / [this, SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
-							auto *pClient = m_Clients.f_FindEqual(SocketID);
+							auto *pClient = mp_Clients.f_FindEqual(SocketID);
 							if (pClient)
 								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _pApplicationData);
 
@@ -82,7 +82,7 @@ namespace NMib::NWeb::NWebSocketEcho
 					_Connection.m_fOnClose = g_ActorFunctorWeak / [this, SocketID, Address](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
 						{
 							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
-							auto *pClient = m_Clients.f_FindEqual(SocketID);
+							auto *pClient = mp_Clients.f_FindEqual(SocketID);
 							if (pClient)
 							{
 								TCFutureVector<void> Destroys;
@@ -92,7 +92,7 @@ namespace NMib::NWeb::NWebSocketEcho
 
 								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys;
 
-								m_Clients.f_Remove(pClient);
+								mp_Clients.f_Remove(pClient);
 
 								co_await fg_AllDone(Destroys);
 							}
@@ -104,7 +104,7 @@ namespace NMib::NWeb::NWebSocketEcho
 					NHTTP::CResponseHeader Header;
 					Header.f_GetEntityFields().f_SetUnknownField("User-Agent", "MalterlibWebSocketEcho");
 
-					m_Clients[SocketID].m_WebSocket = _Connection.f_Accept
+					mp_Clients[SocketID].m_WebSocket = _Connection.f_Accept
 						(
 							_Connection.m_Protocols.f_IsEmpty() ? CStr() : _Connection.m_Protocols[0]
 							, fg_ThisActor(this) / [this, SocketID, Address](TCAsyncResult<CActorSubscription> &&_Subscription)
@@ -112,11 +112,11 @@ namespace NMib::NWeb::NWebSocketEcho
 								if (!_Subscription)
 								{
 									DMibLog(Info, "{} Failed to accept connection '{}': {}", SocketID, Address, _Subscription.f_GetExceptionStr());
-									m_Clients.f_Remove(SocketID);
+									mp_Clients.f_Remove(SocketID);
 									return;
 								}
 
-								auto *pClient = m_Clients.f_FindEqual(SocketID);
+								auto *pClient = mp_Clients.f_FindEqual(SocketID);
 								if (pClient)
 								{
 									DMibLog(Info, "{} Accepted connection '{}'", SocketID, Address);
@@ -138,7 +138,7 @@ namespace NMib::NWeb::NWebSocketEcho
 				, CSocket_TCP::fs_GetFactory()
 			)
 		;
-		m_ListenSubscription = fg_Move(ListenResult.m_Subscription);
+		mp_ListenSubscription = fg_Move(ListenResult.m_Subscription);
 
 		co_return {};
 	}

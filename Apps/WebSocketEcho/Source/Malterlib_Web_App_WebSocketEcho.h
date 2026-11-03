@@ -29,9 +29,9 @@ namespace NMib::NWeb::NWebSocketEcho
 		TCFuture<void> fp_StartApp(CEJsonSorted const _Params) override;
 		TCFuture<void> fp_StopApp() override;
 
-		TCActor<CWebSocketServerActor> m_WebsocketServer;
-		CActorSubscription m_ListenSubscription;
-		umint m_iSocketId = 0;
-		TCMap<umint, CClientConnection> m_Clients;
+		TCActor<CWebSocketServerActor> mp_WebsocketServer;
+		CActorSubscription mp_ListenSubscription;
+		umint mp_iSocketId = 0;
+		TCMap<umint, CClientConnection> mp_Clients;
 	};
 }
