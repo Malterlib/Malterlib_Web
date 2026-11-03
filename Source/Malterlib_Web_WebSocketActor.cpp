@@ -229,14 +229,14 @@ namespace NMib::NWeb
 			{
 				mp_DeferredCalls.f_Insert
 					(
-						[Promise = fg_Move(Promise.m_Promise), ...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						[Promise = fg_Move(Promise.m_Promise), ...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
 						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
 						{
 							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
 								{
 									_fCallback(fg_Move(p_Params)...) > fg_Move(Promise);
 								}
-								(fg_Move(p_Params2)...)
+								(fg_Move(CapturedParams)...)
 							;
 						}
 					)
@@ -259,13 +259,14 @@ namespace NMib::NWeb
 			{
 				mp_DeferredCalls.f_Insert
 					(
-						[...p_Params2 = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))](NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+						[...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
 						{
 							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
 								{
 									_fCallback.f_CallDiscard(fg_Move(p_Params)...);
 								}
-								(fg_Move(p_Params2)...)
+								(fg_Move(CapturedParams)...)
 							;
 						}
 					)
@@ -311,7 +312,7 @@ namespace NMib::NWeb
 			return fg_Move(mp_fCallback).f_Destroy();
 		}
 
-	public:
+	private:
 		NContainer::TCVector<NFunction::TCFunctionMovable<void (NConcurrency::TCActorFunctorWeak<t_CCallback> const &_Callback)>> mp_DeferredCalls;
 		bool mp_bDoDefer = false;
 		NConcurrency::TCActorFunctorWeak<t_CCallback> mp_fCallback;
@@ -3067,10 +3068,10 @@ namespace NMib::NWeb
 		umint MaskOffset = (_iDataStart + (pAlignedStart - _pData)) % 4;
 		pAlignedStart = fg_Min(pAlignedStart, pAlignedEnd);
 
-		for (umint i = _iDataStart % 4; pCurrent < pAlignedStart; pCurrent += 1)
+		for (umint iMask = _iDataStart % 4; pCurrent < pAlignedStart; pCurrent += 1)
 		{
-			*pCurrent ^= DoubleMask[i];
-			++i;
+			*pCurrent ^= DoubleMask[iMask];
+			++iMask;
 		}
 
 		uint32 AlignedMask = 0;
@@ -3092,10 +3093,10 @@ namespace NMib::NWeb
 			*((uint32 *)pCurrent) ^= AlignedMask;
 
 		MaskOffset = (_iDataStart + (pCurrent - _pData)) % 4;
-		for (umint i = 0; pCurrent < pEnd; pCurrent += 1)
+		for (umint iByte = 0; pCurrent < pEnd; pCurrent += 1)
 		{
-			*pCurrent ^= DoubleMask[MaskOffset + i];
-			++i;
+			*pCurrent ^= DoubleMask[MaskOffset + iByte];
+			++iByte;
 		}
 	}
 

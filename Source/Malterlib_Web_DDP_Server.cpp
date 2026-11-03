@@ -10,7 +10,10 @@ namespace NMib::NWeb
 {
 	struct CDDPServerConnection::CInternal : public NConcurrency::CActorInternal
 	{
+	private:
 		CDDPServerConnection *mp_pThis;
+
+	public:
 		NStorage::TCUniquePointer<CWebSocketNewServerConnection> m_pNewWebsocketConnection;
 
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
@@ -220,11 +223,11 @@ namespace NMib::NWeb
 	struct CDDPServerConnection::CConnectionInfo::CInternal
 	{
 		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: mp_DDPConnection(fg_Move(_DDPConnection))
+			: m_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
-		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
+		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
 
 	CDDPServerConnection::CConnectionInfo::~CConnectionInfo()
@@ -239,13 +242,13 @@ namespace NMib::NWeb
 
 	void CDDPServerConnection::CConnectionInfo::f_Accept(NStr::CStr const &_Session) const
 	{
-		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+		if (auto Actor = mp_Internal.f_Get().m_DDPConnection.f_Lock())
 			Actor.f_Bind<&CDDPServerConnection::fp_AcceptConnection>(_Session).f_DiscardResult();
 	}
 
 	void CDDPServerConnection::CConnectionInfo::f_Reject() const
 	{
-		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+		if (auto Actor = mp_Internal.f_Get().m_DDPConnection.f_Lock())
 			Actor.f_Bind<&CDDPServerConnection::fp_RejectConnection>().f_DiscardResult();
 	}
 
@@ -257,11 +260,11 @@ namespace NMib::NWeb
 	struct CDDPServerConnection::CMethodInfo::CInternal
 	{
 		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: mp_DDPConnection(fg_Move(_DDPConnection))
+			: m_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
-		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
+		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
 
 	CDDPServerConnection::CMethodInfo::CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
@@ -281,24 +284,24 @@ namespace NMib::NWeb
 
 	void CDDPServerConnection::CMethodInfo::f_Result(NEncoding::CEJsonSorted const &_Result, bool _bUpdated) const
 	{
-		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+		if (auto Actor = mp_Internal.f_Get().m_DDPConnection.f_Lock())
 			Actor.f_Bind<&CDDPServerConnection::fp_MethodResult>(m_ID, _Result, _bUpdated).f_DiscardResult();
 	}
 
 	void CDDPServerConnection::CMethodInfo::f_Error(NEncoding::CEJsonSorted const &_Error) const
 	{
-		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+		if (auto Actor = mp_Internal.f_Get().m_DDPConnection.f_Lock())
 			Actor.f_Bind<&CDDPServerConnection::fp_MethodError>(m_ID, _Error).f_DiscardResult();
 	}
 
 	struct CDDPServerConnection::CSubscribeInfo::CInternal
 	{
 		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: mp_DDPConnection(fg_Move(_DDPConnection))
+			: m_DDPConnection(fg_Move(_DDPConnection))
 		{
 		}
 
-		NConcurrency::TCWeakActor<CDDPServerConnection> mp_DDPConnection;
+		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
 
 	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
@@ -318,7 +321,7 @@ namespace NMib::NWeb
 
 	void CDDPServerConnection::CSubscribeInfo::f_Error(NEncoding::CEJsonSorted const &_Error) const
 	{
-		if (auto Actor = mp_Internal.f_Get().mp_DDPConnection.f_Lock())
+		if (auto Actor = mp_Internal.f_Get().m_DDPConnection.f_Lock())
 		{
 			auto Error = _Error;
 			if (!Error.f_IsValid())

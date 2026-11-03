@@ -38,7 +38,7 @@ namespace NMib::NWeb::NHTTP
 		CResponseStage &operator = (CResponseStage &&_Other) = delete;
 
 	protected:
-		NStorage::TCUniquePointer<CResponseDetails> mp_pD;
+		NStorage::TCUniquePointer<CResponseDetails> mp_pDetails;
 	};
 
 	// These are in reverse order due to dependencies.

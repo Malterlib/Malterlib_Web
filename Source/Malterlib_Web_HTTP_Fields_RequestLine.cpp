@@ -25,33 +25,33 @@ namespace NMib::NWeb::NHTTP
 
 	EParse CRequestLine::f_Parse(NStr::CStr const &_RequestLine, NStr::CStr &o_Errors)
 	{
-		NContainer::TCVector<NStr::CStr> lReqParts = fg_SplitStringOn(_RequestLine, " ");
+		NContainer::TCVector<NStr::CStr> RequestParts = fg_SplitStringOn(_RequestLine, " ");
 
-		if (lReqParts.f_GetLen() != 3)
+		if (RequestParts.f_GetLen() != 3)
 		{
 			o_Errors = "Request was malformed. Expended METHOD URI VERSION as first line.";
 			return EParse_Invalid;
 		}
 
-		mp_Method = fg_HTTP_LookupMethod(lReqParts[0]);
-		mp_URI = lReqParts[1];
-		mp_Version = fg_HTTP_LookupVersion(lReqParts[2]);
+		mp_Method = fg_HTTP_LookupMethod(RequestParts[0]);
+		mp_URI = RequestParts[1];
+		mp_Version = fg_HTTP_LookupVersion(RequestParts[2]);
 
 		if (mp_Method == EMethod_Unknown)
 		{
-			o_Errors = NStr::fg_Format("Unknown method: \"{}\"", lReqParts[0]);
+			o_Errors = NStr::fg_Format("Unknown method: \"{}\"", RequestParts[0]);
 			return EParse_Invalid;
 		}
 
 		if (!mp_URI.f_IsValid())
 		{
-			o_Errors = NStr::fg_Format("Invalid URI: \"{}\"", lReqParts[1]);
+			o_Errors = NStr::fg_Format("Invalid URI: \"{}\"", RequestParts[1]);
 			return EParse_Invalid;
 		}
 
 		if (mp_Version == EVersion_Unknown)
 		{
-			o_Errors = NStr::fg_Format("Unknown http version: \"{}\"", lReqParts[2]);
+			o_Errors = NStr::fg_Format("Unknown http version: \"{}\"", RequestParts[2]);
 			return EParse_Invalid;
 		}
 

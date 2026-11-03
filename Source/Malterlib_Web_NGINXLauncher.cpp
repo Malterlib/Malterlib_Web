@@ -109,8 +109,8 @@ namespace NMib::NWeb
 			if (mp_nFastCGIListen)
 			{
 				Contents += "	upstream fastcgipool {\n";
-				for (uint16 i = mp_FastCGIStartListen; i < mp_FastCGIStartListen + mp_nFastCGIListen; ++i)
-					Contents += NStr::CStr::CFormat("		server 127.0.0.1:{};\n") << i;
+				for (uint16 Port = mp_FastCGIStartListen; Port < mp_FastCGIStartListen + mp_nFastCGIListen; ++Port)
+					Contents += NStr::CStr::CFormat("		server 127.0.0.1:{};\n") << Port;
 				Contents += NStr::CStr::CFormat("		keepalive {};\n") << mp_nFastCGIListen;
 				Contents += "	}\n";
 			}

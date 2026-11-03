@@ -27,7 +27,7 @@ using namespace NMib::NTime;
 using namespace NMib::NThread;
 using namespace NMib::NWeb;
 
-static fp64 g_Timeout = 60.0 * gc_TimeoutMultiplier;
+static fp64 gs_Timeout = 60.0 * gc_TimeoutMultiplier;
 
 struct CDDP_Tests : public CTest
 {
@@ -38,12 +38,12 @@ struct CDDP_Tests : public CTest
 		{
 			auto &Collection = m_Data["testCollection"];
 
-			for (umint i = 0; i < 10; ++i)
+			for (umint iDocument = 0; iDocument < 10; ++iDocument)
 			{
-				CStr DocumentID = fg_Format("id{}", i);
+				CStr DocumentID = fg_Format("id{}", iDocument);
 				auto &Document = Collection[DocumentID];
 				Document["_id"] = DocumentID;
-				Document["Value"] = fg_Format("Value{}", i);
+				Document["Value"] = fg_Format("Value{}", iDocument);
 			}
 		}
 
@@ -351,7 +351,7 @@ private:
 
 		TCActor<CActor> ProcessingActor = fg_Construct();
 
-		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout));
+		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout));
 
 		CStr ConnectToURLString;
 		if (ServerFactory)
@@ -361,7 +361,7 @@ private:
 
 		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", ClientFactory);
 
-		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
+		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
 
 		DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
 
@@ -397,7 +397,7 @@ private:
 						co_return {};
 					}
 				)
-				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
 			;
 
 			CActorSubscription Subscription = Client
@@ -420,7 +420,7 @@ private:
 					}
 					, true
 				)
-				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
 			;
 
 			CStopwatch Stopwatch;
@@ -428,7 +428,7 @@ private:
 
 			while (!pState->m_nReady.f_Load())
 			{
-				if (Stopwatch.f_GetTime() >= g_Timeout / 2)
+				if (Stopwatch.f_GetTime() >= gs_Timeout / 2)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -459,7 +459,7 @@ private:
 								}
 							}
 						)
-						.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+						.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
 					;
 					return Documents;
 				}
@@ -505,7 +505,7 @@ private:
 								}
 								, true
 							)
-							.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 6)
+							.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
 						;
 					}
 				;
@@ -514,17 +514,17 @@ private:
 
 			DMibExpectException
 				(
-					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout))
+					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout))
 					, DMibErrorInstance("method-not-found: Method not found")
 				)
 			;
 
 			DMibExpect(pState->m_nChanged, ==, 0);
-			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
+			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
 			Stopwatch.f_Start();
 			while (!pState->m_nChanged.f_Load())
 			{
-				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -534,11 +534,11 @@ private:
 			DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
 
 			DMibExpect(pState->m_nRemoved, ==, 0);
-			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout);
+			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
 			Stopwatch.f_Start();
 			while (!pState->m_nRemoved.f_Load())
 			{
-				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
 					break;
 				pState->m_Event.f_WaitTimeout(1.0);
 			}
@@ -555,7 +555,7 @@ private:
 
 			while (ServerInternal.m_nUnsubscribe.f_Load() == 0)
 			{
-				if (Stopwatch.f_GetTime() >= g_Timeout / 6)
+				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
 					break;
 				ServerInternal.m_Event.f_WaitTimeout(1.0);
 			}

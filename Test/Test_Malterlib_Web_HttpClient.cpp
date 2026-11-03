@@ -339,7 +339,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 				CStr ExpectedResultsText;
 
 				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (umint i = 0; i < 100; ++i)
+				for (umint iRequest = 0; iRequest < 100; ++iRequest)
 				{
 					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
 					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
@@ -371,7 +371,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 				CStr ExpectedResultsText;
 
 				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (umint i = 0; i < 100; ++i)
+				for (umint iRequest = 0; iRequest < 100; ++iRequest)
 				{
 					TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
 					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
@@ -479,7 +479,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 				};
 
 				NStorage::TCSharedPointer<CStreamState> pStream = fg_Construct();
-				for (umint i = 0; i < 16384; ++i)
+				for (umint iChunk = 0; iChunk < 16384; ++iChunk)
 					pStream->m_Payload += "streaming payload";
 
 				for (bool bKnownSize : {true, false})

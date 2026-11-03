@@ -24,7 +24,7 @@ namespace NMib::NWeb::NHTTP
 			EState_Connected
 		};
 
-		static constexpr umint mc_ReadBufferSize = 2048;
+		static constexpr umint mcp_ReadBufferSize = 2048;
 
 		EState mp_State;
 
@@ -43,10 +43,10 @@ namespace NMib::NWeb::NHTTP
 			inline CLinkedRequest(CRequest &&_ToMove);
 			inline ~CLinkedRequest();
 
-			DMibListLinkD_Link(CLinkedRequest, mp_Link);
+			DMibListLinkD_Link(CLinkedRequest, m_Link);
 		};
 
-		DMibListLinkD_List(CLinkedRequest, mp_Link) mp_OpenRequests;
+		DMibListLinkD_List(CLinkedRequest, m_Link) mp_OpenRequests;
 	};
 
 	//
@@ -79,7 +79,7 @@ namespace NMib::NWeb::NHTTP
 		: mp_State(EState_Connected)
 		, mp_pSocket(fg_Move(_pSock))
 		, mp_bFirstProcess(true)
-		, mp_IncomingBuffer(mc_ReadBufferSize)
+		, mp_IncomingBuffer(mcp_ReadBufferSize)
 	{
 	}
 
@@ -114,11 +114,11 @@ namespace NMib::NWeb::NHTTP
 
 			// Read as much as we can from the socket into the incoming buffer.
 			{
-				uint8 ReadBuffer[mc_ReadBufferSize];
+				uint8 ReadBuffer[mcp_ReadBufferSize];
 
 				umint nBytesRead = 0;
 
-				umint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mc_ReadBufferSize;
+				umint nBytesToRead = mp_IncomingBuffer.f_GetFirstPageSpace() ? mp_IncomingBuffer.f_GetFirstPageSpace() : mcp_ReadBufferSize;
 				DMibTrace("nInitialBytesToRead: {}\n", nBytesToRead);
 
 				// End of stream is handled through the disconnect state instead
@@ -129,7 +129,7 @@ namespace NMib::NWeb::NHTTP
 					DMibTrace("Received:\n{}\n---\n", NStr::CStr((char const *)ReadBuffer, nBytesRead));
 
 					mp_IncomingBuffer.f_InsertBack(ReadBuffer, nBytesRead);
-					nBytesToRead = mc_ReadBufferSize;
+					nBytesToRead = mcp_ReadBufferSize;
 					nTotalBytesRead += nBytesRead;
 				}
 
@@ -187,7 +187,7 @@ namespace NMib::NWeb::NHTTP
 	//
 
 	CConnection::CConnection(NStorage::TCUniquePointer<NNetwork::CSocket> &&_pSock)
-		: mp_pD(fg_Construct(fg_Move(_pSock)))
+		: mp_pDetails(fg_Construct(fg_Move(_pSock)))
 	{
 	}
 
@@ -197,16 +197,16 @@ namespace NMib::NWeb::NHTTP
 
 	bool CConnection::f_IsConnected() const
 	{
-		return mp_pD->f_IsConnected();
+		return mp_pDetails->f_IsConnected();
 	}
 
 	void CConnection::f_SetReportTo(NMib::NThread::CSemaphoreAggregate *_pReportTo)
 	{
-		mp_pD->f_SetReportTo(_pReportTo);
+		mp_pDetails->f_SetReportTo(_pReportTo);
 	}
 
 	void CConnection::f_Process()
 	{
-		mp_pD->f_Process();
+		mp_pDetails->f_Process();
 	}
 }

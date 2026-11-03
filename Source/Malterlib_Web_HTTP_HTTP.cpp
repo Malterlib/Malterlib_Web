@@ -9,7 +9,7 @@ namespace NMib::NWeb::NHTTP
 	// Lookup tables.
 
 	// RFC 2616 Section 9 Method Definitions
-	char const *gc_HTTPMethodNames[] =
+	constexpr char const *gc_HTTPMethodNames[] =
 		{
 			""
 			, "OPTIONS"
@@ -25,7 +25,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 3.1 HTTP Version
-	char const *gc_HTTPVersions[] =
+	constexpr char const *gc_HTTPVersions[] =
 		{
 			""
 			, "HTTP/1.0"
@@ -36,7 +36,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 3.6 & 14.41 Transfer Encodings
-	char const *gc_HTTPTransferEncodings[] =
+	constexpr char const *gc_HTTPTransferEncodings[] =
 		{
 			""
 			, "chunked"
@@ -49,7 +49,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 14.10 Connection
-	char const *gc_HTTPConnectionTokens[] =
+	constexpr char const *gc_HTTPConnectionTokens[] =
 		{
 			""
 			, "keep-alive"
@@ -60,7 +60,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 4.5 General Header Fields
-	char const *gc_HTTPGeneralFields[] =
+	constexpr char const *gc_HTTPGeneralFields[] =
 		{
 			""
 			, "Cache-Control"
@@ -77,7 +77,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 5.4 RequestHeaderFields
-	char const *gc_HTTPRequestFields[] =
+	constexpr char const *gc_HTTPRequestFields[] =
 		{
 			""
 			, "Accept"
@@ -104,7 +104,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 6.2 Response Header Fields
-	char const *gc_HTTPResponseFields[] =
+	constexpr char const *gc_HTTPResponseFields[] =
 		{
 			""
 			, "Accept-Ranges"
@@ -121,7 +121,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 7.1 Entity Header Fields
-	char const *gc_HTTPEntityFields[] =
+	constexpr char const *gc_HTTPEntityFields[] =
 		{
 			""
 			, "Content-Encoding"
@@ -139,7 +139,7 @@ namespace NMib::NWeb::NHTTP
 	;
 
 	// RFC 2616 Section 6.1.1 Status Code and Reason Phrase
-	static std::pair<uint32, char const *> const gc_HTTPReasonPhrases[] =
+	static constexpr std::pair<uint32, char const *> gc_HTTPReasonPhrases[] =
 		{
 			{100, "Continue"}
 			, {101, "Switching Protocols"}
@@ -190,9 +190,9 @@ namespace NMib::NWeb::NHTTP
 	//
 
 	template <typename tf_CIndex = umint>
-	static tf_CIndex fg_FindInStringList(NStr::CStr const &_FindThis, char const **_pInHere, tf_CIndex _ReturnIfNotFound)
+	static tf_CIndex fg_FindInStringList(NStr::CStr const &_FindThis, char const * const *_pInHere, tf_CIndex _ReturnIfNotFound)
 	{
-		for (char const **pCur = _pInHere; *pCur; ++pCur)
+		for (char const * const *pCur = _pInHere; *pCur; ++pCur)
 		{
 			if (_FindThis.f_CmpNoCase(*pCur) == 0)
 				return tf_CIndex(pCur - _pInHere);
@@ -202,9 +202,9 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template <typename tf_CIndex = umint>
-	static tf_CIndex fg_FindInStringListNoCase(NStr::CStr const &_FindThis, char const **_pInHere, tf_CIndex _ReturnIfNotFound)
+	static tf_CIndex fg_FindInStringListNoCase(NStr::CStr const &_FindThis, char const * const *_pInHere, tf_CIndex _ReturnIfNotFound)
 	{
-		for (char const **pCur = _pInHere; *pCur; ++pCur)
+		for (char const * const *pCur = _pInHere; *pCur; ++pCur)
 		{
 			if (_FindThis.f_CmpNoCase(*pCur) == 0)
 				return tf_CIndex(pCur - _pInHere);

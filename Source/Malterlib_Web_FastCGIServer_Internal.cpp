@@ -61,11 +61,11 @@ namespace NMib::NWeb
 			)
 		;
 
-		for (umint i = 0; i < nThreads; ++i)
+		for (umint iThread = 0; iThread < nThreads; ++iThread)
 		{
-			NNetwork::CNetAddress Address = _Addresses[i];
+			NNetwork::CNetAddress Address = _Addresses[iThread];
 
-			NConcurrency::TCActor<CListenActor> &ListenActor = ListenSockets[i];
+			NConcurrency::TCActor<CListenActor> &ListenActor = ListenSockets[iThread];
 			ListenActor = NConcurrency::fg_ConstructActor<CListenActor>(fg_ThisActor(mp_pThis), mp_pOnRequest);
 
 			NNetwork::CSocket ListenSocket;
@@ -111,10 +111,10 @@ namespace NMib::NWeb
 		umint nThreads = _nListen;
 		uint16 StartListen = _FastCGIListenStartPort;
 
-		for (umint i = 0; i < nThreads; ++i)
+		for (umint iThread = 0; iThread < nThreads; ++iThread)
 		{
 			NNetwork::CNetAddress Address = _BindAddress;
-			Address.f_SetPort(StartListen + i);
+			Address.f_SetPort(StartListen + iThread);
 			Addresses.f_Insert(fg_Move(Address));
 		}
 

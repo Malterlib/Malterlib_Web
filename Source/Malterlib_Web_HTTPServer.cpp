@@ -56,11 +56,6 @@ namespace NMib::NWeb
 
 		struct CConnection : public CHTTPConnection
 		{
-			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
-			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
-			bool mp_bSentAsyncHeader = false;
-			DMibIfEnableSafeCheck(bool mp_bWroteNonAsync = false);
-
 			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, NStorage::TCSharedPointer<CHandlerTable> &&_pHandlers)
 				: mp_pRequest(fg_Move(_pRequest))
 				, mp_ContentStream(NContainer::CByteVector())
@@ -387,6 +382,11 @@ namespace NMib::NWeb
 				}
 			}
 
+			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
+			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
+			bool mp_bSentAsyncHeader = false;
+			DMibIfEnableSafeCheck(bool mp_bWroteNonAsync = false);
+
 			CHTTPResponseHeader mp_Header;
 			NStream::TCBinaryStreamMemory<NMib::NStream::CBinaryStreamDefault> mp_ContentStream;
 
@@ -395,28 +395,28 @@ namespace NMib::NWeb
 
 		static umint fsp_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
 		{
-			umint j = 0;
-			for (umint i = 0; i < _SrcLen && j < _DstLen - 1; i++, j++)
+			umint iDst = 0;
+			for (umint iSrc = 0; iSrc < _SrcLen && iDst < _DstLen - 1; iSrc++, iDst++)
 			{
-				if (_pSrc[i] == '%' && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + i + 1)) && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + i + 2)))
+				if (_pSrc[iSrc] == '%' && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 1)) && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 2)))
 				{
-					uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + i + 1));
-					uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + i + 2));
+					uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 1));
+					uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 2));
 					uint8 UpperValue = NStr::fg_CharIsNumber(Upper) ? (Upper - '0') : (10 + (Upper - 'a'));
 					uint8 LowerValue = NStr::fg_CharIsNumber(Lower) ? (Lower - '0') : (10 + (Lower - 'a'));
-					_pDst[j] = (ch8)(UpperValue << 4 | LowerValue);
+					_pDst[iDst] = (ch8)(UpperValue << 4 | LowerValue);
 
-					i += 2;
+					iSrc += 2;
 				}
-				else if (_bFormURL && _pSrc[i] == '+')
-					_pDst[j] = ' ';
+				else if (_bFormURL && _pSrc[iSrc] == '+')
+					_pDst[iDst] = ' ';
 				else
-					_pDst[j] = _pSrc[i];
+					_pDst[iDst] = _pSrc[iSrc];
 			}
 
-			_pDst[j] = 0;
+			_pDst[iDst] = 0;
 
-			return j;
+			return iDst;
 		}
 
 	public:
@@ -954,12 +954,12 @@ namespace NMib::NWeb
 		}
 		else
 		{
-			NContainer::CByteVector lFileBytes;
-			if (NMib::NFile::fg_ReadExeFSFile(_Filename, lFileBytes))
+			NContainer::CByteVector FileBytes;
+			if (NMib::NFile::fg_ReadExeFSFile(_Filename, FileBytes))
 			{
-				char *pBuf = Template.f_GetStr(lFileBytes.f_GetLen() + 1);
-				memcpy(pBuf, lFileBytes.f_GetArray(), lFileBytes.f_GetLen());
-				pBuf[lFileBytes.f_GetLen()] = 0;
+				char *pBuf = Template.f_GetStr(FileBytes.f_GetLen() + 1);
+				memcpy(pBuf, FileBytes.f_GetArray(), FileBytes.f_GetLen());
+				pBuf[FileBytes.f_GetLen()] = 0;
 			}
 		}
 

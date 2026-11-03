@@ -8,7 +8,7 @@
 namespace NMib::NWeb::NHTTP
 {
 	// For debug code
-	static char const *gc_RequestParseStates[] =
+	static constexpr char const *gc_RequestParseStates[] =
 		{
 			"EParseState_Header"
 			, "EParseState_Content"
@@ -26,42 +26,42 @@ namespace NMib::NWeb::NHTTP
 	//
 
 	CRequest::CRequest()
-		: mp_pD(fg_Construct())
+		: mp_pDetails(fg_Construct())
 	{
 	}
 
 	CRequest::CRequest(CRequest &&_ToMove)
-		: mp_pD(fg_Move(_ToMove.mp_pD))
+		: mp_pDetails(fg_Move(_ToMove.mp_pDetails))
 	{
-		_ToMove.mp_pD = fg_Construct();
+		_ToMove.mp_pDetails = fg_Construct();
 	}
 
 	CRequest::~CRequest()
 	{
-		mp_pD = nullptr;
+		mp_pDetails = nullptr;
 	}
 
 	CRequest &CRequest::operator = (CRequest &&_ToMove)
 	{
-		mp_pD = fg_Move(_ToMove.mp_pD);
-		_ToMove.mp_pD = fg_Construct();
+		mp_pDetails = fg_Move(_ToMove.mp_pDetails);
+		_ToMove.mp_pDetails = fg_Construct();
 
 		return *this;
 	}
 
 	void CRequest::f_Clear()
 	{
-		return mp_pD->f_Clear();
+		return mp_pDetails->f_Clear();
 	}
 
 	ERequestStatus CRequest::f_GetStatus() const
 	{
-		return mp_pD->f_GetStatus();
+		return mp_pDetails->f_GetStatus();
 	}
 
 	NStr::CStr CRequest::f_GetErrors() const
 	{
-		return mp_pD->f_GetErrors();
+		return mp_pDetails->f_GetErrors();
 	}
 
 	/*
@@ -82,52 +82,52 @@ namespace NMib::NWeb::NHTTP
 	*/
 	ERequestStatus CRequest::f_Parse(NContainer::CPagedByteVector &_Data)
 	{
-		return mp_pD->f_Parse(_Data);
+		return mp_pDetails->f_Parse(_Data);
 	}
 
 	void CRequest::f_WriteHeaders(COutputMethod const &_fOutput)
 	{
-		mp_pD->f_WriteHeaders(_fOutput);
+		mp_pDetails->f_WriteHeaders(_fOutput);
 	}
 
 	CRequestLine const &CRequest::f_GetRequestLine() const
 	{
-		return mp_pD->f_GetRequestLine();
+		return mp_pDetails->f_GetRequestLine();
 	}
 
 	CGeneralFields const &CRequest::f_GetGeneralFields() const
 	{
-		return mp_pD->f_GetGeneralFields();
+		return mp_pDetails->f_GetGeneralFields();
 	}
 
 	CRequestFields const &CRequest::f_GetRequestFields() const
 	{
-		return mp_pD->f_GetRequestFields();
+		return mp_pDetails->f_GetRequestFields();
 	}
 
 	CEntityFields const &CRequest::f_GetEntityFields() const
 	{
-		return mp_pD->f_GetEntityFields();
+		return mp_pDetails->f_GetEntityFields();
 	}
 
 	CRequestLine &CRequest::f_GetRequestLine()
 	{
-		return mp_pD->f_GetRequestLine();
+		return mp_pDetails->f_GetRequestLine();
 	}
 
 	CGeneralFields &CRequest::f_GetGeneralFields()
 	{
-		return mp_pD->f_GetGeneralFields();
+		return mp_pDetails->f_GetGeneralFields();
 	}
 
 	CRequestFields &CRequest::f_GetRequestFields()
 	{
-		return mp_pD->f_GetRequestFields();
+		return mp_pDetails->f_GetRequestFields();
 	}
 
 	CEntityFields &CRequest::f_GetEntityFields()
 	{
-		return mp_pD->f_GetEntityFields();
+		return mp_pDetails->f_GetEntityFields();
 	}
 
 	//
@@ -179,7 +179,7 @@ namespace NMib::NWeb::NHTTP
 		// This lambda takes that result and the parse state to move to
 		// and sets the real parse state along with a flag on whether or not
 		// to continue parsing.
-		auto fl_HandleParseResult = [&](EParse _Result, EParseState _NextParseState, bool &_bContinueParsing)
+		auto fHandleParseResult = [&](EParse _Result, EParseState _NextParseState, bool &_bContinueParsing)
 			{
 				switch (_Result)
 				{
@@ -212,7 +212,7 @@ namespace NMib::NWeb::NHTTP
 			{
 			case EParseState_Header:
 				{
-					fl_HandleParseResult(fp_ParseHeader(_Data), EParseState_Content, bContinueParsing);
+					fHandleParseResult(fp_ParseHeader(_Data), EParseState_Content, bContinueParsing);
 					break;
 				}
 
@@ -230,19 +230,19 @@ namespace NMib::NWeb::NHTTP
 
 			case EParseState_Chunked_Plain:
 				{
-					fl_HandleParseResult(fp_ParseContent_Plain(_Data), EParseState_DecodeContent, bContinueParsing);
+					fHandleParseResult(fp_ParseContent_Plain(_Data), EParseState_DecodeContent, bContinueParsing);
 					break;
 				}
 
 			case EParseState_Content_Chunked:
 				{
-					fl_HandleParseResult(fp_ParseContent_Chunked(_Data), EParseState_Content_Chunked_Trailers, bContinueParsing);
+					fHandleParseResult(fp_ParseContent_Chunked(_Data), EParseState_Content_Chunked_Trailers, bContinueParsing);
 					break;
 				}
 
 			case EParseState_Content_Chunked_Trailers:
 				{
-					fl_HandleParseResult(fp_ParseContent_Chunked_Trailers(_Data), EParseState_DecodeContent, bContinueParsing);
+					fHandleParseResult(fp_ParseContent_Chunked_Trailers(_Data), EParseState_DecodeContent, bContinueParsing);
 					break;
 				}
 
@@ -379,23 +379,23 @@ namespace NMib::NWeb::NHTTP
 	// RFC 2616 Section 4 HTTP Message
 	EParse CRequest::CDetails::fp_ParseHeaderText(NStr::CStr const &_Text)
 	{
-		NContainer::TCVector<NStr::CStr> lLines = fg_SplitStringOn(_Text, "\r\n");
+		NContainer::TCVector<NStr::CStr> Lines = fg_SplitStringOn(_Text, "\r\n");
 
-		if (lLines.f_IsEmpty())
+		if (Lines.f_IsEmpty())
 		{
 			mp_Errors = "Request text contained nothing!";
 			return EParse_Invalid;
 		}
 
 		// Parse the status line
-		EParse StatusResult = mp_RequestLine.f_Parse(lLines[0], mp_Errors);
+		EParse StatusResult = mp_RequestLine.f_Parse(Lines[0], mp_Errors);
 
 		if (StatusResult != EParse_OK)
 			return StatusResult;
 
 		// Parse the remaining header lines
 
-		for (auto LIter = ++lLines.f_GetIterator(); LIter; ++LIter)
+		for (auto LIter = ++Lines.f_GetIterator(); LIter; ++LIter)
 		{
 			NStr::CStr const &CurLine = *LIter;
 
@@ -551,7 +551,7 @@ namespace NMib::NWeb::NHTTP
 	{
 		// Read chunks
 
-		static uint8 const CRLF[] = {'\r', '\n'};
+		static constexpr uint8 c_CRLF[] = {'\r', '\n'};
 		NStr::CStr ChunkHeaderLine;
 		umint ChunkSize;
 		umint iPos;
@@ -613,7 +613,7 @@ namespace NMib::NWeb::NHTTP
 			_Data.f_RemoveFront(ChunkSize);
 
 			// Expect CRLF after chunk data.
-			if (!_Data.f_ExpectAndRemoveFront(CRLF, sizeof(CRLF)))
+			if (!_Data.f_ExpectAndRemoveFront(c_CRLF, sizeof(c_CRLF)))
 			{
 				mp_Errors = "No terminating CRLF after chunk.";
 				return EParse_Invalid;
@@ -664,8 +664,8 @@ namespace NMib::NWeb::NHTTP
 		else
 		{
 			// Expect CRLF at the end.
-			static uint8 const CRLF[] = {'\r', '\n'};
-			if (!_Data.f_ExpectAndRemoveFront(CRLF, sizeof(CRLF)))
+			static constexpr uint8 c_CRLF[] = {'\r', '\n'};
+			if (!_Data.f_ExpectAndRemoveFront(c_CRLF, sizeof(c_CRLF)))
 			{
 				mp_Errors = "No terminating CRLF after last chunk.";
 				return EParse_Invalid;

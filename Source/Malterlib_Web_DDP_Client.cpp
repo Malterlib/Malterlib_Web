@@ -223,7 +223,7 @@ namespace NMib::NWeb
 			return iDoc;
 
 		umint iIndex = NMisc::fg_Random().f_GetValue(nDocuments);
-		for (umint i = 0; i < iIndex; ++i)
+		for (umint iStep = 0; iStep < iIndex; ++iStep)
 			++iDoc;
 
 		return iDoc;

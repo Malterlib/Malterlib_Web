@@ -21,6 +21,6 @@ namespace NMib::NWeb::NHTTP
 
 	private:
 		struct CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pD;
+		NStorage::TCUniquePointer<CDetails> mp_pDetails;
 	};
 }

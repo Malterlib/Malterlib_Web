@@ -32,11 +32,11 @@ namespace NMib::NWeb
 			NStr::CStr ExeFilename = NSys::NFile::fg_GetProgramPath();
 			NStorage::TCUniquePointer<NFile::CFile> pExeFile = fg_Construct();
 			pExeFile->f_Open(ExeFilename, NFile::EFileOpen_ReadAttribs | NFile::EFileOpen_ShareAll);
-			m_ExeTime = pExeFile->f_GetCreationTime().f_ToUTC();
+			mp_ExeTime = pExeFile->f_GetCreationTime().f_ToUTC();
 		}
 		catch (NFile::CExceptionFile)
 		{
-			m_ExeTime = NTime::CTime::fs_NowUTC();
+			mp_ExeTime = NTime::CTime::fs_NowUTC();
 		}
 	}
 
@@ -70,7 +70,7 @@ namespace NMib::NWeb
 				return false;
 
 			NCryptography::CHash_SHA256 Hash;
-			Hash.f_AddData(&m_ExeTime, sizeof(m_ExeTime));
+			Hash.f_AddData(&mp_ExeTime, sizeof(mp_ExeTime));
 			Hash.f_AddData(Filename.f_GetStr(), Filename.f_GetLen());
 
 			NStr::CStr HashTag = Hash.f_GetDigest().f_GetString();
@@ -79,7 +79,7 @@ namespace NMib::NWeb
 				{
 					CHTTPResponseHeader ResponseHeader;
 					ResponseHeader.f_SetMimeTypeFromFilename(Filename);
-					ResponseHeader.m_LastModified = m_ExeTime;
+					ResponseHeader.m_LastModified = mp_ExeTime;
 					ResponseHeader.m_ContentLength = _nBytes;
 					ResponseHeader.m_AllowMethods = "GET, HEAD";
 					ResponseHeader.m_CacheControl = "no-cache";
@@ -120,15 +120,15 @@ namespace NMib::NWeb
 				if (fWriteHeader(nBytes))
 					return true;
 
-				NContainer::CByteVector lBuf;
-				lBuf.f_SetLen(1024 * 1024);
+				NContainer::CByteVector Buffer;
+				Buffer.f_SetLen(1024 * 1024);
 
 				CMibFilePos nBytesRead;
 				while (nBytes)
 				{
 					nBytesRead = fg_Min(nBytes, 1024 * 1024);
-					pStream->f_ConsumeBytes(lBuf.f_GetArray(), nBytesRead);
-					_Connection.f_WriteBinary(lBuf.f_GetArray(), nBytesRead);
+					pStream->f_ConsumeBytes(Buffer.f_GetArray(), nBytesRead);
+					_Connection.f_WriteBinary(Buffer.f_GetArray(), nBytesRead);
 					nBytes -= nBytesRead;
 				}
 			}

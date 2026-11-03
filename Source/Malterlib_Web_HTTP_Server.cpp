@@ -168,7 +168,7 @@ namespace NMib::NWeb::NHTTP
 	//
 
 	CServer::CServer(CConfig const &_Config)
-		: mp_pD(fg_Construct(_Config))
+		: mp_pDetails(fg_Construct(_Config))
 	{
 	}
 
@@ -178,12 +178,12 @@ namespace NMib::NWeb::NHTTP
 
 	bool CServer::f_Start(NStr::CStr &o_Error)
 	{
-		return mp_pD->f_Start(o_Error);
+		return mp_pDetails->f_Start(o_Error);
 	}
 
 	void CServer::f_Stop()
 	{
-		mp_pD->f_Stop();
+		mp_pDetails->f_Stop();
 	}
 
 	//

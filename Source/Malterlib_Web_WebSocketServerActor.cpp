@@ -107,11 +107,11 @@ namespace NMib::NWeb
 
 			mp_pInternal->m_ListenSockets.f_SetLen(nListenTo);
 
-			for (umint i = 0; i < nListenTo; ++i)
+			for (umint iAddress = 0; iAddress < nListenTo; ++iAddress)
 			{
-				NNetwork::CNetAddress &Address = _AddressesToListenTo[i];
+				NNetwork::CNetAddress &Address = _AddressesToListenTo[iAddress];
 
-				NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[i];
+				NConcurrency::TCActor<CListenActor> &ListenActor = mp_pInternal->m_ListenSockets[iAddress];
 
 				auto Settings = mp_pInternal->m_DefaultSettings;
 
@@ -121,7 +121,7 @@ namespace NMib::NWeb
 				NStorage::TCUniquePointer<NNetwork::ICSocket> pListenSocket;
 				if (SocketFactory.f_HasSelector())
 				{
-					NWeb::CWebSocketListenAddressConfig AddressConfig = SocketFactory.f_GetConfig(i, Address);
+					NWeb::CWebSocketListenAddressConfig AddressConfig = SocketFactory.f_GetConfig(iAddress, Address);
 
 					Settings.m_bAllowUnmaskedFrames = AddressConfig.m_bAllowUnmaskedFrames;
 					Settings.m_bNegotiateUnmaskedFrames = AddressConfig.m_bNegotiateUnmaskedFrames;
@@ -200,10 +200,10 @@ namespace NMib::NWeb
 		-> NConcurrency::TCFuture<CListenResult>
 	{
 		NContainer::TCVector<NNetwork::CNetAddress> AddressesToListenTo;
-		for (umint i = 0; i < _nListen; ++i)
+		for (umint iListen = 0; iListen < _nListen; ++iListen)
 		{
 			NNetwork::CNetAddressTCPv4 AnyAddress;
-			AnyAddress.m_Port = _StartListen + i;
+			AnyAddress.m_Port = _StartListen + iListen;
 			NNetwork::CNetAddress Address;
 			Address.f_Set(AnyAddress);
 			AddressesToListenTo.f_Insert(fg_Move(Address));

@@ -11,7 +11,7 @@ namespace NMib::NWeb::NHTTP
 
 	NContainer::TCVector<NStr::CStr> fg_SplitStringOn(NStr::CStr const &_Source, NStr::CStr const &_Sep)
 	{
-		NContainer::TCVector<NStr::CStr> lResult;
+		NContainer::TCVector<NStr::CStr> Parts;
 
 		aint iCurPos = 0;
 		aint iLineEnd = 0;
@@ -24,12 +24,12 @@ namespace NMib::NWeb::NHTTP
 			if (iLineEnd == -1)
 				iLineEnd = iEnd;
 
-			lResult.f_Insert(_Source.f_Extract(iCurPos, iLineEnd - iCurPos));
+			Parts.f_Insert(_Source.f_Extract(iCurPos, iLineEnd - iCurPos));
 
 			iCurPos = iLineEnd + SepLen;
 		}
 
-		return fg_Move(lResult);
+		return fg_Move(Parts);
 	}
 
 	// Peeks an ASCII line terminated by CRLF from _Data, starting at _iPos.
@@ -38,7 +38,7 @@ namespace NMib::NWeb::NHTTP
 	bool fg_PeekLine(NContainer::CPagedByteVector const &_Data, umint &_iPos, NStr::CStr &o_Line)
 	{
 		NStr::CStr Result;
-		static uint8 const CRLFCRLF[] = {'\r', '\n', '\r', '\n'};
+		static constexpr uint8 c_CRLFCRLF[] = {'\r', '\n', '\r', '\n'};
 
 		umint Pos;
 		NStr::CStr::CChar *pDest = nullptr;
@@ -46,8 +46,8 @@ namespace NMib::NWeb::NHTTP
 		(
 			_Data.f_ReadFrontUntil
 			(
-				CRLFCRLF
-				, sizeof(CRLFCRLF)
+				c_CRLFCRLF
+				, sizeof(c_CRLFCRLF)
 				, Pos
 				, [&](umint _iStart, uint8 const *_pPtr, umint _nBytes, umint _nTotal)
 				{
@@ -62,7 +62,7 @@ namespace NMib::NWeb::NHTTP
 		)
 		{
 			// *(Result.f_GetStr() + Result.f_GetLen()) = 0;
-			_iPos = Result.f_GetLen() + sizeof(CRLFCRLF);
+			_iPos = Result.f_GetLen() + sizeof(c_CRLFCRLF);
 			o_Line = fg_Move(Result);
 			return true;
 		}

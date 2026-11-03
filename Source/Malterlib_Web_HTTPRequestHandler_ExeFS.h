@@ -32,6 +32,6 @@ namespace NMib::NWeb
 		NStorage::TCUniquePointer<NFile::ICFileSystemInterface> mp_pFSInterface;
 		NFunction::TCFunction<bool (CHTTPConnection &_Connection, CHTTPRequest const &_Req)> mp_fCheckAccess;
 
-		NTime::CTime m_ExeTime;
+		NTime::CTime mp_ExeTime;
 	};
 }
