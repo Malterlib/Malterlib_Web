@@ -25,11 +25,11 @@ namespace NMib::NWeb::NHTTP
 		void f_Process();
 
 	private:
+		friend CConnectionWorker;
+
 		struct CDetails;
 		NStorage::TCUniquePointer<CDetails> mp_pDetails;
 
 		DMibListLinkD_Link(CConnection, mp_Link);
-
-		friend CConnectionWorker;
 	};
 }

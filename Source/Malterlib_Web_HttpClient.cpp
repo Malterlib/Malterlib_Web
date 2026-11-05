@@ -59,27 +59,33 @@ namespace NMib::NWeb
 	{
 		struct CDeleterHelperMulti
 		{
-			void operator () (CURLM *_pObject)
-			{
-				curl_multi_cleanup(_pObject);
-			}
+			void operator () (CURLM *_pObject);
 		};
+
+		void CDeleterHelperMulti::operator () (CURLM *_pObject)
+		{
+			curl_multi_cleanup(_pObject);
+		}
 
 		struct CDeleterHelperEasy
 		{
-			void operator () (CURL *_pObject)
-			{
-				curl_easy_cleanup(_pObject);
-			}
+			void operator () (CURL *_pObject);
 		};
+
+		void CDeleterHelperEasy::operator () (CURL *_pObject)
+		{
+			curl_easy_cleanup(_pObject);
+		}
 
 		struct CDeleterHelperSList
 		{
-			void operator () (curl_slist *_pObject)
-			{
-				curl_slist_free_all(_pObject);
-			}
+			void operator () (curl_slist *_pObject);
 		};
+
+		void CDeleterHelperSList::operator () (curl_slist *_pObject)
+		{
+			curl_slist_free_all(_pObject);
+		}
 
 		using CCurlDeleterMulti = NMemory::TCAllocator_FunctorDeleter<CDeleterHelperMulti>;
 		using CCurlDeleterEasy = NMemory::TCAllocator_FunctorDeleter<CDeleterHelperEasy>;
@@ -112,16 +118,19 @@ namespace NMib::NWeb
 
 		struct CCurlInit
 		{
-			CCurlInit()
-			{
-				curl_global_init(CURL_GLOBAL_ALL);
-			}
-
-			~CCurlInit()
-			{
-				curl_global_cleanup();
-			}
+			CCurlInit();
+			~CCurlInit();
 		};
+
+		CCurlInit::CCurlInit()
+		{
+			curl_global_init(CURL_GLOBAL_ALL);
+		}
+
+		CCurlInit::~CCurlInit()
+		{
+			curl_global_cleanup();
+		}
 
 		constinit NStorage::TCAggregate<CCurlInit, 129> g_CurlInit = {DAggregateInit};
 
@@ -145,20 +154,11 @@ namespace NMib::NWeb
 
 	struct CHttpClientActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout)
-			: m_CertificateConfig(_CertificateConfig)
-			, m_StallTimeout(_StallTimeout)
-		{
-		}
-
 		struct CRequest
 		{
 			~CRequest();
 
-			CStr const &f_GetID() const
-			{
-				return TCMap<CStr, CRequest>::fs_GetKey(*this);
-			}
+			CStr const &f_GetID() const;
 
 			int64 m_ReadDataSize = -1;
 			uint64 m_WriteDoneBytes = 0;
@@ -193,14 +193,10 @@ namespace NMib::NWeb
 
 		struct CDrain
 		{
+			void f_Release();
+
 			NAtomic::TCAtomic<umint> m_Pending{1}; // Includes the connection cache until curl has closed it.
 			TCPromise<void> m_Done;
-
-			void f_Release()
-			{
-				if (m_Pending.f_FetchSub(1) == 1)
-					m_Done.f_SetResult();
-			}
 		};
 
 		struct CDNS
@@ -213,219 +209,16 @@ namespace NMib::NWeb
 			bool m_bCancelled = false;
 		};
 
-		static void fs_CloseSocket(curl_socket_t _Socket)
-		{
-#ifdef DPlatformFamily_Windows
-			closesocket(_Socket);
-#else
-			close(_Socket);
-#endif
-		}
+		CInternal(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout);
 
-		static NSys::EIoLoopEvent fs_Interest(int _Interest)
-		{
-			auto Events = NSys::EIoLoopEvent::mc_None;
-			if (_Interest == CURL_POLL_IN || _Interest == CURL_POLL_INOUT)
-				Events |= NSys::EIoLoopEvent::mc_Read;
-			if (_Interest == CURL_POLL_OUT || _Interest == CURL_POLL_INOUT)
-				Events |= NSys::EIoLoopEvent::mc_Write;
-
-			return Events;
-		}
-
-		static int fs_Socket(CURL *_pEasy, curl_socket_t _Socket, int _What, void *_pUser, void *_pSocketData) noexcept
-		{
-			try
-			{
-				auto &Internal = *static_cast<CInternal *>(_pUser);
-				auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
-				if (!pFound && _What == CURL_POLL_REMOVE)
-					return 0;
-
-				if (!pFound)
-				{
-					TCUniquePointer<CSocket> pSocket = fg_Construct();
-					pSocket->m_Handle = _Socket;
-					pSocket->m_Actor = fg_ThisActor(Internal.m_pThis).f_Weak();
-					pSocket->m_Generation = ++Internal.m_NextSocketGeneration;
-
-					pSocket->m_pRegistration = Internal.m_pLoop->f_Register
-						(
-							NSys::CIoLoopHandle(_Socket)
-							, pSocket.f_Get()
-							, NSys::EIoLoopEvent::mc_Read | NSys::EIoLoopEvent::mc_Write
-							, [](void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
-							{
-								auto &Socket = *static_cast<CSocket *>(_pToken);
-								if (auto Actor = Socket.m_Actor.f_Lock())
-									Actor.f_Bind<&CHttpClientActor::fp_SocketReady>(smint(Socket.m_Handle), Socket.m_Generation, _Events, _Error).f_DiscardResult();
-							}
-							, false
-							, {.m_bReadinessOnly = true, .m_bLevelReadiness = true}
-						)
-					;
-
-					Internal.m_Sockets[_Socket] = fg_Move(pSocket);
-					pFound = Internal.m_Sockets.f_FindEqual(_Socket);
-				}
-
-				(*pFound)->m_Interest = _What == CURL_POLL_REMOVE ? CURL_POLL_NONE : _What;
-
-				// Idle cached connections retain their registration until curl closes them.
-				// Each direction can deliver at most one unused notification while idle.
-				Internal.m_pLoop->f_RequestReadiness((*pFound)->m_pRegistration, fs_Interest((*pFound)->m_Interest));
-
-				return 0;
-			}
-			catch (...)
-			{
-				return -1;
-			}
-		}
-
-		static int fs_Close(void *_pUser, curl_socket_t _Socket)
-		{
-			auto &Internal = *static_cast<CInternal *>(_pUser);
-			auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
-			if (!pFound)
-			{
-				fs_CloseSocket(_Socket);
-
-				return 0;
-			}
-
-			auto pSocket = fg_Move(*pFound);
-			Internal.m_Sockets.f_Remove(_Socket);
-			auto *pRegistration = pSocket->m_pRegistration;
-			Internal.m_pDrain->m_Pending.f_FetchAdd(1);
-			Internal.m_pLoop->f_DeregisterAsync
-				(
-					pRegistration
-					, [pSocket = fg_Move(pSocket), pDrain = Internal.m_pDrain]
-					{
-						fs_CloseSocket(pSocket->m_Handle);
-						pDrain->f_Release();
-					}
-				)
-			;
-
-			return 0;
-		}
-
-		static int fs_Timer(CURLM *_pMulti, long _Milliseconds, void *_pUser) noexcept
-		{
-			try
-			{
-				auto &Internal = *static_cast<CInternal *>(_pUser);
-				auto Generation = ++Internal.m_TimerGeneration;
-				fg_ThisActor(Internal.m_pThis).f_Bind<&CHttpClientActor::fp_SetTimer>(Generation, _Milliseconds).f_DiscardResult();
-
-				return 0;
-			}
-			catch (...)
-			{
-				return -1;
-			}
-		}
-
-		static void *fs_Resolve(void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) noexcept
-		{
-			try
-			{
-				auto &Internal = *static_cast<CInternal *>(_pUser);
-				TCSharedPointer<CDNS> pDNS = fg_Construct();
-				pDNS->m_pEasy = _pEasy;
-
-				// Callbacks run on this actor; removing the curl handle cancels the lookup before request storage is released.
-				CRequest *pRequest = nullptr;
-				if (curl_easy_getinfo(_pEasy, CURLINFO_PRIVATE, &pRequest) != CURLE_OK || !pRequest)
-					return nullptr;
-				pRequest->m_pResolveError = {};
-
-				auto PreferType
-					= _IPVersion == CURL_IPRESOLVE_V4 ? NNetwork::ENetAddressType_TCPv4 : _IPVersion == CURL_IPRESOLVE_V6 ? NNetwork::ENetAddressType_TCPv6 : NNetwork::ENetAddressType_None
-				;
-
-				Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call() > [pDNS, pRequest]
-					(TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
-					{
-						if (pDNS->m_bCancelled)
-						{
-							if (_Lookup)
-								fg_Move(_Lookup->m_Result).f_DiscardResult();
-
-							return;
-						}
-
-						if (!_Lookup)
-						{
-							pRequest->m_pResolveError = _Lookup.f_GetException();
-							pDNS->m_Status = -1;
-							curl_external_resolver_ready(pDNS->m_pEasy);
-
-							return;
-						}
-
-						pDNS->m_Cancel = fg_Move(_Lookup->m_Cancel);
-						fg_Move(_Lookup->m_Result) > [pDNS, pRequest](TCAsyncResult<NNetwork::CResolveActor::CAddresses> &&_Result)
-							{
-								if (pDNS->m_bCancelled)
-									return;
-
-								pDNS->m_Status = _Result ? 1 : -1;
-								if (!_Result)
-									pRequest->m_pResolveError = _Result.f_GetException();
-								if (_Result)
-								{
-									for (auto const &Address : *_Result)
-									{
-										curl_external_address Item{};
-										NNetwork::CNetAddressTCPv4 IPv4;
-										NNetwork::CNetAddressTCPv6 IPv6;
-										if (Address.f_Get(IPv4))
-											NMemory::fg_MemCopy(Item.ip, IPv4.m_IP, sizeof(IPv4.m_IP));
-										else if (Address.f_Get(IPv6))
-										{
-											NMemory::fg_MemCopy(Item.ip, IPv6.m_IP, sizeof(IPv6.m_IP));
-											Item.ipv6 = 1;
-										}
-										else
-											continue;
-
-										Item.scope_id = Address.f_GetScopeID();
-										pDNS->m_Addresses.f_Insert(Item);
-									}
-								}
-
-								curl_external_resolver_ready(pDNS->m_pEasy);
-							}
-						;
-					}
-				;
-
-				return pDNS.f_Detach();
-			}
-			catch (...)
-			{
-				return nullptr;
-			}
-		}
-
-		static int fs_ResolvePoll(void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses)
-		{
-			auto &DNS = *static_cast<CDNS *>(_pLookup);
-			*_pAddresses = DNS.m_Addresses.f_GetArray();
-			*_pNumAddresses = DNS.m_Addresses.f_GetLen();
-
-			return DNS.m_Status;
-		}
-
-		static void fs_ResolveCancel(void *_pLookup)
-		{
-			TCSharedPointer<CDNS> pDNS = fg_Attach(static_cast<CDNS *>(_pLookup));
-			pDNS->m_bCancelled = true;
-			pDNS->m_Cancel.f_Clear();
-		}
+		static void fs_CloseSocket(curl_socket_t _Socket);
+		static NSys::EIoLoopEvent fs_Interest(int _Interest);
+		static int fs_Socket(CURL *_pEasy, curl_socket_t _Socket, int _What, void *_pUser, void *_pSocketData) noexcept;
+		static int fs_Close(void *_pUser, curl_socket_t _Socket);
+		static int fs_Timer(CURLM *_pMulti, long _Milliseconds, void *_pUser) noexcept;
+		static void *fs_Resolve(void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) noexcept;
+		static int fs_ResolvePoll(void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses);
+		static void fs_ResolveCancel(void *_pLookup);
 
 		uint64 m_NextSocketGeneration = 0;
 		uint64 m_TimerGeneration = 0;
@@ -444,6 +237,237 @@ namespace NMib::NWeb
 		TCMap<CStr, CRequest> m_Requests;
 		bool m_bStopping = false;
 	};
+
+	CHttpClientActor::CInternal::CInternal(CCertificateConfig const &_CertificateConfig, fp64 _StallTimeout)
+		: m_CertificateConfig(_CertificateConfig)
+		, m_StallTimeout(_StallTimeout)
+	{
+	}
+
+	CStr const &CHttpClientActor::CInternal::CRequest::f_GetID() const
+	{
+		return TCMap<CStr, CRequest>::fs_GetKey(*this);
+	}
+
+	void CHttpClientActor::CInternal::CDrain::f_Release()
+	{
+		if (m_Pending.f_FetchSub(1) == 1)
+			m_Done.f_SetResult();
+	}
+
+	void CHttpClientActor::CInternal::fs_CloseSocket(curl_socket_t _Socket)
+	{
+#ifdef DPlatformFamily_Windows
+		closesocket(_Socket);
+#else
+		close(_Socket);
+#endif
+	}
+
+	NSys::EIoLoopEvent CHttpClientActor::CInternal::fs_Interest(int _Interest)
+	{
+		auto Events = NSys::EIoLoopEvent::mc_None;
+		if (_Interest == CURL_POLL_IN || _Interest == CURL_POLL_INOUT)
+			Events |= NSys::EIoLoopEvent::mc_Read;
+		if (_Interest == CURL_POLL_OUT || _Interest == CURL_POLL_INOUT)
+			Events |= NSys::EIoLoopEvent::mc_Write;
+
+		return Events;
+	}
+
+	int CHttpClientActor::CInternal::fs_Socket(CURL *_pEasy, curl_socket_t _Socket, int _What, void *_pUser, void *_pSocketData) noexcept
+	{
+		try
+		{
+			auto &Internal = *static_cast<CInternal *>(_pUser);
+			auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+			if (!pFound && _What == CURL_POLL_REMOVE)
+				return 0;
+
+			if (!pFound)
+			{
+				TCUniquePointer<CSocket> pSocket = fg_Construct();
+				pSocket->m_Handle = _Socket;
+				pSocket->m_Actor = fg_ThisActor(Internal.m_pThis).f_Weak();
+				pSocket->m_Generation = ++Internal.m_NextSocketGeneration;
+
+				pSocket->m_pRegistration = Internal.m_pLoop->f_Register
+					(
+						NSys::CIoLoopHandle(_Socket)
+						, pSocket.f_Get()
+						, NSys::EIoLoopEvent::mc_Read | NSys::EIoLoopEvent::mc_Write
+						, [](void *_pToken, NSys::EIoLoopEvent _Events, int _Error)
+						{
+							auto &Socket = *static_cast<CSocket *>(_pToken);
+							if (auto Actor = Socket.m_Actor.f_Lock())
+								Actor.f_Bind<&CHttpClientActor::fp_SocketReady>(smint(Socket.m_Handle), Socket.m_Generation, _Events, _Error).f_DiscardResult();
+						}
+						, false
+						, {.m_bReadinessOnly = true, .m_bLevelReadiness = true}
+					)
+				;
+
+				Internal.m_Sockets[_Socket] = fg_Move(pSocket);
+				pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+			}
+
+			(*pFound)->m_Interest = _What == CURL_POLL_REMOVE ? CURL_POLL_NONE : _What;
+
+			// Idle cached connections retain their registration until curl closes them.
+			// Each direction can deliver at most one unused notification while idle.
+			Internal.m_pLoop->f_RequestReadiness((*pFound)->m_pRegistration, fs_Interest((*pFound)->m_Interest));
+
+			return 0;
+		}
+		catch (...)
+		{
+			return -1;
+		}
+	}
+
+	int CHttpClientActor::CInternal::fs_Close(void *_pUser, curl_socket_t _Socket)
+	{
+		auto &Internal = *static_cast<CInternal *>(_pUser);
+		auto *pFound = Internal.m_Sockets.f_FindEqual(_Socket);
+		if (!pFound)
+		{
+			fs_CloseSocket(_Socket);
+
+			return 0;
+		}
+
+		auto pSocket = fg_Move(*pFound);
+		Internal.m_Sockets.f_Remove(_Socket);
+		auto *pRegistration = pSocket->m_pRegistration;
+		Internal.m_pDrain->m_Pending.f_FetchAdd(1);
+		Internal.m_pLoop->f_DeregisterAsync
+			(
+				pRegistration
+				, [pSocket = fg_Move(pSocket), pDrain = Internal.m_pDrain]
+				{
+					fs_CloseSocket(pSocket->m_Handle);
+					pDrain->f_Release();
+				}
+			)
+		;
+
+		return 0;
+	}
+
+	int CHttpClientActor::CInternal::fs_Timer(CURLM *_pMulti, long _Milliseconds, void *_pUser) noexcept
+	{
+		try
+		{
+			auto &Internal = *static_cast<CInternal *>(_pUser);
+			auto Generation = ++Internal.m_TimerGeneration;
+			fg_ThisActor(Internal.m_pThis).f_Bind<&CHttpClientActor::fp_SetTimer>(Generation, _Milliseconds).f_DiscardResult();
+
+			return 0;
+		}
+		catch (...)
+		{
+			return -1;
+		}
+	}
+
+	void *CHttpClientActor::CInternal::fs_Resolve(void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) noexcept
+	{
+		try
+		{
+			auto &Internal = *static_cast<CInternal *>(_pUser);
+			TCSharedPointer<CDNS> pDNS = fg_Construct();
+			pDNS->m_pEasy = _pEasy;
+
+			// Callbacks run on this actor; removing the curl handle cancels the lookup before request storage is released.
+			CRequest *pRequest = nullptr;
+			if (curl_easy_getinfo(_pEasy, CURLINFO_PRIVATE, &pRequest) != CURLE_OK || !pRequest)
+				return nullptr;
+			pRequest->m_pResolveError = {};
+
+			auto PreferType
+				= _IPVersion == CURL_IPRESOLVE_V4 ? NNetwork::ENetAddressType_TCPv4 : _IPVersion == CURL_IPRESOLVE_V6 ? NNetwork::ENetAddressType_TCPv6 : NNetwork::ENetAddressType_None
+			;
+
+			Internal.m_Resolver.f_Bind<&NNetwork::CResolveActor::f_ResolveHost>(CStr(_pHost), PreferType).f_Call() > [pDNS, pRequest]
+				(TCAsyncResult<NNetwork::CResolveActor::CLookup> &&_Lookup)
+				{
+					if (pDNS->m_bCancelled)
+					{
+						if (_Lookup)
+							fg_Move(_Lookup->m_Result).f_DiscardResult();
+
+						return;
+					}
+
+					if (!_Lookup)
+					{
+						pRequest->m_pResolveError = _Lookup.f_GetException();
+						pDNS->m_Status = -1;
+						curl_external_resolver_ready(pDNS->m_pEasy);
+
+						return;
+					}
+
+					pDNS->m_Cancel = fg_Move(_Lookup->m_Cancel);
+					fg_Move(_Lookup->m_Result) > [pDNS, pRequest](TCAsyncResult<NNetwork::CResolveActor::CAddresses> &&_Result)
+						{
+							if (pDNS->m_bCancelled)
+								return;
+
+							pDNS->m_Status = _Result ? 1 : -1;
+							if (!_Result)
+								pRequest->m_pResolveError = _Result.f_GetException();
+							if (_Result)
+							{
+								for (auto const &Address : *_Result)
+								{
+									curl_external_address Item{};
+									NNetwork::CNetAddressTCPv4 IPv4;
+									NNetwork::CNetAddressTCPv6 IPv6;
+									if (Address.f_Get(IPv4))
+										NMemory::fg_MemCopy(Item.ip, IPv4.m_IP, sizeof(IPv4.m_IP));
+									else if (Address.f_Get(IPv6))
+									{
+										NMemory::fg_MemCopy(Item.ip, IPv6.m_IP, sizeof(IPv6.m_IP));
+										Item.ipv6 = 1;
+									}
+									else
+										continue;
+
+									Item.scope_id = Address.f_GetScopeID();
+									pDNS->m_Addresses.f_Insert(Item);
+								}
+							}
+
+							curl_external_resolver_ready(pDNS->m_pEasy);
+						}
+					;
+				}
+			;
+
+			return pDNS.f_Detach();
+		}
+		catch (...)
+		{
+			return nullptr;
+		}
+	}
+
+	int CHttpClientActor::CInternal::fs_ResolvePoll(void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses)
+	{
+		auto &DNS = *static_cast<CDNS *>(_pLookup);
+		*_pAddresses = DNS.m_Addresses.f_GetArray();
+		*_pNumAddresses = DNS.m_Addresses.f_GetLen();
+
+		return DNS.m_Status;
+	}
+
+	void CHttpClientActor::CInternal::fs_ResolveCancel(void *_pLookup)
+	{
+		TCSharedPointer<CDNS> pDNS = fg_Attach(static_cast<CDNS *>(_pLookup));
+		pDNS->m_bCancelled = true;
+		pDNS->m_Cancel.f_Clear();
+	}
 
 	CHttpClientActor::CResult::CResult(CState const &_State)
 		: m_Body(CStr((ch8 const *)_State.m_Body.f_GetArray(), _State.m_Body.f_GetLen()))

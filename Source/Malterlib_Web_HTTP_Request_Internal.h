@@ -44,19 +44,6 @@ namespace NMib::NWeb::NHTTP
 			, EParseState_Invalid
 		};
 
-	private:
-		ERequestStatus mp_Status;
-		NStr::CStr mp_Errors;
-
-		EParseState mp_ParseState;
-
-		CRequestLine mp_RequestLine;
-		CGeneralFields mp_GeneralFields;
-		CRequestFields mp_RequestFields;
-		CEntityFields mp_EntityFields;
-
-		NContainer::CByteVector mp_Content;
-
 		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
 
@@ -70,5 +57,17 @@ namespace NMib::NWeb::NHTTP
 		EParse fp_ParseContent_Chunked(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseContent_Chunked_Trailers(NContainer::CPagedByteVector &_Data);
 		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
+
+		ERequestStatus mp_Status;
+		NStr::CStr mp_Errors;
+
+		EParseState mp_ParseState;
+
+		CRequestLine mp_RequestLine;
+		CGeneralFields mp_GeneralFields;
+		CRequestFields mp_RequestFields;
+		CEntityFields mp_EntityFields;
+
+		NContainer::CByteVector mp_Content;
 	};
 }

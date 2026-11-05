@@ -12,21 +12,6 @@ namespace NMib::NWeb::NHTTP
 
 	struct CResponseDetails
 	{
-		CResponseDetails()
-			: m_Stage(EStage_Header)
-			, mp_Status(EResponseStatus_Empty)
-			, mp_ParseState(EParseState_Header)
-		{
-		}
-
-		CResponseDetails(COutputMethod &&_fOutputMethod)
-			: m_Stage(EStage_Header)
-			, mp_Status(EResponseStatus_Empty)
-			, mp_ParseState(EParseState_Header)
-			, m_fOutputMethod(fg_Move(_fOutputMethod))
-		{
-		}
-
 	private:
 		enum EStage
 		{
@@ -47,11 +32,12 @@ namespace NMib::NWeb::NHTTP
 		EParseState mp_ParseState;
 		NStr::CStr mp_Errors;
 
-		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
-		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
-		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
+	public: // NOLINT(malterlib-member-order): the public m_Stage uses the private EStage, and the private data members come first, as data member order decides initialization, destruction and layout
+		CResponseDetails();
+		CResponseDetails(COutputMethod &&_fOutputMethod);
 
-	public:
+		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
+
 		EStage m_Stage;
 		COutputMethod m_fOutputMethod;
 		CResponseFields m_ResponseFields;
@@ -59,8 +45,26 @@ namespace NMib::NWeb::NHTTP
 		CEntityFields m_EntityFields;
 		CStatusLine m_Status;
 
-		EResponseStatus f_Parse(NContainer::CPagedByteVector &_Data);
+	private:
+		EParse fp_ParseHeader(NContainer::CPagedByteVector &_Data);
+		EParse fp_ParseHeaderText(NStr::CStr const &_Text);
+		EParse fp_ParseField(NStr::CStr const &_Name, NStr::CStr const &_Value);
 	};
+
+	CResponseDetails::CResponseDetails()
+		: m_Stage(EStage_Header)
+		, mp_Status(EResponseStatus_Empty)
+		, mp_ParseState(EParseState_Header)
+	{
+	}
+
+	CResponseDetails::CResponseDetails(COutputMethod &&_fOutputMethod)
+		: m_Stage(EStage_Header)
+		, m_fOutputMethod(fg_Move(_fOutputMethod))
+		, mp_Status(EResponseStatus_Empty)
+		, mp_ParseState(EParseState_Header)
+	{
+	}
 
 	//
 	// CResponseStage Public Methods

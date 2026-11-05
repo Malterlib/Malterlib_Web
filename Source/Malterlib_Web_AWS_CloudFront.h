@@ -25,11 +25,11 @@ namespace NMib::NWeb
 			, EFunctionEventType_OriginResponse
 		};
 
-		NConcurrency::TCFuture<NStr::CStr> f_CreateInvalidation(NStr::CStr _DistributionID, NContainer::TCVector<NStr::CStr> _Paths);
-		NConcurrency::TCFuture<void> f_UpdateDistributionLambdaFunctions(NStr::CStr _DistributionID, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations);
-
 		CAwsCloudFrontActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 		~CAwsCloudFrontActor();
+
+		NConcurrency::TCFuture<NStr::CStr> f_CreateInvalidation(NStr::CStr _DistributionID, NContainer::TCVector<NStr::CStr> _Paths);
+		NConcurrency::TCFuture<void> f_UpdateDistributionLambdaFunctions(NStr::CStr _DistributionID, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations);
 
 	private:
 		struct CInternal;

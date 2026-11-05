@@ -17,9 +17,6 @@ namespace NMib::NWeb
 
 	struct CAwsLambdaActor : public NConcurrency::CActor
 	{
-		CAwsLambdaActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
-		~CAwsLambdaActor();
-
 		struct CFunctionConfiguration
 		{
 			struct CDeadLetterConfig
@@ -67,6 +64,9 @@ namespace NMib::NWeb
 			NStr::CStr m_Arn;
 			NStr::CStr m_Version;
 		};
+
+		CAwsLambdaActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
+		~CAwsLambdaActor();
 
 		NConcurrency::TCFuture<CFunctionInfo> f_CreateOrUpdateFunction(NStr::CStr _FunctionName, NContainer::TCMap<NStr::CStr, NStr::CStr> _Files, CFunctionConfiguration _Config);
 

@@ -18,7 +18,7 @@ namespace NMib::NWeb
 		struct CInternal;
 		struct CCollection;
 
-	public:
+	public: // NOLINT(malterlib-member-order): the public declarations use CInternal and CCollection
 		enum ESubscriptionNotification
 		{
 			ESubscriptionNotification_None    = 0

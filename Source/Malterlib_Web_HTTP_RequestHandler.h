@@ -37,7 +37,6 @@ namespace NMib::NWeb::NHTTP
 
 	private:
 		struct CDetails;
-		NStorage::TCUniquePointer<CDetails> mp_pDetails;
 
 		struct CLocation
 		{
@@ -45,6 +44,7 @@ namespace NMib::NWeb::NHTTP
 			CStr m_LocalRoot;
 		};
 
+		NStorage::TCUniquePointer<CDetails> mp_pDetails;
 		NContainer::TCVector<CLocations> mp_ServedLocations;
 	};
 }

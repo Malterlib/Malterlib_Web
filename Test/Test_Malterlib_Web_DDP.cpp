@@ -33,31 +33,23 @@ struct CDDP_Tests : public CTest
 {
 	struct CServer : public CActor
 	{
-		CServer(FVirtualSocketFactory const &_fServerFactory)
-			: m_fServerFactory(_fServerFactory)
+		struct CConnection
 		{
-			auto &Collection = m_Data["testCollection"];
+			~CConnection();
 
-			for (umint iDocument = 0; iDocument < 10; ++iDocument)
-			{
-				CStr DocumentID = fg_Format("id{}", iDocument);
-				auto &Document = Collection[DocumentID];
-				Document["_id"] = DocumentID;
-				Document["Value"] = fg_Format("Value{}", iDocument);
-			}
-		}
+			TCActor<CDDPServerConnection> m_Connection;
+			CActorSubscription m_Callback;
+			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
+		};
 
-		CServer()
-		{
-		}
+		CServer(FVirtualSocketFactory const &_fServerFactory);
+		CServer();
 
-		TCFuture<void> fp_Destroy() override
-		{
-			if (m_WebsocketServer)
-				co_await fg_Move(m_WebsocketServer).f_Destroy();
-
-			co_return {};
-		}
+		TCFuture<void> fp_Destroy() override;
+		uint16 f_GetListenPort() const;
+		CStr f_GetError() const;
+		void f_ReportError(CStr const &_Error);
+		TCFuture<CServer *> f_Start();
 
 		FVirtualSocketFactory m_fServerFactory;
 		TCActor<CWebSocketServerActor> m_WebsocketServer;
@@ -66,12 +58,6 @@ struct CDDP_Tests : public CTest
 		CActorSubscription m_ListenCallbackReference;
 		uint16 m_ListenPort = 0;
 
-		uint16 f_GetListenPort() const
-		{
-			DMibLock(m_Lock);
-			return m_ListenPort;
-		}
-
 		CEventAutoReset m_Event;
 		CStr m_Error;
 
@@ -79,538 +65,567 @@ struct CDDP_Tests : public CTest
 
 		TCAtomic<umint> m_nUnsubscribe;
 
-		CStr f_GetError() const
-		{
-			DMibLock(m_Lock);
-			return m_Error;
-		}
-
-		void f_ReportError(CStr const &_Error)
-		{
-			{
-				DMibLock(m_Lock);
-				fg_AddStrSep(m_Error, _Error, "\n");
-			}
-			m_Event.f_Signal();
-		}
-
-		struct CConnection
-		{
-			~CConnection()
-			{
-				*m_pDeleted = true;
-			}
-
-			TCActor<CDDPServerConnection> m_Connection;
-			CActorSubscription m_Callback;
-			TCSharedPointer<bool> m_pDeleted = fg_Construct(false);
-		};
-
 		TCLinkedList<CConnection> m_Connections;
 
 	private:
-		CEJsonSorted fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details = "")
-		{
-			CEJsonSorted Ret;
-			Ret["error"] = _Error;
-			if (!_Reason.f_IsEmpty())
-				Ret["reason"] = _Reason;
-			if (!_Details.f_IsEmpty())
-				Ret["details"] = _Details;
-			return Ret;
-		}
-
-	public:
-		TCFuture<CServer *> f_Start()
-		{
-			TCPromise<CServer *> Promise;
-			m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
-
-			CNetAddressTCPv4 ToListenTo;
-			ToListenTo.m_Port = 0;
-			ToListenTo.f_SetLocalhost();
-
-			m_WebsocketServer
-				(
-					&CWebSocketServerActor::f_StartListenAddress
-					, TCVector<CNetAddress>{ToListenTo}
-					, ENetFlag_None
-					, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
-					{
-						auto &NewConnection = m_Connections.f_Insert();
-						NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
-
-						auto pDeleted = NewConnection.m_pDeleted;
-
-						auto pConnection = &NewConnection;
-						auto Subscription = co_await NewConnection.m_Connection
-							(
-								&CDDPServerConnection::f_Register
-								, g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
-								// On connection
-								{
-									_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
-
-									co_return {};
-								}
-								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo _MethodInfo) -> TCFuture<void>
-								// On method call
-								{
-									if (_MethodInfo.m_Name == "login")
-									{
-										try
-										{
-											auto &LoginParams = _MethodInfo.m_Parameters[0];
-											CStr Email = LoginParams["user"]["email"].f_AsString();
-											CStr Algo = LoginParams["password"]["algorithm"].f_AsString();
-											if (Algo != "sha-256")
-											{
-												_MethodInfo.f_Error(fp_MethodError("unknown-authentication-algorithm", fg_Format("Unknown algorithm: {}", Algo)));
-												co_return {};
-											}
-
-											CStr PasswordDigest = LoginParams["password"]["digest"].f_AsString();
-											CStr Password = "testpass";
-
-											CStr RightDigest = CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
-
-											if (PasswordDigest != RightDigest)
-											{
-												_MethodInfo.f_Error(fp_MethodError("invalid-password", "Invalid password"));
-												co_return {};
-											}
-											CEJsonSorted Result;
-
-											Result["id"] = "testuserid";
-											Result["token"] = "testusertoken";
-											Result["tokenExpires"] = CTime::fs_NowUTC() + CTimeSpanConvert::fs_CreateSpan(0, 3);
-
-											_MethodInfo.f_Result(Result);
-										}
-										catch (CException const &_Exception)
-										{
-											_MethodInfo.f_Error(fp_MethodError("exception-logging-in", _Exception.f_GetErrorStr()));
-										}
-									}
-									else if (_MethodInfo.m_Name == "testChanged")
-									{
-										TCVector<CDDPServerConnection::CChange> Changes;
-
-										auto &Collection = m_Data["testCollection"];
-										auto &ToChange = *Collection.f_FindSmallest();
-										CStr DocumentID = Collection.fs_GetKey(ToChange);
-
-										ToChange["Value2"] = "55";
-
-										CDDPServerConnection::CChanged Changed;
-										Changed.m_DocumentID = DocumentID;
-										Changed.m_Fields["Value2"] = "55";
-										Changed.m_Collection = "testCollection";
-
-										Changes.f_Insert(fg_Move(Changed));
-
-										CDDPServerConnection::CUpdated Updated;
-										Updated.m_IDs.f_Insert(_MethodInfo.m_ID);
-
-										Changes.f_Insert(fg_Move(Updated));
-
-										_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
-
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
-									}
-									else if (_MethodInfo.m_Name == "testRemoved")
-									{
-										TCVector<CDDPServerConnection::CChange> Changes;
-
-										auto &Collection = m_Data["testCollection"];
-										auto &ToChange = *Collection.f_FindSmallest();
-										CStr DocumentID = Collection.fs_GetKey(ToChange);
-
-										Collection.f_Remove(&ToChange);
-
-										CDDPServerConnection::CRemoved Removed;
-										Removed.m_DocumentID = DocumentID;
-										Removed.m_Collection = "testCollection";
-
-										Changes.f_Insert(fg_Move(Removed));
-
-										_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
-
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
-									}
-									else
-										_MethodInfo.f_Error(fp_MethodError("method-not-found", "Method not found"));
-
-									co_return {};
-								}
-								, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo _SubscribeInfo) -> TCFuture<void>
-								// On subscribe
-								{
-									//DMibTrace("Subscription: {}\n", _SubscribeInfo.m_Name);
-									if (_SubscribeInfo.m_Name == "testSub")
-									{
-										TCVector<CDDPServerConnection::CChange> Changes;
-										for (auto iCollection = m_Data.f_GetIterator(); iCollection; ++iCollection)
-										{
-											for (auto iDocument = iCollection->f_GetIterator(); iDocument; ++iDocument)
-											{
-												CDDPServerConnection::CAdded Added;
-												Added.m_Collection = iCollection.f_GetKey();
-												Added.m_DocumentID = iDocument.f_GetKey();
-												Added.m_Fields = *iDocument;
-												Changes.f_Insert(fg_Move(Added));
-											}
-										}
-										CDDPServerConnection::CReady Ready;
-										Ready.m_Subscriptions.f_Insert(_SubscribeInfo.m_ID);
-										Changes.f_Insert(fg_Move(Ready));
-										pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
-									}
-									else
-										_SubscribeInfo.f_Error(CEJsonSorted());
-
-									co_return {};
-								}
-								, g_ActorFunctorWeak / [this](CStr _SubscriptionID) -> TCFuture<void>
-								// On unsubscribe
-								{
-									++m_nUnsubscribe;
-									m_Event.f_Signal();
-
-									co_return {};
-								}
-								, g_ActorFunctorWeak / [this](CStr _Error) -> TCFuture<void>
-								// On error
-								{
-									f_ReportError(_Error);
-
-									co_return {};
-								}
-								, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-								{
-									co_return {};
-								}
-							)
-						;
-
-						if (*pDeleted)
-							co_return DMibErrorInstance("Connection deleted");
-
-						pConnection->m_Callback = fg_Move(Subscription);
-
-						co_return {};
-					}
-					, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
-					{
-						f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
-
-						co_return {};
-					}
-					, fg_TempCopy(m_fServerFactory)
-				)
-				> [this, Promise](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
-				{
-					if (_Result)
-					{
-						m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
-						{
-							DMibLock(m_Lock);
-							m_ListenPort = _Result->m_ListenPorts[0];
-						}
-						m_Event.f_Signal();
-						Promise.f_SetResult(this);
-					}
-					else
-					{
-						f_ReportError(_Result.f_GetExceptionStr());
-						Promise.f_SetException(_Result);
-					}
-				}
-			;
-
-			co_return co_await Promise.f_MoveFuture();
-		}
+		CEJsonSorted fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details = "");
 	};
 
+	void f_DoTests();
+
 private:
-	void fp_Test(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
+	void fp_Test(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories);
+};
+
+CDDP_Tests::CServer::CConnection::~CConnection()
+{
+	*m_pDeleted = true;
+}
+
+CDDP_Tests::CServer::CServer(FVirtualSocketFactory const &_fServerFactory)
+	: m_fServerFactory(_fServerFactory)
+{
+	auto &Collection = m_Data["testCollection"];
+
+	for (umint iDocument = 0; iDocument < 10; ++iDocument)
 	{
-		DMibTestPath("Connection");
-		CActorRunLoopTestHelper RunLoopHelper;
+		CStr DocumentID = fg_Format("id{}", iDocument);
+		auto &Document = Collection[DocumentID];
+		Document["_id"] = DocumentID;
+		Document["Value"] = fg_Format("Value{}", iDocument);
+	}
+}
 
-		auto Factories = _fGetFactories();
-		auto fServerFactory = fg_Get<0>(Factories);
-		auto fClientFactory = fg_Get<1>(Factories);
-		TCActor<CServer> Server = fg_ConstructActor<CServer>(fServerFactory);
+CDDP_Tests::CServer::CServer()
+{
+}
 
-		auto Cleanup = g_OnScopeExit / [&]
+TCFuture<void> CDDP_Tests::CServer::fp_Destroy()
+{
+	if (m_WebsocketServer)
+		co_await fg_Move(m_WebsocketServer).f_Destroy();
+
+	co_return {};
+}
+
+uint16 CDDP_Tests::CServer::f_GetListenPort() const
+{
+	DMibLock(m_Lock);
+	return m_ListenPort;
+}
+
+CStr CDDP_Tests::CServer::f_GetError() const
+{
+	DMibLock(m_Lock);
+	return m_Error;
+}
+
+void CDDP_Tests::CServer::f_ReportError(CStr const &_Error)
+{
+	{
+		DMibLock(m_Lock);
+		fg_AddStrSep(m_Error, _Error, "\n");
+	}
+	m_Event.f_Signal();
+}
+
+TCFuture<CDDP_Tests::CServer *> CDDP_Tests::CServer::f_Start()
+{
+	TCPromise<CServer *> Promise;
+	m_WebsocketServer = fg_ConstructActor<CWebSocketServerActor>();
+
+	CNetAddressTCPv4 ToListenTo;
+	ToListenTo.m_Port = 0;
+	ToListenTo.f_SetLocalhost();
+
+	m_WebsocketServer
+		(
+			&CWebSocketServerActor::f_StartListenAddress
+			, TCVector<CNetAddress>{ToListenTo}
+			, ENetFlag_None
+			, g_ActorFunctorWeak / [this](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
 			{
-				Server->f_BlockDestroy(RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
-			}
-		;
+				auto &NewConnection = m_Connections.f_Insert();
+				NewConnection.m_Connection = fg_ConstructActor<CDDPServerConnection>(fg_Move(_ConnectionInfo), CDDPServerConnection::EConnectionType_WebSocket);
 
-		TCActor<CActor> ProcessingActor = fg_Construct();
+				auto pDeleted = NewConnection.m_pDeleted;
 
-		auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout));
+				auto pConnection = &NewConnection;
+				auto Subscription = co_await NewConnection.m_Connection
+					(
+						&CDDPServerConnection::f_Register
+						, g_ActorFunctorWeak / [](CDDPServerConnection::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+						// On connection
+						{
+							_ConnectionInfo.f_Accept(CStr()); // Empty sessions means use random ID
 
-		CStr ConnectToURLString;
-		if (fServerFactory)
-			ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
-		else
-			ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
-
-		TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", fClientFactory);
-
-		CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
-
-		DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
-
-		struct CState
-		{
-			CEventAutoReset m_Event;
-			TCAtomic<umint> m_nReady{0};
-			TCAtomic<umint> m_nError{0};
-			TCAtomic<umint> m_nAdded{0};
-			TCAtomic<umint> m_nChanged{0};
-			TCAtomic<umint> m_nRemoved{0};
-		};
-
-		TCSharedPointer<CState> pState = fg_Construct();
-
-		{
-			CActorSubscription Observation = Client
-				(
-					&CDDPClient::f_Observe
-					, "testCollection"
-					, CDDPClient::EObserveNotification_Added | CDDPClient::EObserveNotification_Changed | CDDPClient::EObserveNotification_Removed
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
-					{
-						if (_Notification & CDDPClient::EObserveNotification_Added)
-							++pState->m_nAdded;
-						if (_Notification & CDDPClient::EObserveNotification_Changed)
-							++pState->m_nChanged;
-						if (_Notification & CDDPClient::EObserveNotification_Removed)
-							++pState->m_nRemoved;
-
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-				)
-				.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
-			;
-
-			CActorSubscription Subscription = Client
-				(
-					&CDDPClient::f_Subscribe
-					, "testSub"
-					, ""
-					, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
-					, CDDPClient::ESubscriptionNotification_Ready | CDDPClient::ESubscriptionNotification_Error
-					, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
-					{
-						if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
-							++pState->m_nReady;
-						if (_Notification & CDDPClient::ESubscriptionNotification_Error)
-							++pState->m_nError;
-
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-					, true
-				)
-				.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
-			;
-
-			CStopwatch Stopwatch;
-			Stopwatch.f_Start();
-
-			while (!pState->m_nReady.f_Load())
-			{
-				if (Stopwatch.f_GetTime() >= gs_Timeout / 2)
-					break;
-				pState->m_Event.f_WaitTimeout(1.0);
-			}
-
-			DMibAssert(pState->m_nReady.f_Load(), ==, 1);
-			DMibAssert(pState->m_nAdded.f_Load(), ==, 10);
-
-			auto fGetDocuments = [&]() -> TCMap<CStr, CEJsonSorted>
-				{
-					TCMap<CStr, CEJsonSorted> Documents;
-					CMutual Lock;
-
-					Client
-						(
-							&CDDPClient::f_AccessData
-							, [&Documents, &Lock](CDDPClient::CDataAccessor const &_Accessor)
+							co_return {};
+						}
+						, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CMethodInfo _MethodInfo) -> TCFuture<void>
+						// On method call
+						{
+							if (_MethodInfo.m_Name == "login")
 							{
 								try
 								{
-									auto const &Collection = _Accessor.f_GetCollection("testCollection");
-									DMibLock(Lock);
-									for (auto iDocument = Collection.f_GetDocumentIterator(); iDocument; ++iDocument)
-										Documents[iDocument.f_GetKey()] = *iDocument;
+									auto &LoginParams = _MethodInfo.m_Parameters[0];
+									CStr Email = LoginParams["user"]["email"].f_AsString();
+									CStr Algo = LoginParams["password"]["algorithm"].f_AsString();
+									if (Algo != "sha-256")
+									{
+										_MethodInfo.f_Error(fp_MethodError("unknown-authentication-algorithm", fg_Format("Unknown algorithm: {}", Algo)));
+										co_return {};
+									}
+
+									CStr PasswordDigest = LoginParams["password"]["digest"].f_AsString();
+									CStr Password = "testpass";
+
+									CStr RightDigest = CHash_SHA256::fs_DigestFromData((uint8 const *)Password.f_GetStr(), Password.f_GetLen()).f_GetString();
+
+									if (PasswordDigest != RightDigest)
+									{
+										_MethodInfo.f_Error(fp_MethodError("invalid-password", "Invalid password"));
+										co_return {};
+									}
+									CEJsonSorted Result;
+
+									Result["id"] = "testuserid";
+									Result["token"] = "testusertoken";
+									Result["tokenExpires"] = CTime::fs_NowUTC() + CTimeSpanConvert::fs_CreateSpan(0, 3);
+
+									_MethodInfo.f_Result(Result);
 								}
 								catch (CException const &_Exception)
 								{
-									(void)_Exception;
+									_MethodInfo.f_Error(fp_MethodError("exception-logging-in", _Exception.f_GetErrorStr()));
 								}
 							}
+							else if (_MethodInfo.m_Name == "testChanged")
+							{
+								TCVector<CDDPServerConnection::CChange> Changes;
+
+								auto &Collection = m_Data["testCollection"];
+								auto &ToChange = *Collection.f_FindSmallest();
+								CStr DocumentID = Collection.fs_GetKey(ToChange);
+
+								ToChange["Value2"] = "55";
+
+								CDDPServerConnection::CChanged Changed;
+								Changed.m_DocumentID = DocumentID;
+								Changed.m_Fields["Value2"] = "55";
+								Changed.m_Collection = "testCollection";
+
+								Changes.f_Insert(fg_Move(Changed));
+
+								CDDPServerConnection::CUpdated Updated;
+								Updated.m_IDs.f_Insert(_MethodInfo.m_ID);
+
+								Changes.f_Insert(fg_Move(Updated));
+
+								_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
+
+								pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
+							}
+							else if (_MethodInfo.m_Name == "testRemoved")
+							{
+								TCVector<CDDPServerConnection::CChange> Changes;
+
+								auto &Collection = m_Data["testCollection"];
+								auto &ToChange = *Collection.f_FindSmallest();
+								CStr DocumentID = Collection.fs_GetKey(ToChange);
+
+								Collection.f_Remove(&ToChange);
+
+								CDDPServerConnection::CRemoved Removed;
+								Removed.m_DocumentID = DocumentID;
+								Removed.m_Collection = "testCollection";
+
+								Changes.f_Insert(fg_Move(Removed));
+
+								_MethodInfo.f_Result(CEJsonSorted(EJsonType_Object));
+
+								pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
+							}
+							else
+								_MethodInfo.f_Error(fp_MethodError("method-not-found", "Method not found"));
+
+							co_return {};
+						}
+						, g_ActorFunctorWeak / [this, pConnection](CDDPServerConnection::CSubscribeInfo _SubscribeInfo) -> TCFuture<void>
+						// On subscribe
+						{
+							//DMibTrace("Subscription: {}\n", _SubscribeInfo.m_Name);
+							if (_SubscribeInfo.m_Name == "testSub")
+							{
+								TCVector<CDDPServerConnection::CChange> Changes;
+								for (auto iCollection = m_Data.f_GetIterator(); iCollection; ++iCollection)
+								{
+									for (auto iDocument = iCollection->f_GetIterator(); iDocument; ++iDocument)
+									{
+										CDDPServerConnection::CAdded Added;
+										Added.m_Collection = iCollection.f_GetKey();
+										Added.m_DocumentID = iDocument.f_GetKey();
+										Added.m_Fields = *iDocument;
+										Changes.f_Insert(fg_Move(Added));
+									}
+								}
+								CDDPServerConnection::CReady Ready;
+								Ready.m_Subscriptions.f_Insert(_SubscribeInfo.m_ID);
+								Changes.f_Insert(fg_Move(Ready));
+								pConnection->m_Connection(&CDDPServerConnection::f_SendChanges, fg_Move(Changes)).f_DiscardResult();
+							}
+							else
+								_SubscribeInfo.f_Error(CEJsonSorted());
+
+							co_return {};
+						}
+						, g_ActorFunctorWeak / [this](CStr _SubscriptionID) -> TCFuture<void>
+						// On unsubscribe
+						{
+							++m_nUnsubscribe;
+							m_Event.f_Signal();
+
+							co_return {};
+						}
+						, g_ActorFunctorWeak / [this](CStr _Error) -> TCFuture<void>
+						// On error
+						{
+							f_ReportError(_Error);
+
+							co_return {};
+						}
+						, g_ActorFunctorWeak / [](EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+						{
+							co_return {};
+						}
+					)
+				;
+
+				if (*pDeleted)
+					co_return DMibErrorInstance("Connection deleted");
+
+				pConnection->m_Callback = fg_Move(Subscription);
+
+				co_return {};
+			}
+			, g_ActorFunctorWeak / [this](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+			{
+				f_ReportError(fg_Format("Rejected connection: {}", _ConnectionInfo.m_Error));
+
+				co_return {};
+			}
+			, fg_TempCopy(m_fServerFactory)
+		)
+		> [this, Promise](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
+		{
+			if (_Result)
+			{
+				m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+				{
+					DMibLock(m_Lock);
+					m_ListenPort = _Result->m_ListenPorts[0];
+				}
+				m_Event.f_Signal();
+				Promise.f_SetResult(this);
+			}
+			else
+			{
+				f_ReportError(_Result.f_GetExceptionStr());
+				Promise.f_SetException(_Result);
+			}
+		}
+	;
+
+	co_return co_await Promise.f_MoveFuture();
+}
+
+CEJsonSorted CDDP_Tests::CServer::fp_MethodError(CStr const &_Error, CStr const &_Reason, CStr const &_Details)
+{
+	CEJsonSorted Ret;
+	Ret["error"] = _Error;
+	if (!_Reason.f_IsEmpty())
+		Ret["reason"] = _Reason;
+	if (!_Details.f_IsEmpty())
+		Ret["details"] = _Details;
+	return Ret;
+}
+
+void CDDP_Tests::f_DoTests()
+{
+	DMibTestSuite("Tests")
+	{
+		{
+			DMibTestPath("TCP");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						return {nullptr, nullptr};
+					}
+				)
+			;
+		}
+		{
+			DMibTestPath("SSL");
+			fp_Test
+				(
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+					{
+						CSSLSettings ServerSettings;
+
+						CCertificateOptions ServerOptions;
+						ServerOptions.m_CommonName = "Malterlib test Self Signed";
+						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+						ServerOptions.m_KeySetting = CPublicKeySettings_EC_Secp256r1{};
+
+						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+						CSSLSettings ClientSettings;
+						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+					}
+				)
+			;
+		};
+	};
+}
+
+void CDDP_Tests::fp_Test(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
+{
+	DMibTestPath("Connection");
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	auto Factories = _fGetFactories();
+	auto fServerFactory = fg_Get<0>(Factories);
+	auto fClientFactory = fg_Get<1>(Factories);
+	TCActor<CServer> Server = fg_ConstructActor<CServer>(fServerFactory);
+
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			Server->f_BlockDestroy(RunLoopHelper.m_pRunLoop->f_ActorDestroyLoop());
+		}
+	;
+
+	TCActor<CActor> ProcessingActor = fg_Construct();
+
+	auto &ServerInternal = *(Server(&CServer::f_Start).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout));
+
+	CStr ConnectToURLString;
+	if (fServerFactory)
+		ConnectToURLString = "wss://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
+	else
+		ConnectToURLString = "ws://localhost:{}/Test"_f << ServerInternal.f_GetListenPort();
+
+	TCActor<CDDPClient> Client = fg_ConstructActor<CDDPClient>(ConnectToURLString, "", fg_Default(), "", fClientFactory);
+
+	CDDPClient::CConnectInfo ConnectionInfo = Client(&CDDPClient::f_Connect, "testuser", "testpass", "", "", 20.0, nullptr).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
+
+	DMibAssert(ConnectionInfo.m_UserID, ==, "testuserid");
+
+	struct CState
+	{
+		CEventAutoReset m_Event;
+		TCAtomic<umint> m_nReady{0};
+		TCAtomic<umint> m_nError{0};
+		TCAtomic<umint> m_nAdded{0};
+		TCAtomic<umint> m_nChanged{0};
+		TCAtomic<umint> m_nRemoved{0};
+	};
+
+	TCSharedPointer<CState> pState = fg_Construct();
+
+	{
+		CActorSubscription Observation = Client
+			(
+				&CDDPClient::f_Observe
+				, "testCollection"
+				, CDDPClient::EObserveNotification_Added | CDDPClient::EObserveNotification_Changed | CDDPClient::EObserveNotification_Removed
+				, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::EObserveNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
+				{
+					if (_Notification & CDDPClient::EObserveNotification_Added)
+						++pState->m_nAdded;
+					if (_Notification & CDDPClient::EObserveNotification_Changed)
+						++pState->m_nChanged;
+					if (_Notification & CDDPClient::EObserveNotification_Removed)
+						++pState->m_nRemoved;
+
+					pState->m_Event.f_Signal();
+
+					co_return {};
+				}
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
+		;
+
+		CActorSubscription Subscription = Client
+			(
+				&CDDPClient::f_Subscribe
+				, "testSub"
+				, ""
+				, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
+				, CDDPClient::ESubscriptionNotification_Ready | CDDPClient::ESubscriptionNotification_Error
+				, g_ActorFunctorWeak(ProcessingActor) / [pState](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
+				{
+					if (_Notification & CDDPClient::ESubscriptionNotification_Ready)
+						++pState->m_nReady;
+					if (_Notification & CDDPClient::ESubscriptionNotification_Error)
+						++pState->m_nError;
+
+					pState->m_Event.f_Signal();
+
+					co_return {};
+				}
+				, true
+			)
+			.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
+		;
+
+		CStopwatch Stopwatch;
+		Stopwatch.f_Start();
+
+		while (!pState->m_nReady.f_Load())
+		{
+			if (Stopwatch.f_GetTime() >= gs_Timeout / 2)
+				break;
+			pState->m_Event.f_WaitTimeout(1.0);
+		}
+
+		DMibAssert(pState->m_nReady.f_Load(), ==, 1);
+		DMibAssert(pState->m_nAdded.f_Load(), ==, 10);
+
+		auto fGetDocuments = [&]() -> TCMap<CStr, CEJsonSorted>
+			{
+				TCMap<CStr, CEJsonSorted> Documents;
+				CMutual Lock;
+
+				Client
+					(
+						&CDDPClient::f_AccessData
+						, [&Documents, &Lock](CDDPClient::CDataAccessor const &_Accessor)
+						{
+							try
+							{
+								auto const &Collection = _Accessor.f_GetCollection("testCollection");
+								DMibLock(Lock);
+								for (auto iDocument = Collection.f_GetDocumentIterator(); iDocument; ++iDocument)
+									Documents[iDocument.f_GetKey()] = *iDocument;
+							}
+							catch (CException const &_Exception)
+							{
+								(void)_Exception;
+							}
+						}
+					)
+					.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
+				;
+				return Documents;
+			}
+		;
+
+		// Test document accessor
+		{
+			TCMap<CStr, CEJsonSorted> Documents = fGetDocuments();
+
+			DMibAssert(Documents.f_GetLen(), ==, 10);
+
+			for (auto const &Document : Documents)
+			{
+				auto pID = Document.f_GetMember("_id");
+				DMibAssert(pID, !=, nullptr)(ETestFlag_Aggregated);
+				DMibAssert(pID->f_IsString(), ==, true)(ETestFlag_Aggregated);
+
+				auto pValue = Document.f_GetMember("Value");
+				DMibAssert(pValue, !=, nullptr)(ETestFlag_Aggregated);
+				DMibAssert(pValue->f_IsString(), ==, true)(ETestFlag_Aggregated);
+
+				CStr StrippedID = pID->f_AsString().f_Replace("id", "");
+				CStr StrippedValue = pValue->f_AsString().f_Replace("Value", "");
+				DMibExpect(StrippedID, ==, StrippedValue)(ETestFlag_Aggregated);
+			}
+			DMibExpect(Documents, ==, ServerInternal.m_Data["testCollection"]);
+		}
+
+		// Test no sub
+		{
+			auto fSubscribe = [&]
+				{
+					CActorSubscription Subscription = Client
+						(
+							&CDDPClient::f_Subscribe
+							, "testFalseSub"
+							, ""
+							, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
+							, CDDPClient::ESubscriptionNotification_None
+							, g_ActorFunctorWeak(ProcessingActor) / [](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
+							{
+								co_return {};
+							}
+							, true
 						)
 						.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
 					;
-					return Documents;
 				}
 			;
-
-			// Test document accessor
-			{
-				TCMap<CStr, CEJsonSorted> Documents = fGetDocuments();
-
-				DMibAssert(Documents.f_GetLen(), ==, 10);
-
-				for (auto const &Document : Documents)
-				{
-					auto pID = Document.f_GetMember("_id");
-					DMibAssert(pID, !=, nullptr)(ETestFlag_Aggregated);
-					DMibAssert(pID->f_IsString(), ==, true)(ETestFlag_Aggregated);
-
-					auto pValue = Document.f_GetMember("Value");
-					DMibAssert(pValue, !=, nullptr)(ETestFlag_Aggregated);
-					DMibAssert(pValue->f_IsString(), ==, true)(ETestFlag_Aggregated);
-
-					CStr StrippedID = pID->f_AsString().f_Replace("id", "");
-					CStr StrippedValue = pValue->f_AsString().f_Replace("Value", "");
-					DMibExpect(StrippedID, ==, StrippedValue)(ETestFlag_Aggregated);
-				}
-				DMibExpect(Documents, ==, ServerInternal.m_Data["testCollection"]);
-			}
-
-			// Test no sub
-			{
-				auto fSubscribe = [&]
-					{
-						CActorSubscription Subscription = Client
-							(
-								&CDDPClient::f_Subscribe
-								, "testFalseSub"
-								, ""
-								, CEJsonSorted(fg_CreateVector<CEJsonSorted>())
-								, CDDPClient::ESubscriptionNotification_None
-								, g_ActorFunctorWeak(ProcessingActor) / [](CDDPClient::ESubscriptionNotification _Notification, CEJsonSorted _NotificationData) -> TCFuture<void>
-								{
-									co_return {};
-								}
-								, true
-							)
-							.f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout / 6)
-						;
-					}
-				;
-				DMibExpectException(fSubscribe(), DMibErrorInstance("sub-not-found: Subscription not found"));
-			}
-
-			DMibExpectException
-				(
-					(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout))
-					, DMibErrorInstance("method-not-found: Method not found")
-				)
-			;
-
-			DMibExpect(pState->m_nChanged, ==, 0);
-			Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
-			Stopwatch.f_Start();
-			while (!pState->m_nChanged.f_Load())
-			{
-				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
-					break;
-				pState->m_Event.f_WaitTimeout(1.0);
-			}
-			DMibExpect(pState->m_nChanged, ==, 1);
-
-			auto DocumentsAfterChanged = fGetDocuments();
-			DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
-
-			DMibExpect(pState->m_nRemoved, ==, 0);
-			Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
-			Stopwatch.f_Start();
-			while (!pState->m_nRemoved.f_Load())
-			{
-				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
-					break;
-				pState->m_Event.f_WaitTimeout(1.0);
-			}
-			DMibExpect(pState->m_nRemoved, ==, 1);
-
-			auto DocumentsAfterRemoved = fGetDocuments();
-			DMibExpect(DocumentsAfterRemoved, ==, ServerInternal.m_Data["testCollection"]);
-
-			DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 0);
+			DMibExpectException(fSubscribe(), DMibErrorInstance("sub-not-found: Subscription not found"));
 		}
+
+		DMibExpectException
+			(
+				(Client(&CDDPClient::f_Method, "testNoMethod", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout))
+				, DMibErrorInstance("method-not-found: Method not found")
+			)
+		;
+
+		DMibExpect(pState->m_nChanged, ==, 0);
+		Client(&CDDPClient::f_Method, "testChanged", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
+		Stopwatch.f_Start();
+		while (!pState->m_nChanged.f_Load())
 		{
-			CStopwatch Stopwatch;
-			Stopwatch.f_Start();
-
-			while (ServerInternal.m_nUnsubscribe.f_Load() == 0)
-			{
-				if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
-					break;
-				ServerInternal.m_Event.f_WaitTimeout(1.0);
-			}
-
-			DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 1);
+			if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
+				break;
+			pState->m_Event.f_WaitTimeout(1.0);
 		}
+		DMibExpect(pState->m_nChanged, ==, 1);
 
-		DMibExpect(ServerInternal.f_GetError(), ==, "");
+		auto DocumentsAfterChanged = fGetDocuments();
+		DMibExpect(DocumentsAfterChanged, ==, ServerInternal.m_Data["testCollection"]);
+
+		DMibExpect(pState->m_nRemoved, ==, 0);
+		Client(&CDDPClient::f_Method, "testRemoved", fg_CreateVector<CEJsonSorted>()).f_CallSync(RunLoopHelper.m_pRunLoop, gs_Timeout);
+		Stopwatch.f_Start();
+		while (!pState->m_nRemoved.f_Load())
+		{
+			if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
+				break;
+			pState->m_Event.f_WaitTimeout(1.0);
+		}
+		DMibExpect(pState->m_nRemoved, ==, 1);
+
+		auto DocumentsAfterRemoved = fGetDocuments();
+		DMibExpect(DocumentsAfterRemoved, ==, ServerInternal.m_Data["testCollection"]);
+
+		DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 0);
 	}
-
-public:
-	void f_DoTests()
 	{
-		DMibTestSuite("Tests")
+		CStopwatch Stopwatch;
+		Stopwatch.f_Start();
+
+		while (ServerInternal.m_nUnsubscribe.f_Load() == 0)
 		{
-			{
-				DMibTestPath("TCP");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							return {nullptr, nullptr};
-						}
-					)
-				;
-			}
-			{
-				DMibTestPath("SSL");
-				fp_Test
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							CSSLSettings ServerSettings;
+			if (Stopwatch.f_GetTime() >= gs_Timeout / 6)
+				break;
+			ServerInternal.m_Event.f_WaitTimeout(1.0);
+		}
 
-							CCertificateOptions ServerOptions;
-							ServerOptions.m_CommonName = "Malterlib test Self Signed";
-							ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-							ServerOptions.m_KeySetting = CPublicKeySettings_EC_Secp256r1{};
-
-							CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-							TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-							CSSLSettings ClientSettings;
-							ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-							ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-							TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-							return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-						}
-					)
-				;
-			};
-		};
+		DMibExpect(ServerInternal.m_nUnsubscribe.f_Load(), ==, 1);
 	}
-};
+
+	DMibExpect(ServerInternal.f_GetError(), ==, "");
+}
 
 DMibTestRegister(CDDP_Tests, Malterlib::Web);

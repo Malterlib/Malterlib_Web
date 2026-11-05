@@ -11,16 +11,18 @@ namespace NMib::NWeb
 {
 	struct CAwsCloudFrontActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
-			: m_HttpClientActor{_HttpClientActor}
-			, m_Credentials{_Credentials}
-		{
-			m_Credentials.m_Region = "us-east-1";
-		}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 
 		CAwsCredentials m_Credentials;
 		TCActor<CHttpClientActor> m_HttpClientActor;
 	};
+
+	CAwsCloudFrontActor::CInternal::CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: m_HttpClientActor{_HttpClientActor}
+		, m_Credentials{_Credentials}
+	{
+		m_Credentials.m_Region = "us-east-1";
+	}
 
 	CAwsCloudFrontActor::CAwsCloudFrontActor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
 		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}

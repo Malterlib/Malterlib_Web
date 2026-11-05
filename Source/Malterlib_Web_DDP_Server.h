@@ -18,7 +18,7 @@ namespace NMib::NWeb
 		// Declared before the public section, which uses it.
 		struct CInternal;
 
-	public:
+	public: // NOLINT(malterlib-member-order): the friend declarations of the public nested types use CInternal
 		enum EConnectionType
 		{
 			EConnectionType_WebSocket
@@ -37,8 +37,6 @@ namespace NMib::NWeb
 
 		struct CConnectionInfo
 		{
-			NStr::CStr m_Session;
-
 			~CConnectionInfo();
 
 			CConnectionInfo(CConnectionInfo const &_Other);
@@ -50,21 +48,20 @@ namespace NMib::NWeb
 			void f_Accept(NStr::CStr const &_Session) const;
 			void f_Reject() const;
 
+			NStr::CStr m_Session;
+
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CConnectionInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
+
+			CConnectionInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
+
 			NStorage::TCIndirection<CInternal> mp_Internal;
 		};
 
 		struct CMethodInfo
 		{
-			NStr::CStr m_Name;
-			NStr::CStr m_ID;
-			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
-			NEncoding::CEJsonSorted m_RandomSeed;
-
 			~CMethodInfo();
 
 			CMethodInfo(CMethodInfo const &_Other);
@@ -76,20 +73,23 @@ namespace NMib::NWeb
 			void f_Result(NEncoding::CEJsonSorted const &_Result, bool _bUpdated = true) const;
 			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
 
+			NStr::CStr m_Name;
+			NStr::CStr m_ID;
+			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
+			NEncoding::CEJsonSorted m_RandomSeed;
+
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
+
+			CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
+
 			NStorage::TCIndirection<CInternal> mp_Internal;
 		};
 
 		struct CSubscribeInfo
 		{
-			NStr::CStr m_ID;
-			NStr::CStr m_Name;
-			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
-
 			~CSubscribeInfo();
 
 			CSubscribeInfo(CSubscribeInfo const &_Other);
@@ -100,11 +100,17 @@ namespace NMib::NWeb
 
 			void f_Error(NEncoding::CEJsonSorted const &_Error) const;
 
+			NStr::CStr m_ID;
+			NStr::CStr m_Name;
+			NContainer::TCVector<NEncoding::CEJsonSorted> m_Parameters;
+
 		private:
 			friend struct CDDPServerConnection::CInternal;
-			CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 			struct CInternal;
+
+			CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
+
 			NStorage::TCIndirection<CInternal> mp_Internal;
 		};
 

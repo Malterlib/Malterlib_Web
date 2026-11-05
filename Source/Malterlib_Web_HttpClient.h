@@ -12,8 +12,6 @@ namespace NMib::NWeb
 {
 	struct CHttpClientActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
-
 		struct CState;
 
 		struct CCertificateConfig
@@ -92,6 +90,8 @@ namespace NMib::NWeb
 		NConcurrency::TCFuture<CResult> f_Delete(NStr::CStr _URL, NContainer::TCMap<NStr::CStr, NStr::CStr> _Headers);
 
 		NConcurrency::TCFuture<CResult> f_SendRequest(CRequest _Request);
+
+		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 
 	private:
 		struct CInternal;

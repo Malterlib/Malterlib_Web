@@ -110,11 +110,11 @@ namespace NMib::NWeb::NHTTP
 		static inline CStringValue fs_CreateDynamicString(NStr::CStr const &_Str);
 
 	private:
-		NStr::CStr mp_Storage;
-		char const *mp_pStr;
-
 		inline CStringValue(NStr::CStr const &_Str);
 		inline CStringValue(char const *_pStr);
+
+		NStr::CStr mp_Storage;
+		char const *mp_pStr;
 	};
 
 	CStringValue fg_GetFieldValueAsString(CFieldValue const &_Value);
@@ -127,15 +127,6 @@ namespace NMib::NWeb::NHTTP
 	{
 		using CEnum = t_CEnum;
 
-	protected:
-		EVersion mp_HTTPVersion;
-
-		NContainer::TCMap<CEnum, CFieldValue> mp_Fields;
-
-		template <EFieldType tf_FieldType>
-		auto fp_GetField(CEnum _Field) const -> CFieldValue::TCTypeFromMember<tf_FieldType>;
-
-	public:
 		TCFieldsBase();
 		TCFieldsBase(TCFieldsBase &&_ToMove);
 		~TCFieldsBase();
@@ -158,6 +149,14 @@ namespace NMib::NWeb::NHTTP
 		inline NStr::CStr f_WriteToString() const;
 		// Writes the header to the end of the paged vector
 		inline void f_WriteToData(COutputMethod const &_fOutput) const;
+
+	protected:
+		template <EFieldType tf_FieldType>
+		auto fp_GetField(CEnum _Field) const -> CFieldValue::TCTypeFromMember<tf_FieldType>;
+
+		EVersion mp_HTTPVersion;
+
+		NContainer::TCMap<CEnum, CFieldValue> mp_Fields;
 	};
 
 	struct CGeneralFields : public TCFieldsBase<CGeneralFields, EGeneralField>

@@ -13,6 +13,10 @@ namespace NMib::NWeb
 {
 	struct CHTTPRequest
 	{
+		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
+
+		static NStr::CStr fs_LookupHost(NStr::CStr const &_IP);
+
 		NStr::CStr m_RequestedURI;
 		NStr::CStr m_QueryString;
 		NStr::CStr m_Method;
@@ -20,14 +24,20 @@ namespace NMib::NWeb
 		NContainer::CByteVector m_Body;
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Variables;
 		NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
-
-		NStr::CStr f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue);
-
-		static NStr::CStr fs_LookupHost(NStr::CStr const &_IP);
 	};
 
 	struct CHTTPResponseHeader
 	{
+		CHTTPResponseHeader();
+		CHTTPResponseHeader(CHTTPResponseHeader const &_ToCopy);
+		CHTTPResponseHeader(CHTTPResponseHeader &&_ToMove);
+		CHTTPResponseHeader &operator = (CHTTPResponseHeader const &_ToCopy);
+		CHTTPResponseHeader &operator = (CHTTPResponseHeader &&_ToMove);
+
+		NStr::CStr f_Generate() const;
+		void f_SetPlainMime();
+		void f_SetMimeTypeFromFilename(NStr::CStr const &_Filename);
+
 		NStr::CStr m_MimeType = "text/html; charset=UTF-8";
 		NStr::CStr m_RedirectTo;
 		int m_ContentLength = 0;
@@ -39,16 +49,6 @@ namespace NMib::NWeb
 		NStr::CStr m_ETag;
 		// Each entry is a complete "Key: Value" line. Useful for headers with multiple values (e.g. Set-Cookie) or arbitrary forwarded headers.
 		NContainer::TCVector<NStr::CStr> m_AdditionalHeaderLines;
-
-		CHTTPResponseHeader();
-		CHTTPResponseHeader(CHTTPResponseHeader const &_ToCopy);
-		CHTTPResponseHeader(CHTTPResponseHeader &&_ToMove);
-		CHTTPResponseHeader &operator = (CHTTPResponseHeader const &_ToCopy);
-		CHTTPResponseHeader &operator = (CHTTPResponseHeader &&_ToMove);
-
-		NStr::CStr f_Generate() const;
-		void f_SetPlainMime();
-		void f_SetMimeTypeFromFilename(NStr::CStr const &_Filename);
 	};
 
 	struct CHTTPConnection
@@ -131,18 +131,6 @@ namespace NMib::NWeb
 
 	struct CHTTPServerOptions
 	{
-		NStr::CStr m_StaticRoot;
-		NStr::CStr m_NGINXPath;
-		NStr::CStr m_WebRoot;
-
-		NContainer::TCVector<NNetwork::CNetAddress> m_FastCGIListenAddresses = {NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)};
-
-		uint32 m_nMaxThreads = 1;
-		uint16 m_ListeningPort = 8080;
-		uint16 m_FastCGIListenStartPort = 9000;
-
-		bool m_bUseNginx = true;
-
 		CHTTPServerOptions();
 		/*
 		Options parsed (as if they are from the tool command line:
@@ -164,6 +152,18 @@ namespace NMib::NWeb
 		void f_ParseSettings(NContainer::CRegistry const &_Params);
 		void f_ParseSettings(NContainer::CRegistryPreserveWhitespace const &_Params);
 		void f_ParseSettings(NEncoding::CEJsonSorted const &_Params);
+
+		NStr::CStr m_StaticRoot;
+		NStr::CStr m_NGINXPath;
+		NStr::CStr m_WebRoot;
+
+		NContainer::TCVector<NNetwork::CNetAddress> m_FastCGIListenAddresses = {NNetwork::CNetAddressTCPv4(NNetwork::CNetAddressIPv4(127, 0, 0, 1), 0)};
+
+		uint32 m_nMaxThreads = 1;
+		uint16 m_ListeningPort = 8080;
+		uint16 m_FastCGIListenStartPort = 9000;
+
+		bool m_bUseNginx = true;
 
 	private:
 		template <typename tf_CRegistry>
@@ -229,7 +229,6 @@ namespace NMib::NWeb
 
 		using CIteratorConst = NContainer::TCVector<CBlock>::CIteratorConst;
 
-	public:
 		CHTMLTemplate(NStr::CStr const &_Filename, bool _bExeFs);
 		~CHTMLTemplate();
 

@@ -74,6 +74,9 @@ namespace NMib::NWeb
 			EStorageClass m_StorageClass = EStorageClass_Unknown;
 		};
 
+		CAwsS3Actor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
+		~CAwsS3Actor();
+
 		NConcurrency::TCFuture<CListBucket> f_ListBucket(NStr::CStr _BucketName);
 
 		NConcurrency::TCFuture<CObjectInfoMetadata> f_GetObjectMetadata(NStr::CStr _BucketName, NStr::CStr _Key);
@@ -90,9 +93,6 @@ namespace NMib::NWeb
 		;
 
 		NConcurrency::TCFuture<void> f_DeleteObject(NStr::CStr _BucketName, NStr::CStr _Key);
-
-		CAwsS3Actor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
-		~CAwsS3Actor();
 
 	private:
 		struct CInternal;

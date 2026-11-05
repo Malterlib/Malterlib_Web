@@ -12,19 +12,18 @@ namespace NMib::NWeb::NWebSocket
 {
 	struct CListenActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep accept work on the connection actors' pool.
-
 		CListenActor(NConcurrency::TCActor<CWebSocketServerActor> const &_Server, CWebsocketSettings const &_Settings);
 		~CListenActor();
 
 		void f_SetSocket(NStorage::TCUniquePointer<NNetwork::ICSocket> &&_pSocket);
 		void f_StateAdded(NNetwork::ENetTCPState _StateAdded);
 
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep accept work on the connection actors' pool.
+
 	private:
 		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_ProcessState();
 
-	private:
 		NStorage::TCUniquePointer<NNetwork::ICSocket> mp_pSocket;
 		CWebsocketSettings mp_Settings;
 		NConcurrency::TCWeakActor<CWebSocketServerActor> mp_Server;

@@ -114,13 +114,13 @@ namespace NMib::NWeb
 
 	struct CWebsocketSettings
 	{
+		umint f_GetSendWindowBytes() const;
+		umint f_GetSendWindowStartBytes() const;
+
 		static constexpr umint mc_DefaultMaxMessageSize = 24 * 1024 * 1024;
 		static constexpr umint mc_DefaultFragmentationSize = 32 * 1024;
 		static constexpr umint mc_DefaultMaxFragmentSize = 128 * 1024;
 		static constexpr pfp64 mc_DefaultTimeout = 60.0;
-
-		umint f_GetSendWindowBytes() const;
-		umint f_GetSendWindowStartBytes() const;
 
 		umint m_MaxMessageSize = mc_DefaultMaxMessageSize;
 		umint m_FragmentationSize = mc_DefaultFragmentationSize;
@@ -136,8 +136,6 @@ namespace NMib::NWeb
 
 	struct CWebSocketActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
-
 		struct CCloseInfo
 		{
 			EWebSocketStatus m_Status = EWebSocketStatus_None;
@@ -210,7 +208,8 @@ namespace NMib::NWeb
 			bool m_bMaskFrames = true;
 		};
 
-	public:
+		struct CInternal;
+
 		CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings);
 		~CWebSocketActor();
 
@@ -237,6 +236,7 @@ namespace NMib::NWeb
 
 		static bool fs_IsValidCloseStatus(EWebSocketStatus _Status);
 
+		static constexpr NConcurrency::EPriority mc_Priority = NConcurrency::EPriority_NormalHighCPU;
 		static constexpr umint mc_MaxCloseMessageLength = 125 - 2;
 
 	private:
@@ -262,7 +262,6 @@ namespace NMib::NWeb
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EWebSocketStatus _Reason, NStr::CStr _Message, EWebSocketCloseOrigin _Origin)> m_fOnClose;
 		};
 
-	private:
 		NConcurrency::TCFuture<void> fp_Destroy() override;
 
 		void fp_StateAdded(NNetwork::ENetTCPState _StateAdded);
@@ -312,10 +311,6 @@ namespace NMib::NWeb
 			-> NConcurrency::CActorSubscription
 		;
 
-	public:
-		struct CInternal;
-
-	private:
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};
 
@@ -333,15 +328,6 @@ namespace NMib::NWeb
 
 	struct CWebSocketNewClientConnection : public CWebSocketNewConnection
 	{
-		NHTTP::CResponseHeader m_Response;
-		NStr::CStr m_Protocol;
-		NStorage::TCUniquePointer<NNetwork::ICSocketConnectionInfo> m_pSocketInfo;
-		NMib::NNetwork::CNetAddress m_PeerAddress;
-
-		template <typename tf_CResultCall>
-		NConcurrency::TCActor<CWebSocketActor> f_Accept(tf_CResultCall &&_CallbackResultCall);
-		void f_Reject(NStr::CStr const &_Error) const;
-
 		CWebSocketNewClientConnection
 			(
 				NHTTP::CResponseHeader &&_Response
@@ -356,33 +342,35 @@ namespace NMib::NWeb
 		~CWebSocketNewClientConnection();
 		CWebSocketNewClientConnection(CWebSocketNewClientConnection &&_Other);
 
-	private:
-		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection const &_Other);
-		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection &&_Other);
-		CWebSocketNewClientConnection(CWebSocketNewClientConnection const &_Other);
+		template <typename tf_CResultCall>
+		NConcurrency::TCActor<CWebSocketActor> f_Accept(tf_CResultCall &&_CallbackResultCall);
+		void f_Reject(NStr::CStr const &_Error) const;
 
+		NHTTP::CResponseHeader m_Response;
+		NStr::CStr m_Protocol;
+		NStorage::TCUniquePointer<NNetwork::ICSocketConnectionInfo> m_pSocketInfo;
+		NMib::NNetwork::CNetAddress m_PeerAddress;
+
+	private:
 		struct CRepliedHelper
 		{
-			NConcurrency::TCActor<CWebSocketActor> m_Connection;
-			NAtomic::TCAtomic<bool> m_bRepliedToConnection;
 			CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
 			~CRepliedHelper();
+
+			NConcurrency::TCActor<CWebSocketActor> m_Connection;
+			NAtomic::TCAtomic<bool> m_bRepliedToConnection;
 		};
+
+		CWebSocketNewClientConnection(CWebSocketNewClientConnection const &_Other);
+
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection const &_Other);
+		CWebSocketNewClientConnection &operator = (CWebSocketNewClientConnection &&_Other);
 
 		NStorage::TCSharedPointer<CRepliedHelper> mp_pHelper;
 	};
 
 	struct CWebSocketNewServerConnection : public CWebSocketNewConnection
 	{
-		CWebSocketActor::CConnectionInfo m_Info;
-		NContainer::TCVector<NStr::CStr> m_Protocols;
-
-		template <typename tf_CResultCall>
-		auto f_Accept(NStr::CStr const &_Protocol, tf_CResultCall &&_CallbackResultCall, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader())
-			-> NConcurrency::TCActor<CWebSocketActor>
-		;
-		void f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader()) const;
-
 		CWebSocketNewServerConnection
 			(
 				CWebSocketActor::CConnectionInfo &&_ConnectionInfo
@@ -393,33 +381,35 @@ namespace NMib::NWeb
 		~CWebSocketNewServerConnection();
 		CWebSocketNewServerConnection(CWebSocketNewServerConnection &&_Other);
 
-	private:
-		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &_Other);
-		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection &&_Other);
-		CWebSocketNewServerConnection(CWebSocketNewServerConnection const &_Other);
+		template <typename tf_CResultCall>
+		auto f_Accept(NStr::CStr const &_Protocol, tf_CResultCall &&_CallbackResultCall, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader())
+			-> NConcurrency::TCActor<CWebSocketActor>
+		;
+		void f_Reject(NStr::CStr const &_Error, NHTTP::CResponseHeader &&_ResponseHeader = NHTTP::CResponseHeader()) const;
 
+		CWebSocketActor::CConnectionInfo m_Info;
+		NContainer::TCVector<NStr::CStr> m_Protocols;
+
+	private:
 		struct CRepliedHelper
 		{
-			NConcurrency::TCActor<CWebSocketActor> m_Connection;
-			NAtomic::TCAtomic<bool> m_bRepliedToConnection;
 			CRepliedHelper(NConcurrency::TCActor<CWebSocketActor> const &_Connection);
 			~CRepliedHelper();
+
+			NConcurrency::TCActor<CWebSocketActor> m_Connection;
+			NAtomic::TCAtomic<bool> m_bRepliedToConnection;
 		};
+
+		CWebSocketNewServerConnection(CWebSocketNewServerConnection const &_Other);
+
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection const &_Other);
+		CWebSocketNewServerConnection &operator = (CWebSocketNewServerConnection &&_Other);
 
 		NStorage::TCSharedPointer<CRepliedHelper> mp_pHelper;
 	};
 
 	struct CWebSocketClientActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
-
-		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
-		~CWebSocketClientActor();
-
-		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
-		void f_SetDefaultFragmentationSize(umint _FragmentationSize, umint _MaxFragmentSize);
-		void f_SetDefaultTimeout(fp64 _Timeout);
-
 		struct CConnectSettings
 		{
 			NStr::CStr m_ConnectToAddress;
@@ -438,11 +428,18 @@ namespace NMib::NWeb
 			uint64 m_SendWindowBytes = 0;                     // Zero selects the connector's send-window default.
 		};
 
+		CWebSocketClientActor(CWebsocketSettings const &_DefaultSettings = {});
+		~CWebSocketClientActor();
+
+		void f_SetDefaultMaxMessageSize(umint _MaxMessageSize);
+		void f_SetDefaultFragmentationSize(umint _FragmentationSize, umint _MaxFragmentSize);
+		void f_SetDefaultTimeout(fp64 _Timeout);
+
 		NConcurrency::TCFuture<CWebSocketNewClientConnection> f_Connect(CConnectSettings _Settings);
 
-	private:
-		NConcurrency::TCFuture<void> fp_Destroy() override;
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
 
+	private:
 		struct CPendingConnection
 		{
 			~CPendingConnection();
@@ -453,6 +450,8 @@ namespace NMib::NWeb
 			NConcurrency::CIoLoopBinding m_IoBinding; // Chosen before socket start; seed connection scheduling on this loop queue.
 		};
 
+		NConcurrency::TCFuture<void> fp_Destroy() override;
+
 		NContainer::TCLinkedList<CPendingConnection> mp_PendingConnects;
 		NConcurrency::TCActor<NNetwork::CResolveActor> mp_AddressResolver;
 		CWebsocketSettings mp_DefaultSettings;
@@ -460,16 +459,16 @@ namespace NMib::NWeb
 
 	struct CWebSocketServerActor : public NConcurrency::CActor
 	{
-		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
-
-		CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings = {});
-		~CWebSocketServerActor();
-
 		struct CListenResult
 		{
 			NConcurrency::CActorSubscription m_Subscription;
 			NContainer::TCVector<uint16> m_ListenPorts;
 		};
+
+		struct CInternal;
+
+		CWebSocketServerActor(CWebsocketSettings const &_DefaultSettings = {});
+		~CWebSocketServerActor();
 
 		auto f_StartListen
 			(
@@ -502,16 +501,14 @@ namespace NMib::NWeb
 		void f_Debug_SetBroken(bool _bBroken);
 #endif
 
-	private:
-		NConcurrency::TCFuture<void> fp_Destroy() override;
-
-		void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);
-
-	public:
-		struct CInternal;
+		static constexpr NConcurrency::EPriority mc_Priority = CWebSocketActor::mc_Priority; // Keep setup callbacks on the connection actors' pool.
 
 	private:
 		friend struct NWebSocket::CListenActor;
+
+		NConcurrency::TCFuture<void> fp_Destroy() override;
+
+		void fp_AddConnection(NConcurrency::TCActor<CWebSocketActor> &&_Connection);
 
 		NStorage::TCUniquePointer<CInternal> mp_pInternal;
 	};

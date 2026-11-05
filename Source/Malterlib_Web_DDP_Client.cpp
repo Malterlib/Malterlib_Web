@@ -17,16 +17,18 @@ namespace NMib::NWeb
 {
 	struct CDDPClient::CCollection
 	{
+		static NStr::CStr fs_IDParse(NStr::CStr const &_ID);
+
 		NContainer::TCMap<NStr::CStr, NEncoding::CEJsonSorted> m_Documents;
-
-		static NStr::CStr fs_IDParse(NStr::CStr const &_ID)
-		{
-			if (_ID.f_StartsWith("-") || _ID.f_StartsWith("~"))
-				return _ID.f_Extract(1);
-
-			return _ID;
-		}
 	};
+
+	NStr::CStr CDDPClient::CCollection::fs_IDParse(NStr::CStr const &_ID)
+	{
+		if (_ID.f_StartsWith("-") || _ID.f_StartsWith("~"))
+			return _ID.f_Extract(1);
+
+		return _ID;
+	}
 
 	namespace
 	{
@@ -47,15 +49,9 @@ namespace NMib::NWeb
 
 		struct CSubscription
 		{
-			~CSubscription()
-			{
-				*m_pDestroyed = true;
-			}
+			~CSubscription();
 
-			NStr::CStr const &f_GetID() const
-			{
-				return NContainer::TCMap<NStr::CStr, CSubscription>::fs_GetKey(*this);
-			}
+			NStr::CStr const &f_GetID() const;
 
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (ESubscriptionNotification _Notification, NEncoding::CEJsonSorted _Message)> m_fCallback;
 			ESubscriptionNotification m_NotifyOn;
@@ -68,10 +64,7 @@ namespace NMib::NWeb
 		struct CCollectionObservations;
 		struct CObservation
 		{
-			~CObservation()
-			{
-				*m_pDestroyed = true;
-			}
+			~CObservation();
 
 			NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (EObserveNotification _Notification, NEncoding::CEJsonSorted _Message)> m_fCallback;
 			EObserveNotification m_NotifyOn;
@@ -80,11 +73,9 @@ namespace NMib::NWeb
 
 		struct CCollectionObservations
 		{
+			NStr::CStr const &f_GetID() const;
+
 			NContainer::TCLinkedList<CObservation> m_Observations;
-			NStr::CStr const &f_GetID() const
-			{
-				return NContainer::TCMap<NStr::CStr, CCollectionObservations>::fs_GetKey(*this);
-			}
 		};
 
 		CInternal
@@ -97,44 +88,21 @@ namespace NMib::NWeb
 				, NNetwork::FVirtualSocketFactory const &_fSocketFactory
 				, EClientOption _ClientOptions
 			)
-			: m_pThis(_pThis)
-			, m_ConnectTo(_ConnectTo)
-			, m_BindTo(_BindTo)
-			, m_ConnectionFactory(_ConnectionFactory)
-			, m_fSocketFactory(_fSocketFactory)
-			, m_ClientOptions(_ClientOptions)
-		{
-			if (!_ConnectionFactory)
-				m_ConnectionFactory = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+		;
 
-			if (!_fSocketFactory && _ConnectTo.f_GetScheme() == "wss")
-			{
-				NNetwork::CSSLSettings ClientSettings;
-				ClientSettings.m_VerificationFlags |= NNetwork::CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
-				NStorage::TCSharedPointer<NNetwork::CSSLContext> pClientContext = fg_Construct(NNetwork::CSSLContext::EType_Client, ClientSettings);
-				m_fSocketFactory = NNetwork::CSocket_SSL::fs_GetFactory(pClientContext);
-			}
+		~CInternal();
 
-			// wsa requires a caller-supplied authenticated factory with pinned trust; no safe default can infer the server identity.
-
-			if (_Origin.f_IsEmpty())
-			{
-				auto Origin = _ConnectTo;
-				if (_ConnectTo.f_GetScheme() == "wss" || fg_IsAuthenticatedUnixScheme(_ConnectTo.f_GetScheme()))
-					Origin.f_SetScheme("https");
-				else
-					Origin.f_SetScheme("http");
-
-				Origin.f_ClearFragment();
-				m_Origin = Origin.f_Encode();
-			}
-		}
-
-		~CInternal()
-		{
-			m_bDestructorCalled = true;
-			m_Subscriptions.f_Clear();
-		}
+		void f_ReceiveMessage(NStr::CStr const &_Message);
+		auto f_SendMethod
+			(
+				NStr::CStr const &_MethodName
+				, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
+				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
+			)
+			-> uint64
+		;
+		void f_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
+		void f_SendMessage(NEncoding::CEJsonSorted const &_Message);
 
 		CDDPClient *m_pThis;
 
@@ -175,18 +143,6 @@ namespace NMib::NWeb
 
 		bool m_bDestructorCalled = false;
 
-		void f_ReceiveMessage(NStr::CStr const &_Message);
-		auto f_SendMethod
-			(
-				NStr::CStr const &_MethodName
-				, NContainer::TCVector<NEncoding::CEJsonSorted> const &_Params
-				, NFunction::TCFunctionMovable<void (NStr::CStr const &_Error, NEncoding::CEJsonSorted &&_Result)> &&_fOnResult
-			)
-			-> uint64
-		;
-		void f_SendConnect(fp32 _Timeout, NStr::CStr const &_SessionID);
-		void f_SendMessage(NEncoding::CEJsonSorted const &_Message);
-
 	private:
 		void fp_OnError(NStr::CStr const &_Error);
 		void fp_HandleRemoved(NEncoding::CEJsonSorted const &_Message);
@@ -200,6 +156,75 @@ namespace NMib::NWeb
 
 		CConnectInfo fp_ExtractConnectInfo(NEncoding::CEJsonSorted const &_Info);
 	};
+
+	CDDPClient::CInternal::CSubscription::~CSubscription()
+	{
+		*m_pDestroyed = true;
+	}
+
+	NStr::CStr const &CDDPClient::CInternal::CSubscription::f_GetID() const
+	{
+		return NContainer::TCMap<NStr::CStr, CSubscription>::fs_GetKey(*this);
+	}
+
+	CDDPClient::CInternal::CObservation::~CObservation()
+	{
+		*m_pDestroyed = true;
+	}
+
+	NStr::CStr const &CDDPClient::CInternal::CCollectionObservations::f_GetID() const
+	{
+		return NContainer::TCMap<NStr::CStr, CCollectionObservations>::fs_GetKey(*this);
+	}
+
+	CDDPClient::CInternal::CInternal
+		(
+			CDDPClient *_pThis
+			, NHTTP::CURL const &_ConnectTo
+			, NStr::CStr const &_BindTo
+			, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
+			, NStr::CStr const &_Origin
+			, NNetwork::FVirtualSocketFactory const &_fSocketFactory
+			, EClientOption _ClientOptions
+		)
+		: m_pThis(_pThis)
+		, m_ConnectTo(_ConnectTo)
+		, m_BindTo(_BindTo)
+		, m_ConnectionFactory(_ConnectionFactory)
+		, m_fSocketFactory(_fSocketFactory)
+		, m_ClientOptions(_ClientOptions)
+	{
+		if (!_ConnectionFactory)
+			m_ConnectionFactory = NConcurrency::fg_ConstructActor<CWebSocketClientActor>();
+
+		if (!_fSocketFactory && _ConnectTo.f_GetScheme() == "wss")
+		{
+			NNetwork::CSSLSettings ClientSettings;
+			ClientSettings.m_VerificationFlags |= NNetwork::CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
+			NStorage::TCSharedPointer<NNetwork::CSSLContext> pClientContext = fg_Construct(NNetwork::CSSLContext::EType_Client, ClientSettings);
+			m_fSocketFactory = NNetwork::CSocket_SSL::fs_GetFactory(pClientContext);
+		}
+
+		// wsa requires a caller-supplied authenticated factory with pinned trust; no safe default can infer the server identity.
+
+		if (_Origin.f_IsEmpty())
+		{
+			auto Origin = _ConnectTo;
+			if (_ConnectTo.f_GetScheme() == "wss" || fg_IsAuthenticatedUnixScheme(_ConnectTo.f_GetScheme()))
+				Origin.f_SetScheme("https");
+			else
+				Origin.f_SetScheme("http");
+
+			Origin.f_ClearFragment();
+			m_Origin = Origin.f_Encode();
+		}
+	}
+
+	CDDPClient::CInternal::~CInternal()
+	{
+		m_bDestructorCalled = true;
+		m_Subscriptions.f_Clear();
+	}
 
 	CDDPClient::CConnectInfo::CConnectInfo()
 	{

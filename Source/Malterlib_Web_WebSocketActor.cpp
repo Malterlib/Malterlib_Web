@@ -72,21 +72,9 @@ namespace NMib::NWeb
 
 		struct CMessage
 		{
-			CMessage()
-			{
-				NMemory::fg_MemClear(m_Mask); // MSVC does not support inline initializing of array
-			}
+			CMessage();
 
-			// Flush only between frames; a direct-read masked frame still needs its positions in m_Data.
-			void f_FlushDataToStorage()
-			{
-				if (m_Data.f_IsEmpty())
-					return;
-
-				// Use shared segments so payload consumers can take retaining subviews.
-				m_Storage.f_AppendShared(NContainer::CSharedByteVector(fg_Move(m_Data)));
-				m_Data = NContainer::CIOByteVector();
-			}
+			void f_FlushDataToStorage();
 
 			uint64 m_Length = 0;
 			NContainer::CIOByteVector m_Data;
@@ -98,6 +86,22 @@ namespace NMib::NWeb
 			bool m_bHeaderFinished = false;
 		};
 
+		CMessage::CMessage()
+		{
+			NMemory::fg_MemClear(m_Mask); // MSVC does not support inline initializing of array
+		}
+
+		// Flush only between frames; a direct-read masked frame still needs its positions in m_Data.
+		void CMessage::f_FlushDataToStorage()
+		{
+			if (m_Data.f_IsEmpty())
+				return;
+
+			// Use shared segments so payload consumers can take retaining subviews.
+			m_Storage.f_AppendShared(NContainer::CSharedByteVector(fg_Move(m_Data)));
+			m_Data = NContainer::CIOByteVector();
+		}
+
 		// Retains payload storage until every referencing frame is sent.
 		struct CPayloadOwner
 		{
@@ -107,21 +111,20 @@ namespace NMib::NWeb
 		template <typename t_COwner>
 		struct TCPayloadOwner final : public CPayloadOwner
 		{
-			TCPayloadOwner(t_COwner &&_Owner)
-				: m_Owner(fg_Move(_Owner))
-			{
-			}
+			TCPayloadOwner(t_COwner &&_Owner);
 
 			t_COwner m_Owner;
 		};
 
+		template <typename t_COwner>
+		TCPayloadOwner<t_COwner>::TCPayloadOwner(t_COwner &&_Owner)
+			: m_Owner(fg_Move(_Owner))
+		{
+		}
+
 		struct COutgoingMessage
 		{
-			~COutgoingMessage()
-			{
-				if (m_Promise)
-					m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
-			}
+			~COutgoingMessage();
 
 			NStorage::TCSharedPointer<NContainer::CIOByteVector const> m_pData;
 			NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<void>> m_Promise;
@@ -137,6 +140,12 @@ namespace NMib::NWeb
 			bool m_bFinished = false;
 			bool m_bView = false;
 		};
+
+		COutgoingMessage::~COutgoingMessage()
+		{
+			if (m_Promise)
+				m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+		}
 
 		// Ordered output contains arena ranges and retaining payload views.
 		struct COutgoingSegment
@@ -159,15 +168,17 @@ namespace NMib::NWeb
 			COutgoingDataPromise() = default;
 			COutgoingDataPromise(COutgoingDataPromise &&_Other) = default;
 
-			~COutgoingDataPromise()
-			{
-				if (m_Promise)
-					m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
-			}
+			~COutgoingDataPromise();
 
 			uint64 m_Position = 0;
 			NStorage::TCOptionalClearOnMove<NConcurrency::TCPromise<void>> m_Promise;
 		};
+
+		COutgoingDataPromise::~COutgoingDataPromise()
+		{
+			if (m_Promise)
+				m_Promise->f_SetException(DMibErrorInstance("Outgoing message abandoned"));
+		}
 
 		static constexpr umint gc_OutgoingPageSize = 2048;
 		static constexpr umint gc_IncomingPageSize = 2048;
@@ -216,107 +227,128 @@ namespace NMib::NWeb
 		using CFunction = NFunction::TCFunctionMovable<t_CCallback>;
 		using CStripedReturn = typename NConcurrency::NPrivate::TCIsFuture<CReturn>::CType;
 
-		template <typename ...tfp_CParams>
-		NConcurrency::TCFuture<CStripedReturn> operator () (tfp_CParams && ...p_Params)
-		{
-			if (!mp_fCallback.f_IsEmpty())
-				return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...);
-			else if (!mp_bDoDefer)
-				return DMibErrorInstance("Invalid call to non-defered").f_ExceptionPointer();
-
-			NConcurrency::TCPromiseFuturePair<CStripedReturn> Promise;
-			[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&_TypeList) mutable
-			{
-				mp_DeferredCalls.f_Insert
-					(
-						[Promise = fg_Move(Promise.m_Promise), ...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
-						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
-						{
-							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
-								{
-									_fCallback(fg_Move(p_Params)...) > fg_Move(Promise);
-								}
-								(fg_Move(CapturedParams)...)
-							;
-						}
-					)
-				;
-			}
-			(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
-
-			return fg_Move(Promise.m_Future);
-		}
+		TCDeferredCallback(bool _bDoDefer);
 
 		template <typename ...tfp_CParams>
-		void f_CallDiscard(tfp_CParams && ...p_Params)
-		{
-			if (!mp_fCallback.f_IsEmpty())
-				return mp_fCallback.f_CallDiscard(fg_Forward<tfp_CParams>(p_Params)...);
-			else if (!mp_bDoDefer)
-				return;
+		NConcurrency::TCFuture<CStripedReturn> operator () (tfp_CParams && ...p_Params);
 
-			[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&_TypeList) mutable
-			{
-				mp_DeferredCalls.f_Insert
-					(
-						[...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
-						(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
-						{
-							return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
-								{
-									_fCallback.f_CallDiscard(fg_Move(p_Params)...);
-								}
-								(fg_Move(CapturedParams)...)
-							;
-						}
-					)
-				;
-			}
-			(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
-		}
+		template <typename ...tfp_CParams>
+		void f_CallDiscard(tfp_CParams && ...p_Params);
 
-		void f_SetCallback(NConcurrency::TCActorFunctorWeak<t_CCallback> &&_fCallback)
-		{
-			mp_fCallback = fg_Move(_fCallback);
-
-			for (auto &fDeferredCall : mp_DeferredCalls)
-				fDeferredCall(mp_fCallback);
-
-			f_StopDeferring();
-		}
-
-		void f_StopDeferring()
-		{
-			mp_DeferredCalls.f_Clear();
-			mp_bDoDefer = false;
-		}
-
-		bool f_ShouldCall() const
-		{
-			return !mp_fCallback.f_IsEmpty() || mp_bDoDefer;
-		}
-
-		bool f_IsEmpty() const
-		{
-			return mp_fCallback.f_IsEmpty();
-		}
-
-		TCDeferredCallback(bool _bDoDefer)
-			: mp_bDoDefer(_bDoDefer)
-		{
-		}
-
-		NConcurrency::TCFuture<void> f_Destroy() &&
-		{
-			f_StopDeferring();
-			return fg_Move(mp_fCallback).f_Destroy();
-		}
+		void f_SetCallback(NConcurrency::TCActorFunctorWeak<t_CCallback> &&_fCallback);
+		void f_StopDeferring();
+		bool f_ShouldCall() const;
+		bool f_IsEmpty() const;
+		NConcurrency::TCFuture<void> f_Destroy() &&;
 
 	private:
 		NContainer::TCVector<NFunction::TCFunctionMovable<void (NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback)>> mp_DeferredCalls;
 		bool mp_bDoDefer = false;
 		NConcurrency::TCActorFunctorWeak<t_CCallback> mp_fCallback;
 	};
+
+	template <typename t_CCallback>
+	TCDeferredCallback<t_CCallback>::TCDeferredCallback(bool _bDoDefer)
+		: mp_bDoDefer(_bDoDefer)
+	{
+	}
+
+	template <typename t_CCallback>
+	template <typename ...tfp_CParams>
+	NConcurrency::TCFuture<typename TCDeferredCallback<t_CCallback>::CStripedReturn> TCDeferredCallback<t_CCallback>::operator () (tfp_CParams && ...p_Params)
+	{
+		if (!mp_fCallback.f_IsEmpty())
+			return mp_fCallback(fg_Forward<tfp_CParams>(p_Params)...);
+		else if (!mp_bDoDefer)
+			return DMibErrorInstance("Invalid call to non-defered").f_ExceptionPointer();
+
+		NConcurrency::TCPromiseFuturePair<CStripedReturn> Promise;
+		[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&_TypeList) mutable
+		{
+			mp_DeferredCalls.f_Insert
+				(
+					[Promise = fg_Move(Promise.m_Promise), ...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))]
+					(NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+					{
+						return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
+							{
+								_fCallback(fg_Move(p_Params)...) > fg_Move(Promise);
+							}
+							(fg_Move(CapturedParams)...)
+						;
+					}
+				)
+			;
+		}
+		(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
+
+		return fg_Move(Promise.m_Future);
+	}
+
+	template <typename t_CCallback>
+	template <typename ...tfp_CParams>
+	void TCDeferredCallback<t_CCallback>::f_CallDiscard(tfp_CParams && ...p_Params)
+	{
+		if (!mp_fCallback.f_IsEmpty())
+			return mp_fCallback.f_CallDiscard(fg_Forward<tfp_CParams>(p_Params)...);
+		else if (!mp_bDoDefer)
+			return;
+
+		[&]<typename ...tfp_CFunctionParams>(NMeta::TCTypeList<tfp_CFunctionParams...> &&_TypeList) mutable
+		{
+			mp_DeferredCalls.f_Insert
+				(
+					[...CapturedParams = NTraits::TCDecay<tfp_CFunctionParams>(fg_Forward<tfp_CParams>(p_Params))](NConcurrency::TCActorFunctorWeak<t_CCallback> const &_fCallback) mutable
+					{
+						return [&]<typename ...tfp_CParams2>(tfp_CParams2 && ...p_Params) mutable
+							{
+								_fCallback.f_CallDiscard(fg_Move(p_Params)...);
+							}
+							(fg_Move(CapturedParams)...)
+						;
+					}
+				)
+			;
+		}
+		(typename NTraits::TCFunctionTraits<t_CCallback>::CParams());
+	}
+
+	template <typename t_CCallback>
+	void TCDeferredCallback<t_CCallback>::f_SetCallback(NConcurrency::TCActorFunctorWeak<t_CCallback> &&_fCallback)
+	{
+		mp_fCallback = fg_Move(_fCallback);
+
+		for (auto &fDeferredCall : mp_DeferredCalls)
+			fDeferredCall(mp_fCallback);
+
+		f_StopDeferring();
+	}
+
+	template <typename t_CCallback>
+	void TCDeferredCallback<t_CCallback>::f_StopDeferring()
+	{
+		mp_DeferredCalls.f_Clear();
+		mp_bDoDefer = false;
+	}
+
+	template <typename t_CCallback>
+	bool TCDeferredCallback<t_CCallback>::f_ShouldCall() const
+	{
+		return !mp_fCallback.f_IsEmpty() || mp_bDoDefer;
+	}
+
+	template <typename t_CCallback>
+	bool TCDeferredCallback<t_CCallback>::f_IsEmpty() const
+	{
+		return mp_fCallback.f_IsEmpty();
+	}
+
+	template <typename t_CCallback>
+	NConcurrency::TCFuture<void> TCDeferredCallback<t_CCallback>::f_Destroy() &&
+	{
+		f_StopDeferring();
+		return fg_Move(mp_fCallback).f_Destroy();
+	}
 
 	struct CWebSocketActor::CInternal : public NConcurrency::CActorInternal
 	{
@@ -335,43 +367,8 @@ namespace NMib::NWeb
 			uint32 m_iNextFree = mc_iNone;
 		};
 
-		CInternal(CWebSocketActor *_pThis, bool _bClient, CWebsocketSettings const &_Settings)
-			: m_pThis(_pThis)
-			, m_fOnReceiveBinaryMessage(true)
-			, m_fOnReceiveTextMessage(true)
-			, m_fOnReceivePing(true)
-			, m_fOnReceivePong(true)
-			, m_fOnClose(true)
-			, m_fOnFinishConnection(!_bClient)
-			, m_fOnFinishClientConnection(_bClient)
-			, m_IncomingData(gc_IncomingPageSize)
-			, m_OutgoingData(gc_OutgoingPageSize)
-			, m_bClient(_bClient)
-			, m_Settings(_Settings)
-			, m_pLastPendingMessagesList(nullptr)
-		{
-			// Negotiation keeps masking on until both peers agree, even when settings otherwise permit unmasked frames.
-			m_bMaskFrames = !_Settings.m_bAllowUnmaskedFrames || _Settings.m_bNegotiateUnmaskedFrames;
-
-			// Bounded so every gather size derived from it stays well inside umint,
-			// on 32 bit platforms included
-			m_Settings.m_FragmentationSize = fg_Min(m_Settings.m_FragmentationSize, umint(1) << 30);
-			f_SizeSendReservations();
-
-			if (_bClient)
-				m_ConnectionInfo.f_Set<2>();
-			else
-				m_ConnectionInfo.f_Set<1>();
-		}
-
-		~CInternal()
-		{
-			DMibFastCheck(!m_bDestroyed || m_OutgoingDataPromises.empty());
-			DMibFastCheck(!m_bDestroyed || m_PendingMessages.f_IsEmpty());
-
-			if (m_ClosePromise)
-				m_ClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
-		}
+		CInternal(CWebSocketActor *_pThis, bool _bClient, CWebsocketSettings const &_Settings);
+		~CInternal();
 
 		void f_OnReceivedData();
 		void f_OnSentData();
@@ -432,6 +429,9 @@ namespace NMib::NWeb
 		umint f_SendWindowStartBytes() const;
 		void f_SizeSendReservations();
 		void f_ResetSendReservations();
+
+		// A continuation carries no reservation of its own
+		static constexpr umint mc_iNoReservation = umint(-1);
 
 		CWebSocketActor *m_pThis = nullptr;
 		NStorage::TCUniquePointer<NNetwork::ICSocket> m_pSocket;
@@ -499,9 +499,6 @@ namespace NMib::NWeb
 		umint m_nSendOpsInFlight = 0;
 		umint m_nOutgoingSubmitted = 0; // Reserved bytes excluded from later gathers until completion.
 
-		// A continuation carries no reservation of its own
-		static constexpr umint mc_iNoReservation = umint(-1);
-
 		NContainer::TCVector<CSendReservation> m_SendReservations; // Preallocated for the window; indexed free list avoids per-send scanning or growth.
 		umint m_nSendReservationsInUse = 0;
 		umint m_nMaxSendReservations = 8;
@@ -548,6 +545,44 @@ namespace NMib::NWeb
 		umint m_bDestroyed = false;
 #endif
 	};
+
+	CWebSocketActor::CInternal::CInternal(CWebSocketActor *_pThis, bool _bClient, CWebsocketSettings const &_Settings)
+		: m_pThis(_pThis)
+		, m_fOnReceiveBinaryMessage(true)
+		, m_fOnReceiveTextMessage(true)
+		, m_fOnReceivePing(true)
+		, m_fOnReceivePong(true)
+		, m_fOnClose(true)
+		, m_fOnFinishConnection(!_bClient)
+		, m_fOnFinishClientConnection(_bClient)
+		, m_IncomingData(gc_IncomingPageSize)
+		, m_OutgoingData(gc_OutgoingPageSize)
+		, m_bClient(_bClient)
+		, m_Settings(_Settings)
+		, m_pLastPendingMessagesList(nullptr)
+	{
+		// Negotiation keeps masking on until both peers agree, even when settings otherwise permit unmasked frames.
+		m_bMaskFrames = !_Settings.m_bAllowUnmaskedFrames || _Settings.m_bNegotiateUnmaskedFrames;
+
+		// Bounded so every gather size derived from it stays well inside umint,
+		// on 32 bit platforms included
+		m_Settings.m_FragmentationSize = fg_Min(m_Settings.m_FragmentationSize, umint(1) << 30);
+		f_SizeSendReservations();
+
+		if (_bClient)
+			m_ConnectionInfo.f_Set<2>();
+		else
+			m_ConnectionInfo.f_Set<1>();
+	}
+
+	CWebSocketActor::CInternal::~CInternal()
+	{
+		DMibFastCheck(!m_bDestroyed || m_OutgoingDataPromises.empty());
+		DMibFastCheck(!m_bDestroyed || m_PendingMessages.f_IsEmpty());
+
+		if (m_ClosePromise)
+			m_ClosePromise->f_SetException(DMibErrorInstance("Abandoned close"));
+	}
 
 	CWebSocketActor::CWebSocketActor(bool _bClient, CWebsocketSettings const &_Settings)
 		: mp_pInternal(fg_Construct(this, _bClient, _Settings))

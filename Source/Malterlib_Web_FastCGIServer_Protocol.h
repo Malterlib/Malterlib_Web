@@ -33,18 +33,18 @@ namespace NMib::NWeb::NFastCGI
 
 	struct CHeader
 	{
+		template <typename tf_CStream>
+		void f_Consume(tf_CStream &_Stream);
+
+		template <typename tf_CStream>
+		void f_Feed(tf_CStream &_Stream) const;
+
 		ERequestVersion m_Version = ERequestVersion_1;
 		ERequestType m_Type = ERequestType_Invalid;
 		uint16 m_RequestID = 0;
 		uint16 m_ContentLength = 0;
 		uint8 m_PaddingLength = 0;
 		uint8 m_Reserved = 0;
-
-		template <typename tf_CStream>
-		void f_Consume(tf_CStream &_Stream);
-
-		template <typename tf_CStream>
-		void f_Feed(tf_CStream &_Stream) const;
 	};
 
 	constexpr aint gc_HeaderLen = 8;
@@ -65,15 +65,15 @@ namespace NMib::NWeb::NFastCGI
 
 	struct CBeginRequestBody
 	{
-		ERequestRole m_Role;
-		ERequestBodyFlag m_Flags;
-		uint8 m_Reserved[5];
-
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
 
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const;
+
+		ERequestRole m_Role;
+		ERequestBodyFlag m_Flags;
+		uint8 m_Reserved[5];
 	};
 
 	enum EEndRequestStatus : uint8
@@ -88,15 +88,15 @@ namespace NMib::NWeb::NFastCGI
 	{
 		CEndRequestBody();
 
-		uint32 m_AppStatus;
-		EEndRequestStatus m_ProtocolStatus;
-		uint8 m_Reserved[3];
-
 		template <typename tf_CStream>
 		void f_Consume(tf_CStream &_Stream);
 
 		template <typename tf_CStream>
 		void f_Feed(tf_CStream &_Stream) const;
+
+		uint32 m_AppStatus;
+		EEndRequestStatus m_ProtocolStatus;
+		uint8 m_Reserved[3];
 	};
 
 	/*
