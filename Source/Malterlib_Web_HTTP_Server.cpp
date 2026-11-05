@@ -120,11 +120,11 @@ namespace NMib::NWeb::NHTTP
 
 		try
 		{
-			NNetwork::CNetAddressTCPv4 TCPListenAddr;
-			TCPListenAddr.m_Port = mp_Config.m_Port;
+			NNetwork::CNetAddressTCPv4 ListenAddressTCP;
+			ListenAddressTCP.m_Port = mp_Config.m_Port;
 
 			NNetwork::CNetAddress ListenAddr;
-			ListenAddr.f_Set(TCPListenAddr);
+			ListenAddr.f_Set(ListenAddressTCP);
 
 			ListenSocket.f_Listen(ListenAddr, &_pThread->m_EventWantQuit, NMib::NNetwork::ENetFlag_None);
 		}
