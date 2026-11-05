@@ -1886,7 +1886,8 @@ namespace NMib::NWeb
 		// Bank test-held bytes without delivery or timeout refresh; the debug re-drive flushes them later.
 		bool bDebugBank = Internal.m_bDebugNoProcessing || Internal.m_bDebugNoProcessingReceive;
 #else
-		constexpr bool bDebugBank = false;
+		// Not constexpr, so it keeps the name it has where the tests set it at runtime.
+		bool const bDebugBank = false;
 #endif
 
 		// Parse retaining views directly; route payload to its message destination and framing bytes to the incoming pages.
