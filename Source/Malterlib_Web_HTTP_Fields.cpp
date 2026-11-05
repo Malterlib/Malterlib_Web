@@ -11,34 +11,41 @@ namespace NMib::NWeb::NHTTP
 
 	struct CFieldValueAsStringVisitor
 	{
+		CFieldValueAsStringVisitor(EFieldType _Type);
+
+		bool f_HasResult() const;
+		CStringValue f_GetResult();
+
+		template <typename tf_CType>
+		void operator () (tf_CType const &_Value);
+
 	private:
 		EFieldType mp_FieldType;
 		bool mp_bOK;
 		CStringValue mp_Result;
-
-	public:
-		CFieldValueAsStringVisitor(EFieldType _Type)
-			: mp_FieldType(_Type)
-			, mp_bOK(true)
-		{
-		}
-
-		bool f_HasResult() const
-		{
-			return mp_bOK;
-		}
-
-		CStringValue f_GetResult()
-		{
-			return fg_Move(mp_Result);
-		}
-
-		template <typename tf_CType>
-		void operator () (tf_CType const &_Value)
-		{
-			mp_bOK = false;
-		}
 	};
+
+	CFieldValueAsStringVisitor::CFieldValueAsStringVisitor(EFieldType _Type)
+		: mp_FieldType(_Type)
+		, mp_bOK(true)
+	{
+	}
+
+	bool CFieldValueAsStringVisitor::f_HasResult() const
+	{
+		return mp_bOK;
+	}
+
+	CStringValue CFieldValueAsStringVisitor::f_GetResult()
+	{
+		return fg_Move(mp_Result);
+	}
+
+	template <typename tf_CType>
+	void CFieldValueAsStringVisitor::operator () (tf_CType const &_Value)
+	{
+		mp_bOK = false;
+	}
 
 	template <>
 	void CFieldValueAsStringVisitor::operator ()<NStr::CStr>(NStr::CStr const &_Value)

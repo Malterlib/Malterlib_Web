@@ -24,6 +24,16 @@ namespace NMib::NWeb::NHTTP
 			EState_Connected
 		};
 
+		struct CLinkedRequest : public CRequest
+		{
+			inline CLinkedRequest();
+			inline CLinkedRequest(CLinkedRequest &&_ToMove);
+			inline CLinkedRequest(CRequest &&_ToMove);
+			inline ~CLinkedRequest();
+
+			DMibListLinkD_Link(CLinkedRequest, m_Link);
+		};
+
 		static constexpr umint mcp_ReadBufferSize = 2048;
 
 		EState mp_State;
@@ -35,16 +45,6 @@ namespace NMib::NWeb::NHTTP
 		bool mp_bFirstProcess;
 
 		CRequest mp_PendingRequest; // If a request is awaiting content it is stored here.
-
-		struct CLinkedRequest : public CRequest
-		{
-			inline CLinkedRequest();
-			inline CLinkedRequest(CLinkedRequest &&_ToMove);
-			inline CLinkedRequest(CRequest &&_ToMove);
-			inline ~CLinkedRequest();
-
-			DMibListLinkD_Link(CLinkedRequest, m_Link);
-		};
 
 		DMibListLinkD_List(CLinkedRequest, m_Link) mp_OpenRequests;
 	};

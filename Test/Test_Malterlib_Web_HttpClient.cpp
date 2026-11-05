@@ -43,14 +43,7 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 	{
 		CWebServerResults() = default;
 		CWebServerResults(CWebServerResults &&_Other) = default;
-		~CWebServerResults()
-		{
-			if (m_Subscription)
-				m_Subscription->f_Destroy().f_DiscardResult();
-
-			if (m_WebServerLaunch)
-				fg_Move(m_WebServerLaunch).f_Destroy().f_DiscardResult();
-		}
+		~CWebServerResults();
 
 		TCActor<CProcessLaunchActor> m_WebServerLaunch;
 		CHttpClientActor::CCertificateConfig m_CertificateConfig;
@@ -58,614 +51,627 @@ struct CHttpClient_Tests : public NMib::NTest::CTest
 		uint16 m_TCPPort = 0;
 	};
 
-	NStr::CStr f_GetLocalSocketFileName(NStr::CStr const &_Path) const
-	{
-		umint MaxLength = NSys::NNetwork::fg_GetMaxUnixSocketNameLength();
-		if (_Path.f_GetLen() <= aint(MaxLength))
-			return _Path;
+	NStr::CStr f_GetLocalSocketFileName(NStr::CStr const &_Path) const;
+	TCFuture<CWebServerResults> f_SetupWebServer(CStr _DestinationDirectory);
+	void f_DoTests();
+};
 
-		CStr ConfigHash = fg_GetHashedUuidString(_Path, g_SocketPathRootUUID, EUniversallyUniqueIdentifierFormat_AlphaNum);
-		CStr TempDir = CFile::fs_GetRawTemporaryDirectory();
-		CStr SocketPath = TempDir / (ConfigHash + ".socket");
-		if (SocketPath.f_GetLen() <= aint(MaxLength))
-			return SocketPath;
+CHttpClient_Tests::CWebServerResults::~CWebServerResults()
+{
+	if (m_Subscription)
+		m_Subscription->f_Destroy().f_DiscardResult();
 
-		SocketPath = fg_Format("/tmp/{}.socket", ConfigHash);
-		DMibCheck(SocketPath.f_GetLen() <= aint(MaxLength))(SocketPath.f_GetLen())(MaxLength);
+	if (m_WebServerLaunch)
+		fg_Move(m_WebServerLaunch).f_Destroy().f_DiscardResult();
+}
+
+NStr::CStr CHttpClient_Tests::f_GetLocalSocketFileName(NStr::CStr const &_Path) const
+{
+	umint MaxLength = NSys::NNetwork::fg_GetMaxUnixSocketNameLength();
+	if (_Path.f_GetLen() <= aint(MaxLength))
+		return _Path;
+
+	CStr ConfigHash = fg_GetHashedUuidString(_Path, g_SocketPathRootUUID, EUniversallyUniqueIdentifierFormat_AlphaNum);
+	CStr TempDir = CFile::fs_GetRawTemporaryDirectory();
+	CStr SocketPath = TempDir / (ConfigHash + ".socket");
+	if (SocketPath.f_GetLen() <= aint(MaxLength))
 		return SocketPath;
+
+	SocketPath = fg_Format("/tmp/{}.socket", ConfigHash);
+	DMibCheck(SocketPath.f_GetLen() <= aint(MaxLength))(SocketPath.f_GetLen())(MaxLength);
+	return SocketPath;
+}
+
+TCFuture<CHttpClient_Tests::CWebServerResults> CHttpClient_Tests::f_SetupWebServer(CStr _DestinationDirectory)
+{
+	CProcessLaunch::fs_KillProcesses
+		(
+			[_DestinationDirectory](CProcessInfo const &_ProcessInfo) -> bool
+			{
+				if (CFile::fs_GetFileNoExt(_ProcessInfo.m_FileName) == "node" && _ProcessInfo.m_Args.f_Contains(_DestinationDirectory / "index.ts") >= 0)
+					return true;
+
+				return false;
+			}
+			, EProcessInfoFlag_FileName | EProcessInfoFlag_Args
+		)
+	;
+
+	CStr HttpSocket = f_GetLocalSocketFileName(_DestinationDirectory / "http.sock");
+	CStr HttpsSocket = f_GetLocalSocketFileName(_DestinationDirectory / "https.sock");
+
+	CWebServerResults WebServerResults;
+
+	CExeFS SourceFS;
+	if (!fg_OpenExeFS(SourceFS))
+		DMibError("Could not open ExeFS");
+
+	if (CFile::fs_FileExists(_DestinationDirectory))
+		CFile::fs_DeleteDirectoryRecursive(_DestinationDirectory);
+
+	for (auto &File : {HttpSocket, HttpsSocket})
+	{
+		if (CFile::fs_FileExists(File))
+			CFile::fs_DeleteDirectoryRecursive(File);
 	}
 
-	TCFuture<CWebServerResults> f_SetupWebServer(CStr _DestinationDirectory)
-	{
-		CProcessLaunch::fs_KillProcesses
-			(
-				[_DestinationDirectory](CProcessInfo const &_ProcessInfo) -> bool
-				{
-					if (CFile::fs_GetFileNoExt(_ProcessInfo.m_FileName) == "node" && _ProcessInfo.m_Args.f_Contains(_DestinationDirectory / "index.ts") >= 0)
-						return true;
+	CFile::fs_CreateDirectory(_DestinationDirectory);
 
-					return false;
-				}
-				, EProcessInfoFlag_FileName | EProcessInfoFlag_Args
-			)
-		;
+	CFileSystemInterface_VirtualFS SourceVirtualFS(SourceFS.m_FileSystem);
+	CFileSystemInterface_Disk DestinationFS;
 
-		CStr HttpSocket = f_GetLocalSocketFileName(_DestinationDirectory / "http.sock");
-		CStr HttpsSocket = f_GetLocalSocketFileName(_DestinationDirectory / "https.sock");
-
-		CWebServerResults WebServerResults;
-
-		CExeFS SourceFS;
-		if (!fg_OpenExeFS(SourceFS))
-			DMibError("Could not open ExeFS");
-
-		if (CFile::fs_FileExists(_DestinationDirectory))
-			CFile::fs_DeleteDirectoryRecursive(_DestinationDirectory);
-
-		for (auto &File : {HttpSocket, HttpsSocket})
-		{
-			if (CFile::fs_FileExists(File))
-				CFile::fs_DeleteDirectoryRecursive(File);
-		}
-
-		CFile::fs_CreateDirectory(_DestinationDirectory);
-
-		CFileSystemInterface_VirtualFS SourceVirtualFS(SourceFS.m_FileSystem);
-		CFileSystemInterface_Disk DestinationFS;
-
-		SourceVirtualFS.f_CopyFiles("NodeWebServer/*", DestinationFS, _DestinationDirectory);
+	SourceVirtualFS.f_CopyFiles("NodeWebServer/*", DestinationFS, _DestinationDirectory);
 #ifdef DPlatformFamily_macOS
-		auto CurrentPath = fg_GetSys()->f_GetEnvironmentVariable("PATH", "").f_Split(":");
-		for (auto pExpectedPath : {"/opt/local/bin", "/opt/homebrew/bin"})
-		{
-			if (CurrentPath.f_Contains(pExpectedPath) < 0)
-				CurrentPath.f_InsertFirst(pExpectedPath);
-		}
-		fg_GetSys()->f_SetEnvironmentVariable("PATH", CStr::fs_Join(CurrentPath, ":"));
+	auto CurrentPath = fg_GetSys()->f_GetEnvironmentVariable("PATH", "").f_Split(":");
+	for (auto pExpectedPath : {"/opt/local/bin", "/opt/homebrew/bin"})
+	{
+		if (CurrentPath.f_Contains(pExpectedPath) < 0)
+			CurrentPath.f_InsertFirst(pExpectedPath);
+	}
+	fg_GetSys()->f_SetEnvironmentVariable("PATH", CStr::fs_Join(CurrentPath, ":"));
 #endif
 
-		co_await CProcessLaunchActor::fs_LaunchSimple({"npm", {"ci"}, _DestinationDirectory, CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode});
+	co_await CProcessLaunchActor::fs_LaunchSimple({"npm", {"ci"}, _DestinationDirectory, CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode});
 
-		CStr CertificateFile = _DestinationDirectory + "/web.pem";
-		CStr CertificateKeyFile = _DestinationDirectory + "/web.key";
+	CStr CertificateFile = _DestinationDirectory + "/web.pem";
+	CStr CertificateKeyFile = _DestinationDirectory + "/web.key";
 
-		CStr CaCertificateFile = _DestinationDirectory + "/web_ca.pem";
-		CStr CaCertificateKeyFile = _DestinationDirectory + "/web_ca.key";
+	CStr CaCertificateFile = _DestinationDirectory + "/web_ca.pem";
+	CStr CaCertificateKeyFile = _DestinationDirectory + "/web_ca.key";
+
+	{
+		CPublicKeySetting KeySettings = CPublicKeySettings_EC_Secp384r1{};
+
+		TCMap<CStr, CStr> RelativeDistinguishedNames;
+		RelativeDistinguishedNames["O"] = "malterlib.org";
+
+		CByteVector CertData;
+		CByteVector CertRequestData;
+		CSecureByteVector KeyData;
+		CByteVector CaCertData;
+		CSecureByteVector CaKeyData;
 
 		{
-			CPublicKeySetting KeySettings = CPublicKeySettings_EC_Secp384r1{};
-
-			TCMap<CStr, CStr> RelativeDistinguishedNames;
-			RelativeDistinguishedNames["O"] = "malterlib.org";
-
-			CByteVector CertData;
-			CByteVector CertRequestData;
-			CSecureByteVector KeyData;
-			CByteVector CaCertData;
-			CSecureByteVector CaKeyData;
-
-			{
-				CCertificateOptions Options;
-				Options.m_CommonName = fg_Format("Malterlib Web CA {nfh,sj16,sf0}", NMisc::fg_GetHighEntropyRandomInteger<uint64>());
-				Options.m_RelativeDistinguishedNames = RelativeDistinguishedNames;
-				Options.m_KeySetting = KeySettings;
-				Options.f_MakeCA();
-
-				CCertificateSignOptions SignOptions;
-				SignOptions.m_Days = 365 * 20;
-				SignOptions.f_AddExtension_SubjectKeyIdentifier();
-
-				CCertificate::fs_GenerateSelfSignedCertAndKey(Options, CaCertData, CaKeyData, SignOptions);
-				CFile::fs_WriteFile(CaCertData, CaCertificateFile);
-				CFile::fs_WriteFileSecure(CaKeyData, CaCertificateKeyFile);
-			}
-
 			CCertificateOptions Options;
-			Options.m_CommonName = "localhost";
+			Options.m_CommonName = fg_Format("Malterlib Web CA {nfh,sj16,sf0}", NMisc::fg_GetHighEntropyRandomInteger<uint64>());
 			Options.m_RelativeDistinguishedNames = RelativeDistinguishedNames;
-			Options.m_Hostnames = {"localhost"};
 			Options.m_KeySetting = KeySettings;
+			Options.f_MakeCA();
 
 			CCertificateSignOptions SignOptions;
-			SignOptions.m_Serial = 1;
-			SignOptions.m_Days = 824;
-			SignOptions.f_AddExtension_AuthorityKeyIdentifier();
-			Options.f_AddExtension_BasicConstraints(false);
-			Options.f_AddExtension_KeyUsage(EKeyUsage_KeyEncipherment | EKeyUsage_DigitalSignature);
+			SignOptions.m_Days = 365 * 20;
+			SignOptions.f_AddExtension_SubjectKeyIdentifier();
 
-			CCertificate::fs_GenerateClientCertificateRequest(Options, CertRequestData, KeyData);
-			CCertificate::fs_SignClientCertificate(CaCertData, CaKeyData, CertRequestData, CertData, SignOptions);
-
-			CFile::fs_WriteFile(CertData, CertificateFile);
-			CFile::fs_WriteFileSecure(KeyData, CertificateKeyFile);
-
-			WebServerResults.m_CertificateConfig.m_ClientKey = KeyData;
-			WebServerResults.m_CertificateConfig.m_ClientCertificate = CertData;
-			WebServerResults.m_CertificateConfig.m_CertificateAuthorities = CaCertData;
+			CCertificate::fs_GenerateSelfSignedCertAndKey(Options, CaCertData, CaKeyData, SignOptions);
+			CFile::fs_WriteFile(CaCertData, CaCertificateFile);
+			CFile::fs_WriteFileSecure(CaKeyData, CaCertificateKeyFile);
 		}
 
-		WebServerResults.m_WebServerLaunch = fg_Construct();
-		CProcessLaunchActor::CLaunch WebServerLaunch(CProcessLaunchParams::fs_LaunchExecutable("npx", {"ts-node", _DestinationDirectory / "index.ts"}, _DestinationDirectory, nullptr));
+		CCertificateOptions Options;
+		Options.m_CommonName = "localhost";
+		Options.m_RelativeDistinguishedNames = RelativeDistinguishedNames;
+		Options.m_Hostnames = {"localhost"};
+		Options.m_KeySetting = KeySettings;
 
-		WebServerLaunch.m_Params.m_bAllowExecutableLocate = true;
-		WebServerLaunch.m_Params.m_bCreateNewProcessGroup = true;
-		WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebKey"] = CertificateKeyFile;
-		WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebCert"] = CertificateFile;
-		WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebHttpSocket"] = HttpSocket;
-		WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebHttpsSocket"] = HttpsSocket;
+		CCertificateSignOptions SignOptions;
+		SignOptions.m_Serial = 1;
+		SignOptions.m_Days = 824;
+		SignOptions.f_AddExtension_AuthorityKeyIdentifier();
+		Options.f_AddExtension_BasicConstraints(false);
+		Options.f_AddExtension_KeyUsage(EKeyUsage_KeyEncipherment | EKeyUsage_DigitalSignature);
 
-		TCPromise<void> LaunchedPromise;
-		TCPromise<void> FinishedStartupPromise;
-		WebServerLaunch.m_Params.m_fOnStateChange = [LaunchedPromise, FinishedStartupPromise](NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		CCertificate::fs_GenerateClientCertificateRequest(Options, CertRequestData, KeyData);
+		CCertificate::fs_SignClientCertificate(CaCertData, CaKeyData, CertRequestData, CertData, SignOptions);
+
+		CFile::fs_WriteFile(CertData, CertificateFile);
+		CFile::fs_WriteFileSecure(KeyData, CertificateKeyFile);
+
+		WebServerResults.m_CertificateConfig.m_ClientKey = KeyData;
+		WebServerResults.m_CertificateConfig.m_ClientCertificate = CertData;
+		WebServerResults.m_CertificateConfig.m_CertificateAuthorities = CaCertData;
+	}
+
+	WebServerResults.m_WebServerLaunch = fg_Construct();
+	CProcessLaunchActor::CLaunch WebServerLaunch(CProcessLaunchParams::fs_LaunchExecutable("npx", {"ts-node", _DestinationDirectory / "index.ts"}, _DestinationDirectory, nullptr));
+
+	WebServerLaunch.m_Params.m_bAllowExecutableLocate = true;
+	WebServerLaunch.m_Params.m_bCreateNewProcessGroup = true;
+	WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebKey"] = CertificateKeyFile;
+	WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebCert"] = CertificateFile;
+	WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebHttpSocket"] = HttpSocket;
+	WebServerLaunch.m_Params.m_Environment["MalterlibWebTestWebHttpsSocket"] = HttpsSocket;
+
+	TCPromise<void> LaunchedPromise;
+	TCPromise<void> FinishedStartupPromise;
+	WebServerLaunch.m_Params.m_fOnStateChange = [LaunchedPromise, FinishedStartupPromise](NProcess::CProcessLaunchStateChangeVariant const &_State, fp64 _TimeSinceStart)
+		{
+			switch (_State.f_GetTypeID())
 			{
-				switch (_State.f_GetTypeID())
+			case NProcess::EProcessLaunchState_LaunchFailed:
 				{
-				case NProcess::EProcessLaunchState_LaunchFailed:
-					{
-						if (!LaunchedPromise.f_IsSet())
-							LaunchedPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch failed: {}", _State.f_Get<NProcess::EProcessLaunchState_LaunchFailed>())));
-						break;
-					}
-				case NProcess::EProcessLaunchState_Exited:
-					{
-						auto ExitCode = _State.f_Get<NProcess::EProcessLaunchState_Exited>();
-						if (!LaunchedPromise.f_IsSet())
-							LaunchedPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch exited unexpectedly: {}", ExitCode)));
-
-						if (!FinishedStartupPromise.f_IsSet())
-							FinishedStartupPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch exited unexpectedly: {}", ExitCode)));
-						break;
-					}
-				case NProcess::EProcessLaunchState_Launched:
 					if (!LaunchedPromise.f_IsSet())
-						LaunchedPromise.f_SetResult();
+						LaunchedPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch failed: {}", _State.f_Get<NProcess::EProcessLaunchState_LaunchFailed>())));
 					break;
 				}
-			}
-		;
-
-		struct CState
-		{
-			uint16 m_TCPPort = 0;
-			bool m_bHttpDone = false;
-			bool m_bHttpsDone = false;
-		};
-
-		NStorage::TCSharedPointer<CState> pState = fg_Construct();
-
-		WebServerLaunch.m_Params.m_fOnOutput = [FinishedStartupPromise, pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
-			{
-				if (_OutputType != EProcessLaunchOutputType_StdOut)
+			case NProcess::EProcessLaunchState_Exited:
 				{
-					if (!_Output.f_StartsWith("Process terminated due to signal"))
-						DMibConErrOut("{}", _Output);
-					return;
+					auto ExitCode = _State.f_Get<NProcess::EProcessLaunchState_Exited>();
+					if (!LaunchedPromise.f_IsSet())
+						LaunchedPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch exited unexpectedly: {}", ExitCode)));
+
+					if (!FinishedStartupPromise.f_IsSet())
+						FinishedStartupPromise.f_SetException(DMibErrorInstance(NStr::fg_Format("Launch exited unexpectedly: {}", ExitCode)));
+					break;
 				}
-
-				for (auto &Line : _Output.f_SplitLine())
-				{
-					if (Line.f_StartsWith("ERROR: "))
-					{
-						if (!FinishedStartupPromise.f_IsSet())
-							FinishedStartupPromise.f_SetException(DMibErrorInstance(Line));
-					}
-
-					if (Line.f_StartsWith("tcp listen: "))
-						pState->m_TCPPort = Line.f_RemovePrefix("tcp listen: ").f_ToInt(uint16(0));
-					if (Line.f_StartsWith("http listen: "))
-						pState->m_bHttpDone = true;
-					if (Line.f_StartsWith("https listen: "))
-						pState->m_bHttpsDone = true;
-				}
-
-				if (pState->m_TCPPort && pState->m_bHttpDone && pState->m_bHttpsDone && !FinishedStartupPromise.f_IsSet())
-					FinishedStartupPromise.f_SetResult();
+			case NProcess::EProcessLaunchState_Launched:
+				if (!LaunchedPromise.f_IsSet())
+					LaunchedPromise.f_SetResult();
+				break;
 			}
-		;
+		}
+	;
 
-		auto LaunchSubscription = co_await WebServerResults.m_WebServerLaunch(&CProcessLaunchActor::f_Launch, WebServerLaunch, fg_CurrentActor());
-
-		co_await LaunchedPromise.f_MoveFuture().f_Timeout(g_Timeout, "Timeouted out waiting for launch");
-
-		co_await FinishedStartupPromise.f_MoveFuture().f_Timeout(g_Timeout, "Timeout out waiting for startup");
-
-		WebServerResults.m_TCPPort = pState->m_TCPPort;
-		WebServerResults.m_Subscription = fg_Move(LaunchSubscription);
-
-		co_return fg_Move(WebServerResults);
-	}
-
-	void f_DoTests()
+	struct CState
 	{
-		DMibTestSuite("ResolverErrors") -> TCFuture<void>
+		uint16 m_TCPPort = 0;
+		bool m_bHttpDone = false;
+		bool m_bHttpsDone = false;
+	};
+
+	NStorage::TCSharedPointer<CState> pState = fg_Construct();
+
+	WebServerLaunch.m_Params.m_fOnOutput = [FinishedStartupPromise, pState](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 		{
-			DMibTestPath("OversizedLabel");
-			auto Client = fg_ConstructActor<CHttpClientActor>();
-			TCMap<CStr, CStr> Headers;
-
-			auto InvalidName = co_await Client.f_Bind<&CHttpClientActor::f_Get>(CStr("http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.invalid/"), Headers).f_Wrap();
-
-			DMibExpectFalse(bool(InvalidName));
-			if (!InvalidName)
+			if (_OutputType != EProcessLaunchOutputType_StdOut)
 			{
-				auto Error = InvalidName.f_GetExceptionStr();
-				DMibExpect(Error.f_Find("libcurl failed (6)"), >=, 0);
-				DMibExpect(Error.f_Find("Misformatted domain name"), >=, 0);
+				if (!_Output.f_StartsWith("Process terminated due to signal"))
+					DMibConErrOut("{}", _Output);
+				return;
 			}
 
-			co_await fg_Move(Client).f_Destroy();
-			co_return {};
-		};
+			for (auto &Line : _Output.f_SplitLine())
+			{
+				if (Line.f_StartsWith("ERROR: "))
+				{
+					if (!FinishedStartupPromise.f_IsSet())
+						FinishedStartupPromise.f_SetException(DMibErrorInstance(Line));
+				}
+
+				if (Line.f_StartsWith("tcp listen: "))
+					pState->m_TCPPort = Line.f_RemovePrefix("tcp listen: ").f_ToInt(uint16(0));
+				if (Line.f_StartsWith("http listen: "))
+					pState->m_bHttpDone = true;
+				if (Line.f_StartsWith("https listen: "))
+					pState->m_bHttpsDone = true;
+			}
+
+			if (pState->m_TCPPort && pState->m_bHttpDone && pState->m_bHttpsDone && !FinishedStartupPromise.f_IsSet())
+				FinishedStartupPromise.f_SetResult();
+		}
+	;
+
+	auto LaunchSubscription = co_await WebServerResults.m_WebServerLaunch(&CProcessLaunchActor::f_Launch, WebServerLaunch, fg_CurrentActor());
+
+	co_await LaunchedPromise.f_MoveFuture().f_Timeout(g_Timeout, "Timeouted out waiting for launch");
+
+	co_await FinishedStartupPromise.f_MoveFuture().f_Timeout(g_Timeout, "Timeout out waiting for startup");
+
+	WebServerResults.m_TCPPort = pState->m_TCPPort;
+	WebServerResults.m_Subscription = fg_Move(LaunchSubscription);
+
+	co_return fg_Move(WebServerResults);
+}
+
+void CHttpClient_Tests::f_DoTests()
+{
+	DMibTestSuite("ResolverErrors") -> TCFuture<void>
+	{
+		DMibTestPath("OversizedLabel");
+		auto Client = fg_ConstructActor<CHttpClientActor>();
+		TCMap<CStr, CStr> Headers;
+
+		auto InvalidName = co_await Client.f_Bind<&CHttpClientActor::f_Get>(CStr("http://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.invalid/"), Headers).f_Wrap();
+
+		DMibExpectFalse(bool(InvalidName));
+		if (!InvalidName)
+		{
+			auto Error = InvalidName.f_GetExceptionStr();
+			DMibExpect(Error.f_Find("libcurl failed (6)"), >=, 0);
+			DMibExpect(Error.f_Find("Misformatted domain name"), >=, 0);
+		}
+
+		co_await fg_Move(Client).f_Destroy();
+		co_return {};
+	};
 
 #ifdef DPlatformFamily_Windows
-		return; // Node.js doesn't support unix domain sockets yet
+	return; // Node.js doesn't support unix domain sockets yet
 #endif
-		DMibTestSuite("General") -> TCFuture<void>
+	DMibTestSuite("General") -> TCFuture<void>
+	{
+		DMibTestPath("Path1");
+		CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebHttpClientGeneral";
+		fg_TestAddCleanupPath(TestDirectory);
+
+		auto WebServerResults = co_await f_SetupWebServer(TestDirectory);
+
+		NHTTP::CURL HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
+		NHTTP::CURL HttpsUrlTemplate = CStr("https://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "https.sock"));
+		TCMap<CStr, CStr> Headers;
+
 		{
-			DMibTestPath("Path1");
-			CStr TestDirectory = CFile::fs_GetProgramDirectory() / "TestWebHttpClientGeneral";
-			fg_TestAddCleanupPath(TestDirectory);
-
-			auto WebServerResults = co_await f_SetupWebServer(TestDirectory);
-
-			NHTTP::CURL HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
-			NHTTP::CURL HttpsUrlTemplate = CStr("https://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "https.sock"));
-			TCMap<CStr, CStr> Headers;
-
+			NHTTP::CURL HttpUrl = HttpUrlTemplate;
+			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			DMibTestPath("Simple Request");
+			TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
 			{
-				NHTTP::CURL HttpUrl = HttpUrlTemplate;
-				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
-				DMibTestPath("Simple Request");
-				TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
-				{
-					DMibTestPath("HTTP");
-					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers);
-					DMibExpect(Result.m_Body, ==, "Root Reply");
-				}
-				{
-					DMibTestPath("HTTPS");
-					auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers);
-					DMibExpect(Result.m_Body, ==, "Root Reply");
-				}
-
-				co_await fg_Move(HttpClientActor).f_Destroy();
-			}
-			{
-				NHTTP::CURL HttpUrl = HttpUrlTemplate;
-				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
-				DMibTestPath("Multiple Requests");
-				TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
-
-				CStr ExpectedResultsText;
-
-				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (umint iRequest = 0; iRequest < 100; ++iRequest)
-				{
-					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
-					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
-				}
-
-				CStr ExceptionText;
-				CStr ResultsText;
-
-				auto Results = co_await fg_AllDoneWrapped(AsyncResults);
-				for (auto &Result : Results)
-				{
-					if (Result)
-						fg_AddStrSep(ResultsText, Result->m_Body, "\n");
-					else
-						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
-				}
-
-				co_await fg_Move(HttpClientActor).f_Destroy();
-
-				DMibExpect(ExceptionText, ==, "");
-				DMibExpect(ResultsText, ==, ExpectedResultsText);
-			}
-			{
-				NHTTP::CURL HttpUrl = HttpUrlTemplate;
-				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
-				DMibTestPath("Multiple Actors");
-				TCVector<TCActor<CHttpClientActor>> HttpClientActors;
-
-				CStr ExpectedResultsText;
-
-				TCFutureVector<CHttpClientActor::CResult> AsyncResults;
-				for (umint iRequest = 0; iRequest < 100; ++iRequest)
-				{
-					TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
-					HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
-					fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
-					HttpClientActors.f_Insert(fg_Move(HttpClientActor));
-				}
-
-				CStr ExceptionText;
-				CStr ResultsText;
-
-				auto Results = co_await fg_AllDoneWrapped(AsyncResults);
-				for (auto &Result : Results)
-				{
-					if (Result)
-						fg_AddStrSep(ResultsText, Result->m_Body, "\n");
-					else
-						fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
-				}
-
-				for (auto &Actor : HttpClientActors)
-					co_await fg_Move(Actor).f_Destroy();
-
-				DMibExpect(ExceptionText, ==, "");
-				DMibExpect(ResultsText, ==, ExpectedResultsText);
-			}
-			{
-				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
-				DMibTestPath("Untrusted Certificate");
-				TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
-				{
-					DMibTestPath("HTTPS");
-					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
-					DMibExpectException
-						(
-							HttpClientResult.f_Access()
-							, DMibErrorInstance
-							(
-								"libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate OpenSSL verify result: unable to get local issuer certificate (20)"
-							)
-						)
-					;
-				}
-				co_await fg_Move(HttpClientActor).f_Destroy();
-			}
-			{
-				NHTTP::CURL HttpsUrl("https://www.google.com/");
-				DMibTestPath("Public Certificate");
-				TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
-				{
-					DMibTestPath("HTTPS");
-					auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
-					DMibExpectNoException(HttpClientResult.f_Access());
-				}
-				co_await fg_Move(HttpClientActor).f_Destroy();
-			}
-			{
-				DMibTestPath("Abort Request");
-				NHTTP::CURL HttpUrl = HttpUrlTemplate;
-				NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
-				HttpUrl.f_SetPath({"slow-request"});
-				HttpsUrl.f_SetPath({"slow-request"});
-
-				{
-					DMibTestPath("HTTP");
-					TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
-					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers).f_Call();
-					CStopwatch Stopwatch{true};
-					co_await fg_Move(HttpClientActor).f_Destroy();
-					DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
-
-					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
-					DMibExpectTrue(!RequestResult);
-					DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
-				}
-				{
-					DMibTestPath("HTTPS");
-					TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
-					TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Call();
-					CStopwatch Stopwatch{true};
-					co_await fg_Move(HttpClientActor).f_Destroy();
-					DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
-
-					auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
-					DMibExpectTrue(!RequestResult);
-					DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
-				}
-			}
-
-			{
-				DMibTestPath("ResolverAndStreaming");
-
-				auto Client = fg_ConstructActor<CHttpClientActor>();
-				CHttpClientActor::CRequest Redirect;
-				Redirect.m_URL = "http://127.0.0.1:{}/redirect"_f << WebServerResults.m_TCPPort;
-				Redirect.m_bFollowRedirects = true;
-				auto Result = co_await Client.f_Bind<&CHttpClientActor::f_SendRequest>(fg_Move(Redirect));
-
+				DMibTestPath("HTTP");
+				auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers);
 				DMibExpect(Result.m_Body, ==, "Root Reply");
+			}
+			{
+				DMibTestPath("HTTPS");
+				auto Result = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers);
+				DMibExpect(Result.m_Body, ==, "Root Reply");
+			}
 
-				struct CStreamState
+			co_await fg_Move(HttpClientActor).f_Destroy();
+		}
+		{
+			NHTTP::CURL HttpUrl = HttpUrlTemplate;
+			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			DMibTestPath("Multiple Requests");
+			TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
+
+			CStr ExpectedResultsText;
+
+			TCFutureVector<CHttpClientActor::CResult> AsyncResults;
+			for (umint iRequest = 0; iRequest < 100; ++iRequest)
+			{
+				HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
+				fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
+			}
+
+			CStr ExceptionText;
+			CStr ResultsText;
+
+			auto Results = co_await fg_AllDoneWrapped(AsyncResults);
+			for (auto &Result : Results)
+			{
+				if (Result)
+					fg_AddStrSep(ResultsText, Result->m_Body, "\n");
+				else
+					fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
+			}
+
+			co_await fg_Move(HttpClientActor).f_Destroy();
+
+			DMibExpect(ExceptionText, ==, "");
+			DMibExpect(ResultsText, ==, ExpectedResultsText);
+		}
+		{
+			NHTTP::CURL HttpUrl = HttpUrlTemplate;
+			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			DMibTestPath("Multiple Actors");
+			TCVector<TCActor<CHttpClientActor>> HttpClientActors;
+
+			CStr ExpectedResultsText;
+
+			TCFutureVector<CHttpClientActor::CResult> AsyncResults;
+			for (umint iRequest = 0; iRequest < 100; ++iRequest)
+			{
+				TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
+				HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers) > AsyncResults;
+				fg_AddStrSep(ExpectedResultsText, "Root Reply", "\n");
+				HttpClientActors.f_Insert(fg_Move(HttpClientActor));
+			}
+
+			CStr ExceptionText;
+			CStr ResultsText;
+
+			auto Results = co_await fg_AllDoneWrapped(AsyncResults);
+			for (auto &Result : Results)
+			{
+				if (Result)
+					fg_AddStrSep(ResultsText, Result->m_Body, "\n");
+				else
+					fg_AddStrSep(ExceptionText, Result.f_GetExceptionStr(), "\n");
+			}
+
+			for (auto &Actor : HttpClientActors)
+				co_await fg_Move(Actor).f_Destroy();
+
+			DMibExpect(ExceptionText, ==, "");
+			DMibExpect(ResultsText, ==, ExpectedResultsText);
+		}
+		{
+			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			DMibTestPath("Untrusted Certificate");
+			TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
+			{
+				DMibTestPath("HTTPS");
+				auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
+				DMibExpectException
+					(
+						HttpClientResult.f_Access()
+						, DMibErrorInstance
+						(
+							"libcurl failed (60): SSL peer certificate or SSH remote key was not OK. SSL certificate OpenSSL verify result: unable to get local issuer certificate (20)"
+						)
+					)
+				;
+			}
+			co_await fg_Move(HttpClientActor).f_Destroy();
+		}
+		{
+			NHTTP::CURL HttpsUrl("https://www.google.com/");
+			DMibTestPath("Public Certificate");
+			TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
+			{
+				DMibTestPath("HTTPS");
+				auto HttpClientResult = co_await HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Wrap();
+				DMibExpectNoException(HttpClientResult.f_Access());
+			}
+			co_await fg_Move(HttpClientActor).f_Destroy();
+		}
+		{
+			DMibTestPath("Abort Request");
+			NHTTP::CURL HttpUrl = HttpUrlTemplate;
+			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			HttpUrl.f_SetPath({"slow-request"});
+			HttpsUrl.f_SetPath({"slow-request"});
+
+			{
+				DMibTestPath("HTTP");
+				TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
+				TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpUrl.f_Encode(), Headers).f_Call();
+				CStopwatch Stopwatch{true};
+				co_await fg_Move(HttpClientActor).f_Destroy();
+				DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
+
+				auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
+				DMibExpectTrue(!RequestResult);
+				DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
+			}
+			{
+				DMibTestPath("HTTPS");
+				TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
+				TCFuture<CHttpClientActor::CResult> RequestFuture = HttpClientActor(&CHttpClientActor::f_Get, HttpsUrl.f_Encode(), Headers).f_Call();
+				CStopwatch Stopwatch{true};
+				co_await fg_Move(HttpClientActor).f_Destroy();
+				DMibExpect(Stopwatch.f_GetTime(), <, 1.0);
+
+				auto RequestResult = co_await fg_Move(RequestFuture).f_Wrap();
+				DMibExpectTrue(!RequestResult);
+				DMibExpect(RequestResult.f_GetExceptionStr(), ==, "Aborted request");
+			}
+		}
+
+		{
+			DMibTestPath("ResolverAndStreaming");
+
+			auto Client = fg_ConstructActor<CHttpClientActor>();
+			CHttpClientActor::CRequest Redirect;
+			Redirect.m_URL = "http://127.0.0.1:{}/redirect"_f << WebServerResults.m_TCPPort;
+			Redirect.m_bFollowRedirects = true;
+			auto Result = co_await Client.f_Bind<&CHttpClientActor::f_SendRequest>(fg_Move(Redirect));
+
+			DMibExpect(Result.m_Body, ==, "Root Reply");
+
+			struct CStreamState
+			{
+				CStr m_Payload;
+				umint m_Offset = 0;
+				CByteVector m_Received;
+			};
+
+			NStorage::TCSharedPointer<CStreamState> pStream = fg_Construct();
+			for (umint iChunk = 0; iChunk < 16384; ++iChunk)
+				pStream->m_Payload += "streaming payload";
+
+			for (bool bKnownSize : {true, false})
+			{
+				DMibTestPath(bKnownSize ? "KnownSize" : "Chunked");
+				pStream->m_Offset = 0;
+				pStream->m_Received.f_Clear();
+
+				CHttpClientActor::CRequest Echo;
+				Echo.m_URL = "http://localhost:{}/echo"_f << WebServerResults.m_TCPPort;
+				Echo.m_Method = CHttpClientActor::EMethod_POST;
+
+				auto &Send = Echo.f_AsyncSend();
+				Send.m_Size = bKnownSize ? int64(pStream->m_Payload.f_GetLen()) : -1;
+				Send.m_fRead = g_ActorFunctor / [pStream](umint _nBytes) -> TCFuture<CByteVector>
+					{
+						umint Count = fg_Min(_nBytes, pStream->m_Payload.f_GetLen() - pStream->m_Offset);
+						CByteVector Data(reinterpret_cast<uint8 const *>(pStream->m_Payload.f_GetStr()) + pStream->m_Offset, Count);
+						pStream->m_Offset += Count;
+
+						co_return fg_Move(Data);
+					}
+				;
+
+				Echo.f_AsyncReceive().m_fWrite = g_ActorFunctor / [pStream](CByteVector _Data) -> TCFuture<void>
+					{
+						pStream->m_Received.f_Insert(_Data.f_GetArray(), _Data.f_GetLen());
+
+						co_return {};
+					}
+				;
+
+				auto EchoResult = co_await Client.f_Bind<&CHttpClientActor::f_SendRequest>(fg_Move(Echo));
+
+				DMibExpect(EchoResult.m_StatusCode, ==, 200);
+				DMibExpect(CStr(reinterpret_cast<ch8 const *>(pStream->m_Received.f_GetArray()), pStream->m_Received.f_GetLen()), ==, pStream->m_Payload);
+			}
+
+			auto Failed = co_await Client.f_Bind<&CHttpClientActor::f_Get>(CStr("http://http-client-test.invalid/"), Headers).f_Wrap();
+
+			DMibExpectFalse(bool(Failed));
+
+			co_await fg_Move(Client).f_Destroy();
+		}
+
+		{
+			DMibTestPath("DefaultCurlResolver");
+
+			for (bool bUseMulti : {false, true})
+			{
+				DMibTestPath(bUseMulti ? "Multi" : "Easy");
+
+				struct CResults
 				{
-					CStr m_Payload;
-					umint m_Offset = 0;
-					CByteVector m_Received;
+					CURLcode m_DefaultCode = CURLE_OK;
+					CURLcode m_OverrideCode = CURLE_OK;
+					int m_DefaultResolves = 0;
+					int m_OverrideResolves = 0;
 				};
 
-				NStorage::TCSharedPointer<CStreamState> pStream = fg_Construct();
-				for (umint iChunk = 0; iChunk < 16384; ++iChunk)
-					pStream->m_Payload += "streaming payload";
-
-				for (bool bKnownSize : {true, false})
-				{
-					DMibTestPath(bKnownSize ? "KnownSize" : "Chunked");
-					pStream->m_Offset = 0;
-					pStream->m_Received.f_Clear();
-
-					CHttpClientActor::CRequest Echo;
-					Echo.m_URL = "http://localhost:{}/echo"_f << WebServerResults.m_TCPPort;
-					Echo.m_Method = CHttpClientActor::EMethod_POST;
-
-					auto &Send = Echo.f_AsyncSend();
-					Send.m_Size = bKnownSize ? int64(pStream->m_Payload.f_GetLen()) : -1;
-					Send.m_fRead = g_ActorFunctor / [pStream](umint _nBytes) -> TCFuture<CByteVector>
+				auto Checkout = fg_BlockingActor();
+				auto Results = co_await
+					(
+						g_Dispatch(Checkout) / [bUseMulti]
 						{
-							umint Count = fg_Min(_nBytes, pStream->m_Payload.f_GetLen() - pStream->m_Offset);
-							CByteVector Data(reinterpret_cast<uint8 const *>(pStream->m_Payload.f_GetStr()) + pStream->m_Offset, Count);
-							pStream->m_Offset += Count;
+							CResults Results;
+							CURL *pEasy = curl_easy_init();
+							CURLM *pDefaultMulti = curl_multi_init();
+							CURLM *pOverrideMulti = curl_multi_init();
+							auto Cleanup = g_OnScopeExit / [&]
+								{
+									curl_easy_cleanup(pEasy);
+									curl_multi_cleanup(pDefaultMulti);
+									curl_multi_cleanup(pOverrideMulti);
+								}
+							;
 
-							co_return fg_Move(Data);
-						}
-					;
+							if (!pEasy || !pDefaultMulti || !pOverrideMulti)
+								DMibError("Could not initialize curl regression test");
 
-					Echo.f_AsyncReceive().m_fWrite = g_ActorFunctor / [pStream](CByteVector _Data) -> TCFuture<void>
-						{
-							pStream->m_Received.f_Insert(_Data.f_GetArray(), _Data.f_GetLen());
+							curl_external_resolver Override{};
+							Override.user = &Results.m_OverrideResolves;
+							Override.start = [](void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) -> void *
+								{
+									++*static_cast<int *>(_pUser);
 
-							co_return {};
-						}
-					;
+									return nullptr;
+								}
+							;
+							Override.poll = [](void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses) -> int
+								{
+									return -1;
+								}
+							;
+							Override.cancel = [](void *_pLookup)
+								{
+								}
+							;
 
-					auto EchoResult = co_await Client.f_Bind<&CHttpClientActor::f_SendRequest>(fg_Move(Echo));
+							if (curl_multi_set_external_resolver(pOverrideMulti, &Override) != CURLM_OK)
+								DMibError("Could not install test resolver override");
 
-					DMibExpect(EchoResult.m_StatusCode, ==, 200);
-					DMibExpect(CStr(reinterpret_cast<ch8 const *>(pStream->m_Received.f_GetArray()), pStream->m_Received.f_GetLen()), ==, pStream->m_Payload);
-				}
+							auto fWrite = [](char *_pBuffer, size_t _Size, size_t _Count, void *_pData) -> size_t
+								{
+									return _Size * _Count;
+								}
+							;
+							auto fResolveStart = [](void *_pResolverState, void *_pReserved, void *_pUser) -> int
+								{
+									++*static_cast<int *>(_pUser);
 
-				auto Failed = co_await Client.f_Bind<&CHttpClientActor::f_Get>(CStr("http://http-client-test.invalid/"), Headers).f_Wrap();
+									return 0;
+								}
+							;
 
-				DMibExpectFalse(bool(Failed));
+							curl_easy_setopt(pEasy, CURLOPT_URL, "https://www.google.com/");
+							curl_easy_setopt(pEasy, CURLOPT_NOSIGNAL, 1L);
+							curl_easy_setopt(pEasy, CURLOPT_TIMEOUT, 30L);
+							curl_easy_setopt(pEasy, CURLOPT_WRITEFUNCTION, +fWrite);
+							curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_FUNCTION, +fResolveStart);
+							curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_DATA, &Results.m_DefaultResolves);
 
-				co_await fg_Move(Client).f_Destroy();
-			}
+							auto fPerformMulti = [pEasy](CURLM *_pMulti)
+								{
+									if (curl_multi_add_handle(_pMulti, pEasy) != CURLM_OK)
+										DMibError("Could not add curl test transfer");
 
-			{
-				DMibTestPath("DefaultCurlResolver");
-
-				for (bool bUseMulti : {false, true})
-				{
-					DMibTestPath(bUseMulti ? "Multi" : "Easy");
-
-					struct CResults
-					{
-						CURLcode m_DefaultCode = CURLE_OK;
-						CURLcode m_OverrideCode = CURLE_OK;
-						int m_DefaultResolves = 0;
-						int m_OverrideResolves = 0;
-					};
-
-					auto Checkout = fg_BlockingActor();
-					auto Results = co_await
-						(
-							g_Dispatch(Checkout) / [bUseMulti]
-							{
-								CResults Results;
-								CURL *pEasy = curl_easy_init();
-								CURLM *pDefaultMulti = curl_multi_init();
-								CURLM *pOverrideMulti = curl_multi_init();
-								auto Cleanup = g_OnScopeExit / [&]
-									{
-										curl_easy_cleanup(pEasy);
-										curl_multi_cleanup(pDefaultMulti);
-										curl_multi_cleanup(pOverrideMulti);
-									}
-								;
-
-								if (!pEasy || !pDefaultMulti || !pOverrideMulti)
-									DMibError("Could not initialize curl regression test");
-
-								curl_external_resolver Override{};
-								Override.user = &Results.m_OverrideResolves;
-								Override.start = [](void *_pUser, CURL *_pEasy, char const *_pHost, int _IPVersion) -> void *
-									{
-										++*static_cast<int *>(_pUser);
-
-										return nullptr;
-									}
-								;
-								Override.poll = [](void *_pLookup, curl_external_address const **_pAddresses, size_t *_pNumAddresses) -> int
-									{
-										return -1;
-									}
-								;
-								Override.cancel = [](void *_pLookup)
-									{
-									}
-								;
-
-								if (curl_multi_set_external_resolver(pOverrideMulti, &Override) != CURLM_OK)
-									DMibError("Could not install test resolver override");
-
-								auto fWrite = [](char *_pBuffer, size_t _Size, size_t _Count, void *_pData) -> size_t
-									{
-										return _Size * _Count;
-									}
-								;
-								auto fResolveStart = [](void *_pResolverState, void *_pReserved, void *_pUser) -> int
-									{
-										++*static_cast<int *>(_pUser);
-
-										return 0;
-									}
-								;
-
-								curl_easy_setopt(pEasy, CURLOPT_URL, "https://www.google.com/");
-								curl_easy_setopt(pEasy, CURLOPT_NOSIGNAL, 1L);
-								curl_easy_setopt(pEasy, CURLOPT_TIMEOUT, 30L);
-								curl_easy_setopt(pEasy, CURLOPT_WRITEFUNCTION, +fWrite);
-								curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_FUNCTION, +fResolveStart);
-								curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_DATA, &Results.m_DefaultResolves);
-
-								auto fPerformMulti = [pEasy](CURLM *_pMulti)
-									{
-										if (curl_multi_add_handle(_pMulti, pEasy) != CURLM_OK)
-											DMibError("Could not add curl test transfer");
-
-										auto Remove = g_OnScopeExit / [_pMulti, pEasy]
-											{
-												curl_multi_remove_handle(_pMulti, pEasy);
-											}
-										;
-
-										int Running = 1;
-										while (Running)
+									auto Remove = g_OnScopeExit / [_pMulti, pEasy]
 										{
-											if (curl_multi_perform(_pMulti, &Running) != CURLM_OK)
-												DMibError("Could not drive curl test transfer");
-
-											if (Running && curl_multi_poll(_pMulti, nullptr, 0, 100, nullptr) != CURLM_OK)
-												DMibError("Could not poll curl test transfer");
+											curl_multi_remove_handle(_pMulti, pEasy);
 										}
+									;
 
-										int Remaining;
-										auto *pMessage = curl_multi_info_read(_pMulti, &Remaining);
-										if (!pMessage || pMessage->msg != CURLMSG_DONE)
-											DMibError("Missing curl test result");
+									int Running = 1;
+									while (Running)
+									{
+										if (curl_multi_perform(_pMulti, &Running) != CURLM_OK)
+											DMibError("Could not drive curl test transfer");
 
-										return pMessage->data.result;
+										if (Running && curl_multi_poll(_pMulti, nullptr, 0, 100, nullptr) != CURLM_OK)
+											DMibError("Could not poll curl test transfer");
 									}
-								;
 
-								Results.m_DefaultCode = bUseMulti ? fPerformMulti(pDefaultMulti) : curl_easy_perform(pEasy);
+									int Remaining;
+									auto *pMessage = curl_multi_info_read(_pMulti, &Remaining);
+									if (!pMessage || pMessage->msg != CURLMSG_DONE)
+										DMibError("Missing curl test result");
 
-								// This multi's resolver override must not affect the default resolver.
-								curl_easy_setopt(pEasy, CURLOPT_URL, "http://resolver-override.invalid/");
-								curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_FUNCTION, nullptr);
-								Results.m_OverrideCode = fPerformMulti(pOverrideMulti);
+									return pMessage->data.result;
+								}
+							;
 
-								return Results;
-							}
-						)
-					;
+							Results.m_DefaultCode = bUseMulti ? fPerformMulti(pDefaultMulti) : curl_easy_perform(pEasy);
 
-					DMibExpect(Results.m_DefaultCode, ==, CURLE_OK);
-					DMibExpect(Results.m_DefaultResolves, >, 0);
-					DMibExpect(Results.m_OverrideCode, ==, CURLE_COULDNT_RESOLVE_HOST);
-					DMibExpect(Results.m_OverrideResolves, ==, 1);
-				}
+							// This multi's resolver override must not affect the default resolver.
+							curl_easy_setopt(pEasy, CURLOPT_URL, "http://resolver-override.invalid/");
+							curl_easy_setopt(pEasy, CURLOPT_RESOLVER_START_FUNCTION, nullptr);
+							Results.m_OverrideCode = fPerformMulti(pOverrideMulti);
+
+							return Results;
+						}
+					)
+				;
+
+				DMibExpect(Results.m_DefaultCode, ==, CURLE_OK);
+				DMibExpect(Results.m_DefaultResolves, >, 0);
+				DMibExpect(Results.m_OverrideCode, ==, CURLE_COULDNT_RESOLVE_HOST);
+				DMibExpect(Results.m_OverrideResolves, ==, 1);
 			}
+		}
 
-			co_await WebServerResults.m_WebServerLaunch(&CProcessLaunchActor::f_StopProcessGroup);
-			co_await WebServerResults.m_Subscription->f_Destroy();
-			WebServerResults.m_Subscription.f_Clear();
+		co_await WebServerResults.m_WebServerLaunch(&CProcessLaunchActor::f_StopProcessGroup);
+		co_await WebServerResults.m_Subscription->f_Destroy();
+		WebServerResults.m_Subscription.f_Clear();
 
-			// Node does not unlink its Unix listener files at shutdown.
-			for (auto const &pSocketFile : {"http.sock", "https.sock"})
-			{
-				CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / pSocketFile);
-				if (CFile::fs_FileExists(SocketPath))
-					CFile::fs_DeleteFile(SocketPath);
-			}
+		// Node does not unlink its Unix listener files at shutdown.
+		for (auto const &pSocketFile : {"http.sock", "https.sock"})
+		{
+			CStr SocketPath = f_GetLocalSocketFileName(TestDirectory / pSocketFile);
+			if (CFile::fs_FileExists(SocketPath))
+				CFile::fs_DeleteFile(SocketPath);
+		}
 
-			co_return {};
-		};
-	}
-};
+		co_return {};
+	};
+}
 
 DMibTestRegister(CHttpClient_Tests, Malterlib::Web);

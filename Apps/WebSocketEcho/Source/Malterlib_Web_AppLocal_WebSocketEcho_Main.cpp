@@ -12,22 +12,24 @@ using namespace NMib::NWeb::NWebSocketEcho;
 struct CWebSocketEcho : public CApplication
 {
 private:
-	aint f_Main()
-	{
-		NConcurrency::CDistributedDaemon Daemon
-			{
-				"MalterlibWebSocketEcho"
-				, "Malterlib Web Socket Echo"
-				, "Web socket echo server"
-				, []
-				{
-					return fg_ConstructActor<CWebSocketEchoActor>();
-				}
-			}
-		;
-
-		return Daemon.f_Run();
-	}
+	aint f_Main();
 };
+
+aint CWebSocketEcho::f_Main()
+{
+	NConcurrency::CDistributedDaemon Daemon
+		{
+			"MalterlibWebSocketEcho"
+			, "Malterlib Web Socket Echo"
+			, "Web socket echo server"
+			, []
+			{
+				return fg_ConstructActor<CWebSocketEchoActor>();
+			}
+		}
+	;
+
+	return Daemon.f_Run();
+}
 
 DAppImplement(CWebSocketEcho);

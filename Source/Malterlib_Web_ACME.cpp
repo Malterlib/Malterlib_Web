@@ -23,13 +23,15 @@ namespace NMib::NWeb
 
 	struct CAcmeClientActor::CInternal : public CActorInternal
 	{
-		CInternal(CAcmeClientActor::CDependencies &&_Dependencies)
-			: m_Dependencies(fg_Move(_Dependencies))
-		{
-		}
+		CInternal(CAcmeClientActor::CDependencies &&_Dependencies);
 
 		CAcmeClientActor::CDependencies m_Dependencies;
 	};
+
+	CAcmeClientActor::CInternal::CInternal(CAcmeClientActor::CDependencies &&_Dependencies)
+		: m_Dependencies(fg_Move(_Dependencies))
+	{
+	}
 
 	namespace
 	{
@@ -83,10 +85,7 @@ namespace NMib::NWeb
 
 		struct CAcmeState
 		{
-			CAcmeState(CAcmeClientActor::CDependencies const &_Dependencies)
-				: m_Dependencies(_Dependencies)
-			{
-			}
+			CAcmeState(CAcmeClientActor::CDependencies const &_Dependencies);
 
 			CAcmeClientActor::CDependencies const &m_Dependencies;
 			CStr m_AccountLocation;
@@ -95,6 +94,11 @@ namespace NMib::NWeb
 			CStrSecure m_JwkThumbPrint;
 			EDigestType m_DigestType = EDigestType_None;
 		};
+
+		CAcmeState::CAcmeState(CAcmeClientActor::CDependencies const &_Dependencies)
+			: m_Dependencies(_Dependencies)
+		{
+		}
 
 		CJsonSorted fg_AccountJwk(CAcmeState &_State)
 		{

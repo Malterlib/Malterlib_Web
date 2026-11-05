@@ -9,28 +9,30 @@ using namespace NMib::NWeb;
 
 struct CHTTPApp : public NMib::CApplication
 {
-	aint f_Main()
-	{
-		NHTTP::CServer::CConfig Config;
-		Config.m_Port = 8082;
-
-		NHTTP::CServer Server(Config);
-
-		NStr::CStr Errors;
-
-		if (!Server.f_Start(Errors))
-		{
-			DConOut("Failed to start HTTP server: {}\n", Errors);
-			return -1;
-		}
-
-		while (1)
-			NSys::fg_Thread_Sleep(100.0);
-
-		Server.f_Stop();
-
-		return 0;
-	}
+	aint f_Main();
 };
+
+aint CHTTPApp::f_Main()
+{
+	NHTTP::CServer::CConfig Config;
+	Config.m_Port = 8082;
+
+	NHTTP::CServer Server(Config);
+
+	NStr::CStr Errors;
+
+	if (!Server.f_Start(Errors))
+	{
+		DConOut("Failed to start HTTP server: {}\n", Errors);
+		return -1;
+	}
+
+	while (1)
+		NSys::fg_Thread_Sleep(100.0);
+
+	Server.f_Stop();
+
+	return 0;
+}
 
 DMibAppImplement(CHTTPApp);

@@ -12,7 +12,6 @@ namespace NMib::NWeb
 	{
 		CInternal(CWebSocketServerActor *_pThis, CWebsocketSettings const &_DefaultSettings);
 
-	public:
 		void f_Clear();
 
 		CWebSocketServerActor *m_pThis;

@@ -37,6 +37,23 @@ namespace NMib::NWeb
 		void f_OnAbort(NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> ()> &&_fCallback);
 
 	private:
+		friend struct CFastCGIRequest;
+
+		struct CRecordInfo
+		{
+			CRecordInfo();
+
+			NFastCGI::ERequestType m_Type;
+			uint16 m_ID;
+			bool m_bBegun = false;
+			bool m_bInvalid = false;
+			bool m_bKeepConnection = false;
+			bool m_bFinished = false;
+			bool m_bSentStdOut = false;
+			bool m_bSentStdErr = false;
+			NFastCGI::ERequestRole m_Role;
+		};
+
 		NConcurrency::TCFuture<void> fp_Destroy();
 
 		void fp_Disconnect(ch8 const *_pReason);
@@ -59,24 +76,6 @@ namespace NMib::NWeb
 		void fp_OnParams(NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params);
 		void fp_OnParams();
 		void fp_OnAbort();
-
-		struct CRecordInfo
-		{
-			CRecordInfo();
-
-			NFastCGI::ERequestType m_Type;
-			uint16 m_ID;
-			bool m_bBegun = false;
-			bool m_bInvalid = false;
-			bool m_bKeepConnection = false;
-			bool m_bFinished = false;
-			bool m_bSentStdOut = false;
-			bool m_bSentStdErr = false;
-			NFastCGI::ERequestRole m_Role;
-		};
-
-	private:
-		friend struct CFastCGIRequest;
 
 		NConcurrency::TCActor<CFastCGIServer> mp_ServerActor;
 		NNetwork::CSocket mp_Socket;

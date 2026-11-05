@@ -15,13 +15,15 @@ namespace NMib::NWeb
 
 	struct CSlackActor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor)
-			: m_HttpClientActor{_HttpClientActor}
-		{
-		}
+		CInternal(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor);
 
 		NConcurrency::TCActor<CHttpClientActor> m_HttpClientActor;
 	};
+
+	CSlackActor::CInternal::CInternal(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor)
+		: m_HttpClientActor{_HttpClientActor}
+	{
+	}
 
 	CSlackActor::CSlackActor(NConcurrency::TCActor<CHttpClientActor> const &_HttpClientActor)
 		: mp_pInternal{fg_Construct(_HttpClientActor)}

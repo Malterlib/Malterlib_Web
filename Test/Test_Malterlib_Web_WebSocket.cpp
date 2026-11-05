@@ -53,53 +53,26 @@ namespace
 
 struct CWebsocket_Tests : public CTest
 {
-private:
-	void fp_Test
-		(
-			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
-			, CStr const &_AcceptError
-			, CStr const &_ConnectError
-			, umint _FragmentationSize
-			, bool _bTestTimeout = false
-			, bool _bTestTooLongCloseMessage = false
-			, bool _bAllowUnmasked = false
-			, bool _bUnixOnly = false // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
-		)
-	{
-		if (!_bUnixOnly)
-		{
-			DMibTestPath("IP");
-			fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout, _bTestTooLongCloseMessage, _bAllowUnmasked);
-		}
-		{
-			DMibTestPath("Unix");
-			fp_TestImp
-				(
-					_fGetFactories
-					, _AcceptError
-					, _ConnectError
-					, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize << (m_bTestTimeouts ? "_Timeouts" : ""))
-					, false
-					, _bTestTooLongCloseMessage
-					, _bAllowUnmasked
-				)
-			;
-		}
-	}
+	void f_DoTests();
 
+	umint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
+	bool m_bTestTimeouts = false;
+
+private:
 	struct CState
 	{
 		struct CServerConnection
 		{
-			~CServerConnection()
-			{
-				m_pDeleted->f_Store(true);
-			}
+			~CServerConnection();
 
 			TCActor<CWebSocketActor> m_Actor;
 			CActorSubscription m_CallbacksReference;
 			TCSharedPointer<TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 		};
+
+		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop);
+		uint16 f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_fServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false);
+		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_fClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false);
 
 		CIntrusiveRefCount m_RefCount;
 
@@ -142,1290 +115,23 @@ private:
 		EWebSocketStatus m_ServerLingerStatus = EWebSocketStatus_None;
 
 		bool m_bCleared = false;
-
-		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
-		{
-			DMibLock(m_Lock);
-			m_bCleared = true;
-			m_ClientActorCallbacksReference.f_Clear();
-			m_ClientSocket.f_Clear();
-			m_ClientActor.f_Clear();
-			m_ListenCallbackReference.f_Clear();
-			m_ServerConnections.f_Clear();
-			if (m_ServerActor)
-			{
-				auto ServerActor = m_ServerActor;
-				{
-					DMibUnlock(m_Lock);
-					ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop()); // Make sure to release listen socket
-				}
-				m_ServerActor.f_Clear();
-			}
-		}
-
-		uint16 f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_fServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
-		{
-			TCSharedPointer<CState> pState = fg_Explicit(this);
-
-			CWebSocketListenSocketFactory ListenFactory;
-			if (_bAllowUnmasked || _bNegotiateUnmasked)
-			{
-				ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
-					(
-						[fServerFactory = _fServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
-						{
-							return {.m_fFactory = fServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
-						}
-					)
-				;
-			}
-			else
-				ListenFactory = _fServerFactory;
-
-			m_ServerActor
-				(
-					&CWebSocketServerActor::f_StartListenAddress
-					, fg_CreateVector(_ListenAddress)
-					, ENetFlag_None
-					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
-					{
-						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
-						DMibLock(pState->m_Lock);
-
-						CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
-
-						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								for (auto &Connection : pState->m_ServerConnections)
-									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
-
-								if (_Message == "Disconnect")
-								{
-									DMibLock(pState->m_Lock);
-									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessage).f_DiscardResult();
-								}
-
-								if (_Message == "DisconnectLongClose")
-								{
-									DMibLock(pState->m_Lock);
-									for (auto &Connection : pState->m_ServerConnections)
-										Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessageTooLong).f_DiscardResult();
-								}
-
-								co_return {};
-							}
-						;
-
-						ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [pState](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_ServerBinaryMessages.f_Insert(fg_Move(_pMessage));
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								if (pState->m_bCleared)
-									co_return {};
-
-								pState->m_ServerConnectionCloseMessage = _Message;
-								pState->m_ServerConnectionCloseStatus = _Status;
-								pState->m_ServerConnectionCloseOrigin = _Origin;
-								if (pState->m_bLingerOnServerClose && !*pDeleted)
-								{
-									pServerConnection->m_Actor(&CWebSocketActor::f_CloseWithLinger, EWebSocketStatus_NormalClosure, "Linger", 5.0)
-										> pState->m_ProcessingActor / [pState](TCAsyncResult<CWebSocketActor::CCloseInfo> &&_Result)
-										{
-											DMibLock(pState->m_Lock);
-											pState->m_bServerLingerDone = true;
-											if (_Result)
-												pState->m_ServerLingerStatus = _Result->m_Status;
-											else
-												pState->m_ServerLingerError = _Result.f_GetExceptionStr();
-											pState->m_Event.f_Signal();
-										}
-									;
-								}
-								else if (!*pDeleted)
-									pState->m_ServerConnections.f_Remove(*pServerConnection);
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						CStr Protocol;
-						if (!ConnectionInfo.m_Protocols.f_IsEmpty())
-							Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
-
-						pServerConnection->m_Actor = ConnectionInfo.f_Accept
-							(
-								Protocol
-								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
-								{
-									DMibLock(pState->m_Lock);
-									if (_Callback && !*pDeleted)
-										pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
-								}
-							)
-						;
-
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
-					{
-						DMibLock(pState->m_Lock);
-						pState->m_bAcceptError = true;
-						pState->m_AcceptError = _ConnectionInfo.m_Error;
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-					, fg_Move(ListenFactory)
-				)
-				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
-				{
-					DMibLock(pState->m_Lock);
-					if (_Result)
-					{
-						pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
-						pState->m_ListenPort = _Result->m_ListenPorts[0];
-					}
-					else
-						pState->m_ListenError = _Result.f_GetExceptionStr();
-					pState->m_Event.f_Signal();
-				}
-			;
-			bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
-			DMibAssert(pState->m_ListenError, ==, "");
-			DMibAssertFalse(bTimedOutListenStart);
-			DMibAssertTrue(pState->m_ListenCallbackReference);
-
-			return pState->m_ListenPort;
-		}
-
-		void f_Connect(CStr const &_Address, FVirtualSocketFactory const &_fClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked = false)
-		{
-			TCSharedPointer<CState> pState = fg_Explicit(this);
-
-			m_ClientActor
-				(
-					&CWebSocketClientActor::f_Connect
-					, CWebSocketClientActor::CConnectSettings
-					{
-						.m_ConnectToAddress = _Address
-						, .m_Port = _Port
-						, .m_URI = "/Test"
-						, .m_Origin = fg_Format("http://{}", _Address)
-						, .m_Protocols = fg_CreateVector<CStr>("Test")
-						, .m_fSocketFactory = _fClientFactory
-						, .m_bAllowUnmaskedFrames = _bAllowUnmasked
-						, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked
-					}
-				)
-				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
-				{
-					DMibLock(pState->m_Lock);
-					if (_Result)
-					{
-						auto &Result = *_Result;
-
-						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_ClientConnectionCloseMessage = _Message;
-								pState->m_ClientConnectionCloseStatus = _Status;
-								pState->m_ClientConnectionCloseOrigin = _Origin;
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_Messages.f_Insert(_Message);
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						pState->m_ClientSocket = Result.f_Accept
-							(
-								pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
-								{
-									DMibLock(pState->m_Lock);
-									if (_Callback)
-										pState->m_ClientActorCallbacksReference = fg_Move(*_Callback);
-								}
-							)
-						;
-					}
-					else
-						pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
-
-					pState->m_bClientConnectionResult = true;
-					pState->m_Event.f_Signal();
-				}
-			;
-		}
 	};
-
-	bool fp_TestConnect(TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
-	{
-		auto pState = _pState;
-		DMibTestPath("Connect");
-
-		bool bTimedOut = false;
-
-		while (!bTimedOut)
-		{
-			{
-				DMibLock(pState->m_Lock);
-				if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
-					break; // Server accept failed
-				if (pState->m_bClientConnectionResult)
-				{
-					if
-					(
-						!pState->m_ClientSocket
-						&& (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty()))
-					)
-					{
-						break; // Client connection failed
-					}
-
-					if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
-						break; // Successfully done
-				}
-			}
-			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-		}
-
-		if (bTimedOut)
-		{
-			DMibLock(pState->m_Lock);
-			DMibLog
-				(
-					Warning
-					, "Connect wait ran out: client result {} error '{}' socket {}, server connections {} accept error {} '{}', listen error '{}'"
-					, pState->m_bClientConnectionResult
-					, pState->m_ClientConnectionError
-					, !!pState->m_ClientSocket
-					, pState->m_ServerConnections.f_GetLen()
-					, pState->m_bAcceptError
-					, pState->m_AcceptError
-					, pState->m_ListenError
-				)
-			;
-		}
-
-		DMibTest(!DMibExpr(bTimedOut));
-
-		DMibLock(pState->m_Lock);
-
-		if (!_ConnectError.f_IsEmpty())
-		{
-			DMibExpect(pState->m_ClientConnectionError, ==, _ConnectError);
-			return false;
-		}
-
-		if (!_AcceptError.f_IsEmpty())
-		{
-			DMibTest(DMibExpr(pState->m_bAcceptError));
-			DMibExpect(pState->m_AcceptError, ==, _AcceptError);
-			return false;
-		}
-		DMibTest(!DMibExpr(pState->m_bAcceptError));
-		DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
-
-		DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
-
-		DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
-		DMibAssertTrue(pState->m_ClientSocket);
-		return true;
-	}
-
-	bool fp_WaitForCondition(TCFunction<bool ()> const &_fPredicate)
-	{
-		bool bTimedOut = false;
-
-		CStopwatch Stopwatch;
-		Stopwatch.f_Start();
-
-		while (!_fPredicate())
-		{
-			NSys::fg_Thread_Sleep(0.01f);
-			if (Stopwatch.f_GetTime() > 30.0 * gc_TimeoutMultiplier)
-			{
-				bTimedOut = true;
-				break;
-			}
-		}
-
-		return bTimedOut;
-	}
-
-	// Masking may stop only when both peers negotiate it; every mixed pairing must still exchange data.
-	void fp_TestUnmaskedNegotiation(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
-	{
-		DMibTestPath("Unmasked negotiation");
-
-		for (bool bServer : {false, true})
-		{
-			for (bool bClient : {false, true})
-			{
-				DMibTestPath(fg_Format("server {} client {}", bServer ? "new" : "old", bClient ? "new" : "old"));
-
-				CActorRunLoopTestHelper RunLoopHelper;
-
-				auto Factories = _fGetFactories();
-				auto fServerFactory = fg_Get<0>(Factories);
-				auto fClientFactory = fg_Get<1>(Factories);
-
-				CNetAddressTCPv4 Address;
-				Address.f_SetLocalhost();
-				Address.m_Port = 0;
-				CNetAddress ListenAddress = Address;
-
-				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup = g_OnScopeExit / [&]
-					{
-						pState->f_Clear(RunLoopHelper.m_pRunLoop);
-					}
-				;
-
-				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, false, bServer);
-
-				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->f_Connect("localhost", fClientFactory, ListenPort, false, bClient);
-
-				if (!fp_TestConnect(pState, CStr(), CStr()))
-					continue;
-
-				bool bExpectMasking = !(bServer && bClient);
-
-				auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				DMibExpect(ClientStats.m_bMaskFrames, ==, bExpectMasking);
-
-				{
-					DMibLock(pState->m_Lock);
-					DMibExpect(pState->m_ServerConnections.f_IsEmpty(), ==, false);
-				}
-
-				TCFutureVector<void> Results;
-				pState->m_ClientSocket(&CWebSocketActor::f_SendText, "FromClient", 0) > Results;
-
-				{
-					DMibLock(pState->m_Lock);
-					for (auto &Connection : pState->m_ServerConnections)
-						Connection.m_Actor(&CWebSocketActor::f_SendText, "FromServer", 0) > Results;
-				}
-
-				fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-			}
-		}
-	}
-
-	void fp_TestImp
-		(
-			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
-			, CStr const &_AcceptError
-			, CStr const &_ConnectError
-			, CStr const &_Address
-			, bool _bTestTimeout
-			, bool _bTestTooLongCloseMessage
-			, bool _bAllowUnmasked
-		)
-	{
-		{
-			DMibTestPath("Connection");
-			CActorRunLoopTestHelper RunLoopHelper;
-
-			auto Factories = _fGetFactories();
-			auto fServerFactory = fg_Get<0>(Factories);
-			auto fClientFactory = fg_Get<1>(Factories);
-
-			CNetAddress ListenAddress;
-			if (_Address == "localhost")
-			{
-				CNetAddressTCPv4 Address;
-				Address.f_SetLocalhost();
-				Address.m_Port = 0;
-				ListenAddress = Address;
-			}
-			else
-				ListenAddress = CSocket::fs_ResolveAddress(_Address);
-			{
-				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup = g_OnScopeExit / [&]
-					{
-						pState->f_Clear(RunLoopHelper.m_pRunLoop);
-					}
-				;
-
-				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-				;
-				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
-
-				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-				;
-				pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
-
-				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
-					return;
-				{
-					DMibTestPath("Messages");
-
-					TCFutureVector<void> Results;
-
-					umint nMessages = 0;
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0) > Results;
-					++nMessages;
-
-					CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
-					TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector const> pMessage = fg_Construct(Buffer);
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0) > Results;
-					++nMessages;
-
-					TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
-					pMessageBuffers->m_Data = Buffer.f_ToSecure();
-					pMessageBuffers->m_Markers = {0, 4};
-					pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers.f_ShareAsConst(), 0) > Results;
-					nMessages += 2;
-
-					CStr BigText;
-					for (umint iChunk = 0; iChunk < 1024 * 8 * 2; ++iChunk) // 2 MiB
-						BigText += gc_Str<"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF">.m_Str;
-
-					BigText = BigText.f_Left(m_CurrentFragmentationSize * 128);
-
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0) > Results;
-					++nMessages;
-
-					for (umint iMessage = 0; iMessage < 32; ++iMessage)
-					{
-						CStr Message = BigText.f_Left(iMessage % 32);
-						pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0) > Results;
-						++nMessages;
-					}
-
-					fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-					bool bTimedOut = false;
-					while (!bTimedOut)
-					{
-						{
-							DMibLock(pState->m_Lock);
-							if (pState->m_Messages.f_GetLen() >= nMessages)
-								break;
-						}
-						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-					}
-
-					DMibExpectFalse(bTimedOut);
-					DMibExpect(pState->m_Messages.f_GetLen(), ==, nMessages)(ETest_FailAndStop);
-					DMibExpect(pState->m_Messages[0], ==, "TestTextReply");
-					DMibExpect(pState->m_Messages[1], ==, "TestBuffReply");
-					DMibExpect(pState->m_Messages[2], ==, "TestReply");
-					DMibExpect(pState->m_Messages[3], ==, "BuffReply");
-					DMibExpect(pState->m_Messages[4], ==, BigText + "Reply")(ETestFlag_NoValues);
-
-					for (umint iMessage = 0; iMessage < 32; ++iMessage)
-					{
-						DMibTestPath("Length {}"_f << iMessage);
-						CStr Message = BigText.f_Left(iMessage % 32);
-						DMibExpect(pState->m_Messages[5 + iMessage], ==, Message + "Reply");
-					}
-				}
-
-				{
-					DMibTestPath("Disconnect");
-
-					pState->m_ClientSocket(&CWebSocketActor::f_SendText, _bTestTooLongCloseMessage ? "DisconnectLongClose" : "Disconnect", 0).f_DiscardResult();
-
-					bool bTimedOut = false;
-					while (!bTimedOut)
-					{
-						{
-							DMibLock(pState->m_Lock);
-							if (!pState->m_ClientConnectionCloseMessage.f_IsEmpty() && pState->m_ServerConnections.f_IsEmpty())
-								break; // Successfully disconnected from the server
-						}
-						bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-					}
-
-					auto ExpectedCloseMessage = _bTestTooLongCloseMessage ? gc_CloseMessageTooLong.m_Str.f_Left(CWebSocketActor::mc_MaxCloseMessageLength) : gc_CloseMessage.m_Str;
-
-					DMibTest(!DMibExpr(bTimedOut));
-					DMibExpect(pState->m_ClientConnectionCloseMessage, ==, ExpectedCloseMessage);
-					DMibExpect(pState->m_ServerConnectionCloseMessage, ==, ExpectedCloseMessage);
-				}
-			}
-
-			if (_bTestTimeout)
-			{
-				DMibTestPath("Timeout");
-				bool bTimerDrivenKeepalive = fServerFactory.f_IsEmpty() && fClientFactory.f_IsEmpty();
-				// The timer pings every half timeout, so a healthy connection times out when a loaded runner delays both peers' timers that long
-				fp64 Timeout = (bTimerDrivenKeepalive ? 4.0 : 5.0) * gc_TimeoutMultiplier;
-				TCSharedPointer<CState> pState = fg_Construct();
-				auto Cleanup = g_OnScopeExit / [&]
-					{
-						pState->f_Clear(RunLoopHelper.m_pRunLoop);
-					}
-				;
-
-				pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-				;
-				pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
-
-				pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-					.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-				;
-				pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-				pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
-
-				if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
-					return;
-				{
-					DMibTestPath("Non timeout");
-					TCActor<CWebSocketActor> ServerSocket;
-					{
-						DMibLock(pState->m_Lock);
-						DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
-						ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
-					}
-
-					CStopwatch IdleTime(true);
-					for (umint iRound = 0; iRound < (bTimerDrivenKeepalive ? 4 : 2); ++iRound)
-					{
-						DMibTestPath("Keepalive {}"_f << iRound);
-
-						auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-						auto ServerStats = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-						if (!bTimerDrivenKeepalive)
-						{
-							pState->m_ClientSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-							ServerSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-						}
-
-						bool bTimedOut = fp_WaitForCondition
-							(
-								[&]
-								{
-									auto ClientNow = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-									auto ServerNow = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-									return ClientNow.m_nTimeoutPongs > ClientStats.m_nTimeoutPongs && ServerNow.m_nTimeoutPongs > ServerStats.m_nTimeoutPongs;
-								}
-							)
-						;
-
-						DMibExpectFalse(bTimedOut);
-					}
-
-					if (bTimerDrivenKeepalive)
-						DMibExpect(IdleTime.f_GetTime(), >, Timeout);
-
-					DMibLock(pState->m_Lock);
-					DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ServerConnectionCloseMessage);
-					DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ClientConnectionCloseMessage);
-				}
-				{
-					DMibTestPath("Timeout");
-					pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, 1.0, ESocketDebugFlag_StopProcessing).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-					bool bTimedOut = fp_WaitForCondition
-						(
-							[&]
-							{
-								DMibLock(pState->m_Lock);
-								return pState->m_ServerConnectionCloseStatus == EWebSocketStatus_Timeout || pState->m_ClientConnectionCloseStatus == EWebSocketStatus_Timeout;
-							}
-						)
-					;
-
-					DMibExpectFalse(bTimedOut);
-					DMibLock(pState->m_Lock);
-					DMibTest
-						(
-							DMibExpr(pState->m_ServerConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
-							|| DMibExpr(pState->m_ClientConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
-						)
-					;
-				}
-			}
-		};
-	}
-
-	void fp_TestProtocols(umint _FragmentationSize, bool _bTestTimeouts)
-	{
-		m_CurrentFragmentationSize = _FragmentationSize;
-		m_bTestTimeouts = _bTestTimeouts;
-		{
-			DMibTestPath("TCP");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						return {nullptr, nullptr};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-					, m_bTestTimeouts
-				)
-			;
-		}
-
-		{
-			DMibTestPath("SSL");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions Options;
-						Options.m_CommonName = "Malterlib test Self Signed";
-						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						Options.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-					, m_bTestTimeouts
-				)
-			;
-		}
-
-		if (fg_IsAuthenticatedUnixSupported())
-		{
-			DMibTestPath("AuthenticatedUnix");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions Options;
-						Options.m_CommonName = "Malterlib test Self Signed";
-						Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						Options.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
-
-						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
-
-						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-					, m_bTestTimeouts
-					, false
-					, true
-					, true
-				)
-			;
-		}
-
-		if (m_CurrentFragmentationSize != CWebsocketSettings::mc_DefaultFragmentationSize)
-			return;
-
-		if (fg_IsAuthenticatedUnixSupported())
-		{
-			DMibTestPath("AuthenticatedUnix Client Certificate");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CByteVector CertificateRequestData;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate
-							(
-								ServerSettings.m_PublicCertificateData
-								, ServerSettings.m_PrivateKeyData
-								, CertificateRequestData
-								, ClientSettings.m_PublicCertificateData
-							)
-						;
-
-						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
-
-						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-					, false
-					, false
-					, true
-					, true
-				)
-			;
-		}
-		if (fg_IsAuthenticatedUnixSupported())
-		{
-			DMibTestPath("AuthenticatedUnix Client Certificate Incorrect");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
-
-						CByteVector OtherCACertificateData;
-						CSecureByteVector OtherCAPrivateKeyData;
-						CCertificateOptions OtherCAOptions;
-						OtherCAOptions.m_CommonName = "Other CA";
-						OtherCAOptions.m_KeySetting = g_TestTestKeySetting;
-						CCertificate::fs_GenerateSelfSignedCertAndKey(OtherCAOptions, OtherCACertificateData, OtherCAPrivateKeyData);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CByteVector CertificateRequestData;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate(OtherCACertificateData, OtherCAPrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
-
-						TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
-
-						return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
-					}
-					, "Socket closed: Peer certificate verification failed: unable to get local issuer certificate"
-					, ""
-					, _FragmentationSize
-					, false
-					, false
-					, false
-					, true
-				)
-			;
-		}
-		{
-			DMibTestPath("TCP Long Close");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						return {nullptr, nullptr};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-					, false
-					, true
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CByteVector CertificateRequestData;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate
-							(
-								ServerSettings.m_PublicCertificateData
-								, ServerSettings.m_PrivateKeyData
-								, CertificateRequestData
-								, ClientSettings.m_PublicCertificateData
-							)
-						;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate Chain Without Intermediate CA");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CByteVector CertificateRequestData;
-						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate
-							(
-								ServerSettings.m_PublicCertificateData
-								, ServerSettings.m_PrivateKeyData
-								, CertificateRequestData
-								, ClientSettings.m_PublicCertificateData
-							)
-						;
-
-						CSSLSettings ClientSettings2;
-						ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CCertificateOptions ClientOptions2;
-						ClientOptions2.m_CommonName = "Test Client";
-						ClientOptions2.m_KeySetting = g_TestTestKeySetting;
-
-						CByteVector CertificateRequestData2;
-						CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
-						CCertificate::fs_SignClientCertificate
-							(
-								ClientSettings.m_PublicCertificateData
-								, ClientSettings.m_PrivateKeyData
-								, CertificateRequestData2
-								, ClientSettings2.m_PublicCertificateData
-							)
-						;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate Incorrect");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate Missing");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate Allow Missing");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Client Certificate Incorrect Allow Missing");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-						ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-						ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
-
-						CCertificateOptions ClientOptions;
-						ClientOptions.m_CommonName = "Test Client";
-						ClientOptions.m_KeySetting = g_TestTestKeySetting;
-						ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Server Certificate Incorrect");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-						CSSLSettings ServerSettings2;
-						CCertificateOptions ServerOptions2;
-						ServerOptions2.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions2.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions2.m_KeySetting = g_TestTestKeySetting;
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Server Certificate Self Signed");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Server Certificate Child Cert");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-						CByteVector RootCertData;
-						CSecureByteVector RootKeyData;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
-
-						CByteVector ChildCertData;
-						CSecureByteVector ChildKeyData;
-						CByteVector RequestData;
-
-						CCertificateOptions RequestOptions;
-						RequestOptions.m_CommonName = "Malterlib test request";
-						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						RequestOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-
-						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-
-						ServerSettings.m_PublicCertificateData = ChildCertData;
-						ServerSettings.m_PrivateKeyData = ChildKeyData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_CACertificateData = RootCertData;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, ""
-					, _FragmentationSize
-				)
-			;
-		}
-		{
-			DMibTestPath("SSL Server Certificate Incorrect Specific");
-			fp_Test
-				(
-					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-					{
-						CSSLSettings ServerSettings;
-						CByteVector RootCertData;
-						CSecureByteVector RootKeyData;
-
-						CCertificateOptions ServerOptions;
-						ServerOptions.m_CommonName = "Malterlib test Self Signed";
-						ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						ServerOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
-
-						CByteVector ChildCertData;
-						CSecureByteVector ChildKeyData;
-						CByteVector RequestData;
-
-						CCertificateOptions RequestOptions;
-						RequestOptions.m_CommonName = "Malterlib test request";
-						RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
-						RequestOptions.m_KeySetting = g_TestTestKeySetting;
-
-						CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
-
-						CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
-
-						ServerSettings.m_PublicCertificateData = ChildCertData;
-						ServerSettings.m_PrivateKeyData = ChildKeyData;
-
-						TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
-
-						CSSLSettings ClientSettings;
-						ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
-						ClientSettings.m_CACertificateData = RootCertData;
-
-						TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
-
-						return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
-					}
-					, ""
-					, "Socket closed: Mismatching specific certificate"
-					, _FragmentationSize
-				)
-			;
-		}
-	}
 
 	// State structure for priority fragmentation tests with message order tracking
 	struct CPriorityState
 	{
 		struct CServerConnection
 		{
-			~CServerConnection()
-			{
-				m_pDeleted->f_Store(true);
-			}
+			~CServerConnection();
 
 			TCActor<CWebSocketActor> m_Actor;
 			CActorSubscription m_CallbacksReference;
 			TCSharedPointer<TCAtomic<bool>> m_pDeleted = fg_Construct(false);
 		};
+
+		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop);
+		uint16 f_StartListen(CNetAddress const &_ListenAddress, umint _FragmentationSize);
+		void f_Connect(uint16 _Port, umint _FragmentationSize);
 
 		CIntrusiveRefCount m_RefCount;
 
@@ -1466,1704 +172,3055 @@ private:
 		bool m_bProtocolError = false;
 
 		bool m_bCleared = false;
+	};
 
-		void f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
+	// A synchronous raw peer controls frame boundaries while the server runs on actors.
+	struct CRawPeer
+	{
+		bool f_SendAll(void const *_pData, umint _nBytes);
+
+		bool f_SendInPieces(void const *_pData, umint _nBytes, umint _nPieceBytes);
+		bool f_Connect(uint16 _Port, CStr &o_Error);
+		bool f_ReadUntilEnd(umint &o_nBinaryBytes, uint8 &o_LastOpcode, CByteVector &o_LastPayload);
+		static CByteVector fs_FrameHeader(uint8 _Opcode, bool _bFinal, umint _nPayloadBytes);
+
+		CSocket m_Socket;
+	};
+
+	void fp_Test
+		(
+			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
+			, CStr const &_AcceptError
+			, CStr const &_ConnectError
+			, umint _FragmentationSize
+			, bool _bTestTimeout = false
+			, bool _bTestTooLongCloseMessage = false
+			, bool _bAllowUnmasked = false
+			, bool _bUnixOnly = false // Authenticated unix binds to the kernel peer process id, so it only works over unix sockets
+		)
+	;
+
+	bool fp_TestConnect(TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError);
+	bool fp_WaitForCondition(TCFunction<bool ()> const &_fPredicate);
+
+	void fp_TestUnmaskedNegotiation(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories);
+
+	void fp_TestImp
+		(
+			TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
+			, CStr const &_AcceptError
+			, CStr const &_ConnectError
+			, CStr const &_Address
+			, bool _bTestTimeout
+			, bool _bTestTooLongCloseMessage
+			, bool _bAllowUnmasked
+		)
+	;
+
+	void fp_TestProtocols(umint _FragmentationSize, bool _bTestTimeouts);
+	bool fp_WaitForPriorityConnect(TCSharedPointer<CPriorityState> const &_pState);
+	void fp_TestPriorityFragmentationBugDetection(umint _FragmentationSize);
+	void fp_TestPriorityFragmentationBehavior(umint _FragmentationSize);
+	void fp_TestSendThenClose(umint _FragmentationSize);
+	void fp_TestSendSettlesOnTeardown(umint _FragmentationSize);
+	void fp_TestFinalFragmentPingInterleave(umint _FragmentationSize);
+	void fp_TestRawPeerFrames();
+};
+
+void CWebsocket_Tests::f_DoTests()
+{
+	DMibTestCategory("Tests")
+	{
+		for (umint FragmentationSize = 1; FragmentationSize < 16; ++FragmentationSize)
 		{
-			DMibLock(m_Lock);
-			m_bCleared = true;
-			m_ClientActorCallbacksReference.f_Clear();
-			m_ClientSocket.f_Clear();
-			m_ClientActor.f_Clear();
-			m_ListenCallbackReference.f_Clear();
-			m_ServerConnections.f_Clear();
-			if (m_ServerActor)
+			DMibTestSuite("Fragmentation {}"_f << FragmentationSize)
 			{
-				auto ServerActor = m_ServerActor;
-				{
-					DMibUnlock(m_Lock);
-					ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop());
-				}
-				m_ServerActor.f_Clear();
-			}
+				fp_TestProtocols(FragmentationSize, false);
+			};
 		}
 
-		uint16 f_StartListen(CNetAddress const &_ListenAddress, umint _FragmentationSize)
+		for (umint FragmentationSize = 32; FragmentationSize <= CWebsocketSettings::mc_DefaultFragmentationSize; FragmentationSize = FragmentationSize * 2)
 		{
-			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
-			m_ServerActor
-				(
-					&CWebSocketServerActor::f_StartListenAddress
-					, fg_CreateVector(_ListenAddress)
-					, ENetFlag_None
-					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
-					{
-						CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
-						DMibLock(pState->m_Lock);
-
-						CPriorityState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
-
-						ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_ServerMessages.f_Insert(_Message);
-								pState->m_Event.f_Signal();
-
-								// Echo back with same priority (0) - the test is about client->server fragmentation
-								for (auto &Connection : pState->m_ServerConnections)
-									Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
-
-								co_return {};
-							}
-						;
-
-						ConnectionInfo.m_fOnReceivePing = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
-							{
-								// Automatically respond with pong
-								DMibLock(pState->m_Lock);
-								if (!*pDeleted && !pState->m_ServerConnections.f_IsEmpty())
-									pServerConnection->m_Actor(&CWebSocketActor::f_SendPong, _pApplicationData).f_DiscardResult();
-
-								co_return {};
-							}
-						;
-
-						ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
-							(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								if (pState->m_bCleared)
-									co_return {};
-
-								pState->m_ServerConnectionCloseMessage = _Message;
-								pState->m_ServerConnectionCloseStatus = _Status;
-								pState->m_ServerConnectionCloseOrigin = _Origin;
-
-								// Check for protocol error
-								if (_Status == EWebSocketStatus_ProtocolError)
-									pState->m_bProtocolError = true;
-
-								if (!*pDeleted)
-									pState->m_ServerConnections.f_Remove(*pServerConnection);
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						CStr Protocol;
-						if (!ConnectionInfo.m_Protocols.f_IsEmpty())
-							Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
-
-						pServerConnection->m_Actor = ConnectionInfo.f_Accept
-							(
-								Protocol
-								, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
-								{
-									DMibLock(pState->m_Lock);
-									if (_Callback && !*pDeleted)
-										pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
-								}
-							)
-						;
-
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-					, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
-					{
-						DMibLock(pState->m_Lock);
-						pState->m_bAcceptError = true;
-						pState->m_AcceptError = _ConnectionInfo.m_Error;
-						pState->m_Event.f_Signal();
-
-						co_return {};
-					}
-					, FVirtualSocketFactory()
-				)
-				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
-				{
-					DMibLock(pState->m_Lock);
-					if (_Result)
-					{
-						pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
-						pState->m_ListenPort = _Result->m_ListenPorts[0];
-					}
-					else
-						pState->m_ListenError = _Result.f_GetExceptionStr();
-					pState->m_Event.f_Signal();
-				}
-			;
-			bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
-			DMibAssert(pState->m_ListenError, ==, "");
-			DMibAssertFalse(bTimedOutListenStart);
-			DMibAssertTrue(pState->m_ListenCallbackReference);
-
-			return pState->m_ListenPort;
+			DMibTestSuite("Fragmentation {}"_f << FragmentationSize)
+			{
+				fp_TestProtocols(FragmentationSize, false);
+			};
 		}
 
-		void f_Connect(uint16 _Port, umint _FragmentationSize)
+		DMibTestSuite("Timeouts")
 		{
-			TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+			fp_TestProtocols(CWebsocketSettings::mc_DefaultFragmentationSize, true);
+		};
+	};
 
-			m_ClientActor
+	DMibTestCategory("Unmasked negotiation")
+	{
+		DMibTestSuite("TCP")
+		{
+			m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
+			fp_TestUnmaskedNegotiation
 				(
-					&CWebSocketClientActor::f_Connect
-					, CWebSocketClientActor::CConnectSettings
+					[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
 					{
-						.m_ConnectToAddress = "localhost"
-						, .m_Port = _Port
-						, .m_URI = "/Test"
-						, .m_Origin = "http://localhost"
-						, .m_Protocols = fg_CreateVector<CStr>("Test")
+						return {nullptr, nullptr};
 					}
 				)
-				> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
-				{
-					DMibLock(pState->m_Lock);
-					if (_Result)
-					{
-						auto &Result = *_Result;
-
-						Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_ClientConnectionCloseMessage = _Message;
-								pState->m_ClientConnectionCloseStatus = _Status;
-								pState->m_ClientConnectionCloseOrigin = _Origin;
-
-								// Check for protocol error
-								if (_Status == EWebSocketStatus_ProtocolError)
-									pState->m_bProtocolError = true;
-
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_Messages.f_Insert(_Message);
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
-							{
-								DMibLock(pState->m_Lock);
-								pState->m_PongReceived.f_Insert(pState->m_Messages.f_GetLen()); // Record how many messages before pong
-								pState->m_Event.f_Signal();
-
-								co_return {};
-							}
-						;
-
-						pState->m_ClientSocket = Result.f_Accept
-							(
-								pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
-								{
-									DMibLock(pState->m_Lock);
-									if (_Callback)
-										pState->m_ClientActorCallbacksReference = fg_Move(*_Callback);
-								}
-							)
-						;
-					}
-					else
-						pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
-
-					pState->m_bClientConnectionResult = true;
-					pState->m_Event.f_Signal();
-				}
 			;
+		};
+	};
+
+	DMibTestCategory("Priority Fragmentation")
+	{
+		// Bug detection tests - verify no protocol errors with priority mixing
+		for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
+		{
+			DMibTestSuite("Bug Detection {}"_f << FragmentationSize)
+			{
+				fp_TestPriorityFragmentationBugDetection(FragmentationSize);
+			};
+		}
+
+		// Behavior tests - verify correct priority ordering
+		DMibTestSuite("Behavior 8")
+		{
+			fp_TestPriorityFragmentationBehavior(8);
+		};
+
+		DMibTestSuite("Behavior 16")
+		{
+			fp_TestPriorityFragmentationBehavior(16);
+		};
+
+		for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
+		{
+			DMibTestSuite("Send Then Close {}"_f << FragmentationSize)
+			{
+				fp_TestSendThenClose(FragmentationSize);
+			};
+		}
+
+		DMibTestSuite("Send Settles On Teardown")
+		{
+			fp_TestSendSettlesOnTeardown(8);
+		};
+
+		// Bug: Final fragment tracking lost after ping interleave
+		// Tests the specific scenario where only the final fragment remains
+		// (m_bFinished=true) when a ping interleaves
+		for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
+		{
+			DMibTestSuite("Final Fragment Ping Interleave {}"_f << FragmentationSize)
+			{
+				fp_TestFinalFragmentPingInterleave(FragmentationSize);
+			};
 		}
 	};
 
-	bool fp_WaitForPriorityConnect(TCSharedPointer<CPriorityState> const &_pState)
+	DMibTestSuite("Raw Peer Frames")
 	{
-		DMibTestPath("Connect");
+		fp_TestRawPeerFrames();
+	};
 
-		auto pState = _pState;
+	DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
+	{
+		/* https://github.com/crossbario/autobahn-testsuite
+
+		Install test suite (x64 macOS)
+
+			rm -rf ~/wstest
+			rm -rf ~/Library/Caches/pip
+			export BREW_HOME=`brew --prefix`
+			brew install pyenv
+			brew install openssl@1.1 --force
+			brew install zlib
+			export LDFLAGS="-L/usr/local/opt/zlib/lib"
+			export CPPFLAGS="-I/usr/local/opt/zlib/include"
+			export PKG_CONFIG_PATH="/usr/local/opt/zlib/lib/pkgconfig"
+			pyenv install 2.7.18 -f
+			pyenv global 2.7.18
+			PATH="$(pyenv root)/shims:$PATH"
+			which python
+			pip install virtualenv
+			virtualenv ~/wstest
+			source ~/wstest/bin/activate
+			python --version
+			pip install typing
+			CPPFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" CFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" pip install autobahntestsuite
+
+		To test client
+
+			In tab 1
+				source ~/wstest/bin/activate
+				cd ~/wstest
+				mkdir MalterlibClient
+				cd MalterlibClient
+				wstest -m fuzzingserver
+
+			In tab 2
+				cd /opt/Deploy/Tests
+				./Test_Malterlib_Web -g Manual --logs
+				open ~/wstest/MalterlibClient/reports/clients/index.html
+
+		To test server
+
+			Enable Malterlib_App_Enable_WebSocketEcho in user settings
+			Build Apps_Malterlib_Web
+
+			In tab 1
+				cd /opt/Deploy/Malterlib_Web
+				./WebSocketEcho --daemon-run-debug --log-to-stderr
+
+			In tab 2
+				source ~/wstest/bin/activate
+				cd ~/wstest
+				mkdir MalterlibServer
+				cd MalterlibServer
+				wstest -m fuzzingclient
+				open ~/wstest/MalterlibServer/reports/servers/index.html
+		*/
+
+		struct CConnection
+		{
+			TCActor<CWebSocketActor> m_WebSocket;
+			CActorSubscription m_Subscription;
+		};
+
+		struct CState
+		{
+			TCActor<CActor> m_ProcessingActor{fg_Construct()};
+			TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
+			TCMap<umint, CConnection> m_Connections;
+			umint m_SocketID = 0;
+			umint m_nCases = 0;
+		};
+
+		TCSharedPointer<CState> pState = fg_Construct();
+
+		auto fOpenConnection = [](TCSharedPointer<CState> _pState, CStr _Path, TCActorFunctor<TCFuture<void> (CStr _Text)> _fOnMessage = {}) -> TCFuture<TCFuture<void>>
+			{
+				auto SocketID = _pState->m_SocketID++;
+
+				NHTTP::CRequest Request;
+				Request.f_GetRequestFields().f_SetUserAgent("MalterlibWebSocket");
+
+				auto NewConnection = co_await _pState->m_WebSocketClient
+					(
+						&CWebSocketClientActor::f_Connect
+						, CWebSocketClientActor::CConnectSettings
+						{
+							.m_ConnectToAddress = "127.0.0.1:9001"
+							, .m_Port = 9001
+							, .m_URI = _Path
+							, .m_Origin = "http://127.0.0.1/"
+							, .m_Request = fg_Move(Request)
+						}
+					)
+				;
+
+				auto Address = NewConnection.m_PeerAddress;
+
+				NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
+					{
+						DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetTotalLength());
+						auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+						if (pClient)
+							co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinaryStorage, _pMessage, 0);
+
+						co_return {};
+					}
+				;
+				NewConnection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [_pState, SocketID, Address, fOnMessage = fg_Move(_fOnMessage)](CStr _Message) -> TCFuture<void>
+					{
+						DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
+
+						if (fOnMessage)
+							co_await fOnMessage(_Message);
+						else
+						{
+							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+							if (pClient)
+								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendText, _Message, 0);
+						}
+
+						co_return {};
+					}
+				;
+				NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
+					{
+						DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
+						auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+						if (pClient)
+							co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _pApplicationData);
+
+						co_return {};
+					}
+				;
+				NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
+					{
+						DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
+						co_return {};
+					}
+				;
+
+				TCPromise<void> ClosedPromise;
+				NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise]
+					(EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					{
+						DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
+						auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+						if (pClient)
+						{
+							TCFutureVector<void> Destroys;
+
+							if (pClient->m_Subscription)
+								pClient->m_Subscription->f_Destroy() > Destroys;
+
+							fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys;
+
+							_pState->m_Connections.f_Remove(pClient);
+
+							co_await fg_AllDoneWrapped(Destroys);
+						}
+
+						ClosedPromise.f_SetResult();
+
+						co_return {};
+					}
+				;
+
+				TCPromise<void> AcceptedPromise;
+				auto WebSocket = NewConnection.f_Accept
+					(
+						fg_CurrentActor() / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
+						{
+							if (!_Subscription)
+							{
+								DMibLog(Info, "{} Failed to accept connection '{}': {}", SocketID, Address, _Subscription.f_GetExceptionStr());
+								_pState->m_Connections.f_Remove(SocketID);
+								AcceptedPromise.f_SetException(_Subscription.f_GetException());
+								return;
+							}
+
+							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
+							if (pClient)
+							{
+								DMibLog(Info, "{} Accepted connection '{}'", SocketID, Address);
+								pClient->m_Subscription = fg_Move(*_Subscription);
+							}
+
+							AcceptedPromise.f_SetResult();
+						}
+					)
+				;
+
+				_pState->m_Connections[SocketID].m_WebSocket = WebSocket;
+
+				co_await AcceptedPromise.f_Future();
+
+				co_return ClosedPromise.f_Future();
+			}
+		;
+
+		co_await co_await fg_CallSafe
+			(
+				fOpenConnection
+				, pState
+				, "/getCaseCount"
+				, g_ActorFunctor / [pState](CStr _Message) -> TCFuture<void>
+				{
+					DMibLog(Info, "Case count message: {}", _Message);
+					pState->m_nCases = _Message.f_ToInt(0);
+
+					co_return {};
+				}
+			)
+		;
+
+		umint nCases = pState->m_nCases;
+		for (umint iCase = 0; iCase < nCases; ++iCase)
+			co_await co_await fg_CallSafe(fOpenConnection, pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (iCase + 1), fg_Default());
+
+		co_await co_await fg_CallSafe(fOpenConnection, pState, "/updateReports?agent=MalterlibWebSocket", fg_Default());
+
+		co_return {};
+	};
+}
+
+CWebsocket_Tests::CState::CServerConnection::~CServerConnection()
+{
+	m_pDeleted->f_Store(true);
+}
+
+void CWebsocket_Tests::CState::f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
+{
+	DMibLock(m_Lock);
+	m_bCleared = true;
+	m_ClientActorCallbacksReference.f_Clear();
+	m_ClientSocket.f_Clear();
+	m_ClientActor.f_Clear();
+	m_ListenCallbackReference.f_Clear();
+	m_ServerConnections.f_Clear();
+	if (m_ServerActor)
+	{
+		auto ServerActor = m_ServerActor;
+		{
+			DMibUnlock(m_Lock);
+			ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop()); // Make sure to release listen socket
+		}
+		m_ServerActor.f_Clear();
+	}
+}
+
+uint16 CWebsocket_Tests::CState::f_StartListen(CNetAddress const &_ListenAddress, FVirtualSocketFactory const &_fServerFactory, bool _bAllowUnmasked, bool _bNegotiateUnmasked)
+{
+	TCSharedPointer<CState> pState = fg_Explicit(this);
+
+	CWebSocketListenSocketFactory ListenFactory;
+	if (_bAllowUnmasked || _bNegotiateUnmasked)
+	{
+		ListenFactory = CWebSocketListenSocketFactory::fs_PerAddress
+			(
+				[fServerFactory = _fServerFactory, _bAllowUnmasked, _bNegotiateUnmasked](umint _iAddress, CNetAddress const &_Address) -> CWebSocketListenAddressConfig
+				{
+					return {.m_fFactory = fServerFactory, .m_bAllowUnmaskedFrames = _bAllowUnmasked, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked};
+				}
+			)
+		;
+	}
+	else
+		ListenFactory = _fServerFactory;
+
+	m_ServerActor
+		(
+			&CWebSocketServerActor::f_StartListenAddress
+			, fg_CreateVector(_ListenAddress)
+			, ENetFlag_None
+			, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
+			{
+				CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
+				DMibLock(pState->m_Lock);
+
+				CState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
+
+				ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						for (auto &Connection : pState->m_ServerConnections)
+							Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
+
+						if (_Message == "Disconnect")
+						{
+							DMibLock(pState->m_Lock);
+							for (auto &Connection : pState->m_ServerConnections)
+								Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessage).f_DiscardResult();
+						}
+
+						if (_Message == "DisconnectLongClose")
+						{
+							DMibLock(pState->m_Lock);
+							for (auto &Connection : pState->m_ServerConnections)
+								Connection.m_Actor(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, gc_CloseMessageTooLong).f_DiscardResult();
+						}
+
+						co_return {};
+					}
+				;
+
+				ConnectionInfo.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [pState](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_ServerBinaryMessages.f_Insert(fg_Move(_pMessage));
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+					(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						if (pState->m_bCleared)
+							co_return {};
+
+						pState->m_ServerConnectionCloseMessage = _Message;
+						pState->m_ServerConnectionCloseStatus = _Status;
+						pState->m_ServerConnectionCloseOrigin = _Origin;
+						if (pState->m_bLingerOnServerClose && !*pDeleted)
+						{
+							pServerConnection->m_Actor(&CWebSocketActor::f_CloseWithLinger, EWebSocketStatus_NormalClosure, "Linger", 5.0)
+								> pState->m_ProcessingActor / [pState](TCAsyncResult<CWebSocketActor::CCloseInfo> &&_Result)
+								{
+									DMibLock(pState->m_Lock);
+									pState->m_bServerLingerDone = true;
+									if (_Result)
+										pState->m_ServerLingerStatus = _Result->m_Status;
+									else
+										pState->m_ServerLingerError = _Result.f_GetExceptionStr();
+									pState->m_Event.f_Signal();
+								}
+							;
+						}
+						else if (!*pDeleted)
+							pState->m_ServerConnections.f_Remove(*pServerConnection);
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				CStr Protocol;
+				if (!ConnectionInfo.m_Protocols.f_IsEmpty())
+					Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
+
+				pServerConnection->m_Actor = ConnectionInfo.f_Accept
+					(
+						Protocol
+						, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
+						{
+							DMibLock(pState->m_Lock);
+							if (_Callback && !*pDeleted)
+								pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
+						}
+					)
+				;
+
+				pState->m_Event.f_Signal();
+
+				co_return {};
+			}
+			, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+			{
+				DMibLock(pState->m_Lock);
+				pState->m_bAcceptError = true;
+				pState->m_AcceptError = _ConnectionInfo.m_Error;
+				pState->m_Event.f_Signal();
+
+				co_return {};
+			}
+			, fg_Move(ListenFactory)
+		)
+		> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
+		{
+			DMibLock(pState->m_Lock);
+			if (_Result)
+			{
+				pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+				pState->m_ListenPort = _Result->m_ListenPorts[0];
+			}
+			else
+				pState->m_ListenError = _Result.f_GetExceptionStr();
+			pState->m_Event.f_Signal();
+		}
+	;
+	bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
+	DMibAssert(pState->m_ListenError, ==, "");
+	DMibAssertFalse(bTimedOutListenStart);
+	DMibAssertTrue(pState->m_ListenCallbackReference);
+
+	return pState->m_ListenPort;
+}
+
+void CWebsocket_Tests::CState::f_Connect(CStr const &_Address, FVirtualSocketFactory const &_fClientFactory, uint16 _Port, bool _bAllowUnmasked, bool _bNegotiateUnmasked)
+{
+	TCSharedPointer<CState> pState = fg_Explicit(this);
+
+	m_ClientActor
+		(
+			&CWebSocketClientActor::f_Connect
+			, CWebSocketClientActor::CConnectSettings
+			{
+				.m_ConnectToAddress = _Address
+				, .m_Port = _Port
+				, .m_URI = "/Test"
+				, .m_Origin = fg_Format("http://{}", _Address)
+				, .m_Protocols = fg_CreateVector<CStr>("Test")
+				, .m_fSocketFactory = _fClientFactory
+				, .m_bAllowUnmaskedFrames = _bAllowUnmasked
+				, .m_bNegotiateUnmaskedFrames = _bNegotiateUnmasked
+			}
+		)
+		> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+		{
+			DMibLock(pState->m_Lock);
+			if (_Result)
+			{
+				auto &Result = *_Result;
+
+				Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_ClientConnectionCloseMessage = _Message;
+						pState->m_ClientConnectionCloseStatus = _Status;
+						pState->m_ClientConnectionCloseOrigin = _Origin;
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+				Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_Messages.f_Insert(_Message);
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				pState->m_ClientSocket = Result.f_Accept
+					(
+						pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
+						{
+							DMibLock(pState->m_Lock);
+							if (_Callback)
+								pState->m_ClientActorCallbacksReference = fg_Move(*_Callback);
+						}
+					)
+				;
+			}
+			else
+				pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
+
+			pState->m_bClientConnectionResult = true;
+			pState->m_Event.f_Signal();
+		}
+	;
+}
+
+CWebsocket_Tests::CPriorityState::CServerConnection::~CServerConnection()
+{
+	m_pDeleted->f_Store(true);
+}
+
+void CWebsocket_Tests::CPriorityState::f_Clear(TCSharedPointer<CDefaultRunLoop> const &_pRunLoop)
+{
+	DMibLock(m_Lock);
+	m_bCleared = true;
+	m_ClientActorCallbacksReference.f_Clear();
+	m_ClientSocket.f_Clear();
+	m_ClientActor.f_Clear();
+	m_ListenCallbackReference.f_Clear();
+	m_ServerConnections.f_Clear();
+	if (m_ServerActor)
+	{
+		auto ServerActor = m_ServerActor;
+		{
+			DMibUnlock(m_Lock);
+			ServerActor->f_BlockDestroy(_pRunLoop->f_ActorDestroyLoop());
+		}
+		m_ServerActor.f_Clear();
+	}
+}
+
+uint16 CWebsocket_Tests::CPriorityState::f_StartListen(CNetAddress const &_ListenAddress, umint _FragmentationSize)
+{
+	TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+	m_ServerActor
+		(
+			&CWebSocketServerActor::f_StartListenAddress
+			, fg_CreateVector(_ListenAddress)
+			, ENetFlag_None
+			, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketNewServerConnection _ConnectionInfo) -> TCFuture<void>
+			{
+				CWebSocketNewServerConnection ConnectionInfo = fg_Move(_ConnectionInfo);
+				DMibLock(pState->m_Lock);
+
+				CPriorityState::CServerConnection *pServerConnection = &pState->m_ServerConnections.f_Insert();
+
+				ConnectionInfo.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_ServerMessages.f_Insert(_Message);
+						pState->m_Event.f_Signal();
+
+						// Echo back with same priority (0) - the test is about client->server fragmentation
+						for (auto &Connection : pState->m_ServerConnections)
+							Connection.m_Actor(&CWebSocketActor::f_SendText, _Message + "Reply", 0).f_DiscardResult();
+
+						co_return {};
+					}
+				;
+
+				ConnectionInfo.m_fOnReceivePing = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+					(TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
+					{
+						// Automatically respond with pong
+						DMibLock(pState->m_Lock);
+						if (!*pDeleted && !pState->m_ServerConnections.f_IsEmpty())
+							pServerConnection->m_Actor(&CWebSocketActor::f_SendPong, _pApplicationData).f_DiscardResult();
+
+						co_return {};
+					}
+				;
+
+				ConnectionInfo.m_fOnClose = g_ActorFunctorWeak / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted]
+					(EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						if (pState->m_bCleared)
+							co_return {};
+
+						pState->m_ServerConnectionCloseMessage = _Message;
+						pState->m_ServerConnectionCloseStatus = _Status;
+						pState->m_ServerConnectionCloseOrigin = _Origin;
+
+						// Check for protocol error
+						if (_Status == EWebSocketStatus_ProtocolError)
+							pState->m_bProtocolError = true;
+
+						if (!*pDeleted)
+							pState->m_ServerConnections.f_Remove(*pServerConnection);
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				CStr Protocol;
+				if (!ConnectionInfo.m_Protocols.f_IsEmpty())
+					Protocol = ConnectionInfo.m_Protocols.f_GetFirst();
+
+				pServerConnection->m_Actor = ConnectionInfo.f_Accept
+					(
+						Protocol
+						, pState->m_ProcessingActor / [pState, pServerConnection, pDeleted = pServerConnection->m_pDeleted](TCAsyncResult<CActorSubscription> &&_Callback)
+						{
+							DMibLock(pState->m_Lock);
+							if (_Callback && !*pDeleted)
+								pServerConnection->m_CallbacksReference = fg_Move(*_Callback);
+						}
+					)
+				;
+
+				pState->m_Event.f_Signal();
+
+				co_return {};
+			}
+			, g_ActorFunctorWeak(m_ProcessingActor) / [pState](CWebSocketActor::CConnectionInfo _ConnectionInfo) -> TCFuture<void>
+			{
+				DMibLock(pState->m_Lock);
+				pState->m_bAcceptError = true;
+				pState->m_AcceptError = _ConnectionInfo.m_Error;
+				pState->m_Event.f_Signal();
+
+				co_return {};
+			}
+			, FVirtualSocketFactory()
+		)
+		> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketServerActor::CListenResult> &&_Result)
+		{
+			DMibLock(pState->m_Lock);
+			if (_Result)
+			{
+				pState->m_ListenCallbackReference = fg_Move(_Result->m_Subscription);
+				pState->m_ListenPort = _Result->m_ListenPorts[0];
+			}
+			else
+				pState->m_ListenError = _Result.f_GetExceptionStr();
+			pState->m_Event.f_Signal();
+		}
+	;
+	bool bTimedOutListenStart = pState->m_Event.f_WaitTimeout(20.0);
+	DMibAssert(pState->m_ListenError, ==, "");
+	DMibAssertFalse(bTimedOutListenStart);
+	DMibAssertTrue(pState->m_ListenCallbackReference);
+
+	return pState->m_ListenPort;
+}
+
+void CWebsocket_Tests::CPriorityState::f_Connect(uint16 _Port, umint _FragmentationSize)
+{
+	TCSharedPointer<CPriorityState> pState = fg_Explicit(this);
+
+	m_ClientActor
+		(
+			&CWebSocketClientActor::f_Connect
+			, CWebSocketClientActor::CConnectSettings
+			{
+				.m_ConnectToAddress = "localhost"
+				, .m_Port = _Port
+				, .m_URI = "/Test"
+				, .m_Origin = "http://localhost"
+				, .m_Protocols = fg_CreateVector<CStr>("Test")
+			}
+		)
+		> m_ProcessingActor / [pState](TCAsyncResult<CWebSocketNewClientConnection> &&_Result)
+		{
+			DMibLock(pState->m_Lock);
+			if (_Result)
+			{
+				auto &Result = *_Result;
+
+				Result.m_fOnClose = g_ActorFunctorWeak / [pState](EWebSocketStatus _Status, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_ClientConnectionCloseMessage = _Message;
+						pState->m_ClientConnectionCloseStatus = _Status;
+						pState->m_ClientConnectionCloseOrigin = _Origin;
+
+						// Check for protocol error
+						if (_Status == EWebSocketStatus_ProtocolError)
+							pState->m_bProtocolError = true;
+
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				Result.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [pState](CStr _Message) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_Messages.f_Insert(_Message);
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				Result.m_fOnReceivePong = g_ActorFunctorWeak / [pState](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
+					{
+						DMibLock(pState->m_Lock);
+						pState->m_PongReceived.f_Insert(pState->m_Messages.f_GetLen()); // Record how many messages before pong
+						pState->m_Event.f_Signal();
+
+						co_return {};
+					}
+				;
+
+				pState->m_ClientSocket = Result.f_Accept
+					(
+						pState->m_ProcessingActor / [pState](TCAsyncResult<CActorSubscription> &&_Callback)
+						{
+							DMibLock(pState->m_Lock);
+							if (_Callback)
+								pState->m_ClientActorCallbacksReference = fg_Move(*_Callback);
+						}
+					)
+				;
+			}
+			else
+				pState->m_ClientConnectionError = _Result.f_GetExceptionStr();
+
+			pState->m_bClientConnectionResult = true;
+			pState->m_Event.f_Signal();
+		}
+	;
+}
+
+bool CWebsocket_Tests::CRawPeer::f_SendAll(void const *_pData, umint _nBytes)
+{
+	uint8 const *pData = (uint8 const *)_pData;
+	CTimeout Timeout(g_Timeout);
+	while (_nBytes && !Timeout.f_TimedOut())
+	{
+		umint nSent = m_Socket.f_Send(pData, _nBytes);
+		if (!nSent)
+		{
+			NSys::fg_Thread_Sleep(0.001);
+			continue;
+		}
+
+		pData += nSent;
+		_nBytes -= nSent;
+	}
+
+	return _nBytes == 0;
+}
+
+// Pause between pieces to prevent loopback coalescing from hiding short-delivery cases.
+bool CWebsocket_Tests::CRawPeer::f_SendInPieces(void const *_pData, umint _nBytes, umint _nPieceBytes)
+{
+	uint8 const *pData = (uint8 const *)_pData;
+	while (_nBytes)
+	{
+		umint nPiece = fg_Min(_nBytes, _nPieceBytes);
+		if (!f_SendAll(pData, nPiece))
+			return false;
+
+		pData += nPiece;
+		_nBytes -= nPiece;
+		NSys::fg_Thread_Sleep(0.001);
+	}
+
+	return true;
+}
+
+bool CWebsocket_Tests::CRawPeer::f_Connect(uint16 _Port, CStr &o_Error)
+{
+	CNetAddressTCPv4 Address;
+	Address.f_SetLocalhost();
+	Address.m_Port = _Port;
+	m_Socket.f_Connect(CNetAddress(Address));
+	if (!m_Socket.f_IsValid())
+	{
+		o_Error = "Connect failed";
+		return false;
+	}
+
+	CStr Request =
+		"GET /Test HTTP/1.1\r\n"
+		"Host: localhost\r\n"
+		"Upgrade: websocket\r\n"
+		"Connection: Upgrade\r\n"
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+		"Sec-WebSocket-Version: 13\r\n"
+		"Sec-WebSocket-Protocol: Test\r\n"
+		"Sec-WebSocket-Extensions: x-malterlib-unmasked\r\n"
+		"Origin: http://localhost\r\n"
+		"\r\n"
+	;
+	if (!f_SendAll(Request.f_GetStr(), Request.f_GetLen()))
+	{
+		o_Error = "Request send timed out";
+		return false;
+	}
+
+	CStr Response;
+	CTimeout Timeout(g_Timeout);
+	while (Response.f_Find("\r\n\r\n") < 0)
+	{
+		if (Timeout.f_TimedOut())
+		{
+			o_Error = "Response timed out";
+			return false;
+		}
+
+		ch8 Buffer[1024];
+		bool bEndOfStream = false;
+		umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
+		if (bEndOfStream)
+		{
+			o_Error = "Connection closed during the handshake: " + Response;
+			return false;
+		}
+
+		if (!nBytes)
+		{
+			NSys::fg_Thread_Sleep(0.001);
+			continue;
+		}
+
+		Response += CStr(Buffer, nBytes);
+	}
+
+	if (!Response.f_StartsWith("HTTP/1.1 101") || Response.f_Find(gc_pUnmaskedFramesExtension) < 0)
+	{
+		o_Error = "Unexpected handshake response: " + Response;
+		return false;
+	}
+
+	// Allow the server to switch from handshake readiness to its receive stream.
+	NSys::fg_Thread_Sleep(0.1);
+
+	return true;
+}
+
+// Returns false if no hangup arrives; reports total binary payload and the last frame.
+bool CWebsocket_Tests::CRawPeer::f_ReadUntilEnd(umint &o_nBinaryBytes, uint8 &o_LastOpcode, CByteVector &o_LastPayload)
+{
+	o_nBinaryBytes = 0;
+	o_LastOpcode = 0xff;
+	o_LastPayload.f_Clear();
+
+	CByteVector Pending;
+	CTimeout Timeout(g_Timeout);
+	bool bEndOfStream = false;
+	while (!bEndOfStream && m_Socket.f_IsValid() && !Timeout.f_TimedOut())
+	{
+		uint8 Buffer[65536];
+		umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
+		if (!nBytes)
+		{
+			if (!bEndOfStream)
+				NSys::fg_Thread_Sleep(0.001);
+			continue;
+		}
+
+		Pending.f_Insert(Buffer, nBytes);
+
+		umint Offset = 0;
+		for (;;)
+		{
+			umint nLeft = Pending.f_GetLen() - Offset;
+			if (nLeft < 2)
+				break;
+
+			// A server never masks
+			if (Pending[Offset + 1] & 0x80)
+				return false;
+
+			uint8 Opcode = Pending[Offset] & 0x0f;
+			umint nPayload = Pending[Offset + 1] & 0x7f;
+			umint nHeader = 2;
+			if (nPayload == 126)
+			{
+				if (nLeft < 4)
+					break;
+
+				nPayload = (umint(Pending[Offset + 2]) << 8) | Pending[Offset + 3];
+				nHeader = 4;
+			}
+			else if (nPayload == 127)
+			{
+				if (nLeft < 10)
+					break;
+
+				nPayload = 0;
+				for (umint iByte = 0; iByte < 8; ++iByte)
+					nPayload = (nPayload << 8) | Pending[Offset + 2 + iByte];
+				nHeader = 10;
+			}
+			if (nLeft < nHeader + nPayload)
+				break;
+
+			if (Opcode == 0x2 || Opcode == 0x0)
+				o_nBinaryBytes += nPayload;
+			o_LastOpcode = Opcode;
+			o_LastPayload.f_Clear();
+			o_LastPayload.f_Insert(Pending.f_GetArray() + Offset + nHeader, nPayload);
+			Offset += nHeader + nPayload;
+		}
+		if (Offset)
+			Pending.f_Remove(0, Offset);
+	}
+
+	return bEndOfStream;
+}
+
+CByteVector CWebsocket_Tests::CRawPeer::fs_FrameHeader(uint8 _Opcode, bool _bFinal, umint _nPayloadBytes)
+{
+	CByteVector Header;
+	Header.f_Insert(uint8((_bFinal ? 0x80 : 0) | _Opcode));
+	if (_nPayloadBytes < 126)
+		Header.f_Insert(uint8(_nPayloadBytes));
+	else if (_nPayloadBytes <= 0xffff)
+	{
+		Header.f_Insert(uint8(126));
+		Header.f_Insert(uint8(_nPayloadBytes >> 8));
+		Header.f_Insert(uint8(_nPayloadBytes));
+	}
+	else
+	{
+		Header.f_Insert(uint8(127));
+		for (int iByte = 7; iByte >= 0; --iByte)
+			Header.f_Insert(uint8(uint64(_nPayloadBytes) >> (iByte * 8)));
+	}
+
+	return Header;
+}
+
+void CWebsocket_Tests::fp_Test
+	(
+		TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
+		, CStr const &_AcceptError
+		, CStr const &_ConnectError
+		, umint _FragmentationSize
+		, bool _bTestTimeout
+		, bool _bTestTooLongCloseMessage
+		, bool _bAllowUnmasked
+		, bool _bUnixOnly
+	)
+{
+	if (!_bUnixOnly)
+	{
+		DMibTestPath("IP");
+		fp_TestImp(_fGetFactories, _AcceptError, _ConnectError, "localhost", _bTestTimeout, _bTestTooLongCloseMessage, _bAllowUnmasked);
+	}
+	{
+		DMibTestPath("Unix");
+		fp_TestImp
+			(
+				_fGetFactories
+				, _AcceptError
+				, _ConnectError
+				, "UNIX:" + fg_GetSafeUnixSocketPath("{}/{}{}_Websocket.socket"_f << CFile::fs_GetProgramDirectory() << _FragmentationSize << (m_bTestTimeouts ? "_Timeouts" : ""))
+				, false
+				, _bTestTooLongCloseMessage
+				, _bAllowUnmasked
+			)
+		;
+	}
+}
+
+bool CWebsocket_Tests::fp_TestConnect(TCSharedPointer<CState> const &_pState, CStr const &_AcceptError, CStr const &_ConnectError)
+{
+	auto pState = _pState;
+	DMibTestPath("Connect");
+
+	bool bTimedOut = false;
+
+	while (!bTimedOut)
+	{
+		{
+			DMibLock(pState->m_Lock);
+			if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
+				break; // Server accept failed
+			if (pState->m_bClientConnectionResult)
+			{
+				if
+				(
+					!pState->m_ClientSocket
+					&& (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || (!pState->m_ClientConnectionError.f_IsEmpty() && _AcceptError.f_IsEmpty()))
+				)
+				{
+					break; // Client connection failed
+				}
+
+				if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
+					break; // Successfully done
+			}
+		}
+		bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+	}
+
+	if (bTimedOut)
+	{
+		DMibLock(pState->m_Lock);
+		DMibLog
+			(
+				Warning
+				, "Connect wait ran out: client result {} error '{}' socket {}, server connections {} accept error {} '{}', listen error '{}'"
+				, pState->m_bClientConnectionResult
+				, pState->m_ClientConnectionError
+				, !!pState->m_ClientSocket
+				, pState->m_ServerConnections.f_GetLen()
+				, pState->m_bAcceptError
+				, pState->m_AcceptError
+				, pState->m_ListenError
+			)
+		;
+	}
+
+	DMibTest(!DMibExpr(bTimedOut));
+
+	DMibLock(pState->m_Lock);
+
+	if (!_ConnectError.f_IsEmpty())
+	{
+		DMibExpect(pState->m_ClientConnectionError, ==, _ConnectError);
+		return false;
+	}
+
+	if (!_AcceptError.f_IsEmpty())
+	{
+		DMibTest(DMibExpr(pState->m_bAcceptError));
+		DMibExpect(pState->m_AcceptError, ==, _AcceptError);
+		return false;
+	}
+	DMibTest(!DMibExpr(pState->m_bAcceptError));
+	DMibTest(DMibExpr(pState->m_AcceptError) == DMibExpr(""));
+
+	DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
+
+	DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+	DMibAssertTrue(pState->m_ClientSocket);
+	return true;
+}
+
+bool CWebsocket_Tests::fp_WaitForCondition(TCFunction<bool ()> const &_fPredicate)
+{
+	bool bTimedOut = false;
+
+	CStopwatch Stopwatch;
+	Stopwatch.f_Start();
+
+	while (!_fPredicate())
+	{
+		NSys::fg_Thread_Sleep(0.01f);
+		if (Stopwatch.f_GetTime() > 30.0 * gc_TimeoutMultiplier)
+		{
+			bTimedOut = true;
+			break;
+		}
+	}
+
+	return bTimedOut;
+}
+
+// Masking may stop only when both peers negotiate it; every mixed pairing must still exchange data.
+void CWebsocket_Tests::fp_TestUnmaskedNegotiation(TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories)
+{
+	DMibTestPath("Unmasked negotiation");
+
+	for (bool bServer : {false, true})
+	{
+		for (bool bClient : {false, true})
+		{
+			DMibTestPath(fg_Format("server {} client {}", bServer ? "new" : "old", bClient ? "new" : "old"));
+
+			CActorRunLoopTestHelper RunLoopHelper;
+
+			auto Factories = _fGetFactories();
+			auto fServerFactory = fg_Get<0>(Factories);
+			auto fClientFactory = fg_Get<1>(Factories);
+
+			CNetAddressTCPv4 Address;
+			Address.f_SetLocalhost();
+			Address.m_Port = 0;
+			CNetAddress ListenAddress = Address;
+
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+			auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, false, bServer);
+
+			pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+			pState->f_Connect("localhost", fClientFactory, ListenPort, false, bClient);
+
+			if (!fp_TestConnect(pState, CStr(), CStr()))
+				continue;
+
+			bool bExpectMasking = !(bServer && bClient);
+
+			auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			DMibExpect(ClientStats.m_bMaskFrames, ==, bExpectMasking);
+
+			{
+				DMibLock(pState->m_Lock);
+				DMibExpect(pState->m_ServerConnections.f_IsEmpty(), ==, false);
+			}
+
+			TCFutureVector<void> Results;
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, "FromClient", 0) > Results;
+
+			{
+				DMibLock(pState->m_Lock);
+				for (auto &Connection : pState->m_ServerConnections)
+					Connection.m_Actor(&CWebSocketActor::f_SendText, "FromServer", 0) > Results;
+			}
+
+			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		}
+	}
+}
+
+void CWebsocket_Tests::fp_TestImp
+	(
+		TCFunction<TCTuple<FVirtualSocketFactory, FVirtualSocketFactory> ()> const &_fGetFactories
+		, CStr const &_AcceptError
+		, CStr const &_ConnectError
+		, CStr const &_Address
+		, bool _bTestTimeout
+		, bool _bTestTooLongCloseMessage
+		, bool _bAllowUnmasked
+	)
+{
+	{
+		DMibTestPath("Connection");
+		CActorRunLoopTestHelper RunLoopHelper;
+
+		auto Factories = _fGetFactories();
+		auto fServerFactory = fg_Get<0>(Factories);
+		auto fClientFactory = fg_Get<1>(Factories);
+
+		CNetAddress ListenAddress;
+		if (_Address == "localhost")
+		{
+			CNetAddressTCPv4 Address;
+			Address.f_SetLocalhost();
+			Address.m_Port = 0;
+			ListenAddress = Address;
+		}
+		else
+			ListenAddress = CSocket::fs_ResolveAddress(_Address);
+		{
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+			pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+			;
+			auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
+
+			pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+			pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+			;
+			pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
+
+			if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
+				return;
+			{
+				DMibTestPath("Messages");
+
+				TCFutureVector<void> Results;
+
+				umint nMessages = 0;
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, "TestText", 0) > Results;
+				++nMessages;
+
+				CByteVector Buffer = {'T', 'e', 's', 't', 'B', 'u', 'f', 'f'};
+				TCSharedPointer<CWebSocketActor::CMaybeSecureByteVector const> pMessage = fg_Construct(Buffer);
+				pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffer, pMessage, 0) > Results;
+				++nMessages;
+
+				TCSharedPointer<CWebSocketActor::CMessageBuffers> pMessageBuffers = fg_Construct();
+				pMessageBuffers->m_Data = Buffer.f_ToSecure();
+				pMessageBuffers->m_Markers = {0, 4};
+				pState->m_ClientSocket(&CWebSocketActor::f_SendTextBuffers, pMessageBuffers.f_ShareAsConst(), 0) > Results;
+				nMessages += 2;
+
+				CStr BigText;
+				for (umint iChunk = 0; iChunk < 1024 * 8 * 2; ++iChunk) // 2 MiB
+					BigText += gc_Str<"0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF">.m_Str;
+
+				BigText = BigText.f_Left(m_CurrentFragmentationSize * 128);
+
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, BigText, 0) > Results;
+				++nMessages;
+
+				for (umint iMessage = 0; iMessage < 32; ++iMessage)
+				{
+					CStr Message = BigText.f_Left(iMessage % 32);
+					pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, 0) > Results;
+					++nMessages;
+				}
+
+				fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+				bool bTimedOut = false;
+				while (!bTimedOut)
+				{
+					{
+						DMibLock(pState->m_Lock);
+						if (pState->m_Messages.f_GetLen() >= nMessages)
+							break;
+					}
+					bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+				}
+
+				DMibExpectFalse(bTimedOut);
+				DMibExpect(pState->m_Messages.f_GetLen(), ==, nMessages)(ETest_FailAndStop);
+				DMibExpect(pState->m_Messages[0], ==, "TestTextReply");
+				DMibExpect(pState->m_Messages[1], ==, "TestBuffReply");
+				DMibExpect(pState->m_Messages[2], ==, "TestReply");
+				DMibExpect(pState->m_Messages[3], ==, "BuffReply");
+				DMibExpect(pState->m_Messages[4], ==, BigText + "Reply")(ETestFlag_NoValues);
+
+				for (umint iMessage = 0; iMessage < 32; ++iMessage)
+				{
+					DMibTestPath("Length {}"_f << iMessage);
+					CStr Message = BigText.f_Left(iMessage % 32);
+					DMibExpect(pState->m_Messages[5 + iMessage], ==, Message + "Reply");
+				}
+			}
+
+			{
+				DMibTestPath("Disconnect");
+
+				pState->m_ClientSocket(&CWebSocketActor::f_SendText, _bTestTooLongCloseMessage ? "DisconnectLongClose" : "Disconnect", 0).f_DiscardResult();
+
+				bool bTimedOut = false;
+				while (!bTimedOut)
+				{
+					{
+						DMibLock(pState->m_Lock);
+						if (!pState->m_ClientConnectionCloseMessage.f_IsEmpty() && pState->m_ServerConnections.f_IsEmpty())
+							break; // Successfully disconnected from the server
+					}
+					bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+				}
+
+				auto ExpectedCloseMessage = _bTestTooLongCloseMessage ? gc_CloseMessageTooLong.m_Str.f_Left(CWebSocketActor::mc_MaxCloseMessageLength) : gc_CloseMessage.m_Str;
+
+				DMibTest(!DMibExpr(bTimedOut));
+				DMibExpect(pState->m_ClientConnectionCloseMessage, ==, ExpectedCloseMessage);
+				DMibExpect(pState->m_ServerConnectionCloseMessage, ==, ExpectedCloseMessage);
+			}
+		}
+
+		if (_bTestTimeout)
+		{
+			DMibTestPath("Timeout");
+			bool bTimerDrivenKeepalive = fServerFactory.f_IsEmpty() && fClientFactory.f_IsEmpty();
+			// The timer pings every half timeout, so a healthy connection times out when a loaded runner delays both peers' timers that long
+			fp64 Timeout = (bTimerDrivenKeepalive ? 4.0 : 5.0) * gc_TimeoutMultiplier;
+			TCSharedPointer<CState> pState = fg_Construct();
+			auto Cleanup = g_OnScopeExit / [&]
+				{
+					pState->f_Clear(RunLoopHelper.m_pRunLoop);
+				}
+			;
+
+			pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+			pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+			;
+			pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			auto ListenPort = pState->f_StartListen(ListenAddress, fServerFactory, _bAllowUnmasked);
+
+			pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+			pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, m_CurrentFragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+			;
+			pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultTimeout, Timeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+			pState->f_Connect(_Address, fClientFactory, ListenPort, _bAllowUnmasked);
+
+			if (!fp_TestConnect(pState, _AcceptError, _ConnectError))
+				return;
+			{
+				DMibTestPath("Non timeout");
+				TCActor<CWebSocketActor> ServerSocket;
+				{
+					DMibLock(pState->m_Lock);
+					DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+					ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
+				}
+
+				CStopwatch IdleTime(true);
+				for (umint iRound = 0; iRound < (bTimerDrivenKeepalive ? 4 : 2); ++iRound)
+				{
+					DMibTestPath("Keepalive {}"_f << iRound);
+
+					auto ClientStats = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					auto ServerStats = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					if (!bTimerDrivenKeepalive)
+					{
+						pState->m_ClientSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+						ServerSocket(&CWebSocketActor::f_DebugCheckTimeout).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+					}
+
+					bool bTimedOut = fp_WaitForCondition
+						(
+							[&]
+							{
+								auto ClientNow = pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+								auto ServerNow = ServerSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+								return ClientNow.m_nTimeoutPongs > ClientStats.m_nTimeoutPongs && ServerNow.m_nTimeoutPongs > ServerStats.m_nTimeoutPongs;
+							}
+						)
+					;
+
+					DMibExpectFalse(bTimedOut);
+				}
+
+				if (bTimerDrivenKeepalive)
+					DMibExpect(IdleTime.f_GetTime(), >, Timeout);
+
+				DMibLock(pState->m_Lock);
+				DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ServerConnectionCloseMessage);
+				DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None)(pState->m_ClientConnectionCloseMessage);
+			}
+			{
+				DMibTestPath("Timeout");
+				pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, 1.0, ESocketDebugFlag_StopProcessing).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+				bool bTimedOut = fp_WaitForCondition
+					(
+						[&]
+						{
+							DMibLock(pState->m_Lock);
+							return pState->m_ServerConnectionCloseStatus == EWebSocketStatus_Timeout || pState->m_ClientConnectionCloseStatus == EWebSocketStatus_Timeout;
+						}
+					)
+				;
+
+				DMibExpectFalse(bTimedOut);
+				DMibLock(pState->m_Lock);
+				DMibTest
+					(
+						DMibExpr(pState->m_ServerConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
+						|| DMibExpr(pState->m_ClientConnectionCloseStatus) == DMibExpr(EWebSocketStatus_Timeout)
+					)
+				;
+			}
+		}
+	};
+}
+
+void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTimeouts)
+{
+	m_CurrentFragmentationSize = _FragmentationSize;
+	m_bTestTimeouts = _bTestTimeouts;
+	{
+		DMibTestPath("TCP");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					return {nullptr, nullptr};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+				, m_bTestTimeouts
+			)
+		;
+	}
+
+	{
+		DMibTestPath("SSL");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions Options;
+					Options.m_CommonName = "Malterlib test Self Signed";
+					Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					Options.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+				, m_bTestTimeouts
+			)
+		;
+	}
+
+	if (fg_IsAuthenticatedUnixSupported())
+	{
+		DMibTestPath("AuthenticatedUnix");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions Options;
+					Options.m_CommonName = "Malterlib test Self Signed";
+					Options.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					Options.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(Options, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+					TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+					return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+				, m_bTestTimeouts
+				, false
+				, true
+				, true
+			)
+		;
+	}
+
+	if (m_CurrentFragmentationSize != CWebsocketSettings::mc_DefaultFragmentationSize)
+		return;
+
+	if (fg_IsAuthenticatedUnixSupported())
+	{
+		DMibTestPath("AuthenticatedUnix Client Certificate");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CByteVector CertificateRequestData;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+					CCertificate::fs_SignClientCertificate
+						(
+							ServerSettings.m_PublicCertificateData
+							, ServerSettings.m_PrivateKeyData
+							, CertificateRequestData
+							, ClientSettings.m_PublicCertificateData
+						)
+					;
+
+					TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+					return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+				, false
+				, false
+				, true
+				, true
+			)
+		;
+	}
+	if (fg_IsAuthenticatedUnixSupported())
+	{
+		DMibTestPath("AuthenticatedUnix Client Certificate Incorrect");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
+
+					CByteVector OtherCACertificateData;
+					CSecureByteVector OtherCAPrivateKeyData;
+					CCertificateOptions OtherCAOptions;
+					OtherCAOptions.m_CommonName = "Other CA";
+					OtherCAOptions.m_KeySetting = g_TestTestKeySetting;
+					CCertificate::fs_GenerateSelfSignedCertAndKey(OtherCAOptions, OtherCACertificateData, OtherCAPrivateKeyData);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CByteVector CertificateRequestData;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+					CCertificate::fs_SignClientCertificate(OtherCACertificateData, OtherCAPrivateKeyData, CertificateRequestData, ClientSettings.m_PublicCertificateData);
+
+					TCSharedPointer<CAuthenticatedUnixContext> pClientContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Client, ClientSettings);
+
+					return {CSocket_AuthenticatedUnix::fs_GetFactory(pServerContext), CSocket_AuthenticatedUnix::fs_GetFactory(pClientContext)};
+				}
+				, "Socket closed: Peer certificate verification failed: unable to get local issuer certificate"
+				, ""
+				, _FragmentationSize
+				, false
+				, false
+				, false
+				, true
+			)
+		;
+	}
+	{
+		DMibTestPath("TCP Long Close");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					return {nullptr, nullptr};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+				, false
+				, true
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CByteVector CertificateRequestData;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+					CCertificate::fs_SignClientCertificate
+						(
+							ServerSettings.m_PublicCertificateData
+							, ServerSettings.m_PrivateKeyData
+							, CertificateRequestData
+							, ClientSettings.m_PublicCertificateData
+						)
+					;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate Chain Without Intermediate CA");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CByteVector CertificateRequestData;
+					CCertificate::fs_GenerateClientCertificateRequest(ClientOptions, CertificateRequestData, ClientSettings.m_PrivateKeyData);
+					CCertificate::fs_SignClientCertificate
+						(
+							ServerSettings.m_PublicCertificateData
+							, ServerSettings.m_PrivateKeyData
+							, CertificateRequestData
+							, ClientSettings.m_PublicCertificateData
+						)
+					;
+
+					CSSLSettings ClientSettings2;
+					ClientSettings2.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings2.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CCertificateOptions ClientOptions2;
+					ClientOptions2.m_CommonName = "Test Client";
+					ClientOptions2.m_KeySetting = g_TestTestKeySetting;
+
+					CByteVector CertificateRequestData2;
+					CCertificate::fs_GenerateClientCertificateRequest(ClientOptions2, CertificateRequestData2, ClientSettings2.m_PrivateKeyData);
+					CCertificate::fs_SignClientCertificate
+						(
+							ClientSettings.m_PublicCertificateData
+							, ClientSettings.m_PrivateKeyData
+							, CertificateRequestData2
+							, ClientSettings2.m_PublicCertificateData
+						)
+					;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings2);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate Incorrect");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+					ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate Missing");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, "Socket closed: PEER_DID_NOT_RETURN_A_CERTIFICATE"
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate Allow Missing");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Client Certificate Incorrect Allow Missing");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+
+					CCertificateOptions ClientOptions;
+					ClientOptions.m_CommonName = "Test Client";
+					ClientOptions.m_KeySetting = g_TestTestKeySetting;
+					ClientOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ClientOptions, ClientSettings.m_PublicCertificateData, ClientSettings.m_PrivateKeyData);
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Server Certificate Incorrect");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+					CSSLSettings ServerSettings2;
+					CCertificateOptions ServerOptions2;
+					ServerOptions2.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions2.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions2.m_KeySetting = g_TestTestKeySetting;
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions2, ServerSettings2.m_PublicCertificateData, ServerSettings2.m_PrivateKeyData);
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_CACertificateData = ServerSettings2.m_PublicCertificateData;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Server Certificate Self Signed");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseOSStoreIfNoCASpecified;
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, "Socket closed: The certificate is self signed and cannot be found in the list of trusted certificates"
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Server Certificate Child Cert");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+					CByteVector RootCertData;
+					CSecureByteVector RootKeyData;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
+
+					CByteVector ChildCertData;
+					CSecureByteVector ChildKeyData;
+					CByteVector RequestData;
+
+					CCertificateOptions RequestOptions;
+					RequestOptions.m_CommonName = "Malterlib test request";
+					RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					RequestOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
+
+					CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
+
+					ServerSettings.m_PublicCertificateData = ChildCertData;
+					ServerSettings.m_PrivateKeyData = ChildKeyData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_CACertificateData = RootCertData;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, ""
+				, _FragmentationSize
+			)
+		;
+	}
+	{
+		DMibTestPath("SSL Server Certificate Incorrect Specific");
+		fp_Test
+			(
+				[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
+				{
+					CSSLSettings ServerSettings;
+					CByteVector RootCertData;
+					CSecureByteVector RootKeyData;
+
+					CCertificateOptions ServerOptions;
+					ServerOptions.m_CommonName = "Malterlib test Self Signed";
+					ServerOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					ServerOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, RootCertData, RootKeyData);
+
+					CByteVector ChildCertData;
+					CSecureByteVector ChildKeyData;
+					CByteVector RequestData;
+
+					CCertificateOptions RequestOptions;
+					RequestOptions.m_CommonName = "Malterlib test request";
+					RequestOptions.m_Hostnames = fg_CreateVector<CStr>("localhost");
+					RequestOptions.m_KeySetting = g_TestTestKeySetting;
+
+					CCertificate::fs_GenerateClientCertificateRequest(RequestOptions, RequestData, ChildKeyData);
+
+					CCertificate::fs_SignClientCertificate(RootCertData, RootKeyData, RequestData, ChildCertData);
+
+					ServerSettings.m_PublicCertificateData = ChildCertData;
+					ServerSettings.m_PrivateKeyData = ChildKeyData;
+
+					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
+
+					CSSLSettings ClientSettings;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
+					ClientSettings.m_CACertificateData = RootCertData;
+
+					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
+
+					return {CSocket_SSL::fs_GetFactory(pServerContext), CSocket_SSL::fs_GetFactory(pClientContext)};
+				}
+				, ""
+				, "Socket closed: Mismatching specific certificate"
+				, _FragmentationSize
+			)
+		;
+	}
+}
+
+bool CWebsocket_Tests::fp_WaitForPriorityConnect(TCSharedPointer<CPriorityState> const &_pState)
+{
+	DMibTestPath("Connect");
+
+	auto pState = _pState;
+
+	bool bTimedOut = false;
+
+	while (!bTimedOut)
+	{
+		{
+			DMibLock(pState->m_Lock);
+			if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
+				break;
+			if (pState->m_bClientConnectionResult)
+			{
+				if (!pState->m_ClientSocket && (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || !pState->m_ClientConnectionError.f_IsEmpty()))
+					break;
+				if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
+					break;
+			}
+		}
+		bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+	}
+
+	DMibTest(!DMibExpr(bTimedOut));
+	DMibLock(pState->m_Lock);
+	DMibTest(!DMibExpr(pState->m_bAcceptError));
+	DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
+	DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
+	DMibAssertTrue(pState->m_ClientSocket);
+	return true;
+}
+
+void CWebsocket_Tests::fp_TestPriorityFragmentationBugDetection(umint _FragmentationSize)
+{
+	using namespace NStr;
+
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	TCSharedPointer<CPriorityState> pState = fg_Construct();
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			pState->f_Clear(RunLoopHelper.m_pRunLoop);
+		}
+	;
+
+	CNetAddressTCPv4 ListenAddress;
+	ListenAddress.f_SetLocalhost();
+	ListenAddress.m_Port = 0;
+
+	pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+	pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+	pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+	pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	pState->f_Connect(ListenPort, _FragmentationSize);
+
+	if (!fp_WaitForPriorityConnect(pState))
+		return;
+
+	// Test 1: Low priority fragmenting, high priority queued
+	{
+		DMibTestPath("Low priority fragmenting, high priority queued");
+		CStr LargeMessage;
+		for (umint iChar = 0; iChar < _FragmentationSize * 4; ++iChar)
+			LargeMessage += "X";
+
+		CStr SmallMessage = "Small";
+
+		TCFutureVector<void> Results;
+
+		// Send large message at low priority (10)
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(10)) > Results;
+
+		// Immediately send small message at high priority (200)
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(200)) > Results;
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
 		bool bTimedOut = false;
-
 		while (!bTimedOut)
 		{
 			{
 				DMibLock(pState->m_Lock);
-				if (pState->m_bAcceptError && pState->m_bClientConnectionResult)
+				if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
 					break;
-				if (pState->m_bClientConnectionResult)
-				{
-					if (!pState->m_ClientSocket && (pState->m_bAcceptError || !pState->m_ServerConnections.f_IsEmpty() || !pState->m_ClientConnectionError.f_IsEmpty()))
-						break;
-					if (pState->m_ClientSocket && !pState->m_ServerConnections.f_IsEmpty())
-						break;
-				}
 			}
 			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
 		}
 
 		DMibTest(!DMibExpr(bTimedOut));
 		DMibLock(pState->m_Lock);
-		DMibTest(!DMibExpr(pState->m_bAcceptError));
-		DMibTest(DMibExpr(pState->m_ClientConnectionError) == DMibExpr(""));
-		DMibAssertFalse(pState->m_ServerConnections.f_IsEmpty());
-		DMibAssertTrue(pState->m_ClientSocket);
-		return true;
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
+
+		pState->m_Messages.f_Clear();
 	}
 
-	void fp_TestPriorityFragmentationBugDetection(umint _FragmentationSize)
+	// Test 2: High priority fragmenting, low priority queued
 	{
-		using namespace NStr;
+		DMibTestPath("High priority fragmenting, low priority queued");
 
-		CActorRunLoopTestHelper RunLoopHelper;
+		CStr LargeMessage;
+		for (umint iChar = 0; iChar < _FragmentationSize * 4; ++iChar)
+			LargeMessage += "Y";
 
-		TCSharedPointer<CPriorityState> pState = fg_Construct();
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				pState->f_Clear(RunLoopHelper.m_pRunLoop);
-			}
-		;
+		CStr SmallMessage = "Tiny";
 
-		CNetAddressTCPv4 ListenAddress;
-		ListenAddress.f_SetLocalhost();
-		ListenAddress.m_Port = 0;
+		TCFutureVector<void> Results;
 
-		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+		// Send large message at high priority (200)
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(200)) > Results;
 
-		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		pState->f_Connect(ListenPort, _FragmentationSize);
+		// Immediately send small message at low priority (10)
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(10)) > Results;
 
-		if (!fp_WaitForPriorityConnect(pState))
-			return;
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
 
-		// Test 1: Low priority fragmenting, high priority queued
+		bool bTimedOut = false;
+		while (!bTimedOut)
 		{
-			DMibTestPath("Low priority fragmenting, high priority queued");
-			CStr LargeMessage;
-			for (umint iChar = 0; iChar < _FragmentationSize * 4; ++iChar)
-				LargeMessage += "X";
-
-			CStr SmallMessage = "Small";
-
-			TCFutureVector<void> Results;
-
-			// Send large message at low priority (10)
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(10)) > Results;
-
-			// Immediately send small message at high priority (200)
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(200)) > Results;
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
-
-			pState->m_Messages.f_Clear();
-		}
-
-		// Test 2: High priority fragmenting, low priority queued
-		{
-			DMibTestPath("High priority fragmenting, low priority queued");
-
-			CStr LargeMessage;
-			for (umint iChar = 0; iChar < _FragmentationSize * 4; ++iChar)
-				LargeMessage += "Y";
-
-			CStr SmallMessage = "Tiny";
-
-			TCFutureVector<void> Results;
-
-			// Send large message at high priority (200)
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(200)) > Results;
-
-			// Immediately send small message at low priority (10)
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, SmallMessage, uint32(10)) > Results;
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
-
-			pState->m_Messages.f_Clear();
-		}
-
-		// Test 3: Multiple priorities with fragmentation
-		{
-			DMibTestPath("Multiple priorities with fragmentation");
-
-			TCFutureVector<void> Results;
-
-			// Queue multiple large messages at different priorities
-			for (uint32 Priority : {uint32(50), uint32(100), uint32(150), uint32(200)})
-			{
-				CStr Message;
-				for (umint iChar = 0; iChar < _FragmentationSize * 3; ++iChar)
-					Message += ch8('A' + (Priority / 50));
-
-				pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
-			}
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= 4 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_Messages.f_GetLen(), >=, 4);
-
-			pState->m_Messages.f_Clear();
-		}
-
-		// Test 4: Rapid priority switching with smaller fragmentation
-		{
-			DMibTestPath("Rapid priority switching with smaller fragmentation");
-
-			TCFutureVector<void> Results;
-
-			umint nMessages = 16;
-			for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
-			{
-				CStr Message;
-				umint MessageLen = (iMessage % 8) * _FragmentationSize + 1;
-				for (umint iChar = 0; iChar < MessageLen; ++iChar)
-					Message += ch8('0' + (iMessage % 10));
-
-				uint32 Priority = uint32((iMessage * 17) % 256); // Pseudo-random priorities
-				pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
-			}
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= nMessages || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_Messages.f_GetLen(), >=, nMessages);
-		}
-	}
-
-	void fp_TestPriorityFragmentationBehavior(umint _FragmentationSize)
-	{
-		using namespace NStr;
-
-		CActorRunLoopTestHelper RunLoopHelper;
-
-		TCSharedPointer<CPriorityState> pState = fg_Construct();
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				pState->f_Clear(RunLoopHelper.m_pRunLoop);
-			}
-		;
-
-		CNetAddressTCPv4 ListenAddress;
-		ListenAddress.f_SetLocalhost();
-		ListenAddress.m_Port = 0;
-
-		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
-
-		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		pState->f_Connect(ListenPort, _FragmentationSize);
-
-		if (!fp_WaitForPriorityConnect(pState))
-			return;
-
-		// Test 1: Priority ordering with same-size messages
-		{
-			DMibTestPath("Priority ordering");
-
-			// Stop send processing so messages queue up
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			TCFutureVector<void> Results;
-
-			// Send messages at different priorities - all same size (no fragmentation)
-			// These should be received in priority order (highest first)
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Low"), uint32(50)) > Results;
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Med"), uint32(100)) > Results;
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("High"), uint32(200)) > Results;
-
-			// Re-enable send processing - now prioritization will take effect
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= 3 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_Messages.f_GetLen(), ==, 3);
-
-			// Verify priority ordering - highest priority (200) should arrive first
-			DMibExpect(pState->m_Messages[0], ==, "HighReply");
-			DMibExpect(pState->m_Messages[1], ==, "MedReply");
-			DMibExpect(pState->m_Messages[2], ==, "LowReply");
-		}
-
-		// Clear for next test
-		{
-			DMibLock(pState->m_Lock);
-			pState->m_Messages.f_Clear();
-			pState->m_bProtocolError = false;
-		}
-
-		// Test 2: Fragmentation completes before priority switch
-		// This tests the bug scenario: large message starts fragmenting, some fragments sent,
-		// then high priority message is queued. The fragmentation should complete before
-		// switching to the high priority message.
-		{
-			// Create a large message that will definitely fragment into multiple pieces
-			CStr LargeMessage;
-			for (umint iChar = 0; iChar < _FragmentationSize * 5; ++iChar)
-				LargeMessage += "L";
-
-			// Limit to only writing 1 fragment per f_WriteQueuedMessages call (simulates stuffed connection)
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			TCFutureVector<void> Results;
-
-			// Queue large fragmenting message at medium priority - will only write 1 fragment due to limit
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
-
-			// Two actor round trips order first behind the send, then behind its deferred flush.
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			// Now queue high priority message while fragmentation is in progress
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("HighPrio"), uint32(200)) > Results;
-
-			// Remove the write limit and let everything complete
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTestPath("Fragmentation completes first");
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
-
-			// The large message should complete first (fragmentation not interrupted)
-			// then the high priority message should arrive
-			DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
-			DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
-		}
-
-		// Clear for next test
-		{
-			DMibLock(pState->m_Lock);
-			pState->m_Messages.f_Clear();
-			pState->m_bProtocolError = false;
-		}
-
-		// Test 3: Control frame interleaving allowed
-		{
-			// Create a large message that will fragment
-			CStr LargeMessage;
-			for (umint iChar = 0; iChar < _FragmentationSize * 6; ++iChar)
-				LargeMessage += "Z";
-
-			// Stop send processing so messages queue up
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopProcessingSend).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			TCFutureVector<void> Results;
-
-			// Send large fragmenting message
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
-
-			// Send a ping - control frames should be able to interleave
-			CIOByteVector PingData;
-			PingData.f_Insert(reinterpret_cast<uint8 const *>("ping"), 4);
-			TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
-			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
-
-			// Re-enable send processing
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					// Wait for both the message and the pong
-					if ((pState->m_Messages.f_GetLen() >= 1 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTestPath("Control frame interleaving");
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_Messages.f_GetLen(), ==, 1);
-			DMibTest(!DMibExpr(pState->m_PongReceived.f_IsEmpty()));
-
-			// Verify the message was received correctly
-			DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
-		}
-	}
-
-	void fp_TestSendThenClose(umint _FragmentationSize)
-	{
-		using namespace NStr;
-
-		CActorRunLoopTestHelper RunLoopHelper;
-
-		TCSharedPointer<CPriorityState> pState = fg_Construct();
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				pState->f_Clear(RunLoopHelper.m_pRunLoop);
-			}
-		;
-
-		CNetAddressTCPv4 ListenAddress;
-		ListenAddress.f_SetLocalhost();
-		ListenAddress.m_Port = 0;
-
-		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
-
-		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		pState->f_Connect(ListenPort, _FragmentationSize);
-
-		if (!fp_WaitForPriorityConnect(pState))
-			return;
-
-		{
-			DMibTestPath("Send then close keeps order");
-
-			CStr Message;
-			for (umint iChar = 0; iChar < _FragmentationSize * 3; ++iChar)
-				Message += "O";
-
-			// Leave send unawaited so close queues before its deferred flush.
-			TCFutureVector<void> Results;
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, uint32(100)) > Results;
-
-			auto CloseInfo = pState->m_ClientSocket(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, CStr("Closing behind send"))
-				.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-			;
-
-			// Assert server receipt; its echo can race close handling independently of wire ordering.
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					if (pState->m_ServerMessages.f_GetLen() >= 1 || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(CloseInfo.m_Status, ==, EWebSocketStatus_NormalClosure);
-			DMibAssert(pState->m_ServerMessages.f_GetLen(), ==, 1);
-			DMibExpect(pState->m_ServerMessages[0], ==, Message)(ETestFlag_NoValues);
-		}
-	}
-
-	void fp_TestSendSettlesOnTeardown(umint _FragmentationSize)
-	{
-		using namespace NStr;
-
-		CActorRunLoopTestHelper RunLoopHelper;
-
-		TCSharedPointer<CPriorityState> pState = fg_Construct();
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				pState->f_Clear(RunLoopHelper.m_pRunLoop);
-			}
-		;
-
-		CNetAddressTCPv4 ListenAddress;
-		ListenAddress.f_SetLocalhost();
-		ListenAddress.m_Port = 0;
-
-		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
-
-		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		pState->f_Connect(ListenPort, _FragmentationSize);
-
-		if (!fp_WaitForPriorityConnect(pState))
-			return;
-
-		{
-			DMibTestPath("Send settles on teardown");
-
-			// Hold the flush so teardown encounters an accepted, unsent message.
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			TCFuture<void> SendFuture = pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Never leaves"), uint32(100));
-
-			// A round trip makes sure the send call has queued its message before the teardown
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			{
-				TCActor<CWebSocketActor> ServerSocket;
-				{
-					DMibLock(pState->m_Lock);
-					DMibAssertTrue(!pState->m_ServerConnections.f_IsEmpty());
-					ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
-				}
-				fg_Move(ServerSocket).f_Destroy().f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-			}
-
-			// Exclude timeout exceptions: only a settled rejection proves the pending send was cancelled.
-			bool bRejected = false;
-			try
-			{
-				fg_Move(SendFuture).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-			}
-			catch (NMib::NException::CException const &_Exception)
-			{
-				bRejected = NStr::CStr(_Exception.f_GetErrorStr()).f_Find("Timed out waiting for synchronous actor call") < 0;
-			}
-			DMibExpectTrue(bRejected);
-		}
-	}
-
-	void fp_TestFinalFragmentPingInterleave(umint _FragmentationSize)
-	{
-		using namespace NStr;
-
-		CActorRunLoopTestHelper RunLoopHelper;
-
-		TCSharedPointer<CPriorityState> pState = fg_Construct();
-		auto Cleanup = g_OnScopeExit / [&]
-			{
-				pState->f_Clear(RunLoopHelper.m_pRunLoop);
-			}
-		;
-
-		CNetAddressTCPv4 ListenAddress;
-		ListenAddress.f_SetLocalhost();
-		ListenAddress.m_Port = 0;
-
-		pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
-		pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
-
-		pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
-		pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
-			.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
-		;
-		pState->f_Connect(ListenPort, _FragmentationSize);
-
-		if (!fp_WaitForPriorityConnect(pState))
-			return;
-
-		// Bug scenario:
-		// 1. Send a message that fragments into exactly 5 pieces
-		// 2. Use DebugSetMaxWriteOps to send only 4 fragments (leaving final fragment with m_bFinished=true)
-		// 3. Queue a ping (max priority, will interleave)
-		// 4. The ping sends, and due to the bug at line 514:
-		//    - pFragmentingList exists with the final fragment
-		//    - !pFragmentingList->f_GetFirst().m_bFinished is FALSE (it IS the final fragment)
-		//    - bFinished is TRUE (from the ping we just sent)
-		//    - So we set m_pLastPendingMessagesList = nullptr, losing track of the final fragment!
-		// 5. Queue a higher priority data message
-		// 6. The new message starts sending before the fragmented one completes -> protocol error
-
-		{
-			DMibTestPath("Final fragment lost after ping interleave");
-
-			// Create a message that's exactly 5 fragments
-			CStr FragmentedMessage;
-			for (umint iChar = 0; iChar < _FragmentationSize * 5; ++iChar)
-				FragmentedMessage += "F";
-
-			// Limit writes to 4 fragments - this leaves only the final fragment (m_bFinished = true)
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(4)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			TCFutureVector<void> Results;
-
-			// Send the fragmenting message at medium priority
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, FragmentedMessage, uint32(100)) > Results;
-
-			// Two actor round trips order first behind the send, then behind its deferred flush.
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			// Now queue a ping - this will interleave (max priority)
-			CIOByteVector PingData;
-			PingData.f_Insert(reinterpret_cast<uint8 const *>("test"), 4);
-			TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
-			pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
-
-			// Queue another data message at HIGHER priority than the fragmenting one
-			// If the bug exists, when we remove the write limit, this message will try to
-			// send before the final fragment of the first message, causing a protocol error
-			CStr HighPrioMessage = "HighPrio";
-			pState->m_ClientSocket(&CWebSocketActor::f_SendText, HighPrioMessage, uint32(200)) > Results;
-
-			// Remove the write limit - now everything should complete
-			pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
-
-			bool bTimedOut = false;
-			while (!bTimedOut)
-			{
-				{
-					DMibLock(pState->m_Lock);
-					// Wait for both messages and the pong
-					if ((pState->m_Messages.f_GetLen() >= 2 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
-						break;
-				}
-				bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
-			}
-
-			DMibTest(!DMibExpr(bTimedOut));
-			DMibLock(pState->m_Lock);
-
-			// The key assertion: there should be NO protocol error
-			// If the bug exists, we'll get a protocol error because the high priority message
-			// starts before the fragmented message completes
-			DMibTest(!DMibExpr(pState->m_bProtocolError));
-			DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
-			DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
-
-			// Verify we got both messages correctly
-			DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
-
-			// The fragmented message should complete first (we can't interrupt fragmentation for data frames)
-			// Then the high priority message
-			DMibExpect(pState->m_Messages[0], ==, FragmentedMessage + "Reply")(ETestFlag_NoValues);
-			DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
-		}
-	}
-
-	// A synchronous raw peer controls frame boundaries while the server runs on actors.
-	struct CRawPeer
-	{
-		CSocket m_Socket;
-
-		bool f_SendAll(void const *_pData, umint _nBytes)
-		{
-			uint8 const *pData = (uint8 const *)_pData;
-			CTimeout Timeout(g_Timeout);
-			while (_nBytes && !Timeout.f_TimedOut())
-			{
-				umint nSent = m_Socket.f_Send(pData, _nBytes);
-				if (!nSent)
-				{
-					NSys::fg_Thread_Sleep(0.001);
-					continue;
-				}
-
-				pData += nSent;
-				_nBytes -= nSent;
-			}
-
-			return _nBytes == 0;
-		}
-
-		// Pause between pieces to prevent loopback coalescing from hiding short-delivery cases.
-		bool f_SendInPieces(void const *_pData, umint _nBytes, umint _nPieceBytes)
-		{
-			uint8 const *pData = (uint8 const *)_pData;
-			while (_nBytes)
-			{
-				umint nPiece = fg_Min(_nBytes, _nPieceBytes);
-				if (!f_SendAll(pData, nPiece))
-					return false;
-
-				pData += nPiece;
-				_nBytes -= nPiece;
-				NSys::fg_Thread_Sleep(0.001);
-			}
-
-			return true;
-		}
-
-		bool f_Connect(uint16 _Port, CStr &o_Error)
-		{
-			CNetAddressTCPv4 Address;
-			Address.f_SetLocalhost();
-			Address.m_Port = _Port;
-			m_Socket.f_Connect(CNetAddress(Address));
-			if (!m_Socket.f_IsValid())
-			{
-				o_Error = "Connect failed";
-				return false;
-			}
-
-			CStr Request =
-				"GET /Test HTTP/1.1\r\n"
-				"Host: localhost\r\n"
-				"Upgrade: websocket\r\n"
-				"Connection: Upgrade\r\n"
-				"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
-				"Sec-WebSocket-Version: 13\r\n"
-				"Sec-WebSocket-Protocol: Test\r\n"
-				"Sec-WebSocket-Extensions: x-malterlib-unmasked\r\n"
-				"Origin: http://localhost\r\n"
-				"\r\n"
-			;
-			if (!f_SendAll(Request.f_GetStr(), Request.f_GetLen()))
-			{
-				o_Error = "Request send timed out";
-				return false;
-			}
-
-			CStr Response;
-			CTimeout Timeout(g_Timeout);
-			while (Response.f_Find("\r\n\r\n") < 0)
-			{
-				if (Timeout.f_TimedOut())
-				{
-					o_Error = "Response timed out";
-					return false;
-				}
-
-				ch8 Buffer[1024];
-				bool bEndOfStream = false;
-				umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
-				if (bEndOfStream)
-				{
-					o_Error = "Connection closed during the handshake: " + Response;
-					return false;
-				}
-
-				if (!nBytes)
-				{
-					NSys::fg_Thread_Sleep(0.001);
-					continue;
-				}
-
-				Response += CStr(Buffer, nBytes);
-			}
-
-			if (!Response.f_StartsWith("HTTP/1.1 101") || Response.f_Find(gc_pUnmaskedFramesExtension) < 0)
-			{
-				o_Error = "Unexpected handshake response: " + Response;
-				return false;
-			}
-
-			// Allow the server to switch from handshake readiness to its receive stream.
-			NSys::fg_Thread_Sleep(0.1);
-
-			return true;
-		}
-
-		// Returns false if no hangup arrives; reports total binary payload and the last frame.
-		bool f_ReadUntilEnd(umint &o_nBinaryBytes, uint8 &o_LastOpcode, CByteVector &o_LastPayload)
-		{
-			o_nBinaryBytes = 0;
-			o_LastOpcode = 0xff;
-			o_LastPayload.f_Clear();
-
-			CByteVector Pending;
-			CTimeout Timeout(g_Timeout);
-			bool bEndOfStream = false;
-			while (!bEndOfStream && m_Socket.f_IsValid() && !Timeout.f_TimedOut())
-			{
-				uint8 Buffer[65536];
-				umint nBytes = m_Socket.f_Receive(Buffer, sizeof(Buffer), bEndOfStream);
-				if (!nBytes)
-				{
-					if (!bEndOfStream)
-						NSys::fg_Thread_Sleep(0.001);
-					continue;
-				}
-
-				Pending.f_Insert(Buffer, nBytes);
-
-				umint Offset = 0;
-				for (;;)
-				{
-					umint nLeft = Pending.f_GetLen() - Offset;
-					if (nLeft < 2)
-						break;
-
-					// A server never masks
-					if (Pending[Offset + 1] & 0x80)
-						return false;
-
-					uint8 Opcode = Pending[Offset] & 0x0f;
-					umint nPayload = Pending[Offset + 1] & 0x7f;
-					umint nHeader = 2;
-					if (nPayload == 126)
-					{
-						if (nLeft < 4)
-							break;
-
-						nPayload = (umint(Pending[Offset + 2]) << 8) | Pending[Offset + 3];
-						nHeader = 4;
-					}
-					else if (nPayload == 127)
-					{
-						if (nLeft < 10)
-							break;
-
-						nPayload = 0;
-						for (umint iByte = 0; iByte < 8; ++iByte)
-							nPayload = (nPayload << 8) | Pending[Offset + 2 + iByte];
-						nHeader = 10;
-					}
-					if (nLeft < nHeader + nPayload)
-						break;
-
-					if (Opcode == 0x2 || Opcode == 0x0)
-						o_nBinaryBytes += nPayload;
-					o_LastOpcode = Opcode;
-					o_LastPayload.f_Clear();
-					o_LastPayload.f_Insert(Pending.f_GetArray() + Offset + nHeader, nPayload);
-					Offset += nHeader + nPayload;
-				}
-				if (Offset)
-					Pending.f_Remove(0, Offset);
-			}
-
-			return bEndOfStream;
-		}
-
-		static CByteVector fs_FrameHeader(uint8 _Opcode, bool _bFinal, umint _nPayloadBytes)
-		{
-			CByteVector Header;
-			Header.f_Insert(uint8((_bFinal ? 0x80 : 0) | _Opcode));
-			if (_nPayloadBytes < 126)
-				Header.f_Insert(uint8(_nPayloadBytes));
-			else if (_nPayloadBytes <= 0xffff)
-			{
-				Header.f_Insert(uint8(126));
-				Header.f_Insert(uint8(_nPayloadBytes >> 8));
-				Header.f_Insert(uint8(_nPayloadBytes));
-			}
-			else
-			{
-				Header.f_Insert(uint8(127));
-				for (int iByte = 7; iByte >= 0; --iByte)
-					Header.f_Insert(uint8(uint64(_nPayloadBytes) >> (iByte * 8)));
-			}
-
-			return Header;
-		}
-	};
-
-	void fp_TestRawPeerFrames()
-	{
-		CActorRunLoopTestHelper RunLoopHelper;
-
-		CNetAddressTCPv4 Address;
-		Address.f_SetLocalhost();
-		Address.m_Port = 0;
-		CNetAddress ListenAddress = Address;
-
-		auto fWaitFor = [&](TCSharedPointer<CState> const &_pState, auto const &_fDone, fp64 _Timeout = g_Timeout) -> bool
-			{
-				CTimeout Timeout(_Timeout);
-				for (;;)
-				{
-					{
-						DMibLock(_pState->m_Lock);
-						if (_fDone())
-							return true;
-					}
-
-					if (Timeout.f_TimedOut())
-						return false;
-
-					_pState->m_Event.f_WaitTimeout(0.1);
-				}
-			}
-		;
-
-		auto fConnectPeer = [&](TCSharedPointer<CState> const &_pState, CRawPeer &_Peer, CWebsocketSettings const &_Settings) -> bool
-			{
-				_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>(_Settings);
-				uint16 ListenPort = _pState->f_StartListen(ListenAddress, FVirtualSocketFactory(), false, true);
-
-				CStr Error;
-				bool bConnected = _Peer.f_Connect(ListenPort, Error);
-				DMibExpect(Error, ==, "");
-				if (!bConnected)
-					return false;
-
-				bool bAccepted = fWaitFor
-					(
-						_pState
-						, [&]
-						{
-							return !_pState->m_ServerConnections.f_IsEmpty();
-						}
-					)
-				;
-				DMibExpectTrue(bAccepted);
-
-				return bAccepted;
-			}
-		;
-
-		auto fWaitForClose = [&](TCSharedPointer<CState> const &_pState)
-			{
-				bool bClosed = fWaitFor
-					(
-						_pState
-						, [&]
-						{
-							return _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
-						}
-					)
-				;
-				DMibExpectTrue(bClosed);
-				DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_AbnormalClosure);
-				DMibExpect(_pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
-			}
-		;
-
-		auto fWaitForMessage = [&](TCSharedPointer<CState> const &_pState, CByteVector const &_Payload, fp64 _Timeout)
-			{
-				bool bReceived = fWaitFor
-					(
-						_pState
-						, [&]
-						{
-							return !_pState->m_ServerBinaryMessages.f_IsEmpty() || _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
-						}
-						, _Timeout
-					)
-				;
-				DMibExpectTrue(bReceived);
-				DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
-				DMibExpect(_pState->m_ServerBinaryMessages.f_GetLen(), ==, 1);
-				if (_pState->m_ServerBinaryMessages.f_GetLen() != 1)
-					return;
-
-				auto const &Message = *_pState->m_ServerBinaryMessages[0];
-				DMibExpect(Message.f_GetTotalLength(), ==, _Payload.f_GetLen());
-				if (Message.f_GetTotalLength() != _Payload.f_GetLen())
-					return;
-
-				CByteVector Received;
-				Received.f_SetLen(_Payload.f_GetLen());
-				Message.f_CopyTo(Received.f_GetArray(), 0, Received.f_GetLen());
-				DMibExpect(NMemory::fg_MemCmp(Received.f_GetArray(), _Payload.f_GetArray(), _Payload.f_GetLen()), ==, 0);
-			}
-		;
-
-		// Use a frame above the direct-read threshold, up to the server's accepted limit.
-		constexpr umint c_nFrameBytes = CWebsocketSettings::mc_DefaultMaxFragmentSize;
-
-		{
-			DMibTestPath("Close inside a frame");
-
-			TCSharedPointer<CState> pState = fg_Construct();
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-					pState->f_Clear(RunLoopHelper.m_pRunLoop);
-				}
-			;
-
-			CRawPeer Peer;
-			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
-				return;
-
-			// Close after a quarter payload so direct-read assembly remains incomplete.
-			CByteVector Frame = CRawPeer::fs_FrameHeader(0x2, true, c_nFrameBytes);
-			for (umint iByte = 0; iByte < c_nFrameBytes / 4; ++iByte)
-				Frame.f_Insert(uint8(iByte));
-			DMibExpectTrue(Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen()));
-			Peer.m_Socket.f_Close();
-
-			fWaitForClose(pState);
-			DMibExpectTrue(pState->m_ServerBinaryMessages.f_IsEmpty());
-		}
-
-		{
-			DMibTestPath("Message in small pieces");
-
-			TCSharedPointer<CState> pState = fg_Construct();
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-					pState->f_Clear(RunLoopHelper.m_pRunLoop);
-				}
-			;
-
-			CRawPeer Peer;
-			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
-				return;
-
-			// Keep delivery pieces smaller than receive buffers while retaining a whole fragmented message.
-			constexpr umint c_nFragments = 16;
-			CByteVector Payload;
-			Payload.f_SetLen(c_nFragments * c_nFrameBytes);
-			for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
-				Payload[iByte] = uint8(iByte * 31 + 7);
-
-			bool bSent = true;
-			for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
-			{
-				CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFrameBytes);
-				Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFrameBytes, c_nFrameBytes);
-				bSent = Peer.f_SendInPieces(Frame.f_GetArray(), Frame.f_GetLen(), 8192);
-			}
-			DMibExpectTrue(bSent);
-
-			fWaitForMessage(pState, Payload, g_Timeout);
-
-			Peer.m_Socket.f_Close();
-			fWaitForClose(pState);
-		}
-
-		{
-			DMibTestPath("Message padded with control frames");
-
-			// Pad payload fragments with control frames so retaining every buffer would exceed the window; the interleave budget must force copying.
-			CWebsocketSettings Settings;
-			Settings.m_MaxMessageSize = 8 << 20;
-
-			TCSharedPointer<CState> pState = fg_Construct();
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-					pState->f_Clear(RunLoopHelper.m_pRunLoop);
-				}
-			;
-
-			CRawPeer Peer;
-			if (!fConnectPeer(pState, Peer, Settings))
-				return;
-
-			constexpr umint c_nFragmentBytes = 96 * 1024;
-			constexpr umint c_nFragments = 80;
-			constexpr umint c_nPongBytes = 160 * 1024;
-
-			CByteVector Payload;
-			Payload.f_SetLen(c_nFragments * c_nFragmentBytes);
-			for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
-				Payload[iByte] = uint8(iByte * 13 + 5);
-
-			CByteVector Pongs;
-			while (Pongs.f_GetLen() < c_nPongBytes)
-			{
-				Pongs.f_Insert(uint8(0x8a));
-				Pongs.f_Insert(uint8(125));
-				for (umint iByte = 0; iByte < 125; ++iByte)
-					Pongs.f_Insert(uint8(iByte));
-			}
-
-			bool bSent = true;
-			for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
-			{
-				CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFragmentBytes);
-				Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFragmentBytes, c_nFragmentBytes);
-				bSent = Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen());
-				if (bSent && iFragment + 1 < c_nFragments)
-					bSent = Peer.f_SendAll(Pongs.f_GetArray(), Pongs.f_GetLen());
-			}
-			DMibExpectTrue(bSent);
-
-			fWaitForMessage(pState, Payload, g_Timeout);
-
-			Peer.m_Socket.f_Close();
-			fWaitForClose(pState);
-		}
-
-		{
-			DMibTestPath("Close reply behind queued sends");
-
-			// Queue output before peer close and let the peer read only afterwards; linger must drain the reply before destruction.
-			TCSharedPointer<CState> pState = fg_Construct();
-			pState->m_bLingerOnServerClose = true;
-			auto Cleanup = g_OnScopeExit / [&]
-				{
-					pState->f_Clear(RunLoopHelper.m_pRunLoop);
-				}
-			;
-
-			CRawPeer Peer;
-			if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
-				return;
-
-			constexpr umint c_nMessageBytes = 16 << 20;
-			CIOByteVector Message;
-			Message.f_SetLen(c_nMessageBytes);
-			for (umint iByte = 0; iByte < c_nMessageBytes; ++iByte)
-				Message[iByte] = uint8(iByte * 7 + 3);
-			TCSharedPointer<CIOByteVector const> pMessage = fg_Construct(fg_Move(Message));
 			{
 				DMibLock(pState->m_Lock);
-				for (auto &Connection : pState->m_ServerConnections)
-					Connection.m_Actor(&CWebSocketActor::f_SendBinary, pMessage, 0).f_DiscardResult();
+				if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
+					break;
 			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
 
-			// Time for the send to fill the socket buffers and stall with the rest queued
-			NSys::fg_Thread_Sleep(0.2);
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_Messages.f_GetLen(), >=, 2);
 
-			CByteVector Close = CRawPeer::fs_FrameHeader(0x8, true, 5);
-			Close.f_Insert(uint8(0x03));
-			Close.f_Insert(uint8(0xe8));
-			Close.f_Insert((uint8 const *)"bye", 3);
-			DMibExpectTrue(Peer.f_SendAll(Close.f_GetArray(), Close.f_GetLen()));
+		pState->m_Messages.f_Clear();
+	}
 
-			umint nBinaryBytes = 0;
-			uint8 LastOpcode = 0;
-			CByteVector LastPayload;
-			bool bEnded = Peer.f_ReadUntilEnd(nBinaryBytes, LastOpcode, LastPayload);
-			DMibExpectTrue(bEnded);
-			DMibExpect(nBinaryBytes, ==, c_nMessageBytes);
-			DMibExpect(LastOpcode, ==, 0x8);
-			DMibExpect(LastPayload.f_GetLen(), ==, 5);
-			if (LastPayload.f_GetLen() == 5)
-				DMibExpect(NMemory::fg_MemCmp(LastPayload.f_GetArray(), Close.f_GetArray() + 2, 5), ==, 0);
+	// Test 3: Multiple priorities with fragmentation
+	{
+		DMibTestPath("Multiple priorities with fragmentation");
 
-			Peer.m_Socket.f_Close();
+		TCFutureVector<void> Results;
 
-			bool bLingerDone = fWaitFor
+		// Queue multiple large messages at different priorities
+		for (uint32 Priority : {uint32(50), uint32(100), uint32(150), uint32(200)})
+		{
+			CStr Message;
+			for (umint iChar = 0; iChar < _FragmentationSize * 3; ++iChar)
+				Message += ch8('A' + (Priority / 50));
+
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
+		}
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_Messages.f_GetLen() >= 4 || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_Messages.f_GetLen(), >=, 4);
+
+		pState->m_Messages.f_Clear();
+	}
+
+	// Test 4: Rapid priority switching with smaller fragmentation
+	{
+		DMibTestPath("Rapid priority switching with smaller fragmentation");
+
+		TCFutureVector<void> Results;
+
+		umint nMessages = 16;
+		for (umint iMessage = 0; iMessage < nMessages; ++iMessage)
+		{
+			CStr Message;
+			umint MessageLen = (iMessage % 8) * _FragmentationSize + 1;
+			for (umint iChar = 0; iChar < MessageLen; ++iChar)
+				Message += ch8('0' + (iMessage % 10));
+
+			uint32 Priority = uint32((iMessage * 17) % 256); // Pseudo-random priorities
+			pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, Priority) > Results;
+		}
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_Messages.f_GetLen() >= nMessages || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_Messages.f_GetLen(), >=, nMessages);
+	}
+}
+
+void CWebsocket_Tests::fp_TestPriorityFragmentationBehavior(umint _FragmentationSize)
+{
+	using namespace NStr;
+
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	TCSharedPointer<CPriorityState> pState = fg_Construct();
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			pState->f_Clear(RunLoopHelper.m_pRunLoop);
+		}
+	;
+
+	CNetAddressTCPv4 ListenAddress;
+	ListenAddress.f_SetLocalhost();
+	ListenAddress.m_Port = 0;
+
+	pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+	pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+	pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+	pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	pState->f_Connect(ListenPort, _FragmentationSize);
+
+	if (!fp_WaitForPriorityConnect(pState))
+		return;
+
+	// Test 1: Priority ordering with same-size messages
+	{
+		DMibTestPath("Priority ordering");
+
+		// Stop send processing so messages queue up
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		TCFutureVector<void> Results;
+
+		// Send messages at different priorities - all same size (no fragmentation)
+		// These should be received in priority order (highest first)
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Low"), uint32(50)) > Results;
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Med"), uint32(100)) > Results;
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("High"), uint32(200)) > Results;
+
+		// Re-enable send processing - now prioritization will take effect
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_Messages.f_GetLen() >= 3 || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_Messages.f_GetLen(), ==, 3);
+
+		// Verify priority ordering - highest priority (200) should arrive first
+		DMibExpect(pState->m_Messages[0], ==, "HighReply");
+		DMibExpect(pState->m_Messages[1], ==, "MedReply");
+		DMibExpect(pState->m_Messages[2], ==, "LowReply");
+	}
+
+	// Clear for next test
+	{
+		DMibLock(pState->m_Lock);
+		pState->m_Messages.f_Clear();
+		pState->m_bProtocolError = false;
+	}
+
+	// Test 2: Fragmentation completes before priority switch
+	// This tests the bug scenario: large message starts fragmenting, some fragments sent,
+	// then high priority message is queued. The fragmentation should complete before
+	// switching to the high priority message.
+	{
+		// Create a large message that will definitely fragment into multiple pieces
+		CStr LargeMessage;
+		for (umint iChar = 0; iChar < _FragmentationSize * 5; ++iChar)
+			LargeMessage += "L";
+
+		// Limit to only writing 1 fragment per f_WriteQueuedMessages call (simulates stuffed connection)
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		TCFutureVector<void> Results;
+
+		// Queue large fragmenting message at medium priority - will only write 1 fragment due to limit
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
+
+		// Two actor round trips order first behind the send, then behind its deferred flush.
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		// Now queue high priority message while fragmentation is in progress
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("HighPrio"), uint32(200)) > Results;
+
+		// Remove the write limit and let everything complete
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_Messages.f_GetLen() >= 2 || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTestPath("Fragmentation completes first");
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
+
+		// The large message should complete first (fragmentation not interrupted)
+		// then the high priority message should arrive
+		DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
+		DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
+	}
+
+	// Clear for next test
+	{
+		DMibLock(pState->m_Lock);
+		pState->m_Messages.f_Clear();
+		pState->m_bProtocolError = false;
+	}
+
+	// Test 3: Control frame interleaving allowed
+	{
+		// Create a large message that will fragment
+		CStr LargeMessage;
+		for (umint iChar = 0; iChar < _FragmentationSize * 6; ++iChar)
+			LargeMessage += "Z";
+
+		// Stop send processing so messages queue up
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopProcessingSend).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		TCFutureVector<void> Results;
+
+		// Send large fragmenting message
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, LargeMessage, uint32(100)) > Results;
+
+		// Send a ping - control frames should be able to interleave
+		CIOByteVector PingData;
+		PingData.f_Insert(reinterpret_cast<uint8 const *>("ping"), 4);
+		TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
+		pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
+
+		// Re-enable send processing
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_None).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				// Wait for both the message and the pong
+				if ((pState->m_Messages.f_GetLen() >= 1 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTestPath("Control frame interleaving");
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_Messages.f_GetLen(), ==, 1);
+		DMibTest(!DMibExpr(pState->m_PongReceived.f_IsEmpty()));
+
+		// Verify the message was received correctly
+		DMibExpect(pState->m_Messages[0], ==, LargeMessage + "Reply")(ETestFlag_NoValues);
+	}
+}
+
+void CWebsocket_Tests::fp_TestSendThenClose(umint _FragmentationSize)
+{
+	using namespace NStr;
+
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	TCSharedPointer<CPriorityState> pState = fg_Construct();
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			pState->f_Clear(RunLoopHelper.m_pRunLoop);
+		}
+	;
+
+	CNetAddressTCPv4 ListenAddress;
+	ListenAddress.f_SetLocalhost();
+	ListenAddress.m_Port = 0;
+
+	pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+	pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+	pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+	pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	pState->f_Connect(ListenPort, _FragmentationSize);
+
+	if (!fp_WaitForPriorityConnect(pState))
+		return;
+
+	{
+		DMibTestPath("Send then close keeps order");
+
+		CStr Message;
+		for (umint iChar = 0; iChar < _FragmentationSize * 3; ++iChar)
+			Message += "O";
+
+		// Leave send unawaited so close queues before its deferred flush.
+		TCFutureVector<void> Results;
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, Message, uint32(100)) > Results;
+
+		auto CloseInfo = pState->m_ClientSocket(&CWebSocketActor::f_Close, EWebSocketStatus_NormalClosure, CStr("Closing behind send")).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		// Assert server receipt; its echo can race close handling independently of wire ordering.
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				if (pState->m_ServerMessages.f_GetLen() >= 1 || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(CloseInfo.m_Status, ==, EWebSocketStatus_NormalClosure);
+		DMibAssert(pState->m_ServerMessages.f_GetLen(), ==, 1);
+		DMibExpect(pState->m_ServerMessages[0], ==, Message)(ETestFlag_NoValues);
+	}
+}
+
+void CWebsocket_Tests::fp_TestSendSettlesOnTeardown(umint _FragmentationSize)
+{
+	using namespace NStr;
+
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	TCSharedPointer<CPriorityState> pState = fg_Construct();
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			pState->f_Clear(RunLoopHelper.m_pRunLoop);
+		}
+	;
+
+	CNetAddressTCPv4 ListenAddress;
+	ListenAddress.f_SetLocalhost();
+	ListenAddress.m_Port = 0;
+
+	pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+	pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+	pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+	pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	pState->f_Connect(ListenPort, _FragmentationSize);
+
+	if (!fp_WaitForPriorityConnect(pState))
+		return;
+
+	{
+		DMibTestPath("Send settles on teardown");
+
+		// Hold the flush so teardown encounters an accepted, unsent message.
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetFlags, fp64::fs_Inf(), NNetwork::ESocketDebugFlag_StopWriteQueuedMessages).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		TCFuture<void> SendFuture = pState->m_ClientSocket(&CWebSocketActor::f_SendText, CStr("Never leaves"), uint32(100));
+
+		// A round trip makes sure the send call has queued its message before the teardown
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		{
+			TCActor<CWebSocketActor> ServerSocket;
+			{
+				DMibLock(pState->m_Lock);
+				DMibAssertTrue(!pState->m_ServerConnections.f_IsEmpty());
+				ServerSocket = pState->m_ServerConnections.f_GetFirst().m_Actor;
+			}
+			fg_Move(ServerSocket).f_Destroy().f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		}
+
+		// Exclude timeout exceptions: only a settled rejection proves the pending send was cancelled.
+		bool bRejected = false;
+		try
+		{
+			fg_Move(SendFuture).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		}
+		catch (NMib::NException::CException const &_Exception)
+		{
+			bRejected = NStr::CStr(_Exception.f_GetErrorStr()).f_Find("Timed out waiting for synchronous actor call") < 0;
+		}
+		DMibExpectTrue(bRejected);
+	}
+}
+
+void CWebsocket_Tests::fp_TestFinalFragmentPingInterleave(umint _FragmentationSize)
+{
+	using namespace NStr;
+
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	TCSharedPointer<CPriorityState> pState = fg_Construct();
+	auto Cleanup = g_OnScopeExit / [&]
+		{
+			pState->f_Clear(RunLoopHelper.m_pRunLoop);
+		}
+	;
+
+	CNetAddressTCPv4 ListenAddress;
+	ListenAddress.f_SetLocalhost();
+	ListenAddress.m_Port = 0;
+
+	pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>();
+	pState->m_ServerActor(&CWebSocketServerActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	auto ListenPort = pState->f_StartListen(ListenAddress, _FragmentationSize);
+
+	pState->m_ClientActor = fg_ConstructActor<CWebSocketClientActor>();
+	pState->m_ClientActor(&CWebSocketClientActor::f_SetDefaultFragmentationSize, _FragmentationSize, CWebsocketSettings::mc_DefaultMaxFragmentSize)
+		.f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3)
+	;
+	pState->f_Connect(ListenPort, _FragmentationSize);
+
+	if (!fp_WaitForPriorityConnect(pState))
+		return;
+
+	// Bug scenario:
+	// 1. Send a message that fragments into exactly 5 pieces
+	// 2. Use DebugSetMaxWriteOps to send only 4 fragments (leaving final fragment with m_bFinished=true)
+	// 3. Queue a ping (max priority, will interleave)
+	// 4. The ping sends, and due to the bug at line 514:
+	//    - pFragmentingList exists with the final fragment
+	//    - !pFragmentingList->f_GetFirst().m_bFinished is FALSE (it IS the final fragment)
+	//    - bFinished is TRUE (from the ping we just sent)
+	//    - So we set m_pLastPendingMessagesList = nullptr, losing track of the final fragment!
+	// 5. Queue a higher priority data message
+	// 6. The new message starts sending before the fragmented one completes -> protocol error
+
+	{
+		DMibTestPath("Final fragment lost after ping interleave");
+
+		// Create a message that's exactly 5 fragments
+		CStr FragmentedMessage;
+		for (umint iChar = 0; iChar < _FragmentationSize * 5; ++iChar)
+			FragmentedMessage += "F";
+
+		// Limit writes to 4 fragments - this leaves only the final fragment (m_bFinished = true)
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(4)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		TCFutureVector<void> Results;
+
+		// Send the fragmenting message at medium priority
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, FragmentedMessage, uint32(100)) > Results;
+
+		// Two actor round trips order first behind the send, then behind its deferred flush.
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugGetStats).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		// Now queue a ping - this will interleave (max priority)
+		CIOByteVector PingData;
+		PingData.f_Insert(reinterpret_cast<uint8 const *>("test"), 4);
+		TCSharedPointer<CIOByteVector const> pPingData = fg_Construct(fg_Move(PingData));
+		pState->m_ClientSocket(&CWebSocketActor::f_SendPing, pPingData) > Results;
+
+		// Queue another data message at HIGHER priority than the fragmenting one
+		// If the bug exists, when we remove the write limit, this message will try to
+		// send before the final fragment of the first message, causing a protocol error
+		CStr HighPrioMessage = "HighPrio";
+		pState->m_ClientSocket(&CWebSocketActor::f_SendText, HighPrioMessage, uint32(200)) > Results;
+
+		// Remove the write limit - now everything should complete
+		pState->m_ClientSocket(&CWebSocketActor::f_DebugSetMaxWriteOps, aint(-1)).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		fg_AllDone(Results).f_CallSync(RunLoopHelper.m_pRunLoop, g_Timeout / 3);
+
+		bool bTimedOut = false;
+		while (!bTimedOut)
+		{
+			{
+				DMibLock(pState->m_Lock);
+				// Wait for both messages and the pong
+				if ((pState->m_Messages.f_GetLen() >= 2 && !pState->m_PongReceived.f_IsEmpty()) || pState->m_bProtocolError)
+					break;
+			}
+			bTimedOut = pState->m_Event.f_WaitTimeout(20.0);
+		}
+
+		DMibTest(!DMibExpr(bTimedOut));
+		DMibLock(pState->m_Lock);
+
+		// The key assertion: there should be NO protocol error
+		// If the bug exists, we'll get a protocol error because the high priority message
+		// starts before the fragmented message completes
+		DMibTest(!DMibExpr(pState->m_bProtocolError));
+		DMibExpect(pState->m_ClientConnectionCloseStatus, ==, EWebSocketStatus_None);
+		DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
+
+		// Verify we got both messages correctly
+		DMibAssert(pState->m_Messages.f_GetLen(), ==, 2);
+
+		// The fragmented message should complete first (we can't interrupt fragmentation for data frames)
+		// Then the high priority message
+		DMibExpect(pState->m_Messages[0], ==, FragmentedMessage + "Reply")(ETestFlag_NoValues);
+		DMibExpect(pState->m_Messages[1], ==, "HighPrioReply");
+	}
+}
+
+void CWebsocket_Tests::fp_TestRawPeerFrames()
+{
+	CActorRunLoopTestHelper RunLoopHelper;
+
+	CNetAddressTCPv4 Address;
+	Address.f_SetLocalhost();
+	Address.m_Port = 0;
+	CNetAddress ListenAddress = Address;
+
+	auto fWaitFor = [&](TCSharedPointer<CState> const &_pState, auto const &_fDone, fp64 _Timeout = g_Timeout) -> bool
+		{
+			CTimeout Timeout(_Timeout);
+			for (;;)
+			{
+				{
+					DMibLock(_pState->m_Lock);
+					if (_fDone())
+						return true;
+				}
+
+				if (Timeout.f_TimedOut())
+					return false;
+
+				_pState->m_Event.f_WaitTimeout(0.1);
+			}
+		}
+	;
+
+	auto fConnectPeer = [&](TCSharedPointer<CState> const &_pState, CRawPeer &_Peer, CWebsocketSettings const &_Settings) -> bool
+		{
+			_pState->m_ServerActor = fg_ConstructActor<CWebSocketServerActor>(_Settings);
+			uint16 ListenPort = _pState->f_StartListen(ListenAddress, FVirtualSocketFactory(), false, true);
+
+			CStr Error;
+			bool bConnected = _Peer.f_Connect(ListenPort, Error);
+			DMibExpect(Error, ==, "");
+			if (!bConnected)
+				return false;
+
+			bool bAccepted = fWaitFor
 				(
-					pState
+					_pState
 					, [&]
 					{
-						return pState->m_bServerLingerDone;
+						return !_pState->m_ServerConnections.f_IsEmpty();
 					}
 				)
 			;
-			DMibExpectTrue(bLingerDone);
-			DMibExpect(pState->m_ServerLingerError, ==, "");
+			DMibExpectTrue(bAccepted);
 
-			// The queued linger can run after drain and hangup finish; already-closed is a valid outcome.
-			bool bLingerStatusExpected = pState->m_ServerLingerStatus == EWebSocketStatus_NormalClosure || pState->m_ServerLingerStatus == EWebSocketStatus_AlreadyClosed;
-			DMibExpectTrue(bLingerStatusExpected);
-			DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_NormalClosure);
-			DMibExpect(pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
+			return bAccepted;
 		}
-	}
+	;
 
-public:
-	void f_DoTests()
-	{
-		DMibTestCategory("Tests")
+	auto fWaitForClose = [&](TCSharedPointer<CState> const &_pState)
 		{
-			for (umint FragmentationSize = 1; FragmentationSize < 16; ++FragmentationSize)
-			{
-				DMibTestSuite("Fragmentation {}"_f << FragmentationSize)
-				{
-					fp_TestProtocols(FragmentationSize, false);
-				};
-			}
-
-			for (umint FragmentationSize = 32; FragmentationSize <= CWebsocketSettings::mc_DefaultFragmentationSize; FragmentationSize = FragmentationSize * 2)
-			{
-				DMibTestSuite("Fragmentation {}"_f << FragmentationSize)
-				{
-					fp_TestProtocols(FragmentationSize, false);
-				};
-			}
-
-			DMibTestSuite("Timeouts")
-			{
-				fp_TestProtocols(CWebsocketSettings::mc_DefaultFragmentationSize, true);
-			};
-		};
-
-		DMibTestCategory("Unmasked negotiation")
-		{
-			DMibTestSuite("TCP")
-			{
-				m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
-				fp_TestUnmaskedNegotiation
-					(
-						[]() -> TCTuple<FVirtualSocketFactory, FVirtualSocketFactory>
-						{
-							return {nullptr, nullptr};
-						}
-					)
-				;
-			};
-		};
-
-		DMibTestCategory("Priority Fragmentation")
-		{
-			// Bug detection tests - verify no protocol errors with priority mixing
-			for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
-			{
-				DMibTestSuite("Bug Detection {}"_f << FragmentationSize)
-				{
-					fp_TestPriorityFragmentationBugDetection(FragmentationSize);
-				};
-			}
-
-			// Behavior tests - verify correct priority ordering
-			DMibTestSuite("Behavior 8")
-			{
-				fp_TestPriorityFragmentationBehavior(8);
-			};
-
-			DMibTestSuite("Behavior 16")
-			{
-				fp_TestPriorityFragmentationBehavior(16);
-			};
-
-			for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
-			{
-				DMibTestSuite("Send Then Close {}"_f << FragmentationSize)
-				{
-					fp_TestSendThenClose(FragmentationSize);
-				};
-			}
-
-			DMibTestSuite("Send Settles On Teardown")
-			{
-				fp_TestSendSettlesOnTeardown(8);
-			};
-
-			// Bug: Final fragment tracking lost after ping interleave
-			// Tests the specific scenario where only the final fragment remains
-			// (m_bFinished=true) when a ping interleaves
-			for (umint FragmentationSize = 4; FragmentationSize <= 16; FragmentationSize *= 2)
-			{
-				DMibTestSuite("Final Fragment Ping Interleave {}"_f << FragmentationSize)
-				{
-					fp_TestFinalFragmentPingInterleave(FragmentationSize);
-				};
-			}
-		};
-
-		DMibTestSuite("Raw Peer Frames")
-		{
-			fp_TestRawPeerFrames();
-		};
-
-		DMibTestSuite("AutobahnClient" << CTestGroup("Manual")) -> TCFuture<void>
-		{
-			/* https://github.com/crossbario/autobahn-testsuite
-
-			Install test suite (x64 macOS)
-
-				rm -rf ~/wstest
-				rm -rf ~/Library/Caches/pip
-				export BREW_HOME=`brew --prefix`
-				brew install pyenv
-				brew install openssl@1.1 --force
-				brew install zlib
-				export LDFLAGS="-L/usr/local/opt/zlib/lib"
-				export CPPFLAGS="-I/usr/local/opt/zlib/include"
-				export PKG_CONFIG_PATH="/usr/local/opt/zlib/lib/pkgconfig"
-				pyenv install 2.7.18 -f
-				pyenv global 2.7.18
-				PATH="$(pyenv root)/shims:$PATH"
-				which python
-				pip install virtualenv
-				virtualenv ~/wstest
-				source ~/wstest/bin/activate
-				python --version
-				pip install typing
-				CPPFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" CFLAGS="-I${BREW_HOME}/opt/openssl@1.1/include" pip install autobahntestsuite
-
-			To test client
-
-				In tab 1
-					source ~/wstest/bin/activate
-					cd ~/wstest
-					mkdir MalterlibClient
-					cd MalterlibClient
-					wstest -m fuzzingserver
-
-				In tab 2
-					cd /opt/Deploy/Tests
-					./Test_Malterlib_Web -g Manual --logs
-					open ~/wstest/MalterlibClient/reports/clients/index.html
-
-			To test server
-
-				Enable Malterlib_App_Enable_WebSocketEcho in user settings
-				Build Apps_Malterlib_Web
-
-				In tab 1
-					cd /opt/Deploy/Malterlib_Web
-					./WebSocketEcho --daemon-run-debug --log-to-stderr
-
-				In tab 2
-					source ~/wstest/bin/activate
-					cd ~/wstest
-					mkdir MalterlibServer
-					cd MalterlibServer
-					wstest -m fuzzingclient
-					open ~/wstest/MalterlibServer/reports/servers/index.html
-			*/
-
-			struct CConnection
-			{
-				TCActor<CWebSocketActor> m_WebSocket;
-				CActorSubscription m_Subscription;
-			};
-
-			struct CState
-			{
-				TCActor<CActor> m_ProcessingActor{fg_Construct()};
-				TCActor<CWebSocketClientActor> m_WebSocketClient = fg_Construct();
-				TCMap<umint, CConnection> m_Connections;
-				umint m_SocketID = 0;
-				umint m_nCases = 0;
-			};
-
-			TCSharedPointer<CState> pState = fg_Construct();
-
-			auto fOpenConnection = [](TCSharedPointer<CState> _pState, CStr _Path, TCActorFunctor<TCFuture<void> (CStr _Text)> _fOnMessage = {}) -> TCFuture<TCFuture<void>>
-				{
-					auto SocketID = _pState->m_SocketID++;
-
-					NHTTP::CRequest Request;
-					Request.f_GetRequestFields().f_SetUserAgent("MalterlibWebSocket");
-
-					auto NewConnection = co_await _pState->m_WebSocketClient
-						(
-							&CWebSocketClientActor::f_Connect
-							, CWebSocketClientActor::CConnectSettings
-							{
-								.m_ConnectToAddress = "127.0.0.1:9001"
-								, .m_Port = 9001
-								, .m_URI = _Path
-								, .m_Origin = "http://127.0.0.1/"
-								, .m_Request = fg_Move(Request)
-							}
-						)
-					;
-
-					auto Address = NewConnection.m_PeerAddress;
-
-					NewConnection.m_fOnReceiveBinaryMessage = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<NStream::CBinaryStorage const> _pMessage) -> TCFuture<void>
-						{
-							DMibLog(Info, "{} Binary '{}': {}", SocketID, Address, _pMessage->f_GetTotalLength());
-							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
-							if (pClient)
-								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendBinaryStorage, _pMessage, 0);
-
-							co_return {};
-						}
-					;
-					NewConnection.m_fOnReceiveTextMessage = g_ActorFunctorWeak / [_pState, SocketID, Address, fOnMessage = fg_Move(_fOnMessage)](CStr _Message) -> TCFuture<void>
-						{
-							DMibLog(Info, "{} Text '{}': {}", SocketID, Address, _Message.f_GetLen());
-
-							if (fOnMessage)
-								co_await fOnMessage(_Message);
-							else
-							{
-								auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
-								if (pClient)
-									co_await pClient->m_WebSocket(&CWebSocketActor::f_SendText, _Message, 0);
-							}
-
-							co_return {};
-						}
-					;
-					NewConnection.m_fOnReceivePing = g_ActorFunctorWeak / [_pState, SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
-						{
-							DMibLog(Info, "{} Ping '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
-							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
-							if (pClient)
-								co_await pClient->m_WebSocket(&CWebSocketActor::f_SendPong, _pApplicationData);
-
-							co_return {};
-						}
-					;
-					NewConnection.m_fOnReceivePong = g_ActorFunctorWeak / [SocketID, Address](TCSharedPointer<CIOByteVector const> _pApplicationData) -> TCFuture<void>
-						{
-							DMibLog(Info, "{} Pong '{}': {}", SocketID, Address, _pApplicationData->f_GetLen());
-							co_return {};
-						}
-					;
-
-					TCPromise<void> ClosedPromise;
-					NewConnection.m_fOnClose = g_ActorFunctorWeak / [_pState, SocketID, Address, ClosedPromise]
-						(EWebSocketStatus _Reason, CStr _Message, EWebSocketCloseOrigin _Origin) -> TCFuture<void>
-						{
-							DMibLog(Info, "{} Close '{}': {}", SocketID, Address, _Message);
-							auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
-							if (pClient)
-							{
-								TCFutureVector<void> Destroys;
-
-								if (pClient->m_Subscription)
-									pClient->m_Subscription->f_Destroy() > Destroys;
-
-								fg_Move(pClient->m_WebSocket).f_Destroy() > Destroys;
-
-								_pState->m_Connections.f_Remove(pClient);
-
-								co_await fg_AllDoneWrapped(Destroys);
-							}
-
-							ClosedPromise.f_SetResult();
-
-							co_return {};
-						}
-					;
-
-					TCPromise<void> AcceptedPromise;
-					auto WebSocket = NewConnection.f_Accept
-						(
-							fg_CurrentActor() / [_pState, SocketID, Address, AcceptedPromise](TCAsyncResult<CActorSubscription> &&_Subscription)
-							{
-								if (!_Subscription)
-								{
-									DMibLog(Info, "{} Failed to accept connection '{}': {}", SocketID, Address, _Subscription.f_GetExceptionStr());
-									_pState->m_Connections.f_Remove(SocketID);
-									AcceptedPromise.f_SetException(_Subscription.f_GetException());
-									return;
-								}
-
-								auto *pClient = _pState->m_Connections.f_FindEqual(SocketID);
-								if (pClient)
-								{
-									DMibLog(Info, "{} Accepted connection '{}'", SocketID, Address);
-									pClient->m_Subscription = fg_Move(*_Subscription);
-								}
-
-								AcceptedPromise.f_SetResult();
-							}
-						)
-					;
-
-					_pState->m_Connections[SocketID].m_WebSocket = WebSocket;
-
-					co_await AcceptedPromise.f_Future();
-
-					co_return ClosedPromise.f_Future();
-				}
-			;
-
-			co_await co_await fg_CallSafe
+			bool bClosed = fWaitFor
 				(
-					fOpenConnection
-					, pState
-					, "/getCaseCount"
-					, g_ActorFunctor / [pState](CStr _Message) -> TCFuture<void>
+					_pState
+					, [&]
 					{
-						DMibLog(Info, "Case count message: {}", _Message);
-						pState->m_nCases = _Message.f_ToInt(0);
-
-						co_return {};
+						return _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
 					}
 				)
 			;
+			DMibExpectTrue(bClosed);
+			DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_AbnormalClosure);
+			DMibExpect(_pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
+		}
+	;
 
-			umint nCases = pState->m_nCases;
-			for (umint iCase = 0; iCase < nCases; ++iCase)
-				co_await co_await fg_CallSafe(fOpenConnection, pState, "/runCase?case={}&agent=MalterlibWebSocket"_f << (iCase + 1), fg_Default());
+	auto fWaitForMessage = [&](TCSharedPointer<CState> const &_pState, CByteVector const &_Payload, fp64 _Timeout)
+		{
+			bool bReceived = fWaitFor
+				(
+					_pState
+					, [&]
+					{
+						return !_pState->m_ServerBinaryMessages.f_IsEmpty() || _pState->m_ServerConnectionCloseStatus != EWebSocketStatus_None;
+					}
+					, _Timeout
+				)
+			;
+			DMibExpectTrue(bReceived);
+			DMibExpect(_pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_None);
+			DMibExpect(_pState->m_ServerBinaryMessages.f_GetLen(), ==, 1);
+			if (_pState->m_ServerBinaryMessages.f_GetLen() != 1)
+				return;
 
-			co_await co_await fg_CallSafe(fOpenConnection, pState, "/updateReports?agent=MalterlibWebSocket", fg_Default());
+			auto const &Message = *_pState->m_ServerBinaryMessages[0];
+			DMibExpect(Message.f_GetTotalLength(), ==, _Payload.f_GetLen());
+			if (Message.f_GetTotalLength() != _Payload.f_GetLen())
+				return;
 
-			co_return {};
-		};
+			CByteVector Received;
+			Received.f_SetLen(_Payload.f_GetLen());
+			Message.f_CopyTo(Received.f_GetArray(), 0, Received.f_GetLen());
+			DMibExpect(NMemory::fg_MemCmp(Received.f_GetArray(), _Payload.f_GetArray(), _Payload.f_GetLen()), ==, 0);
+		}
+	;
+
+	// Use a frame above the direct-read threshold, up to the server's accepted limit.
+	constexpr umint c_nFrameBytes = CWebsocketSettings::mc_DefaultMaxFragmentSize;
+
+	{
+		DMibTestPath("Close inside a frame");
+
+		TCSharedPointer<CState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CRawPeer Peer;
+		if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+			return;
+
+		// Close after a quarter payload so direct-read assembly remains incomplete.
+		CByteVector Frame = CRawPeer::fs_FrameHeader(0x2, true, c_nFrameBytes);
+		for (umint iByte = 0; iByte < c_nFrameBytes / 4; ++iByte)
+			Frame.f_Insert(uint8(iByte));
+		DMibExpectTrue(Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen()));
+		Peer.m_Socket.f_Close();
+
+		fWaitForClose(pState);
+		DMibExpectTrue(pState->m_ServerBinaryMessages.f_IsEmpty());
 	}
 
-	umint m_CurrentFragmentationSize = CWebsocketSettings::mc_DefaultFragmentationSize;
-	bool m_bTestTimeouts = false;
-};
+	{
+		DMibTestPath("Message in small pieces");
+
+		TCSharedPointer<CState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CRawPeer Peer;
+		if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+			return;
+
+		// Keep delivery pieces smaller than receive buffers while retaining a whole fragmented message.
+		constexpr umint c_nFragments = 16;
+		CByteVector Payload;
+		Payload.f_SetLen(c_nFragments * c_nFrameBytes);
+		for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
+			Payload[iByte] = uint8(iByte * 31 + 7);
+
+		bool bSent = true;
+		for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
+		{
+			CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFrameBytes);
+			Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFrameBytes, c_nFrameBytes);
+			bSent = Peer.f_SendInPieces(Frame.f_GetArray(), Frame.f_GetLen(), 8192);
+		}
+		DMibExpectTrue(bSent);
+
+		fWaitForMessage(pState, Payload, g_Timeout);
+
+		Peer.m_Socket.f_Close();
+		fWaitForClose(pState);
+	}
+
+	{
+		DMibTestPath("Message padded with control frames");
+
+		// Pad payload fragments with control frames so retaining every buffer would exceed the window; the interleave budget must force copying.
+		CWebsocketSettings Settings;
+		Settings.m_MaxMessageSize = 8 << 20;
+
+		TCSharedPointer<CState> pState = fg_Construct();
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CRawPeer Peer;
+		if (!fConnectPeer(pState, Peer, Settings))
+			return;
+
+		constexpr umint c_nFragmentBytes = 96 * 1024;
+		constexpr umint c_nFragments = 80;
+		constexpr umint c_nPongBytes = 160 * 1024;
+
+		CByteVector Payload;
+		Payload.f_SetLen(c_nFragments * c_nFragmentBytes);
+		for (umint iByte = 0; iByte < Payload.f_GetLen(); ++iByte)
+			Payload[iByte] = uint8(iByte * 13 + 5);
+
+		CByteVector Pongs;
+		while (Pongs.f_GetLen() < c_nPongBytes)
+		{
+			Pongs.f_Insert(uint8(0x8a));
+			Pongs.f_Insert(uint8(125));
+			for (umint iByte = 0; iByte < 125; ++iByte)
+				Pongs.f_Insert(uint8(iByte));
+		}
+
+		bool bSent = true;
+		for (umint iFragment = 0; iFragment < c_nFragments && bSent; ++iFragment)
+		{
+			CByteVector Frame = CRawPeer::fs_FrameHeader(iFragment == 0 ? 0x2 : 0x0, iFragment + 1 == c_nFragments, c_nFragmentBytes);
+			Frame.f_Insert(Payload.f_GetArray() + iFragment * c_nFragmentBytes, c_nFragmentBytes);
+			bSent = Peer.f_SendAll(Frame.f_GetArray(), Frame.f_GetLen());
+			if (bSent && iFragment + 1 < c_nFragments)
+				bSent = Peer.f_SendAll(Pongs.f_GetArray(), Pongs.f_GetLen());
+		}
+		DMibExpectTrue(bSent);
+
+		fWaitForMessage(pState, Payload, g_Timeout);
+
+		Peer.m_Socket.f_Close();
+		fWaitForClose(pState);
+	}
+
+	{
+		DMibTestPath("Close reply behind queued sends");
+
+		// Queue output before peer close and let the peer read only afterwards; linger must drain the reply before destruction.
+		TCSharedPointer<CState> pState = fg_Construct();
+		pState->m_bLingerOnServerClose = true;
+		auto Cleanup = g_OnScopeExit / [&]
+			{
+				pState->f_Clear(RunLoopHelper.m_pRunLoop);
+			}
+		;
+
+		CRawPeer Peer;
+		if (!fConnectPeer(pState, Peer, CWebsocketSettings()))
+			return;
+
+		constexpr umint c_nMessageBytes = 16 << 20;
+		CIOByteVector Message;
+		Message.f_SetLen(c_nMessageBytes);
+		for (umint iByte = 0; iByte < c_nMessageBytes; ++iByte)
+			Message[iByte] = uint8(iByte * 7 + 3);
+		TCSharedPointer<CIOByteVector const> pMessage = fg_Construct(fg_Move(Message));
+		{
+			DMibLock(pState->m_Lock);
+			for (auto &Connection : pState->m_ServerConnections)
+				Connection.m_Actor(&CWebSocketActor::f_SendBinary, pMessage, 0).f_DiscardResult();
+		}
+
+		// Time for the send to fill the socket buffers and stall with the rest queued
+		NSys::fg_Thread_Sleep(0.2);
+
+		CByteVector Close = CRawPeer::fs_FrameHeader(0x8, true, 5);
+		Close.f_Insert(uint8(0x03));
+		Close.f_Insert(uint8(0xe8));
+		Close.f_Insert((uint8 const *)"bye", 3);
+		DMibExpectTrue(Peer.f_SendAll(Close.f_GetArray(), Close.f_GetLen()));
+
+		umint nBinaryBytes = 0;
+		uint8 LastOpcode = 0;
+		CByteVector LastPayload;
+		bool bEnded = Peer.f_ReadUntilEnd(nBinaryBytes, LastOpcode, LastPayload);
+		DMibExpectTrue(bEnded);
+		DMibExpect(nBinaryBytes, ==, c_nMessageBytes);
+		DMibExpect(LastOpcode, ==, 0x8);
+		DMibExpect(LastPayload.f_GetLen(), ==, 5);
+		if (LastPayload.f_GetLen() == 5)
+			DMibExpect(NMemory::fg_MemCmp(LastPayload.f_GetArray(), Close.f_GetArray() + 2, 5), ==, 0);
+
+		Peer.m_Socket.f_Close();
+
+		bool bLingerDone = fWaitFor
+			(
+				pState
+				, [&]
+				{
+					return pState->m_bServerLingerDone;
+				}
+			)
+		;
+		DMibExpectTrue(bLingerDone);
+		DMibExpect(pState->m_ServerLingerError, ==, "");
+
+		// The queued linger can run after drain and hangup finish; already-closed is a valid outcome.
+		bool bLingerStatusExpected = pState->m_ServerLingerStatus == EWebSocketStatus_NormalClosure || pState->m_ServerLingerStatus == EWebSocketStatus_AlreadyClosed;
+		DMibExpectTrue(bLingerStatusExpected);
+		DMibExpect(pState->m_ServerConnectionCloseStatus, ==, EWebSocketStatus_NormalClosure);
+		DMibExpect(pState->m_ServerConnectionCloseOrigin, ==, EWebSocketCloseOrigin_Remote);
+	}
+}
 
 DMibTestRegister(CWebsocket_Tests, Malterlib::Web);

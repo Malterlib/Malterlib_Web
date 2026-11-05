@@ -24,6 +24,16 @@ namespace NMib::NWeb
 	{
 		using CActorHolder = NConcurrency::CSeparateThreadActorHolder;
 
+		CHTTPServerInternal();
+		~CHTTPServerInternal();
+
+		void f_AddHandlerForPath(NStr::CStr &&_Path, CHTTPRequestHandler *_pHandler, int _Priority);
+		void f_AddHandlerActorFunctorForPath(NStr::CStr &&_Path, FActorRequestHandler &&_fHandler, int _Priority);
+		void f_AddHandlerActorForPath(NStr::CStr &&_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority);
+		bool f_Run(CHTTPServerOptions &&_Options);
+		bool f_IsRunning();
+		bool f_Stop();
+
 	private:
 		struct CHandlerEntry
 		{
@@ -40,347 +50,23 @@ namespace NMib::NWeb
 			bool m_bActorHandlers = false;
 		};
 
-		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest, uint32 _Status, NStr::CStr const &_Error)
-		{
-			CHTTPResponseHeader Header;
-			NStr::CStr Content = NStr::CStr::CFormat("{}: {}") << _Status << _Error;
-			Header.f_SetPlainMime();
-			Header.m_ContentLength = Content.f_GetLen();
-			Header.m_AllowMethods = "GET, HEAD";
-			Header.m_Status = _Status;
-			_pRequest->f_SendStdError(Content);
-			_pRequest->f_SendStdOutput(Header.f_Generate());
-			_pRequest->f_SendStdOutput(Content);
-			_pRequest->f_FinishRequest();
-		}
-
 		struct CConnection : public CHTTPConnection
 		{
-			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, NStorage::TCSharedPointer<CHandlerTable> &&_pHandlers)
-				: mp_pRequest(fg_Move(_pRequest))
-				, mp_ContentStream(NContainer::CByteVector())
-				, mp_pHandlers(fg_Move(_pHandlers))
-			{
-			}
+			CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, NStorage::TCSharedPointer<CHandlerTable> &&_pHandlers);
+			virtual ~CConnection();
 
-			virtual ~CConnection()
-			{
-			}
-
-			void f_WriteStr(NStr::CStr const &_Str) override
-			{
-				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
-				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
-
-				mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
-			}
-
-			void f_WriteBinary(uint8 const *_pData, umint _nBytes) override
-			{
-				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
-				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
-
-				mp_ContentStream.f_FeedBytes((void const *)_pData, _nBytes);
-			}
-
-			void f_WriteHeader(CHTTPResponseHeader const &_Header) override
-			{
-				DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
-				DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
-
-				mp_Header = _Header;
-			}
-
-			NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) override
-			{
-				DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
-				DMibFastCheck(mp_bSentAsyncHeader); // You need to send the header first
-
-				return mp_pRequest->f_SendAsyncStdOutput(fg_Move(_Str));
-			}
-
-			NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) override
-			{
-				DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
-				DMibFastCheck(mp_bSentAsyncHeader); // You need to send the header first
-
-				return mp_pRequest->f_SendAsyncStdOutput(fg_Move(_Vector));
-			}
-
-			NConcurrency::TCFuture<void> f_WriteAsyncHeader(CHTTPResponseHeader _Header) override
-			{
-				DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
-				DMibFastCheck(!mp_bSentAsyncHeader); // You can't send header twice
-
-				NStr::CStr HeaderStr = _Header.f_Generate();
-				mp_bSentAsyncHeader = true;
-
-				return mp_pRequest->f_SendAsyncStdOutput(fg_Move(HeaderStr));
-			}
-
-			void f_Send()
-			{
-				if (!mp_bSentAsyncHeader)
-				{
-					mp_Header.m_ContentLength = mp_ContentStream.f_GetLength();
-
-					NStr::CStr HeaderStr = mp_Header.f_Generate();
-
-					mp_pRequest->f_SendStdOutput(HeaderStr);
-					mp_pRequest->f_SendStdOutput((uint8 const *)mp_ContentStream.f_GetBuffer(), mp_Header.m_ContentLength);
-				}
-
-				mp_pRequest->f_FinishRequest();
-			}
-
-			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const &_pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
-			{
-				NConcurrency::TCPromise<void> Promise;
-
-				mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
-				auto *pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
-				if (pRemoteIP)
-					mp_pHTTPRequest->m_ClientIP = *pRemoteIP;
-
-				auto *pMethod = _Params.f_FindEqual("REQUEST_METHOD");
-				if (pMethod)
-					mp_pHTTPRequest->m_Method = *pMethod;
-
-				auto *pQuery = _Params.f_FindEqual("QUERY_STRING");
-				if (pQuery && !pQuery->f_IsEmpty())
-				{
-					mp_pHTTPRequest->m_QueryString = *pQuery;
-					fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
-				}
-
-				for (auto &Param : _Params)
-				{
-					auto &Key = _Params.fs_GetKey(Param);
-
-					if (!Key.f_StartsWith("HTTP_"))
-						continue;
-
-					// FastCGI encodes header names as HTTP_<NAME> with letters uppercased and '-' replaced by '_'.
-					// Reverse that to the conventional lowercase dash-cased header name (matching content-type /
-					// content-length below), so lookups use real header names like "x-csrf-token".
-					mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase().f_Replace("_", "-")] = Param;
-				}
-
-				if (auto *pContentType = _Params.f_FindEqual("CONTENT_TYPE"))
-				{
-					if (!pContentType->f_IsEmpty())
-						mp_pHTTPRequest->m_Headers["content-type"] = *pContentType;
-				}
-
-				if (auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH"))
-				{
-					if (!pContentLength->f_IsEmpty())
-						mp_pHTTPRequest->m_Headers["content-length"] = *pContentLength;
-				}
-
-				if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
-				{
-				}
-				else if (fg_StrCmpNoCase(*pMethod, "POST") == 0 || fg_StrCmpNoCase(*pMethod, "PUT") == 0 || fg_StrCmpNoCase(*pMethod, "PATCH") == 0)
-				{
-					auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
-					if (!pContentLength)
-					{
-						fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for {}", pMethod->f_GetStr()));
-						return Promise <<= g_Void;
-					}
-
-					int nPostBytes = pContentLength->f_ToInt();
-					NStorage::TCSharedPointer<NContainer::CByteVector> pData = fg_Construct();
-
-					mp_pRequest->f_OnStdInputRaw
-						(
-							NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ConcurrentActor()) / [nPostBytes, pData, _pThis]
-							(NContainer::CByteVector _Data, bool _bEOF) -> NConcurrency::TCFuture<void>
-							{
-								pData->f_Insert(fg_Move(_Data));
-
-								if (_bEOF)
-								{
-									if (nPostBytes != pData->f_GetLen())
-										fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
-									else
-									{
-										// Store raw body in request
-										_pThis->mp_pHTTPRequest->m_Body = fg_Move(*pData);
-										_pThis->fp_ParseVariables((ch8 const *)_pThis->mp_pHTTPRequest->m_Body.f_GetArray(), _pThis->mp_pHTTPRequest->m_Body.f_GetLen());
-										co_await _pThis->f_HandleRequest();
-									}
-								}
-
-								co_return {};
-							}
-						)
-					;
-
-					mp_pRequest->f_Accept();
-					return Promise <<= g_Void;
-				}
-				mp_pRequest->f_Accept();
-
-				return Promise <<= _pThis->f_HandleRequest();
-			}
-
-			NConcurrency::TCFuture<void> f_HandleRequest()
-			{
-				NConcurrency::TCPromise<void> Promise;
-
-				auto &Handlers = *mp_pHandlers;
-				bool bHandled = false;
-				if (Handlers.m_bActorHandlers)
-				{
-					struct CHandlers
-					{
-						NContainer::TCVector<NStorage::TCVariant<NStorage::TCSharedPointer<FActorRequestHandler>, NConcurrency::TCActor<CHTTPRequestHandlerActor>>> m_Handlers;
-						umint m_iHandler = 0;
-
-						NFunction::TCFunction
-							<
-								void
-								(
-									NStorage::TCSharedPointer<CHandlers> const &_pHandlers
-									, NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
-									, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest
-								)
-							>
-							m_fHandleNext
-						;
-					};
-
-					NStorage::TCSharedPointer<CHTTPConnection> pConnection = fg_Explicit(this);
-
-					auto pRequest = mp_pRequest;
-
-					NStorage::TCSharedPointer<CHandlers> pHandlers = fg_Construct();
-					pHandlers->m_fHandleNext = [this]
-						(
-							NStorage::TCSharedPointer<CHandlers> const &_pHandlers
-							, NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
-							, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest
-						)
-						{
-							if (_pHandlers->m_iHandler >= _pHandlers->m_Handlers.f_GetLen())
-							{
-								fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
-								return;
-							}
-
-							auto &Handler = _pHandlers->m_Handlers[_pHandlers->m_iHandler];
-
-							NConcurrency::TCFuture<bool> ResultFuture;
-							if (Handler.f_GetTypeID() == 0)
-								ResultFuture = (*Handler.f_Get<0>())(_pConnection, _pRequest);
-							else
-								ResultFuture = Handler.f_Get<1>()(&CHTTPRequestHandlerActor::f_HandleRequest, _pConnection, _pRequest);
-
-							fg_Move(ResultFuture) > [this, _pHandlers, _pConnection, _pRequest](NConcurrency::TCAsyncResult<bool> &&_Result)
-								{
-									if (!_Result)
-									{
-										DMibLog(Error, "Internal error: {}", _Result.f_GetExceptionStr());
-										fsp_ReportRequestError(mp_pRequest, 500, "Internal error");
-										return;
-									}
-									if (*_Result)
-									{
-										f_Send();
-										return;
-									}
-									++_pHandlers->m_iHandler;
-									_pHandlers->m_fHandleNext(_pHandlers, _pConnection, _pRequest);
-								}
-							;
-						}
-					;
-
-					for (auto &Handler : Handlers.m_Handlers)
-					{
-						for (auto &InnerHandler : Handler)
-						{
-							if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(InnerHandler.m_Path) == 0)
-							{
-								if (InnerHandler.m_pHandleRequest)
-									pHandlers->m_Handlers.f_Insert(InnerHandler.m_pHandleRequest);
-								else
-									pHandlers->m_Handlers.f_Insert(InnerHandler.m_HandlerActor);
-							}
-						}
-					}
-
-					pHandlers->m_fHandleNext(pHandlers, pConnection, mp_pHTTPRequest);
-
-					return Promise.f_Future();
-				}
-
-				try
-				{
-					for (auto iHandler = Handlers.m_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
-					{
-						for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
-						{
-							if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
-								bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, *mp_pHTTPRequest);
-						}
-					}
-				}
-				catch (NException::CException const &_Exception)
-				{
-					fsp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
-					return Promise <<= g_Void;
-				}
-
-				if (bHandled)
-					f_Send();
-				else
-					fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
-
-				return Promise <<= g_Void;
-			}
+			void f_WriteStr(NStr::CStr const &_Str) override;
+			void f_WriteBinary(uint8 const *_pData, umint _nBytes) override;
+			void f_WriteHeader(CHTTPResponseHeader const &_Header) override;
+			NConcurrency::TCFuture<void> f_WriteAsyncStr(NStr::CStr _Str) override;
+			NConcurrency::TCFuture<void> f_WriteAsyncBinary(NContainer::CIOByteVector _Vector) override;
+			NConcurrency::TCFuture<void> f_WriteAsyncHeader(CHTTPResponseHeader _Header) override;
+			void f_Send();
+			NConcurrency::TCFuture<void> f_HandleRequest(NStorage::TCSharedPointer<CConnection> const &_pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params);
+			NConcurrency::TCFuture<void> f_HandleRequest();
 
 		private:
-			void fp_ParseVariables(char const *_pData, umint _Len)
-			{
-				if (!_Len)
-					return;
-
-				char const *pCurPos = _pData;
-				char const *pEntryEndPos, *pEqualsPos;
-				char const *pEnd = _pData + _Len;
-
-				while (*pCurPos && pCurPos < pEnd)
-				{
-					pEqualsPos = nullptr;
-					for (pEntryEndPos = pCurPos; *pEntryEndPos && *pEntryEndPos != '&' && pEntryEndPos < pEnd; ++pEntryEndPos)
-					{
-						if (*pEntryEndPos == '=')
-							pEqualsPos = pEntryEndPos;
-					}
-
-					if (!pEqualsPos)
-					{
-						pCurPos = pEntryEndPos + 1;
-						continue;
-					}
-
-					size_t StrLen;
-					NStr::CStr CurKey, CurValue;
-
-					StrLen = (pEqualsPos - pCurPos);
-					fsp_URLDecode(pCurPos, StrLen, CurKey.f_GetStr(StrLen), StrLen + 1, true);
-					++pEqualsPos;
-					StrLen = (pEntryEndPos - pEqualsPos);
-					fsp_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
-
-					mp_pHTTPRequest->m_Variables[CurKey] = CurValue;
-
-					pCurPos = pEntryEndPos + 1;
-				}
-			}
+			void fp_ParseVariables(char const *_pData, umint _Len);
 
 			NStorage::TCSharedPointer<CHTTPRequest> mp_pHTTPRequest = fg_Construct();
 			NStorage::TCSharedPointer<CFastCGIRequest> mp_pRequest;
@@ -393,161 +79,11 @@ namespace NMib::NWeb
 			NStorage::TCSharedPointer<CHandlerTable> mp_pHandlers;
 		};
 
-		static umint fsp_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
-		{
-			umint iDst = 0;
-			for (umint iSrc = 0; iSrc < _SrcLen && iDst < _DstLen - 1; iSrc++, iDst++)
-			{
-				if (_pSrc[iSrc] == '%' && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 1)) && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 2)))
-				{
-					uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 1));
-					uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 2));
-					uint8 UpperValue = NStr::fg_CharIsNumber(Upper) ? (Upper - '0') : (10 + (Upper - 'a'));
-					uint8 LowerValue = NStr::fg_CharIsNumber(Lower) ? (Lower - '0') : (10 + (Lower - 'a'));
-					_pDst[iDst] = (ch8)(UpperValue << 4 | LowerValue);
+		static void fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest, uint32 _Status, NStr::CStr const &_Error);
+		static umint fsp_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL);
+		NStorage::TCSharedPointer<CHandlerTable> fp_GetHandlers();
 
-					iSrc += 2;
-				}
-				else if (_bFormURL && _pSrc[iSrc] == '+')
-					_pDst[iDst] = ' ';
-				else
-					_pDst[iDst] = _pSrc[iSrc];
-			}
-
-			_pDst[iDst] = 0;
-
-			return iDst;
-		}
-
-	public:
-		CHTTPServerInternal()
-		{
-		}
-
-		~CHTTPServerInternal()
-		{
-			f_Stop();
-		}
-
-		void f_AddHandlerForPath(NStr::CStr &&_Path, CHTTPRequestHandler *_pHandler, int _Priority)
-		{
-			if (mp_pHandlers->m_bActorHandlers)
-				DMibError("Cannot mix actor an non-actor handlers");
-
-			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
-			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
-			NewEntry.m_Path = _Path;
-			NewEntry.m_pHandler = _pHandler;
-			mp_pHandlers = fg_Move(pHandlers);
-		}
-
-		void f_AddHandlerActorFunctorForPath(NStr::CStr &&_Path, FActorRequestHandler &&_fHandler, int _Priority)
-		{
-			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
-			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
-			NewEntry.m_Path = _Path;
-			NewEntry.m_pHandleRequest = fg_Construct(fg_Move(_fHandler));
-			mp_pHandlers = fg_Move(pHandlers);
-		}
-
-		void f_AddHandlerActorForPath(NStr::CStr &&_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority)
-		{
-			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
-			CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
-			NewEntry.m_Path = _Path;
-			NewEntry.m_HandlerActor = fg_Move(_HandlerActor);
-			mp_pHandlers = fg_Move(pHandlers);
-		}
-
-		bool f_Run(CHTTPServerOptions &&_Options)
-		{
-			if (f_IsRunning())
-				return false;
-
-			mp_Options = _Options;
-
-			if (mp_Options.m_bUseNginx)
-			{
-				mp_pNGINXLauncher = fg_Construct(mp_Options.m_NGINXPath, mp_Options.m_WebRoot);
-				mp_pNGINXLauncher->f_SetFastCGIListen(mp_Options.m_FastCGIListenStartPort, mp_Options.m_nMaxThreads);
-				mp_pNGINXLauncher->f_SetListen(mp_Options.m_ListeningPort);
-				mp_pNGINXLauncher->f_SetStaticRoot(mp_Options.m_StaticRoot);
-				mp_pNGINXLauncher->f_Launch();
-			}
-
-			mp_FastCGIServer = fg_Construct();
-			mp_FastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
-				(
-					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [ThisWeak = NConcurrency::fg_ThisActor(this).f_Weak()]
-					(NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
-					{
-						// A copy: the connection clears its parameters when it closes, which it can do while this waits for the handlers
-						auto Params = _pRequest->f_GetParams();
-						auto *pURI = Params.f_FindEqual("DOCUMENT_URI");
-
-						if (!pURI)
-						{
-							fsp_ReportRequestError(_pRequest, 500, "No URI specified");
-							co_return {};
-						}
-
-						NStr::CStr URI = *pURI;
-
-						auto ThisActor = ThisWeak.f_Lock();
-						if (!ThisActor)
-						{
-							fsp_ReportRequestError(_pRequest, 503, "Server stopped");
-							co_return {};
-						}
-						NStorage::TCSharedPointer<CHandlerTable> pHandlers = co_await ThisActor(&CHTTPServerInternal::fp_GetHandlers);
-
-						// Check registered handlers
-						NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(fg_Move(_pRequest), fg_Move(pHandlers));
-
-						co_await pConnection->f_HandleRequest(pConnection, Params);
-
-						co_return {};
-					}
-					, mp_Options.m_FastCGIListenAddresses
-				)
-				.f_DiscardResult()
-			;
-			return true;
-		}
-
-		bool f_IsRunning()
-		{
-			return !mp_FastCGIServer.f_IsEmpty();
-		}
-
-		bool f_Stop()
-		{
-			mp_pNGINXLauncher.f_Clear();
-			if (mp_FastCGIServer)
-			{
-				mp_FastCGIServer->f_BlockDestroy();
-				mp_FastCGIServer.f_Clear();
-			}
-
-			return true;
-		}
-
-	private:
-		NStorage::TCSharedPointer<CHandlerTable> fp_GetHandlers()
-		{
-			return mp_pHandlers;
-		}
-
-		// A copy of the handlers to add an actor handler to
-		NStorage::TCSharedPointer<CHandlerTable> fp_ActorHandlersToChange()
-		{
-			if (!mp_pHandlers->m_bActorHandlers && !mp_pHandlers->m_Handlers.f_IsEmpty())
-				DMibError("Cannot mix actor an non-actor handlers");
-
-			NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
-			pHandlers->m_bActorHandlers = true;
-			return pHandlers;
-		}
+		NStorage::TCSharedPointer<CHandlerTable> fp_ActorHandlersToChange();
 
 		CHTTPServerOptions mp_Options;
 		NStorage::TCUniquePointer<CNGINXLauncher> mp_pNGINXLauncher;
@@ -557,6 +93,500 @@ namespace NMib::NWeb
 
 		NFunction::TCFunction<void (NStr::CStr const &_Log, bool _bError)> mp_fLogFunction;
 	};
+
+	CHTTPServer::CHTTPServerInternal::CHTTPServerInternal()
+	{
+	}
+
+	CHTTPServer::CHTTPServerInternal::~CHTTPServerInternal()
+	{
+		f_Stop();
+	}
+
+	void CHTTPServer::CHTTPServerInternal::f_AddHandlerForPath(NStr::CStr &&_Path, CHTTPRequestHandler *_pHandler, int _Priority)
+	{
+		if (mp_pHandlers->m_bActorHandlers)
+			DMibError("Cannot mix actor an non-actor handlers");
+
+		NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
+		CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
+		NewEntry.m_Path = _Path;
+		NewEntry.m_pHandler = _pHandler;
+		mp_pHandlers = fg_Move(pHandlers);
+	}
+
+	void CHTTPServer::CHTTPServerInternal::f_AddHandlerActorFunctorForPath(NStr::CStr &&_Path, FActorRequestHandler &&_fHandler, int _Priority)
+	{
+		NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
+		CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
+		NewEntry.m_Path = _Path;
+		NewEntry.m_pHandleRequest = fg_Construct(fg_Move(_fHandler));
+		mp_pHandlers = fg_Move(pHandlers);
+	}
+
+	void CHTTPServer::CHTTPServerInternal::f_AddHandlerActorForPath(NStr::CStr &&_Path, NConcurrency::TCActor<CHTTPRequestHandlerActor> &&_HandlerActor, int _Priority)
+	{
+		NStorage::TCSharedPointer<CHandlerTable> pHandlers = fp_ActorHandlersToChange();
+		CHandlerEntry &NewEntry = pHandlers->m_Handlers[_Priority].f_Insert();
+		NewEntry.m_Path = _Path;
+		NewEntry.m_HandlerActor = fg_Move(_HandlerActor);
+		mp_pHandlers = fg_Move(pHandlers);
+	}
+
+	bool CHTTPServer::CHTTPServerInternal::f_Run(CHTTPServerOptions &&_Options)
+	{
+		if (f_IsRunning())
+			return false;
+
+		mp_Options = _Options;
+
+		if (mp_Options.m_bUseNginx)
+		{
+			mp_pNGINXLauncher = fg_Construct(mp_Options.m_NGINXPath, mp_Options.m_WebRoot);
+			mp_pNGINXLauncher->f_SetFastCGIListen(mp_Options.m_FastCGIListenStartPort, mp_Options.m_nMaxThreads);
+			mp_pNGINXLauncher->f_SetListen(mp_Options.m_ListeningPort);
+			mp_pNGINXLauncher->f_SetStaticRoot(mp_Options.m_StaticRoot);
+			mp_pNGINXLauncher->f_Launch();
+		}
+
+		mp_FastCGIServer = fg_Construct();
+		mp_FastCGIServer.f_Bind<&CFastCGIServer::f_StartListenAddress>
+			(
+				NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_DynamicConcurrentActor()) / [ThisWeak = NConcurrency::fg_ThisActor(this).f_Weak()]
+				(NStorage::TCSharedPointer<CFastCGIRequest> _pRequest) -> NConcurrency::TCFuture<void>
+				{
+					// A copy: the connection clears its parameters when it closes, which it can do while this waits for the handlers
+					auto Params = _pRequest->f_GetParams();
+					auto *pURI = Params.f_FindEqual("DOCUMENT_URI");
+
+					if (!pURI)
+					{
+						fsp_ReportRequestError(_pRequest, 500, "No URI specified");
+						co_return {};
+					}
+
+					NStr::CStr URI = *pURI;
+
+					auto ThisActor = ThisWeak.f_Lock();
+					if (!ThisActor)
+					{
+						fsp_ReportRequestError(_pRequest, 503, "Server stopped");
+						co_return {};
+					}
+					NStorage::TCSharedPointer<CHandlerTable> pHandlers = co_await ThisActor(&CHTTPServerInternal::fp_GetHandlers);
+
+					// Check registered handlers
+					NStorage::TCSharedPointer<CConnection> pConnection = fg_Construct(fg_Move(_pRequest), fg_Move(pHandlers));
+
+					co_await pConnection->f_HandleRequest(pConnection, Params);
+
+					co_return {};
+				}
+				, mp_Options.m_FastCGIListenAddresses
+			)
+			.f_DiscardResult()
+		;
+		return true;
+	}
+
+	bool CHTTPServer::CHTTPServerInternal::f_IsRunning()
+	{
+		return !mp_FastCGIServer.f_IsEmpty();
+	}
+
+	bool CHTTPServer::CHTTPServerInternal::f_Stop()
+	{
+		mp_pNGINXLauncher.f_Clear();
+		if (mp_FastCGIServer)
+		{
+			mp_FastCGIServer->f_BlockDestroy();
+			mp_FastCGIServer.f_Clear();
+		}
+
+		return true;
+	}
+
+	CHTTPServer::CHTTPServerInternal::CConnection::CConnection(NStorage::TCSharedPointer<CFastCGIRequest> &&_pRequest, NStorage::TCSharedPointer<CHandlerTable> &&_pHandlers)
+		: mp_pRequest(fg_Move(_pRequest))
+		, mp_ContentStream(NContainer::CByteVector())
+		, mp_pHandlers(fg_Move(_pHandlers))
+	{
+	}
+
+	CHTTPServer::CHTTPServerInternal::CConnection::~CConnection()
+	{
+	}
+
+	void CHTTPServer::CHTTPServerInternal::CConnection::f_WriteStr(NStr::CStr const &_Str)
+	{
+		DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
+		DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
+
+		mp_ContentStream.f_FeedBytes((void const *)_Str.f_GetStr(), _Str.f_GetLen());
+	}
+
+	void CHTTPServer::CHTTPServerInternal::CConnection::f_WriteBinary(uint8 const *_pData, umint _nBytes)
+	{
+		DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
+		DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
+
+		mp_ContentStream.f_FeedBytes((void const *)_pData, _nBytes);
+	}
+
+	void CHTTPServer::CHTTPServerInternal::CConnection::f_WriteHeader(CHTTPResponseHeader const &_Header)
+	{
+		DMibFastCheck(!mp_bSentAsyncHeader); // You can't mix async and non-async
+		DMibIfEnableSafeCheck(mp_bWroteNonAsync = true);
+
+		mp_Header = _Header;
+	}
+
+	NConcurrency::TCFuture<void> CHTTPServer::CHTTPServerInternal::CConnection::f_WriteAsyncStr(NStr::CStr _Str)
+	{
+		DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
+		DMibFastCheck(mp_bSentAsyncHeader); // You need to send the header first
+
+		return mp_pRequest->f_SendAsyncStdOutput(fg_Move(_Str));
+	}
+
+	NConcurrency::TCFuture<void> CHTTPServer::CHTTPServerInternal::CConnection::f_WriteAsyncBinary(NContainer::CIOByteVector _Vector)
+	{
+		DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
+		DMibFastCheck(mp_bSentAsyncHeader); // You need to send the header first
+
+		return mp_pRequest->f_SendAsyncStdOutput(fg_Move(_Vector));
+	}
+
+	NConcurrency::TCFuture<void> CHTTPServer::CHTTPServerInternal::CConnection::f_WriteAsyncHeader(CHTTPResponseHeader _Header)
+	{
+		DMibFastCheck(!mp_bWroteNonAsync); // You can't mix async and non-async
+		DMibFastCheck(!mp_bSentAsyncHeader); // You can't send header twice
+
+		NStr::CStr HeaderStr = _Header.f_Generate();
+		mp_bSentAsyncHeader = true;
+
+		return mp_pRequest->f_SendAsyncStdOutput(fg_Move(HeaderStr));
+	}
+
+	void CHTTPServer::CHTTPServerInternal::CConnection::f_Send()
+	{
+		if (!mp_bSentAsyncHeader)
+		{
+			mp_Header.m_ContentLength = mp_ContentStream.f_GetLength();
+
+			NStr::CStr HeaderStr = mp_Header.f_Generate();
+
+			mp_pRequest->f_SendStdOutput(HeaderStr);
+			mp_pRequest->f_SendStdOutput((uint8 const *)mp_ContentStream.f_GetBuffer(), mp_Header.m_ContentLength);
+		}
+
+		mp_pRequest->f_FinishRequest();
+	}
+
+	auto CHTTPServer::CHTTPServerInternal::CConnection::f_HandleRequest(NStorage::TCSharedPointer<CConnection> const &_pThis, NContainer::TCMap<NStr::CStr, NStr::CStr> const &_Params)
+		-> NConcurrency::TCFuture<void>
+	{
+		NConcurrency::TCPromise<void> Promise;
+
+		mp_pHTTPRequest->m_RequestedURI = _Params["DOCUMENT_URI"];
+		auto *pRemoteIP = _Params.f_FindEqual("REMOTE_ADDR");
+		if (pRemoteIP)
+			mp_pHTTPRequest->m_ClientIP = *pRemoteIP;
+
+		auto *pMethod = _Params.f_FindEqual("REQUEST_METHOD");
+		if (pMethod)
+			mp_pHTTPRequest->m_Method = *pMethod;
+
+		auto *pQuery = _Params.f_FindEqual("QUERY_STRING");
+		if (pQuery && !pQuery->f_IsEmpty())
+		{
+			mp_pHTTPRequest->m_QueryString = *pQuery;
+			fp_ParseVariables(pQuery->f_GetStr(), pQuery->f_GetLen());
+		}
+
+		for (auto &Param : _Params)
+		{
+			auto &Key = _Params.fs_GetKey(Param);
+
+			if (!Key.f_StartsWith("HTTP_"))
+				continue;
+
+			// FastCGI encodes header names as HTTP_<NAME> with letters uppercased and '-' replaced by '_'.
+			// Reverse that to the conventional lowercase dash-cased header name (matching content-type /
+			// content-length below), so lookups use real header names like "x-csrf-token".
+			mp_pHTTPRequest->m_Headers[Key.f_RemovePrefix("HTTP_").f_LowerCase().f_Replace("_", "-")] = Param;
+		}
+
+		if (auto *pContentType = _Params.f_FindEqual("CONTENT_TYPE"))
+		{
+			if (!pContentType->f_IsEmpty())
+				mp_pHTTPRequest->m_Headers["content-type"] = *pContentType;
+		}
+
+		if (auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH"))
+		{
+			if (!pContentLength->f_IsEmpty())
+				mp_pHTTPRequest->m_Headers["content-length"] = *pContentLength;
+		}
+
+		if (fg_StrCmpNoCase(*pMethod, "GET") == 0)
+		{
+		}
+		else if (fg_StrCmpNoCase(*pMethod, "POST") == 0 || fg_StrCmpNoCase(*pMethod, "PUT") == 0 || fg_StrCmpNoCase(*pMethod, "PATCH") == 0)
+		{
+			auto *pContentLength = _Params.f_FindEqual("CONTENT_LENGTH");
+			if (!pContentLength)
+			{
+				fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("CONTENT_LENGTH not found for {}", pMethod->f_GetStr()));
+				return Promise <<= g_Void;
+			}
+
+			int nPostBytes = pContentLength->f_ToInt();
+			NStorage::TCSharedPointer<NContainer::CByteVector> pData = fg_Construct();
+
+			mp_pRequest->f_OnStdInputRaw
+				(
+					NConcurrency::g_ActorFunctorWeak(NConcurrency::fg_ConcurrentActor()) / [nPostBytes, pData, _pThis]
+					(NContainer::CByteVector _Data, bool _bEOF) -> NConcurrency::TCFuture<void>
+					{
+						pData->f_Insert(fg_Move(_Data));
+
+						if (_bEOF)
+						{
+							if (nPostBytes != pData->f_GetLen())
+								fsp_ReportRequestError(_pThis->mp_pRequest, 500, NStr::fg_Format("Invalid CONTENT_LENGTH"));
+							else
+							{
+								// Store raw body in request
+								_pThis->mp_pHTTPRequest->m_Body = fg_Move(*pData);
+								_pThis->fp_ParseVariables((ch8 const *)_pThis->mp_pHTTPRequest->m_Body.f_GetArray(), _pThis->mp_pHTTPRequest->m_Body.f_GetLen());
+								co_await _pThis->f_HandleRequest();
+							}
+						}
+
+						co_return {};
+					}
+				)
+			;
+
+			mp_pRequest->f_Accept();
+			return Promise <<= g_Void;
+		}
+		mp_pRequest->f_Accept();
+
+		return Promise <<= _pThis->f_HandleRequest();
+	}
+
+	NConcurrency::TCFuture<void> CHTTPServer::CHTTPServerInternal::CConnection::f_HandleRequest()
+	{
+		NConcurrency::TCPromise<void> Promise;
+
+		auto &Handlers = *mp_pHandlers;
+		bool bHandled = false;
+		if (Handlers.m_bActorHandlers)
+		{
+			struct CHandlers
+			{
+				NContainer::TCVector<NStorage::TCVariant<NStorage::TCSharedPointer<FActorRequestHandler>, NConcurrency::TCActor<CHTTPRequestHandlerActor>>> m_Handlers;
+				umint m_iHandler = 0;
+
+				NFunction::TCFunction
+					<
+						void
+						(
+							NStorage::TCSharedPointer<CHandlers> const &_pHandlers
+							, NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+							, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest
+						)
+					>
+					m_fHandleNext
+				;
+			};
+
+			NStorage::TCSharedPointer<CHTTPConnection> pConnection = fg_Explicit(this);
+
+			auto pRequest = mp_pRequest;
+
+			NStorage::TCSharedPointer<CHandlers> pHandlers = fg_Construct();
+			pHandlers->m_fHandleNext = [this]
+				(
+					NStorage::TCSharedPointer<CHandlers> const &_pHandlers
+					, NStorage::TCSharedPointer<CHTTPConnection> const &_pConnection
+					, NStorage::TCSharedPointer<CHTTPRequest> const &_pRequest
+				)
+				{
+					if (_pHandlers->m_iHandler >= _pHandlers->m_Handlers.f_GetLen())
+					{
+						fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
+						return;
+					}
+
+					auto &Handler = _pHandlers->m_Handlers[_pHandlers->m_iHandler];
+
+					NConcurrency::TCFuture<bool> ResultFuture;
+					if (Handler.f_GetTypeID() == 0)
+						ResultFuture = (*Handler.f_Get<0>())(_pConnection, _pRequest);
+					else
+						ResultFuture = Handler.f_Get<1>()(&CHTTPRequestHandlerActor::f_HandleRequest, _pConnection, _pRequest);
+
+					fg_Move(ResultFuture) > [this, _pHandlers, _pConnection, _pRequest](NConcurrency::TCAsyncResult<bool> &&_Result)
+						{
+							if (!_Result)
+							{
+								DMibLog(Error, "Internal error: {}", _Result.f_GetExceptionStr());
+								fsp_ReportRequestError(mp_pRequest, 500, "Internal error");
+								return;
+							}
+							if (*_Result)
+							{
+								f_Send();
+								return;
+							}
+							++_pHandlers->m_iHandler;
+							_pHandlers->m_fHandleNext(_pHandlers, _pConnection, _pRequest);
+						}
+					;
+				}
+			;
+
+			for (auto &Handler : Handlers.m_Handlers)
+			{
+				for (auto &InnerHandler : Handler)
+				{
+					if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(InnerHandler.m_Path) == 0)
+					{
+						if (InnerHandler.m_pHandleRequest)
+							pHandlers->m_Handlers.f_Insert(InnerHandler.m_pHandleRequest);
+						else
+							pHandlers->m_Handlers.f_Insert(InnerHandler.m_HandlerActor);
+					}
+				}
+			}
+
+			pHandlers->m_fHandleNext(pHandlers, pConnection, mp_pHTTPRequest);
+
+			return Promise.f_Future();
+		}
+
+		try
+		{
+			for (auto iHandler = Handlers.m_Handlers.f_GetIterator(); !bHandled && iHandler; ++iHandler)
+			{
+				for (auto iInnerHandler = iHandler->f_GetIterator(); !bHandled && iInnerHandler; ++iInnerHandler)
+				{
+					if (mp_pHTTPRequest->m_RequestedURI.f_FindNoCase(iInnerHandler->m_Path) == 0)
+						bHandled = iInnerHandler->m_pHandler->f_HandleRequest(*this, *mp_pHTTPRequest);
+				}
+			}
+		}
+		catch (NException::CException const &_Exception)
+		{
+			fsp_ReportRequestError(mp_pRequest, 500, NStr::fg_Format("Internal error: {}\n", _Exception.f_GetErrorStr()));
+			return Promise <<= g_Void;
+		}
+
+		if (bHandled)
+			f_Send();
+		else
+			fsp_ReportRequestError(mp_pRequest, 404, NStr::fg_Format("URI not found: {}\n", mp_pHTTPRequest->m_RequestedURI));
+
+		return Promise <<= g_Void;
+	}
+
+	void CHTTPServer::CHTTPServerInternal::CConnection::fp_ParseVariables(char const *_pData, umint _Len)
+	{
+		if (!_Len)
+			return;
+
+		char const *pCurPos = _pData;
+		char const *pEntryEndPos, *pEqualsPos;
+		char const *pEnd = _pData + _Len;
+
+		while (*pCurPos && pCurPos < pEnd)
+		{
+			pEqualsPos = nullptr;
+			for (pEntryEndPos = pCurPos; *pEntryEndPos && *pEntryEndPos != '&' && pEntryEndPos < pEnd; ++pEntryEndPos)
+			{
+				if (*pEntryEndPos == '=')
+					pEqualsPos = pEntryEndPos;
+			}
+
+			if (!pEqualsPos)
+			{
+				pCurPos = pEntryEndPos + 1;
+				continue;
+			}
+
+			size_t StrLen;
+			NStr::CStr CurKey, CurValue;
+
+			StrLen = (pEqualsPos - pCurPos);
+			fsp_URLDecode(pCurPos, StrLen, CurKey.f_GetStr(StrLen), StrLen + 1, true);
+			++pEqualsPos;
+			StrLen = (pEntryEndPos - pEqualsPos);
+			fsp_URLDecode(pEqualsPos, StrLen, CurValue.f_GetStr(StrLen), StrLen + 1, true);
+
+			mp_pHTTPRequest->m_Variables[CurKey] = CurValue;
+
+			pCurPos = pEntryEndPos + 1;
+		}
+	}
+
+	void CHTTPServer::CHTTPServerInternal::fsp_ReportRequestError(NStorage::TCSharedPointer<CFastCGIRequest> const &_pRequest, uint32 _Status, NStr::CStr const &_Error)
+	{
+		CHTTPResponseHeader Header;
+		NStr::CStr Content = NStr::CStr::CFormat("{}: {}") << _Status << _Error;
+		Header.f_SetPlainMime();
+		Header.m_ContentLength = Content.f_GetLen();
+		Header.m_AllowMethods = "GET, HEAD";
+		Header.m_Status = _Status;
+		_pRequest->f_SendStdError(Content);
+		_pRequest->f_SendStdOutput(Header.f_Generate());
+		_pRequest->f_SendStdOutput(Content);
+		_pRequest->f_FinishRequest();
+	}
+
+	umint CHTTPServer::CHTTPServerInternal::fsp_URLDecode(ch8 const *_pSrc, umint _SrcLen, ch8 *_pDst, umint _DstLen, bool _bFormURL)
+	{
+		umint iDst = 0;
+		for (umint iSrc = 0; iSrc < _SrcLen && iDst < _DstLen - 1; iSrc++, iDst++)
+		{
+			if (_pSrc[iSrc] == '%' && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 1)) && NStr::fg_CharIsHexNumber(* (uch8 *)(_pSrc + iSrc + 2)))
+			{
+				uch8 Upper = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 1));
+				uch8 Lower = NStr::fg_CharLowerCase(* (uch8 *)(_pSrc + iSrc + 2));
+				uint8 UpperValue = NStr::fg_CharIsNumber(Upper) ? (Upper - '0') : (10 + (Upper - 'a'));
+				uint8 LowerValue = NStr::fg_CharIsNumber(Lower) ? (Lower - '0') : (10 + (Lower - 'a'));
+				_pDst[iDst] = (ch8)(UpperValue << 4 | LowerValue);
+
+				iSrc += 2;
+			}
+			else if (_bFormURL && _pSrc[iSrc] == '+')
+				_pDst[iDst] = ' ';
+			else
+				_pDst[iDst] = _pSrc[iSrc];
+		}
+
+		_pDst[iDst] = 0;
+
+		return iDst;
+	}
+
+	NStorage::TCSharedPointer<CHTTPServer::CHTTPServerInternal::CHandlerTable> CHTTPServer::CHTTPServerInternal::fp_GetHandlers()
+	{
+		return mp_pHandlers;
+	}
+
+	// Returns a copy of the handlers to add an actor handler to.
+	NStorage::TCSharedPointer<CHTTPServer::CHTTPServerInternal::CHandlerTable> CHTTPServer::CHTTPServerInternal::fp_ActorHandlersToChange()
+	{
+		if (!mp_pHandlers->m_bActorHandlers && !mp_pHandlers->m_Handlers.f_IsEmpty())
+			DMibError("Cannot mix actor an non-actor handlers");
+
+		NStorage::TCSharedPointer<CHandlerTable> pHandlers = fg_Construct(*mp_pHandlers);
+		pHandlers->m_bActorHandlers = true;
+		return pHandlers;
+	}
 
 	CHTTPConnection::~CHTTPConnection()
 	{
@@ -730,49 +760,52 @@ namespace NMib::NWeb
 
 	struct CMimeTypes
 	{
+		CMimeTypes();
+
 		NContainer::TCMap<NStr::CStr, NStr::CStr> m_Types;
-		CMimeTypes()
-		{
-			m_Types["html"] = "text/html";
-			m_Types["htm"] = "text/html";
-			m_Types["shtm"] = "text/html";
-			m_Types["shtml"] = "text/html";
-			m_Types["css"] = "text/css";
-			m_Types["js"] = "application/x-javascript";
-			m_Types["ico"] = "image/x-icon";
-			m_Types["gif"] = "image/gif";
-			m_Types["jpg"] = "image/jpeg";
-			m_Types["jpeg"] = "image/jpeg";
-			m_Types["png"] = "image/png";
-			m_Types["svg"] = "image/svg+xml";
-			m_Types["torrent"] = "application/x-bittorrent";
-			m_Types["wav"] = "audio/x-wav";
-			m_Types["mp3"] = "audio/x-mp3";
-			m_Types["mid"] = "audio/mid";
-			m_Types["m3u"] = "audio/x-mpegurl";
-			m_Types["ram"] = "audio/x-pn-realaudio";
-			m_Types["xml"] = "text/xml";
-			m_Types["xslt"] = "application/xml";
-			m_Types["ra"] = "audio/x-pn-realaudio";
-			m_Types["doc"] = "application/msword";
-			m_Types["exe"] = "application/octet-stream";
-			m_Types["zip"] = "application/x-zip-compressed";
-			m_Types["xls"] = "application/excel";
-			m_Types["tgz"] = "application/x-tar-gz";
-			m_Types["tar"] = "application/x-tar";
-			m_Types["gz"] = "application/x-gunzip";
-			m_Types["arj"] = "application/x-arj-compressed";
-			m_Types["rar"] = "application/x-arj-compressed";
-			m_Types["rtf"] = "application/rtf";
-			m_Types["pdf"] = "application/pdf";
-			m_Types["swf"] = "application/x-shockwave-flash";
-			m_Types["mpg"] = "video/mpeg";
-			m_Types["mpeg"] = "video/mpeg";
-			m_Types["asf"] = "video/x-ms-asf";
-			m_Types["avi"] = "video/x-msvideo";
-			m_Types["bmp"] = "image/bmp";
-		}
 	};
+
+	CMimeTypes::CMimeTypes()
+	{
+		m_Types["html"] = "text/html";
+		m_Types["htm"] = "text/html";
+		m_Types["shtm"] = "text/html";
+		m_Types["shtml"] = "text/html";
+		m_Types["css"] = "text/css";
+		m_Types["js"] = "application/x-javascript";
+		m_Types["ico"] = "image/x-icon";
+		m_Types["gif"] = "image/gif";
+		m_Types["jpg"] = "image/jpeg";
+		m_Types["jpeg"] = "image/jpeg";
+		m_Types["png"] = "image/png";
+		m_Types["svg"] = "image/svg+xml";
+		m_Types["torrent"] = "application/x-bittorrent";
+		m_Types["wav"] = "audio/x-wav";
+		m_Types["mp3"] = "audio/x-mp3";
+		m_Types["mid"] = "audio/mid";
+		m_Types["m3u"] = "audio/x-mpegurl";
+		m_Types["ram"] = "audio/x-pn-realaudio";
+		m_Types["xml"] = "text/xml";
+		m_Types["xslt"] = "application/xml";
+		m_Types["ra"] = "audio/x-pn-realaudio";
+		m_Types["doc"] = "application/msword";
+		m_Types["exe"] = "application/octet-stream";
+		m_Types["zip"] = "application/x-zip-compressed";
+		m_Types["xls"] = "application/excel";
+		m_Types["tgz"] = "application/x-tar-gz";
+		m_Types["tar"] = "application/x-tar";
+		m_Types["gz"] = "application/x-gunzip";
+		m_Types["arj"] = "application/x-arj-compressed";
+		m_Types["rar"] = "application/x-arj-compressed";
+		m_Types["rtf"] = "application/rtf";
+		m_Types["pdf"] = "application/pdf";
+		m_Types["swf"] = "application/x-shockwave-flash";
+		m_Types["mpg"] = "video/mpeg";
+		m_Types["mpeg"] = "video/mpeg";
+		m_Types["asf"] = "video/x-ms-asf";
+		m_Types["avi"] = "video/x-msvideo";
+		m_Types["bmp"] = "image/bmp";
+	}
 
 	CMimeTypes g_MimeTypes;
 
@@ -896,27 +929,32 @@ namespace NMib::NWeb
 
 	struct CTestHTTPRequestHandler : public CHTTPRequestHandler
 	{
-		CTestHTTPRequestHandler()
-		{
-		}
+		CTestHTTPRequestHandler();
+		virtual ~CTestHTTPRequestHandler();
 
-		virtual ~CTestHTTPRequestHandler()
-		{
-		}
-
-		// This could be called for any thread - assume nothing.
-		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req)
-		{
-			CHTTPResponseHeader ResponseHeader;
-			_Connection.f_WriteHeader(ResponseHeader);
-
-			NStr::CStr Msg = "Hello from the handler!<BR/>";
-
-			_Connection.f_WriteStr(Msg);
-
-			return true;
-		}
+		bool f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req);
 	};
+
+	CTestHTTPRequestHandler::CTestHTTPRequestHandler()
+	{
+	}
+
+	CTestHTTPRequestHandler::~CTestHTTPRequestHandler()
+	{
+	}
+
+	// This can be called from any thread, so assume nothing.
+	bool CTestHTTPRequestHandler::f_HandleRequest(CHTTPConnection &_Connection, CHTTPRequest const &_Req)
+	{
+		CHTTPResponseHeader ResponseHeader;
+		_Connection.f_WriteHeader(ResponseHeader);
+
+		NStr::CStr Msg = "Hello from the handler!<BR/>";
+
+		_Connection.f_WriteStr(Msg);
+
+		return true;
+	}
 
 	NStr::CStr CHTTPRequest::f_GetVariable(NStr::CStr const &_Variable, NStr::CStr const &_DefaultValue)
 	{

@@ -13,15 +13,17 @@ namespace NMib::NWeb
 {
 	struct CAwsS3Actor::CInternal : public NConcurrency::CActorInternal
 	{
-		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
-			: m_HttpClientActor{_HttpClientActor}
-			, m_Credentials{_Credentials}
-		{
-		}
+		CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials);
 
 		CAwsCredentials m_Credentials;
 		TCActor<CHttpClientActor> m_HttpClientActor;
 	};
+
+	CAwsS3Actor::CInternal::CInternal(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
+		: m_HttpClientActor{_HttpClientActor}
+		, m_Credentials{_Credentials}
+	{
+	}
 
 	CAwsS3Actor::CAwsS3Actor(TCActor<CHttpClientActor> const &_HttpClientActor, CAwsCredentials const &_Credentials)
 		: mp_pInternal{fg_Construct(_HttpClientActor, _Credentials)}

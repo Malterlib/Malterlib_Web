@@ -61,10 +61,10 @@ namespace NMib::NWeb::NHTTP
 		CEntityFields &f_GetEntityFields();
 
 	private:
+		friend struct CConnection;
+
 		struct CDetails;
 		NStorage::TCUniquePointer<CDetails> mp_pDetails;
-
-		friend struct CConnection;
 	};
 }
 

@@ -18,14 +18,14 @@ namespace NMib::NWeb::NHTTP
 		void f_Stop();
 
 	private:
+		aint fp_Work(NThread::CThreadObject *_pThread);
+
 		DMibListLinkD_List(CConnection, mp_Link) mp_ConnectionsList;
 
 		NThread::CMutual mp_NewConnectionsLock;
 		DMibListLinkD_List(CConnection, mp_Link) mp_NewConnectionsList;
 
 		NStorage::TCUniquePointer<NThread::CThreadObject> mp_pThread;
-
-		aint fp_Work(NThread::CThreadObject *_pThread);
 	};
 
 	struct CServer::CDetails
@@ -43,6 +43,8 @@ namespace NMib::NWeb::NHTTP
 			, EState_Running
 		};
 
+		aint fp_Listen(NThread::CThreadObject *_pThread);
+
 		CConfig mp_Config;
 		EState mp_State;
 
@@ -51,11 +53,6 @@ namespace NMib::NWeb::NHTTP
 		// TEMP: Will be a pool of workers
 		CConnectionWorker mp_Worker;
 		// NContainer::TCVector< TCUniquePointer<NThread::CThreadObject> > mp_lProcessingThreads;
-
-		// Run on mp_ListenThread
-		aint fp_Listen(NThread::CThreadObject *_pThread);
-
-	private:
 	};
 
 	//
@@ -114,6 +111,7 @@ namespace NMib::NWeb::NHTTP
 	// CServer::CDetails Private Methods
 	//
 
+	// Runs on mp_ListenThread.
 	aint CServer::CDetails::fp_Listen(NThread::CThreadObject *_pThread)
 	{
 		NNetwork::CSocket ListenSocket;

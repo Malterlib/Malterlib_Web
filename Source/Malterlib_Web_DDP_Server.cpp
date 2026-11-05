@@ -13,7 +13,14 @@ namespace NMib::NWeb
 	private:
 		CDDPServerConnection *mp_pThis;
 
-	public:
+	public: // NOLINT(malterlib-member-order): mp_pThis comes first, as data member order decides initialization, destruction and layout
+		CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection, EConnectionType _ConnectionType);
+
+		void f_SendMessage(NEncoding::CEJsonSorted const &_Data);
+
+		void f_ReceiveMessage(NStr::CStr const &_Message);
+		void f_ReceiveMessage(NEncoding::CEJsonSorted const &_Message);
+
 		NStorage::TCUniquePointer<CWebSocketNewServerConnection> m_pNewWebsocketConnection;
 
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
@@ -30,22 +37,17 @@ namespace NMib::NWeb
 
 		EConnectionType m_ConnectionType;
 
-		CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection, EConnectionType _ConnectionType)
-			: mp_pThis(_pDDPServerConnection)
-			, m_pNewWebsocketConnection(fg_Construct(fg_Move(_NewWebsocketConnection)))
-			, m_WebSocket()
-			, m_ConnectionType(_ConnectionType)
-		{
-		}
-
-		void f_SendMessage(NEncoding::CEJsonSorted const &_Data);
-
-		void f_ReceiveMessage(NStr::CStr const &_Message);
-		void f_ReceiveMessage(NEncoding::CEJsonSorted const &_Message);
-
 	private:
 		void fp_OnError(NStr::CStr const &_Message);
 	};
+
+	CDDPServerConnection::CInternal::CInternal(CDDPServerConnection *_pDDPServerConnection, CWebSocketNewServerConnection &&_NewWebsocketConnection, EConnectionType _ConnectionType)
+		: mp_pThis(_pDDPServerConnection)
+		, m_pNewWebsocketConnection(fg_Construct(fg_Move(_NewWebsocketConnection)))
+		, m_WebSocket()
+		, m_ConnectionType(_ConnectionType)
+	{
+	}
 
 	void CDDPServerConnection::CInternal::f_SendMessage(NEncoding::CEJsonSorted const &_Data)
 	{
@@ -222,13 +224,15 @@ namespace NMib::NWeb
 
 	struct CDDPServerConnection::CConnectionInfo::CInternal
 	{
-		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: m_DDPConnection(fg_Move(_DDPConnection))
-		{
-		}
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
+
+	CDDPServerConnection::CConnectionInfo::CInternal::CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: m_DDPConnection(fg_Move(_DDPConnection))
+	{
+	}
 
 	CDDPServerConnection::CConnectionInfo::~CConnectionInfo()
 	{
@@ -259,13 +263,15 @@ namespace NMib::NWeb
 
 	struct CDDPServerConnection::CMethodInfo::CInternal
 	{
-		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: m_DDPConnection(fg_Move(_DDPConnection))
-		{
-		}
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
+
+	CDDPServerConnection::CMethodInfo::CInternal::CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: m_DDPConnection(fg_Move(_DDPConnection))
+	{
+	}
 
 	CDDPServerConnection::CMethodInfo::CMethodInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
 		: mp_Internal(fg_Move(_DDPConnection))
@@ -296,13 +302,15 @@ namespace NMib::NWeb
 
 	struct CDDPServerConnection::CSubscribeInfo::CInternal
 	{
-		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
-			: m_DDPConnection(fg_Move(_DDPConnection))
-		{
-		}
+		CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection);
 
 		NConcurrency::TCWeakActor<CDDPServerConnection> m_DDPConnection;
 	};
+
+	CDDPServerConnection::CSubscribeInfo::CInternal::CInternal(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
+		: m_DDPConnection(fg_Move(_DDPConnection))
+	{
+	}
 
 	CDDPServerConnection::CSubscribeInfo::CSubscribeInfo(NConcurrency::TCWeakActor<CDDPServerConnection> &&_DDPConnection)
 		: mp_Internal(fg_Move(_DDPConnection))

@@ -12,7 +12,6 @@ namespace NMib::NWeb::NHTTP
 			uint16 m_Port;
 		};
 
-	public:
 		CServer(CConfig const &_Config);
 		~CServer();
 

@@ -27,7 +27,6 @@ namespace NMib::NWeb::NFastCGI
 		NConcurrency::TCFuture<void> fp_Destroy();
 		void fp_ProcessState();
 
-	private:
 		NNetwork::CSocket mp_Socket;
 		NConcurrency::TCActor<CFastCGIServer> mp_Server;
 		NStorage::TCSharedPointer<NConcurrency::TCActorFunctorWeak<NConcurrency::TCFuture<void> (NStorage::TCSharedPointer<CFastCGIRequest> _pRequest)>> mp_pOnRequest;

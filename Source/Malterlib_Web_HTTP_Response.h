@@ -32,13 +32,13 @@ namespace NMib::NWeb::NHTTP
 
 		void f_Abort();
 
+	protected:
+		NStorage::TCUniquePointer<CResponseDetails> mp_pDetails;
+
 	private:
 		CResponseStage(CResponseStage const &_Other) = delete;
 		CResponseStage &operator = (CResponseStage const &_Other) = delete;
 		CResponseStage &operator = (CResponseStage &&_Other) = delete;
-
-	protected:
-		NStorage::TCUniquePointer<CResponseDetails> mp_pDetails;
 	};
 
 	// These are in reverse order due to dependencies.

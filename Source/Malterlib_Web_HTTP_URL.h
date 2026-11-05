@@ -42,37 +42,16 @@ namespace NMib::NWeb::NHTTP
 	{
 		struct CQueryEntry
 		{
-			NStr::CStr m_Key;
-			NStr::CStr m_Value;
-
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 			auto operator <=> (CQueryEntry const &_Right) const noexcept = default;
 
 			template <typename tf_CStream>
 			void f_Stream(tf_CStream &_Stream);
+
+			NStr::CStr m_Key;
+			NStr::CStr m_Value;
 		};
-
-	private:
-		EURLFlag mp_Flags = EURLFlag_None;
-
-		// Fields are only valid if the corresponding flag in mp_Flags is set:
-		NStr::CStr mp_Scheme;
-		NStr::CStr mp_Host;
-		uint16 mp_Port = 0;
-
-		NStr::CStr mp_Username;
-		NStr::CStr mp_Password;
-
-		NContainer::TCVector<NStr::CStr> mp_Paths;
-
-		NContainer::TCVector<CQueryEntry> mp_Query;
-		NStr::CStr mp_Fragment;
-
-		void fp_Parse(NStr::CStr const &_Str);
-
-	public:
-		static constexpr uint32 mc_Version = 0x102;
 
 		CURL();
 		CURL(NStr::CStr const &_URL);
@@ -170,6 +149,26 @@ namespace NMib::NWeb::NHTTP
 
 		template <typename tf_CStr>
 		void f_Format(tf_CStr &o_Str) const;
+
+		static constexpr uint32 mc_Version = 0x102;
+
+	private:
+		void fp_Parse(NStr::CStr const &_Str);
+
+		EURLFlag mp_Flags = EURLFlag_None;
+
+		// Fields are only valid if the corresponding flag in mp_Flags is set:
+		NStr::CStr mp_Scheme;
+		NStr::CStr mp_Host;
+		uint16 mp_Port = 0;
+
+		NStr::CStr mp_Username;
+		NStr::CStr mp_Password;
+
+		NContainer::TCVector<NStr::CStr> mp_Paths;
+
+		NContainer::TCVector<CQueryEntry> mp_Query;
+		NStr::CStr mp_Fragment;
 	};
 }
 
