@@ -60,6 +60,7 @@ namespace NMib::NWeb
 			EMethod m_Method = EMethod_GET;
 			bool m_bFollowRedirects = false;
 			bool m_bSetDefaultHeaders = true;
+			umint m_MaxBodySize = 0; // Bytes of a body that isn't streamed to m_ReceiveData, 0 for all; a longer one ends the transfer and sets m_bBodyTruncated
 		};
 
 		struct CResult
@@ -72,6 +73,7 @@ namespace NMib::NWeb
 			NContainer::TCMap<NStr::CStr, NStr::CStr, NStr::CCompareNoCase> m_Headers;
 			NStr::CStr m_Body;
 			uint32 m_StatusCode = 0;
+			bool m_bBodyTruncated = false;
 		};
 
 		using CRequestData = NStorage::TCVariant<NContainer::CByteVector, NStr::CStr, NEncoding::CEJsonSorted, NEncoding::CEJsonOrdered, NEncoding::CJsonSorted, NEncoding::CJsonOrdered>;

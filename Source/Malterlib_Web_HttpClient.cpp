@@ -141,6 +141,8 @@ namespace NMib::NWeb
 	{
 		CByteVector m_Headers;
 		CByteVector m_Body;
+		umint m_MaxBodySize = 0;
+		bool m_bBodyTruncated = false;
 	};
 
 	struct CHttpClientActor::CInternal : public NConcurrency::CActorInternal
@@ -447,6 +449,7 @@ namespace NMib::NWeb
 
 	CHttpClientActor::CResult::CResult(CState const &_State)
 		: m_Body(CStr((ch8 const *)_State.m_Body.f_GetArray(), _State.m_Body.f_GetLen()))
+		, m_bBodyTruncated(_State.m_bBodyTruncated)
 	{
 		CStr HeaderStr((ch8 const *)_State.m_Headers.f_GetArray(), _State.m_Headers.f_GetLen());
 
@@ -775,7 +778,7 @@ namespace NMib::NWeb
 		{
 			if (_pException)
 				Request.m_FinishedPromise.f_SetException(fg_Move(_pException));
-			else if (ResultCode != CURLE_OK)
+			else if (ResultCode != CURLE_OK && !(ResultCode == CURLE_WRITE_ERROR && Request.m_State.m_bBodyTruncated))
 			{
 				auto pEasyError = curl_easy_strerror(ResultCode);
 				auto pExtraError = pEasyError ? pEasyError : "";
@@ -1041,6 +1044,8 @@ namespace NMib::NWeb
 		if (_Request.m_bFollowRedirects)
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_FOLLOWLOCATION>(pCurl, 1L));
 
+		Request.m_State.m_MaxBodySize = _Request.m_MaxBodySize;
+
 		if (_Request.m_Method == EMethod_POST || _Request.m_Method == EMethod_PUT || _Request.m_Method == EMethod_PATCH)
 		{
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_UPLOAD>(pCurl, 1L));
@@ -1243,9 +1248,19 @@ namespace NMib::NWeb
 				{
 					CInternal::CRequest *pRequest = fg_AutoStaticCast(_pData);
 
-					pRequest->m_State.m_Body.f_Insert((uint8 const *)_pBuffer, _Size * _nItems);
+					auto &State = pRequest->m_State;
+					umint Size = _Size * _nItems;
+					if (State.m_MaxBodySize && State.m_Body.f_GetLen() + Size > State.m_MaxBodySize)
+					{
+						// Returning less than was given ends the transfer, which then finishes with what was kept
+						State.m_Body.f_Insert((uint8 const *)_pBuffer, State.m_MaxBodySize - State.m_Body.f_GetLen());
+						State.m_bBodyTruncated = true;
+						return 0;
+					}
 
-					return _Size * _nItems;
+					State.m_Body.f_Insert((uint8 const *)_pBuffer, Size);
+
+					return Size;
 				}
 			;
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_WRITEFUNCTION>(pCurl, (curl_write_callback)fWriteBodyCallback));
