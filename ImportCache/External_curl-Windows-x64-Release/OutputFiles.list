@@ -1,7 +1,5 @@
 #(CMakeIntermediateDirectory)/External_curl/docs/curl-config.1
 #(CMakeIntermediateDirectory)/External_curl/docs/mk-ca-bundle.1
-#(CMakeIntermediateDirectory)/External_curl/docs/runtests.1
-#(CMakeIntermediateDirectory)/External_curl/docs/testcurl.1
 #(CMakeIntermediateDirectory)/External_curl/docs/wcurl.1
 #(CMakeIntermediateDirectory)/External_curl/lib/unitprotos.h
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-ca.cacert
@@ -13,6 +11,12 @@
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-cert.pem
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-cert.pub.der
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-cert.pub.pem
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.crl
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.crt
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.key
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.pem
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.pub.der
+#(CMakeIntermediateDirectory)/External_curl/tests/certs/test-client-eku-only.pub.pem
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-localhost-san-first.crl
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-localhost-san-first.crt
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-localhost-san-first.key
@@ -45,6 +49,7 @@
 #(CMakeIntermediateDirectory)/External_curl/tests/certs/test-localhost0h.pub.pem
 #(CMakeIntermediateDirectory)/External_curl/tests/libtest/lib1521.c
 #(CMakeIntermediateDirectory)/External_curl/tests/libtest/libtests.c
+#(CMakeIntermediateDirectory)/External_curl/tests/perf/perf.c
 #(CMakeIntermediateDirectory)/External_curl/tests/server/servers.c
 #(CMakeIntermediateDirectory)/External_curl/tests/tunit/tunits.c
 #(CMakeIntermediateDirectory)/External_curl/tests/unit/units.c

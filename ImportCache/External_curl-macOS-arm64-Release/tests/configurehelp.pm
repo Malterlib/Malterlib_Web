@@ -40,6 +40,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/macOS/arm64/bin/clang" -E -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk  -I../../../../../External/curl/include -I../../../../../External/zstd/lib -I../lib';
+$Cpreprocessor = '"../../../../../Binaries/MalterlibLLVM/macOS/arm64/bin/clang" -E -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk  -I../../../../../External/curl/include -I../lib -I../../../../../External/curl/lib';
 
 1;

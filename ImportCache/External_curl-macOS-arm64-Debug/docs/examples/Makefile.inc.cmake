@@ -29,16 +29,24 @@ set(check_PROGRAMS
   address-scope 
   altsvc 
   anyauthput 
+  aws-sigv4 
   block_ip 
+  cainfo-blob 
   certinfo 
   chkspeed 
+  clientcert-blob 
+  conditional 
   connect-to 
+  cookie 
+  cookiejar 
   cookie_interface 
   debug 
   default-scheme 
+  doh 
   externalsocket 
   fileupload 
   ftp-delete 
+  ftp-listonly 
   ftp-wildcard 
   ftpget 
   ftpgetinfo 
@@ -65,6 +73,7 @@ set(check_PROGRAMS
   httpput 
   httpput-postfields 
   https 
+  httpsig 
   imap-append 
   imap-authzid 
   imap-copy 
@@ -83,6 +92,7 @@ set(check_PROGRAMS
   interface 
   ipv6 
   keepalive 
+  limit-rate 
   localport 
   log_failed_transfers 
   maxconnects 
@@ -93,8 +103,10 @@ set(check_PROGRAMS
   multi-legacy 
   multi-post 
   multi-single 
+  nagle 
   netrc 
   parseurl 
+  path-as-is 
   persistent 
   pop3-authzid 
   pop3-dele 
@@ -134,6 +146,7 @@ set(check_PROGRAMS
   smtp-vrfy 
   sslbackend 
   synctime 
+  trailer 
   unixsocket 
   url2file 
   urlapi 
@@ -146,9 +159,8 @@ set(check_PROGRAMS
 set(COMPLICATED_MAY_BUILD 
   cacertinmem.c 
   multi-uv.c 
-  multithread.c 
   sessioninfo.c 
-  threaded-ssl.c 
+  threaded.c 
   usercertinmem.c)
 
 # These examples require external dependencies that may not be commonly

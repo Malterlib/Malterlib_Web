@@ -148,8 +148,8 @@ Import.CMake_Variables: [
 	BUILD_LIBCURL_DOCS=OFF,
 	ENABLE_CURL_MANUAL=OFF,
 	CURL_HIDDEN_EXTERN_SYMBOLS=ON,
-	Zstd_LIBRARY=/Binaries/MalterlibSDK/Linux/x64/Linux.sdk/lib/libc.so,
-	Zstd_INCLUDE_DIR=/External/zstd/lib
+	ZSTD_LIBRARY=/Binaries/MalterlibSDK/Linux/x64/Linux.sdk/lib/libc.so,
+	ZSTD_INCLUDE_DIR=/External/zstd/lib
 ]
 
 Import.CMake_IncludeInHash: [
