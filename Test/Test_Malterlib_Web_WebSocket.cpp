@@ -1747,6 +1747,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
 
@@ -1799,6 +1800,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CAuthenticatedUnixContext> pServerContext = fg_Construct(CAuthenticatedUnixContext::EType::mc_Server, ServerSettings);
 
@@ -1866,6 +1868,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
@@ -1914,6 +1917,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
@@ -1980,6 +1984,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
@@ -2020,6 +2025,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
 
@@ -2052,6 +2058,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
@@ -2085,6 +2092,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CCertificate::fs_GenerateSelfSignedCertAndKey(ServerOptions, ServerSettings.m_PublicCertificateData, ServerSettings.m_PrivateKeyData);
 					ServerSettings.m_CACertificateData = ServerSettings.m_PublicCertificateData;
+					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 					ServerSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowMissingPeerCertificate;
 
 					TCSharedPointer<CSSLContext> pServerContext = fg_Construct(CSSLContext::EType_Server, ServerSettings);
@@ -2213,6 +2221,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 
 					CSSLSettings ClientSettings;
 					ClientSettings.m_CACertificateData = RootCertData;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
@@ -2262,6 +2271,7 @@ void CWebsocket_Tests::fp_TestProtocols(umint _FragmentationSize, bool _bTestTim
 					CSSLSettings ClientSettings;
 					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_UseSpecificPeerCertificate;
 					ClientSettings.m_CACertificateData = RootCertData;
+					ClientSettings.m_VerificationFlags |= CSSLSettings::EVerificationFlag_AllowPinnedTrustAnchor;
 
 					TCSharedPointer<CSSLContext> pClientContext = fg_Construct(CSSLContext::EType_Client, ClientSettings);
 
