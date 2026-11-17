@@ -35,7 +35,7 @@ set(UTILS_H )
 
 set(CURLX_C 
   ../../lib/curlx/base64.c 
-  ../../lib/curlx/fopen.c 
+  ../../lib/curlx/win32-fopen.c 
   ../../lib/curlx/inet_ntop.c 
   ../../lib/curlx/inet_pton.c 
   ../../lib/curlx/multibyte.c 

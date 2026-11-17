@@ -188,9 +188,9 @@ if(NOT TARGET CURL::libcurl)
 endif()
 
 # For compatibility with CMake's FindCURL.cmake
-set(CURL_VERSION_STRING "8.22.0-DEV")
+set(CURL_VERSION_STRING "8.23.0-DEV")
 set(CURL_LIBRARIES CURL::libcurl)
-set(CURL_LIBRARIES_PRIVATE "c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;stdc++;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;bcrypt;advapi32;crypt32;ws2_32;iphlpapi")
+set(CURL_LIBRARIES_PRIVATE "c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;c:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;stdc++;C:/Program Files/Microsoft Visual Studio/18/Professional/VC/Tools/MSVC/14.51.36231/lib/arm64/delayimp.lib;bcrypt;advapi32;crypt32;ws2_32;iphlpapi")
 set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
 
 set(CURL_SUPPORTED_PROTOCOLS "HTTP;HTTPS;IPFS;IPNS;WS;WSS")

@@ -188,7 +188,7 @@ if(NOT TARGET CURL::libcurl)
 endif()
 
 # For compatibility with CMake's FindCURL.cmake
-set(CURL_VERSION_STRING "8.22.0-DEV")
+set(CURL_VERSION_STRING "8.23.0-DEV")
 set(CURL_LIBRARIES CURL::libcurl)
 set(CURL_LIBRARIES_PRIVATE "../../../../Binaries/MalterlibSDK/Linux/Ubuntu/x64/Linux.sdk/lib/libc.so;../../../../Binaries/MalterlibSDK/Linux/Ubuntu/x64/Linux.sdk/lib/libc.so;../../../../Binaries/MalterlibSDK/Linux/Ubuntu/x64/Linux.sdk/lib/libc.so;stdc++;../../../../Binaries/MalterlibSDK/Linux/Ubuntu/x64/Linux.sdk/usr/lib/x86_64-linux-gnu/libz.so;../../../../Binaries/MalterlibSDK/Linux/Ubuntu/x64/Linux.sdk/lib/libc.so")
 set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")

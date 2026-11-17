@@ -1,14 +1,15 @@
 Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute()
 %Target "Lib_PCRE2_pcre2-8-static"
 {
+	Target.CLanguage "GNU99"
 	Compile
 	{
 		!!Compile.Type "C"
 		SearchPath += [
 			`@('.'->MakeAbsolute())/interface`->MakeAbsolute(),
-			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2/interface`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/src`->MakeAbsolute(),
-			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2/src`->MakeAbsolute(),
 			`@('../../../../External/pcre2'->MakeAbsolute())/src`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
@@ -17,6 +18,7 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 			"PCRE2_DEBUG",
 			"PCRE2_STATIC"
 		]
+		CLanguage "GNU99"
 	}
 	Property.MalterlibTargetNameType "Normal"
 	Compile.AllowNonExisting true
@@ -176,14 +178,15 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 }
 %Target "Lib_PCRE2_pcre2-posix-static"
 {
+	Target.CLanguage "GNU99"
 	Compile
 	{
 		!!Compile.Type "C"
 		SearchPath += [
 			`@('.'->MakeAbsolute())/interface`->MakeAbsolute(),
-			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2/interface`->MakeAbsolute(),
 			`@('.'->MakeAbsolute())/src`->MakeAbsolute(),
-			`@(CMakeIntermediateDirectory)/External_pcre2`->MakeAbsolute(),
+			`@(CMakeIntermediateDirectory)/External_pcre2/src`->MakeAbsolute(),
 			`@('../../../../External/pcre2'->MakeAbsolute())/src`->MakeAbsolute()
 		]
 		PreprocessorDefines += [
@@ -192,6 +195,7 @@ Property.CMakeOutputPath_PCRE2: string = `@('.'->MakeAbsolute())`->MakeAbsolute(
 			"PCRE2_DEBUG",
 			"PCRE2_STATIC"
 		]
+		CLanguage "GNU99"
 	}
 	Property.MalterlibTargetNameType "Normal"
 	Compile.AllowNonExisting true

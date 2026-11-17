@@ -148,9 +148,6 @@
 /* disabled shuffle DNS feature */
 /* #undef CURL_DISABLE_SHUFFLE_DNS */
 
-/* disables SMB */
-/* #undef CURL_ENABLE_SMB */
-
 /* disables SMTP */
 #define CURL_DISABLE_SMTP 1
 
@@ -205,6 +202,9 @@
 
 /* Define to 1 if you have the `accept4' function. */
 #define HAVE_ACCEPT4 1
+
+/* Define to 1 if you have the `fchmod' function. */
+#define HAVE_FCHMOD 1
 
 /* Define to 1 if you have the `fnmatch' function. */
 #define HAVE_FNMATCH 1
@@ -695,7 +695,7 @@
 /* if libpsl is in use */
 /* #undef USE_LIBPSL */
 
-/* if you want to use OpenLDAP code instead of legacy ldap implementation */
+/* if you want to use OpenLDAP code instead of legacy LDAP implementation */
 /* #undef USE_OPENLDAP */
 
 /* if OpenSSL is in use */

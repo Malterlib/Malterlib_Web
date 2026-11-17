@@ -13,6 +13,7 @@
 
 /* #undef HAVE_MEMFD_CREATE */
 /* #undef HAVE_SECURE_GETENV */
+/* #undef HAVE_SETRLIMIT */
 
 #define SUPPORT_PCRE2_8 1
 /* #undef SUPPORT_PCRE2_16 */

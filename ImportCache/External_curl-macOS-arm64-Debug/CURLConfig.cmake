@@ -188,7 +188,7 @@ if(NOT TARGET CURL::libcurl)
 endif()
 
 # For compatibility with CMake's FindCURL.cmake
-set(CURL_VERSION_STRING "8.22.0-DEV")
+set(CURL_VERSION_STRING "8.23.0-DEV")
 set(CURL_LIBRARIES CURL::libcurl)
 set(CURL_LIBRARIES_PRIVATE "-framework SystemConfiguration;-framework CoreFoundation;-framework CoreServices;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd;stdc++;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libz.tbd;/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib/libSystem.B.tbd")
 set_and_check(CURL_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
