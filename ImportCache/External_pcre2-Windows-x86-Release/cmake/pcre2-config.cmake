@@ -63,7 +63,7 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/pcre2-targets.cmake")
 
 # Set version
-set(PCRE2_VERSION "10.47.0")
+set(PCRE2_VERSION "10.49.0")
 
 # Chooses the linkage of the library to expose in the
 # unsuffixed edition of the target.

@@ -11,5 +11,5 @@ buildinfo.target.cpu: x86_64
 buildinfo.target.os: Windows
 buildinfo.target.flags: WIN32 CLANG-CL MSVC-1951
 buildinfo.compiler: Clang
-buildinfo.compiler.version: 22.1.8
+buildinfo.compiler.version: 23.1.5
 buildinfo.sysroot: 

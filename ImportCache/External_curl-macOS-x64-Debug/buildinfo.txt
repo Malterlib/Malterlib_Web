@@ -11,5 +11,5 @@ buildinfo.target.cpu: x86_64
 buildinfo.target.os: Darwin
 buildinfo.target.flags: APPLE UNIX LLVM-CLANG CROSS
 buildinfo.compiler: Clang
-buildinfo.compiler.version: 22.1.8
+buildinfo.compiler.version: 23.1.5
 buildinfo.sysroot: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
