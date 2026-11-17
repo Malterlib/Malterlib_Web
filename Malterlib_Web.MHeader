@@ -155,8 +155,8 @@ Import "../../External/nginx/nginx.MTarget"
 		, "BUILD_LIBCURL_DOCS=OFF"
 		, "ENABLE_CURL_MANUAL=OFF"
 		, "CURL_HIDDEN_EXTERN_SYMBOLS=ON"
-		, `Zstd_LIBRARY=@(Malterlib_DummmyLibrary)`
-		, `Zstd_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
+		, `ZSTD_LIBRARY=@(Malterlib_DummmyLibrary)`
+		, `ZSTD_INCLUDE_DIR=@("../../External/zstd/lib"->MakeAbsolute())`
 	]
 
 	Import.CMake_Variables =+ "SHARE_LIB_OBJECT=OFF"
