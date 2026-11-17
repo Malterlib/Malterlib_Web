@@ -41,7 +41,7 @@ namespace NMib::NWeb
 			CDependencies(EDefaultDirectory _Directory, NStr::CStr const &_CustomDirectory = {});
 
 			NConcurrency::TCActor<CHttpClientActor> m_HttpClientActor;
-			NHTTP::CURL m_DirectoryURL;
+			NHTTP::CUrl m_DirectoryURL;
 			NStr::CStr m_UserAgent = "Malterlib ACME client"; // ACME servers require a User-Agent (RFC 8555 6.1)
 
 			CAccountInfo m_AccountInfo;

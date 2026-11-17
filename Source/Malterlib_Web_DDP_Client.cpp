@@ -81,7 +81,7 @@ namespace NMib::NWeb
 		CInternal
 			(
 				CDDPClient *_pThis
-				, NHTTP::CURL const &_ConnectTo
+				, NHTTP::CUrl const &_ConnectTo
 				, NStr::CStr const &_BindTo
 				, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 				, NStr::CStr const &_Origin
@@ -106,7 +106,7 @@ namespace NMib::NWeb
 
 		CDDPClient *m_pThis;
 
-		NHTTP::CURL m_ConnectTo;
+		NHTTP::CUrl m_ConnectTo;
 		NStr::CStr m_BindTo;
 		NStr::CStr m_Origin;
 		NConcurrency::TCActor<CWebSocketActor> m_WebSocket;
@@ -180,7 +180,7 @@ namespace NMib::NWeb
 	CDDPClient::CInternal::CInternal
 		(
 			CDDPClient *_pThis
-			, NHTTP::CURL const &_ConnectTo
+			, NHTTP::CUrl const &_ConnectTo
 			, NStr::CStr const &_BindTo
 			, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 			, NStr::CStr const &_Origin
@@ -309,7 +309,7 @@ namespace NMib::NWeb
 
 	CDDPClient::CDDPClient
 		(
-			NHTTP::CURL const &_ConnectTo
+			NHTTP::CUrl const &_ConnectTo
 			, NStr::CStr const &_BindTo
 			, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory
 			, NStr::CStr const &_Origin

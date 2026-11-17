@@ -34,15 +34,15 @@ namespace NMib::NWeb::NHTTP
 		EParse f_Parse(NStr::CStr const &_RequestLine, NStr::CStr &o_Errors);
 		void f_Write(COutputMethod const &_fOutput);
 
-		void f_Set(EVersion _Version, EMethod _Method, CURL const &_URI);
+		void f_Set(EVersion _Version, EMethod _Method, CUrl const &_URI);
 
 		EMethod f_GetMethod() const;
-		CURL const &f_GetURI() const;
+		CUrl const &f_GetURI() const;
 		EVersion f_GetVersion() const;
 
 	private:
 		EMethod mp_Method;
-		CURL mp_URI;
+		CUrl mp_URI;
 		EVersion mp_Version;
 	};
 

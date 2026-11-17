@@ -298,7 +298,7 @@ namespace NMib::NWeb
 
 	TCFuture<CJsonSorted> CAwsLambdaActor::CInternal::f_GetFunction(CStr const &_FunctionName)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 		AWSUrl.f_AppendPath({_FunctionName});
 		return fg_DoAWSRequestJson("Get function", m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, m_Credentials, {}, "lambda");
 	}
@@ -437,7 +437,7 @@ namespace NMib::NWeb
 
 	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::CInternal::f_CreateFunction(CStr _FunctionName, CCodeBlob _CodeBlob, CFunctionConfiguration _Config)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions"_f << m_Credentials.m_Region};
 		CJsonSorted Request;
 		Request["Code"]["ZipFile"] = _CodeBlob.m_Base64;
 		Request["FunctionName"] = _FunctionName;
@@ -471,7 +471,7 @@ namespace NMib::NWeb
 
 	TCFuture<void> CAwsLambdaActor::CInternal::f_UpdateFunctionConfiguration(CStr _FunctionName, CFunctionConfiguration _Config)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/configuration"_f << m_Credentials.m_Region << _FunctionName};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/configuration"_f << m_Credentials.m_Region << _FunctionName};
 		CJsonSorted Request;
 
 		fp_PopulateFunctionConfigurationRequest(Request, _Config);
@@ -500,7 +500,7 @@ namespace NMib::NWeb
 
 	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::CInternal::f_UpdateFunctionCode(CStr _FunctionName, CCodeBlob _CodeBlob, CFunctionConfiguration _Config)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/code"_f << m_Credentials.m_Region << _FunctionName};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/code"_f << m_Credentials.m_Region << _FunctionName};
 		CJsonSorted Request;
 		Request["ZipFile"] = _CodeBlob.m_Base64;
 
@@ -525,13 +525,13 @@ namespace NMib::NWeb
 
 	TCFuture<CJsonSorted> CAwsLambdaActor::CInternal::f_GetFunctionVersions(CStr const &_FunctionName)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions?MaxItems=10000"_f << m_Credentials.m_Region << _FunctionName};
 		return fg_DoAWSRequestJson("Get function versions", m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, m_Credentials, {}, "lambda");
 	}
 
 	TCFuture<CAwsLambdaActor::CFunctionInfo> CAwsLambdaActor::CInternal::f_PublishVersion(CStr _FunctionName)
 	{
-		NHTTP::CURL AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
+		NHTTP::CUrl AWSUrl = CStr{"https://lambda.{}.amazonaws.com/2015-03-31/functions/{}/versions"_f << m_Credentials.m_Region << _FunctionName};
 		CJsonSorted Results = co_await fg_DoAWSRequestJson("Publish function", m_HttpClientActor, 201, AWSUrl, {}, CHttpClientActor::EMethod_POST, m_Credentials, {}, "lambda");
 
 		CFunctionInfo FunctionInfo;

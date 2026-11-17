@@ -83,7 +83,7 @@ namespace NMib::NWeb
 
 		CDDPClient
 			(
-				NHTTP::CURL const &_ConnectTo
+				NHTTP::CUrl const &_ConnectTo
 				, NStr::CStr const &_BindTo
 				, NConcurrency::TCActor<CWebSocketClientActor> const &_ConnectionFactory = fg_Default()
 				, NStr::CStr const &_Origin = NStr::CStr()

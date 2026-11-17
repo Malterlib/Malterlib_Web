@@ -30,7 +30,7 @@ namespace NMib::NWeb
 
 	auto fg_SignAWSRequest
 		(
-			NHTTP::CURL const &_URL
+			NHTTP::CUrl const &_URL
 			, CByteVector const &_Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials const &_Credentials
@@ -69,7 +69,7 @@ namespace NMib::NWeb
 
 		// CanonicalQueryString
 		{
-			TCSet<NHTTP::CURL::CQueryEntry> QueryParams;
+			TCSet<NHTTP::CUrl::CQueryEntry> QueryParams;
 			for (auto &QueryParam : _URL.f_GetQuery())
 				QueryParams[QueryParam];
 
@@ -79,8 +79,8 @@ namespace NMib::NWeb
 				CStr ParamName;
 				CStr ParamValue;
 
-				NHTTP::CURL::fs_PercentEncode(ParamName, QueryParam.m_Key, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
-				NHTTP::CURL::fs_PercentEncode(ParamValue, QueryParam.m_Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+				NHTTP::CUrl::fs_PercentEncode(ParamName, QueryParam.m_Key, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+				NHTTP::CUrl::fs_PercentEncode(ParamValue, QueryParam.m_Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
 
 				fg_AddStrSep(CannonicalQuery, "{}={}"_f << ParamName << ParamValue, "&");
 			}
@@ -214,7 +214,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> _Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
@@ -315,7 +315,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, NStorage::TCVariant<void, CByteVector, NEncoding::CJsonSorted> _Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
@@ -380,7 +380,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders
 			, CStr _Service

@@ -3824,7 +3824,7 @@ namespace NMib::NWeb
 									break;
 								}
 
-								NHTTP::CURL const &URI = RequestLine.f_GetURI();
+								NHTTP::CUrl const &URI = RequestLine.f_GetURI();
 								auto &Paths = URI.f_GetPath();
 								if (Paths.f_GetLen() == 2 && Paths[0] == "sockjs" && Paths[1] == "info")
 								{

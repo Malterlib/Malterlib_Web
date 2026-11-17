@@ -34,7 +34,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<NStr::CStr> CAwsCloudFrontActor::f_CreateInvalidation(NStr::CStr _DistributionID, NContainer::TCVector<NStr::CStr> _Paths)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/invalidation"_f << _DistributionID};
+		NHTTP::CUrl AWSUrl = CStr{"https://cloudfront.amazonaws.com/2017-10-30/distribution/{}/invalidation"_f << _DistributionID};
 
 		NXML::CXMLDocument PostDocument(false);
 		{
@@ -93,7 +93,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CAwsCloudFrontActor::f_UpdateDistributionLambdaFunctions(NStr::CStr _DistributionID, NContainer::TCMap<EFunctionEventType, NStr::CStr> _FunctionAssociations)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://cloudfront.amazonaws.com/2020-05-31/distribution/{}/config"_f << _DistributionID};
+		NHTTP::CUrl AWSUrl = CStr{"https://cloudfront.amazonaws.com/2020-05-31/distribution/{}/config"_f << _DistributionID};
 
 		auto Result = co_await fg_DoAWSRequestXML("Get distribution", Internal.m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, Internal.m_Credentials, {}, "cloudfront");
 

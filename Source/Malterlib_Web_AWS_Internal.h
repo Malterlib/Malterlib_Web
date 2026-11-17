@@ -34,7 +34,7 @@ namespace NMib::NWeb
 
 	auto fg_SignAWSRequest
 		(
-			NHTTP::CURL const &_URL
+			NHTTP::CUrl const &_URL
 			, CByteVector const &_Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials const &_Credentials
@@ -50,7 +50,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, NStorage::TCVariant<void, CByteVector, NXML::CXMLDocument> _Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
@@ -66,7 +66,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, NStorage::TCVariant<void, CByteVector, NEncoding::CJsonSorted> _Contents
 			, CHttpClientActor::EMethod _Method
 			, CAwsCredentials _Credentials
@@ -82,7 +82,7 @@ namespace NMib::NWeb
 			CStr _Description
 			, TCActor<CHttpClientActor> _HttpClientActor
 			, uint32 _ExpectedStatus
-			, NHTTP::CURL _URL
+			, NHTTP::CUrl _URL
 			, CAwsCredentials _Credentials
 			, TCMap<CStr, CStr> _AWSHeaders
 			, CStr _Service

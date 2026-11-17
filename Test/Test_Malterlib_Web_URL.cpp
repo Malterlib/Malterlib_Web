@@ -9,7 +9,7 @@ using namespace NMib;
 using namespace NMib::NStr;
 using namespace NMib::NWeb;
 
-// RFC 3986 coverage for NHTTP::CURL. Assertions reflect the parser's documented model:
+// RFC 3986 coverage for NHTTP::CUrl. Assertions reflect the parser's documented model:
 //   <scheme>://[<user>[:<pass>]@]<host>[:<port>]/<path>[?<query>][#<fragment>]
 // where the path is a list of percent-decoded segments and an empty path (path-abempty) is valid.
 struct CURL_Tests : public NMib::NTest::CTest
@@ -23,20 +23,20 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("https");
-			NHTTP::CURL Url("https://host/");
+			NHTTP::CUrl Url("https://host/");
 			DMibExpectTrue(Url.f_HasScheme());
 			DMibExpect(Url.f_GetScheme(), ==, "https");
 		}
 
 		{
 			DMibTestPath("case preserved");
-			NHTTP::CURL Url("HtTpS://host/");
+			NHTTP::CUrl Url("HtTpS://host/");
 			DMibExpect(Url.f_GetScheme(), ==, "HtTpS");
 		}
 
 		{
 			DMibTestPath("custom scheme with + - .");
-			NHTTP::CURL Url("git+ssh://host/repo");
+			NHTTP::CUrl Url("git+ssh://host/repo");
 			DMibExpect(Url.f_GetScheme(), ==, "git+ssh");
 		}
 	};
@@ -45,7 +45,7 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("host only");
-			NHTTP::CURL Url("https://example.com/");
+			NHTTP::CUrl Url("https://example.com/");
 			DMibExpectTrue(Url.f_HasHost());
 			DMibExpect(Url.f_GetHost(), ==, "example.com");
 			DMibExpectFalse(Url.f_HasPort());
@@ -53,7 +53,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("host and port");
-			NHTTP::CURL Url("https://example.com:8443/");
+			NHTTP::CUrl Url("https://example.com:8443/");
 			DMibExpect(Url.f_GetHost(), ==, "example.com");
 			DMibExpectTrue(Url.f_HasPort());
 			DMibExpect(Url.f_GetPort(), ==, uint16(8443));
@@ -61,7 +61,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("percent decoded host");
-			NHTTP::CURL Url("https://ex%41mple.com/");
+			NHTTP::CUrl Url("https://ex%41mple.com/");
 			DMibExpect(Url.f_GetHost(), ==, "exAmple.com");
 		}
 	};
@@ -70,7 +70,7 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("brackets with port");
-			NHTTP::CURL Url("http://[2001:db8::1]:8080/path");
+			NHTTP::CUrl Url("http://[2001:db8::1]:8080/path");
 			DMibExpectTrue(Url.f_HasHost());
 			DMibExpect(Url.f_GetHost(), ==, "2001:db8::1");
 			DMibExpect(Url.f_GetPort(), ==, uint16(8080));
@@ -78,7 +78,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("brackets without port");
-			NHTTP::CURL Url("http://[::1]/");
+			NHTTP::CUrl Url("http://[::1]/");
 			DMibExpect(Url.f_GetHost(), ==, "::1");
 			DMibExpectFalse(Url.f_HasPort());
 		}
@@ -88,7 +88,7 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("user and password");
-			NHTTP::CURL Url("https://user:secret@host/");
+			NHTTP::CUrl Url("https://user:secret@host/");
 			DMibExpectTrue(Url.f_HasUsername());
 			DMibExpect(Url.f_GetUsername(), ==, "user");
 			DMibExpectTrue(Url.f_HasPassword());
@@ -98,7 +98,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("user only");
-			NHTTP::CURL Url("https://user@host/");
+			NHTTP::CUrl Url("https://user@host/");
 			DMibExpectTrue(Url.f_HasUsername());
 			DMibExpect(Url.f_GetUsername(), ==, "user");
 			DMibExpectFalse(Url.f_HasPassword());
@@ -107,7 +107,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("percent decoded userinfo");
-			NHTTP::CURL Url("https://us%20er:pa%40ss@host/");
+			NHTTP::CUrl Url("https://us%20er:pa%40ss@host/");
 			DMibExpect(Url.f_GetUsername(), ==, "us er");
 			DMibExpect(Url.f_GetPassword(), ==, "pa@ss");
 		}
@@ -117,21 +117,21 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("multiple segments");
-			NHTTP::CURL Url("https://host/a/b/c");
+			NHTTP::CUrl Url("https://host/a/b/c");
 			DMibExpect(Url.f_GetPath().f_GetLen(), ==, umint(3));
 			DMibExpect(Url.f_GetFullPath(), ==, "/a/b/c");
 		}
 
 		{
 			DMibTestPath("root path");
-			NHTTP::CURL Url("https://host/");
+			NHTTP::CUrl Url("https://host/");
 			DMibExpect(Url.f_GetPath().f_GetLen(), ==, umint(0));
 			DMibExpect(Url.f_GetFullPath(), ==, "/");
 		}
 
 		{
 			DMibTestPath("percent decoded segment with encoded slash");
-			NHTTP::CURL Url("https://host/a%2Fb/c");
+			NHTTP::CUrl Url("https://host/a%2Fb/c");
 			DMibExpect(Url.f_GetPath().f_GetLen(), ==, umint(2));
 			DMibExpect(Url.f_GetPath()[0], ==, "a/b");
 			DMibExpect(Url.f_GetPath()[1], ==, "c");
@@ -142,7 +142,7 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("key value pairs");
-			NHTTP::CURL Url("https://host/?a=1&b=2");
+			NHTTP::CUrl Url("https://host/?a=1&b=2");
 			DMibExpectTrue(Url.f_HasQuery());
 			DMibExpect(Url.f_GetQuery().f_GetLen(), ==, umint(2));
 			DMibExpect(Url.f_GetQuery()[0].m_Key, ==, "a");
@@ -153,7 +153,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("empty value and key only");
-			NHTTP::CURL Url("https://host/?a=&b");
+			NHTTP::CUrl Url("https://host/?a=&b");
 			DMibExpect(Url.f_GetQuery().f_GetLen(), ==, umint(2));
 			DMibExpect(Url.f_GetQuery()[0].m_Value, ==, "");
 			DMibExpect(Url.f_GetQuery()[1].m_Key, ==, "b");
@@ -162,7 +162,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("percent decoded value");
-			NHTTP::CURL Url("https://host/?q=hello%20world%26more");
+			NHTTP::CUrl Url("https://host/?q=hello%20world%26more");
 			DMibExpect(Url.f_GetQuery()[0].m_Value, ==, "hello world&more");
 		}
 	};
@@ -171,20 +171,20 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("simple fragment");
-			NHTTP::CURL Url("https://host/path#section");
+			NHTTP::CUrl Url("https://host/path#section");
 			DMibExpectTrue(Url.f_HasFragment());
 			DMibExpect(Url.f_GetFragment(), ==, "section");
 		}
 
 		{
 			DMibTestPath("percent decoded fragment");
-			NHTTP::CURL Url("https://host/#a%20b");
+			NHTTP::CUrl Url("https://host/#a%20b");
 			DMibExpect(Url.f_GetFragment(), ==, "a b");
 		}
 
 		{
 			DMibTestPath("empty fragment");
-			NHTTP::CURL Url("https://host/path#");
+			NHTTP::CUrl Url("https://host/path#");
 			DMibExpectTrue(Url.f_IsValid());
 			DMibExpectTrue(Url.f_HasFragment());
 			DMibExpect(Url.f_GetFragment(), ==, "");
@@ -196,7 +196,7 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("host only");
-			NHTTP::CURL Url("https://host");
+			NHTTP::CUrl Url("https://host");
 			DMibExpectTrue(Url.f_IsValid());
 			DMibExpectTrue(Url.f_HasHost());
 			DMibExpect(Url.f_GetHost(), ==, "host");
@@ -205,14 +205,14 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("host and port");
-			NHTTP::CURL Url("https://host:18443");
+			NHTTP::CUrl Url("https://host:18443");
 			DMibExpect(Url.f_GetHost(), ==, "host");
 			DMibExpect(Url.f_GetPort(), ==, uint16(18443));
 		}
 
 		{
 			DMibTestPath("empty path with query");
-			NHTTP::CURL Url("https://host?a=1");
+			NHTTP::CUrl Url("https://host?a=1");
 			DMibExpect(Url.f_GetHost(), ==, "host");
 			DMibExpectFalse(Url.f_HasPort());
 			DMibExpect(Url.f_GetQuery()[0].m_Key, ==, "a");
@@ -220,7 +220,7 @@ void CURL_Tests::f_DoTests()
 
 		{
 			DMibTestPath("empty path with fragment");
-			NHTTP::CURL Url("https://host:8443#frag");
+			NHTTP::CUrl Url("https://host:8443#frag");
 			DMibExpect(Url.f_GetHost(), ==, "host");
 			DMibExpect(Url.f_GetPort(), ==, uint16(8443));
 			DMibExpect(Url.f_GetFragment(), ==, "frag");
@@ -231,25 +231,25 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("http default 80");
-			NHTTP::CURL Url("http://host/");
+			NHTTP::CUrl Url("http://host/");
 			DMibExpect(Url.f_GetPortFromScheme(), ==, uint16(80));
 		}
 
 		{
 			DMibTestPath("https default 443");
-			NHTTP::CURL Url("https://host/");
+			NHTTP::CUrl Url("https://host/");
 			DMibExpect(Url.f_GetPortFromScheme(), ==, uint16(443));
 		}
 
 		{
 			DMibTestPath("wss default 443");
-			NHTTP::CURL Url("wss://host/");
+			NHTTP::CUrl Url("wss://host/");
 			DMibExpect(Url.f_GetPortFromScheme(), ==, uint16(443));
 		}
 
 		{
 			DMibTestPath("explicit port overrides scheme default");
-			NHTTP::CURL Url("https://host:9000/");
+			NHTTP::CUrl Url("https://host:9000/");
 			DMibExpect(Url.f_GetPortFromScheme(), ==, uint16(9000));
 		}
 	};
@@ -259,13 +259,13 @@ void CURL_Tests::f_DoTests()
 		{
 			DMibTestPath("full url is stable");
 			NStr::CStr Input = "https://example.com:8443/api/path?x=1&y=2#frag";
-			NHTTP::CURL Url(Input);
+			NHTTP::CUrl Url(Input);
 			DMibExpect(Url.f_Encode(), ==, Input);
 		}
 
 		{
 			DMibTestPath("empty path encodes a trailing slash");
-			NHTTP::CURL Url("https://host:8443");
+			NHTTP::CUrl Url("https://host:8443");
 			DMibExpect(Url.f_Encode(), ==, "https://host:8443/");
 		}
 	};
@@ -274,14 +274,14 @@ void CURL_Tests::f_DoTests()
 	{
 		{
 			DMibTestPath("empty string");
-			NHTTP::CURL Url;
+			NHTTP::CUrl Url;
 			DMibExpectFalse(Url.f_Decode(""));
 			DMibExpectFalse(Url.f_IsValid());
 		}
 
 		{
 			DMibTestPath("scheme-less reference without separator");
-			NHTTP::CURL Url;
+			NHTTP::CUrl Url;
 			DMibExpectFalse(Url.f_Decode("notaurl"));
 		}
 	};

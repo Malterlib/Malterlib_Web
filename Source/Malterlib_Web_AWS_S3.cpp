@@ -35,7 +35,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<CAwsS3Actor::CObjectInfoMetadata> CAwsS3Actor::f_GetObjectMetadata(NStr::CStr _BucketName, NStr::CStr _Key)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
+		NHTTP::CUrl AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
 		auto Headers = co_await fg_DoAWSRequestHEAD("Get metadata", Internal.m_HttpClientActor, 200, AWSUrl, Internal.m_Credentials, {}, "s3");
 
@@ -74,7 +74,7 @@ namespace NMib::NWeb
 	TCFuture<CAwsS3Actor::CListBucket> CAwsS3Actor::f_ListBucket(CStr _BucketName)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
+		NHTTP::CUrl AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/?list-type=2"_f << Internal.m_Credentials.m_Region << _BucketName};
 
 		NStorage::TCSharedPointer<CAwsS3Actor::CListBucket> pResult = fg_Construct();
 
@@ -235,8 +235,8 @@ namespace NMib::NWeb
 					CStr ParamName;
 					CStr ParamValue;
 
-					NHTTP::CURL::fs_PercentEncode(ParamName, _Info.m_Tags.fs_GetKey(Value), nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
-					NHTTP::CURL::fs_PercentEncode(ParamValue, Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+					NHTTP::CUrl::fs_PercentEncode(ParamName, _Info.m_Tags.fs_GetKey(Value), nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
+					NHTTP::CUrl::fs_PercentEncode(ParamValue, Value, nullptr, NHTTP::EEncodeFlag_UpperCasePercentEncode);
 
 					fg_AddStrSep(QueryParams, "{}={}"_f << ParamName << ParamValue, "&");
 				}
@@ -251,7 +251,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CAwsS3Actor::f_PutObject(NStr::CStr _BucketName, NStr::CStr _Key, CPutObjectInfo _Info, NContainer::CByteVector _Data)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
+		NHTTP::CUrl AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
 		auto AWSHeaders = fg_GetPutHeaders(_Info);
 		AWSHeaders["Content-Length"] = "{}"_f << _Data.f_GetLen();
@@ -279,7 +279,7 @@ namespace NMib::NWeb
 	NConcurrency::TCFuture<void> CAwsS3Actor::f_DeleteObject(NStr::CStr _BucketName, NStr::CStr _Key)
 	{
 		auto &Internal = *mp_pInternal;
-		NHTTP::CURL AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
+		NHTTP::CUrl AWSUrl = CStr{"https://s3-{}.amazonaws.com/{}/{}"_f << Internal.m_Credentials.m_Region << _BucketName << _Key};
 
 		co_await fg_DoAWSRequestXML("Delete object", Internal.m_HttpClientActor, 204, AWSUrl, {}, CHttpClientActor::EMethod_DELETE, Internal.m_Credentials, {}, "s3");
 

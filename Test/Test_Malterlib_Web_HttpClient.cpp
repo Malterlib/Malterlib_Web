@@ -315,13 +315,13 @@ void CHttpClient_Tests::f_DoTests()
 
 		auto WebServerResults = co_await f_SetupWebServer(TestDirectory);
 
-		NHTTP::CURL HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
-		NHTTP::CURL HttpsUrlTemplate = CStr("https://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "https.sock"));
+		NHTTP::CUrl HttpUrlTemplate = CStr("http://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "http.sock"));
+		NHTTP::CUrl HttpsUrlTemplate = CStr("https://[UNIX:{}]/"_f << f_GetLocalSocketFileName(TestDirectory / "https.sock"));
 		TCMap<CStr, CStr> Headers;
 
 		{
-			NHTTP::CURL HttpUrl = HttpUrlTemplate;
-			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			NHTTP::CUrl HttpUrl = HttpUrlTemplate;
+			NHTTP::CUrl HttpsUrl = HttpsUrlTemplate;
 			DMibTestPath("Simple Request");
 			TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
 			{
@@ -338,8 +338,8 @@ void CHttpClient_Tests::f_DoTests()
 			co_await fg_Move(HttpClientActor).f_Destroy();
 		}
 		{
-			NHTTP::CURL HttpUrl = HttpUrlTemplate;
-			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			NHTTP::CUrl HttpUrl = HttpUrlTemplate;
+			NHTTP::CUrl HttpsUrl = HttpsUrlTemplate;
 			DMibTestPath("Multiple Requests");
 			TCActor<CHttpClientActor> HttpClientActor = fg_Construct(WebServerResults.m_CertificateConfig);
 
@@ -370,8 +370,8 @@ void CHttpClient_Tests::f_DoTests()
 			DMibExpect(ResultsText, ==, ExpectedResultsText);
 		}
 		{
-			NHTTP::CURL HttpUrl = HttpUrlTemplate;
-			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			NHTTP::CUrl HttpUrl = HttpUrlTemplate;
+			NHTTP::CUrl HttpsUrl = HttpsUrlTemplate;
 			DMibTestPath("Multiple Actors");
 			TCVector<TCActor<CHttpClientActor>> HttpClientActors;
 
@@ -405,7 +405,7 @@ void CHttpClient_Tests::f_DoTests()
 			DMibExpect(ResultsText, ==, ExpectedResultsText);
 		}
 		{
-			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			NHTTP::CUrl HttpsUrl = HttpsUrlTemplate;
 			DMibTestPath("Untrusted Certificate");
 			TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
 			{
@@ -424,7 +424,7 @@ void CHttpClient_Tests::f_DoTests()
 			co_await fg_Move(HttpClientActor).f_Destroy();
 		}
 		{
-			NHTTP::CURL HttpsUrl("https://www.google.com/");
+			NHTTP::CUrl HttpsUrl("https://www.google.com/");
 			DMibTestPath("Public Certificate");
 			TCActor<CHttpClientActor> HttpClientActor = fg_Construct();
 			{
@@ -436,8 +436,8 @@ void CHttpClient_Tests::f_DoTests()
 		}
 		{
 			DMibTestPath("Abort Request");
-			NHTTP::CURL HttpUrl = HttpUrlTemplate;
-			NHTTP::CURL HttpsUrl = HttpsUrlTemplate;
+			NHTTP::CUrl HttpUrl = HttpUrlTemplate;
+			NHTTP::CUrl HttpsUrl = HttpsUrlTemplate;
 			HttpUrl.f_SetPath({"slow-request"});
 			HttpsUrl.f_SetPath({"slow-request"});
 

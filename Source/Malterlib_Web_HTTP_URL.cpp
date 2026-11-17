@@ -14,40 +14,40 @@ namespace NMib::NWeb::NHTTP
 	static bool fg_ParseU16Base10(uint16 &o_Num, NStr::CStr const &_Str, aint _Start, aint _End);
 
 	//
-	// CURL Public Methods
+	// CUrl Public Methods
 	//
 
-	CURL::CURL()
+	CUrl::CUrl()
 	{
 	}
 
-	CURL::CURL(NStr::CStr const &_URL)
+	CUrl::CUrl(NStr::CStr const &_URL)
 	{
 		f_Decode(_URL);
 	}
 
-	CURL::CURL(CURL const &_ToCopy)
+	CUrl::CUrl(CUrl const &_ToCopy)
 	{
 		*this = _ToCopy;
 	}
 
-	CURL::CURL(CURL &&_ToMove)
+	CUrl::CUrl(CUrl &&_ToMove)
 	{
 		*this = fg_Move(_ToMove);
 	}
 
-	CURL::~CURL()
+	CUrl::~CUrl()
 	{
 		f_Clear();
 	}
 
-	CURL &CURL::operator = (NStr::CStr const &_URL)
+	CUrl &CUrl::operator = (NStr::CStr const &_URL)
 	{
 		f_Decode(_URL);
 		return *this;
 	}
 
-	CURL &CURL::operator = (CURL const &_ToCopy)
+	CUrl &CUrl::operator = (CUrl const &_ToCopy)
 	{
 		mp_Flags = _ToCopy.mp_Flags;
 		mp_Scheme = _ToCopy.mp_Scheme;
@@ -61,7 +61,7 @@ namespace NMib::NWeb::NHTTP
 		return *this;
 	}
 
-	CURL &CURL::operator = (CURL &&_ToMove)
+	CUrl &CUrl::operator = (CUrl &&_ToMove)
 	{
 		mp_Flags = _ToMove.mp_Flags;
 		mp_Scheme = fg_Move(_ToMove.mp_Scheme);
@@ -76,23 +76,23 @@ namespace NMib::NWeb::NHTTP
 		return *this;
 	}
 
-	EURLFlag CURL::f_GetFlags() const
+	EURLFlag CUrl::f_GetFlags() const
 	{
 		return mp_Flags;
 	}
 
-	bool CURL::f_IsValid() const
+	bool CUrl::f_IsValid() const
 	{
 		return mp_Flags & EURLFlag_Valid;
 	}
 
 	// Does the URL have a scheme, host & path?
-	bool CURL::f_IsFullURL() const
+	bool CUrl::f_IsFullURL() const
 	{
 		return f_HasAll(EURLFlag_Scheme | EURLFlag_Host | EURLFlag_Path);
 	}
 
-	void CURL::f_Clear()
+	void CUrl::f_Clear()
 	{
 		mp_Flags = EURLFlag_None;
 		mp_Scheme.f_Clear();
@@ -105,7 +105,7 @@ namespace NMib::NWeb::NHTTP
 		mp_Fragment.f_Clear();
 	}
 
-	bool CURL::f_Decode(NStr::CStr const &_URL, EURLFlag _Flags)
+	bool CUrl::f_Decode(NStr::CStr const &_URL, EURLFlag _Flags)
 	{
 		f_Clear();
 		// The point of all of this is to touch the memory manager as little as possible.
@@ -332,7 +332,7 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	NStr::CStr CURL::f_Encode(EEncodeFlag _Flags) const
+	NStr::CStr CUrl::f_Encode(EEncodeFlag _Flags) const
 	{
 		NStr::CStr Output;
 
@@ -410,69 +410,69 @@ namespace NMib::NWeb::NHTTP
 
 	// Test if the URL has a field:
 
-	bool CURL::f_HasAll(EURLFlag _Flags) const
+	bool CUrl::f_HasAll(EURLFlag _Flags) const
 	{
 		return (mp_Flags & _Flags) == _Flags;
 	}
 
-	bool CURL::f_HasAny(EURLFlag _Flags) const
+	bool CUrl::f_HasAny(EURLFlag _Flags) const
 	{
 		return (mp_Flags & _Flags);
 	}
 
-	bool CURL::f_HasScheme() const
+	bool CUrl::f_HasScheme() const
 	{
 		return mp_Flags & EURLFlag_Scheme;
 	}
 
-	bool CURL::f_HasHost() const
+	bool CUrl::f_HasHost() const
 	{
 		return mp_Flags & EURLFlag_Host;
 	}
 
-	bool CURL::f_HasPort() const
+	bool CUrl::f_HasPort() const
 	{
 		return mp_Flags & EURLFlag_Port;
 	}
 
-	bool CURL::f_HasUsername() const
+	bool CUrl::f_HasUsername() const
 	{
 		return mp_Flags & EURLFlag_Username;
 	}
 
-	bool CURL::f_HasPassword() const
+	bool CUrl::f_HasPassword() const
 	{
 		return mp_Flags & EURLFlag_Password;
 	}
 
-	bool CURL::f_HasPath() const
+	bool CUrl::f_HasPath() const
 	{
 		return mp_Flags & EURLFlag_Path;
 	}
 
-	bool CURL::f_HasQuery() const
+	bool CUrl::f_HasQuery() const
 	{
 		return mp_Flags & EURLFlag_Query;
 	}
 
-	bool CURL::f_HasFragment() const
+	bool CUrl::f_HasFragment() const
 	{
 		return mp_Flags & EURLFlag_Fragment;
 	}
 
 	// Access an URL field:
 
-	NStr::CStr const &CURL::f_GetScheme() const
+	NStr::CStr const &CUrl::f_GetScheme() const
 	{
 		return mp_Scheme;
 	}
 
-	NStr::CStr const &CURL::f_GetHost() const
+	NStr::CStr const &CUrl::f_GetHost() const
 	{
 		return mp_Host;
 	}
 
-	uint16 CURL::f_GetPort() const
+	uint16 CUrl::f_GetPort() const
 	{
 		return mp_Port;
 	}
@@ -496,7 +496,7 @@ namespace NMib::NWeb::NHTTP
 		;
 	}
 
-	uint16 CURL::f_GetPortFromScheme() const
+	uint16 CUrl::f_GetPortFromScheme() const
 	{
 		if (mp_Port)
 			return mp_Port;
@@ -510,22 +510,22 @@ namespace NMib::NWeb::NHTTP
 		return 0;
 	}
 
-	NStr::CStr const &CURL::f_GetUsername() const
+	NStr::CStr const &CUrl::f_GetUsername() const
 	{
 		return mp_Username;
 	}
 
-	NStr::CStr const &CURL::f_GetPassword() const
+	NStr::CStr const &CUrl::f_GetPassword() const
 	{
 		return mp_Password;
 	}
 
-	NContainer::TCVector<NStr::CStr> const &CURL::f_GetPath() const
+	NContainer::TCVector<NStr::CStr> const &CUrl::f_GetPath() const
 	{
 		return mp_Paths;
 	}
 
-	NStr::CStr CURL::f_GetFullPathPercentEncoded(EEncodeFlag _Flags) const
+	NStr::CStr CUrl::f_GetFullPathPercentEncoded(EEncodeFlag _Flags) const
 	{
 		NStr::CStr FullPath;
 		for (auto &Path : mp_Paths)
@@ -537,7 +537,7 @@ namespace NMib::NWeb::NHTTP
 		return "/" + FullPath;
 	}
 
-	NStr::CStr CURL::f_GetFullPath() const
+	NStr::CStr CUrl::f_GetFullPath() const
 	{
 		NStr::CStr FullPath;
 		for (auto &Path : mp_Paths)
@@ -546,25 +546,25 @@ namespace NMib::NWeb::NHTTP
 		return "/" + FullPath;
 	}
 
-	NContainer::TCVector<CURL::CQueryEntry> const &CURL::f_GetQuery() const
+	NContainer::TCVector<CUrl::CQueryEntry> const &CUrl::f_GetQuery() const
 	{
 		return mp_Query;
 	}
 
-	NStr::CStr const &CURL::f_GetFragment() const
+	NStr::CStr const &CUrl::f_GetFragment() const
 	{
 		return mp_Fragment;
 	}
 
 	// Set an URL field:
 
-	void CURL::f_SetScheme(NStr::CStr const &_Scheme)
+	void CUrl::f_SetScheme(NStr::CStr const &_Scheme)
 	{
 		mp_Scheme = _Scheme;
 		mp_Flags |= EURLFlag_Scheme;
 	}
 
-	void CURL::f_SetHost(NStr::CStr const &_Host, bool _bRaw)
+	void CUrl::f_SetHost(NStr::CStr const &_Host, bool _bRaw)
 	{
 		mp_Host = _Host;
 		mp_Flags |= EURLFlag_Host;
@@ -575,13 +575,13 @@ namespace NMib::NWeb::NHTTP
 			mp_Flags &= ~EURLFlag_HostRaw;
 	}
 
-	void CURL::f_SetPort(uint16 _Port)
+	void CUrl::f_SetPort(uint16 _Port)
 	{
 		mp_Port = _Port;
 		mp_Flags |= EURLFlag_Port;
 	}
 
-	void CURL::f_SetUsername(NStr::CStr const &_Username)
+	void CUrl::f_SetUsername(NStr::CStr const &_Username)
 	{
 		mp_Username = _Username;
 		if (mp_Username.f_IsEmpty())
@@ -590,37 +590,37 @@ namespace NMib::NWeb::NHTTP
 			mp_Flags |= EURLFlag_Username;
 	}
 
-	void CURL::f_SetPassword(NStr::CStr const &_Password)
+	void CUrl::f_SetPassword(NStr::CStr const &_Password)
 	{
 		mp_Password = _Password;
 		mp_Flags |= EURLFlag_Password;
 	}
 
-	void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path)
+	void CUrl::f_SetPath(NContainer::TCVector<NStr::CStr> const &_Path)
 	{
 		mp_Paths = _Path;
 		mp_Flags |= EURLFlag_Path;
 	}
 
-	void CURL::f_SetPath(NContainer::TCVector<NStr::CStr> &&_Path)
+	void CUrl::f_SetPath(NContainer::TCVector<NStr::CStr> &&_Path)
 	{
 		mp_Paths = fg_Move(_Path);
 		mp_Flags |= EURLFlag_Path;
 	}
 
-	void CURL::f_AppendPath(NContainer::TCVector<NStr::CStr> const &_Path)
+	void CUrl::f_AppendPath(NContainer::TCVector<NStr::CStr> const &_Path)
 	{
 		mp_Paths.f_Insert(_Path);
 		mp_Flags |= EURLFlag_Path;
 	}
 
-	void CURL::f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query)
+	void CUrl::f_SetQuery(NContainer::TCVector<CQueryEntry> const &_Query)
 	{
 		mp_Query = _Query;
 		mp_Flags |= EURLFlag_Query;
 	}
 
-	void CURL::f_AddQueryEntry(CQueryEntry const &_QueryEntry)
+	void CUrl::f_AddQueryEntry(CQueryEntry const &_QueryEntry)
 	{
 		for (auto &Entry : mp_Query)
 		{
@@ -635,7 +635,7 @@ namespace NMib::NWeb::NHTTP
 		mp_Flags |= EURLFlag_Query;
 	}
 
-	void CURL::f_SetFragment(NStr::CStr const &_Fragment)
+	void CUrl::f_SetFragment(NStr::CStr const &_Fragment)
 	{
 		mp_Fragment = _Fragment;
 		mp_Flags |= EURLFlag_Fragment;
@@ -643,49 +643,49 @@ namespace NMib::NWeb::NHTTP
 
 	// Clear an URL field:
 
-	void CURL::f_ClearScheme()
+	void CUrl::f_ClearScheme()
 	{
 		mp_Scheme.f_Clear();
 		mp_Flags &= ~EURLFlag_Scheme;
 	}
 
-	void CURL::f_ClearHost()
+	void CUrl::f_ClearHost()
 	{
 		mp_Host.f_Clear();
 		mp_Flags &= ~EURLFlag_Host;
 	}
 
-	void CURL::f_ClearPort()
+	void CUrl::f_ClearPort()
 	{
 		mp_Port = 0;
 		mp_Flags &= ~EURLFlag_Port;
 	}
 
-	void CURL::f_ClearUsername()
+	void CUrl::f_ClearUsername()
 	{
 		mp_Username.f_Clear();
 		mp_Flags &= ~EURLFlag_Username;
 	}
 
-	void CURL::f_ClearPassword()
+	void CUrl::f_ClearPassword()
 	{
 		mp_Password.f_Clear();
 		mp_Flags &= ~EURLFlag_Password;
 	}
 
-	void CURL::f_ClearPath()
+	void CUrl::f_ClearPath()
 	{
 		mp_Paths.f_Clear();
 		mp_Flags &= ~EURLFlag_Path;
 	}
 
-	void CURL::f_ClearQuery()
+	void CUrl::f_ClearQuery()
 	{
 		mp_Query.f_Clear();
 		mp_Flags &= ~EURLFlag_Query;
 	}
 
-	void CURL::f_ClearFragment()
+	void CUrl::f_ClearFragment()
 	{
 		mp_Fragment.f_Clear();
 		mp_Flags &= ~EURLFlag_Fragment;
@@ -756,7 +756,7 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	void CURL::f_DebugOut() const
+	void CUrl::f_DebugOut() const
 	{
 		NStr::CStr Path;
 
@@ -791,12 +791,12 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	//
-	// CURL Public Static Methods
+	// CUrl Public Static Methods
 	//
 
 	// _Start can range from 0 -> Len-1
 	// _End can range from 0 -> Len or be -1 which == Len
-	bool CURL::fs_PercentDecode(NStr::CStr &o_Result, NStr::CStr const &_Str, aint _Start, aint _End)
+	bool CUrl::fs_PercentDecode(NStr::CStr &o_Result, NStr::CStr const &_Str, aint _Start, aint _End)
 	{
 		umint StrLen = _Str.f_GetLen();
 
@@ -867,7 +867,7 @@ namespace NMib::NWeb::NHTTP
 		return true;
 	}
 
-	void CURL::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
+	void CUrl::fs_PercentEncode(NStr::CStr &o_Result, NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
 	{
 		NStr::CStr Str = _Str;
 
@@ -896,7 +896,7 @@ namespace NMib::NWeb::NHTTP
 		}
 	}
 
-	NStr::CStr CURL::fs_PercentEncode(NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
+	NStr::CStr CUrl::fs_PercentEncode(NStr::CStr const &_Str, ch8 const *_pReserved, EEncodeFlag _Flags)
 	{
 		NStr::CStr Return;
 
@@ -905,7 +905,7 @@ namespace NMib::NWeb::NHTTP
 		return Return;
 	}
 
-	NStr::CStr CURL::fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags)
+	NStr::CStr CUrl::fs_GetQueryPercentEncoded(NContainer::TCVector<CQueryEntry> const &_QueryEntries, EEncodeFlag _Flags)
 	{
 		NStr::CStr Output;
 

@@ -1175,7 +1175,7 @@ namespace NMib::NWeb
 		else if (_Request.m_Method == EMethod_HEAD)
 			co_await fCheckResult(fg_CurlSetOpt<CURLOPT_NOBODY>(pCurl, 1));
 
-		NHTTP::CURL Url(_Request.m_URL);
+		NHTTP::CUrl Url(_Request.m_URL);
 		CStr UrlHost = Url.f_GetHost();
 		if (UrlHost.f_StartsWith("UNIX:"))
 		{

@@ -35,13 +35,13 @@ namespace NMib::NWeb
 
 	namespace
 	{
-		NHTTP::CURL fg_GetDirectoryURL(CAcmeClientActor::EDefaultDirectory _Directory, NStr::CStr const &_CustomDirectory)
+		NHTTP::CUrl fg_GetDirectoryURL(CAcmeClientActor::EDefaultDirectory _Directory, NStr::CStr const &_CustomDirectory)
 		{
 			switch (_Directory)
 			{
 			case CAcmeClientActor::EDefaultDirectory_Custom: return _CustomDirectory;
-			case CAcmeClientActor::EDefaultDirectory_LetsEncrypt: return NHTTP::CURL("https://acme-v02.api.letsencrypt.org/directory");
-			case CAcmeClientActor::EDefaultDirectory_LetsEncryptStaging: return NHTTP::CURL("https://acme-staging-v02.api.letsencrypt.org/directory");
+			case CAcmeClientActor::EDefaultDirectory_LetsEncrypt: return NHTTP::CUrl("https://acme-v02.api.letsencrypt.org/directory");
+			case CAcmeClientActor::EDefaultDirectory_LetsEncryptStaging: return NHTTP::CUrl("https://acme-staging-v02.api.letsencrypt.org/directory");
 			}
 			return {};
 		}

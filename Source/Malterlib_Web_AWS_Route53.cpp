@@ -92,7 +92,7 @@ namespace NMib::NWeb
 	{
 		auto &Internal = *mp_pInternal;
 
-		NHTTP::CURL AWSUrl = CStr{"{}/hostedzone/{}/rrset"_f << gc_Route53ApiUrl << _HostedZoneID};
+		NHTTP::CUrl AWSUrl = CStr{"{}/hostedzone/{}/rrset"_f << gc_Route53ApiUrl << _HostedZoneID};
 		AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << 1});
 		if (_Params.m_MaxItems)
 			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100u)});
@@ -267,7 +267,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		// GET /2013-04-01/hostedzonesbyname?dnsname=DNSName&hostedzoneid=HostedZoneId&maxitems=MaxItems HTTP/1.1
-		NHTTP::CURL AWSUrl = CStr("{}/hostedzonesbyname"_f << gc_Route53ApiUrl);
+		NHTTP::CUrl AWSUrl = CStr("{}/hostedzonesbyname"_f << gc_Route53ApiUrl);
 
 		if (_Params.m_MaxItems)
 			AWSUrl.f_AddQueryEntry({"maxitems", "{}"_f << fg_Min(*_Params.m_MaxItems, 100u)});
@@ -387,7 +387,7 @@ namespace NMib::NWeb
 		auto &Internal = *mp_pInternal;
 
 		// POST /2013-04-01/hostedzone/Id/rrset/ HTTP/1.1
-		NHTTP::CURL AWSUrl = CStr("{}/hostedzone/{}/rrset/"_f << gc_Route53ApiUrl << _HostedZoneID);
+		NHTTP::CUrl AWSUrl = CStr("{}/hostedzone/{}/rrset/"_f << gc_Route53ApiUrl << _HostedZoneID);
 
 		NXML::CXMLDocument PostDocument(false);
 		{
@@ -519,7 +519,7 @@ namespace NMib::NWeb
 		while (true)
 		{
 			// GET /2013-04-01/change/Id HTTP/1.1
-			NHTTP::CURL AWSUrl = CStr("{}/change/{}"_f << gc_Route53ApiUrl << Id);
+			NHTTP::CUrl AWSUrl = CStr("{}/change/{}"_f << gc_Route53ApiUrl << Id);
 
 			auto Results = co_await fg_DoAWSRequestXML("Get change status", Internal.m_HttpClientActor, 200, AWSUrl, {}, CHttpClientActor::EMethod_GET, Internal.m_Credentials, {}, "route53")
 				.f_Wrap()

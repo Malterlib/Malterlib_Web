@@ -6,14 +6,14 @@
 namespace NMib::NWeb::NHTTP
 {
 	template <typename tf_CStream>
-	void CURL::CQueryEntry::f_Stream(tf_CStream &_Stream)
+	void CUrl::CQueryEntry::f_Stream(tf_CStream &_Stream)
 	{
 		_Stream % m_Key;
 		_Stream % m_Value;
 	}
 
 	template <typename tf_CStream>
-	void CURL::f_Feed(tf_CStream &_Stream, uint32 _Version) const
+	void CUrl::f_Feed(tf_CStream &_Stream, uint32 _Version) const
 	{
 		_Stream << _Version;
 		_Stream << mp_Flags;
@@ -47,7 +47,7 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template <typename tf_CStream>
-	void CURL::f_Consume(tf_CStream &_Stream)
+	void CUrl::f_Consume(tf_CStream &_Stream)
 	{
 		uint32 Version;
 		_Stream >> Version;
@@ -108,13 +108,13 @@ namespace NMib::NWeb::NHTTP
 	}
 
 	template <typename tf_CStr>
-	void CURL::f_Format(tf_CStr &o_Str) const
+	void CUrl::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += f_Encode();
 	}
 
 	template <typename tf_CStr>
-	void CURL::CQueryEntry::f_Format(tf_CStr &o_Str) const
+	void CUrl::CQueryEntry::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += typename tf_CStr::CFormat("{}={}") << m_Key << m_Value;
 	}

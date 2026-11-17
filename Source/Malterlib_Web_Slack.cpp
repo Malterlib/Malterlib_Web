@@ -227,7 +227,7 @@ namespace NMib::NWeb
 		co_return {};
 	}
 
-	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CURL _IncomingWebhook, CMessage _Message)
+	NConcurrency::TCFuture<void> CSlackActor::f_SendMessage(NHTTP::CUrl _IncomingWebhook, CMessage _Message)
 	{
 		auto &Internal = *mp_pInternal;
 

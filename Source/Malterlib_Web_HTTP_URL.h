@@ -38,7 +38,7 @@ namespace NMib::NWeb::NHTTP
 	Where:
 		<path> is a string of possibly percent encoded path segments separated by forward slashes.
 	*/
-	struct CURL
+	struct CUrl
 	{
 		struct CQueryEntry
 		{
@@ -53,17 +53,17 @@ namespace NMib::NWeb::NHTTP
 			NStr::CStr m_Value;
 		};
 
-		CURL();
-		CURL(NStr::CStr const &_URL);
-		CURL(CURL const &_ToCopy);
-		CURL(CURL &&_ToMove);
-		~CURL();
+		CUrl();
+		CUrl(NStr::CStr const &_URL);
+		CUrl(CUrl const &_ToCopy);
+		CUrl(CUrl &&_ToMove);
+		~CUrl();
 
-		CURL &operator = (NStr::CStr const &_URL);
-		CURL &operator = (CURL const &_ToCopy);
-		CURL &operator = (CURL &&_ToMove);
+		CUrl &operator = (NStr::CStr const &_URL);
+		CUrl &operator = (CUrl const &_ToCopy);
+		CUrl &operator = (CUrl &&_ToMove);
 
-		auto operator <=> (CURL const &_Right) const noexcept = default;
+		auto operator <=> (CUrl const &_Right) const noexcept = default;
 
 		EURLFlag f_GetFlags() const;
 

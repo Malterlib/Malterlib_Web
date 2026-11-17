@@ -83,17 +83,17 @@ namespace NMib::NWeb
 			NStorage::TCOptional<CColor> m_Color;
 
 			NStorage::TCOptional<NStr::CStr> m_AuthorName;
-			NStorage::TCOptional<NHTTP::CURL> m_AuthorLink;
-			NStorage::TCOptional<NHTTP::CURL> m_AuthorIcon;
+			NStorage::TCOptional<NHTTP::CUrl> m_AuthorLink;
+			NStorage::TCOptional<NHTTP::CUrl> m_AuthorIcon;
 
 			NContainer::TCVector<CField> m_Fields;
 			NStorage::TCOptional<bool> m_FieldsMarkdown;
 
-			NStorage::TCOptional<NHTTP::CURL> m_ImageURL;
-			NStorage::TCOptional<NHTTP::CURL> m_ThumbURL;
+			NStorage::TCOptional<NHTTP::CUrl> m_ImageURL;
+			NStorage::TCOptional<NHTTP::CUrl> m_ThumbURL;
 
 			NStorage::TCOptional<NStr::CStr> m_Footer;
-			NStorage::TCOptional<NHTTP::CURL> m_FooterIconURL;
+			NStorage::TCOptional<NHTTP::CUrl> m_FooterIconURL;
 			NStorage::TCOptional<NTime::CTime> m_FooterTimestamp;
 		};
 
@@ -111,7 +111,7 @@ namespace NMib::NWeb
 			NStorage::TCOptional<NStr::CStr> m_ThreadTimestamp;
 			NStorage::TCOptional<NStr::CStr> m_UserName;
 			NStorage::TCOptional<NStr::CStr> m_IconEmoji;
-			NStorage::TCOptional<NHTTP::CURL> m_IconURL;
+			NStorage::TCOptional<NHTTP::CUrl> m_IconURL;
 
 			NStorage::TCOptional<bool> m_Markdown;
 			NStorage::TCOptional<bool> m_LinkNames;
@@ -128,7 +128,7 @@ namespace NMib::NWeb
 
 		NConcurrency::TCFuture<NStr::CStr> f_PostMessage(NStr::CStr _Token, CMessage _Message);
 		NConcurrency::TCFuture<NStr::CStr> f_UpdateMessage(NStr::CStr _Token, NStr::CStr _Timestamp, CMessage _Message);
-		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CURL _IncomingWebhook, CMessage _Message);
+		NConcurrency::TCFuture<void> f_SendMessage(NHTTP::CUrl _IncomingWebhook, CMessage _Message);
 
 	private:
 		struct CInternal;

@@ -58,7 +58,7 @@ namespace NMib::NWeb::NHTTP
 		return EParse_OK;
 	}
 
-	void CRequestLine::f_Set(EVersion _Version, EMethod _Method, CURL const &_URI)
+	void CRequestLine::f_Set(EVersion _Version, EMethod _Method, CUrl const &_URI)
 	{
 		mp_Version = _Version;
 		mp_Method = _Method;
@@ -77,7 +77,7 @@ namespace NMib::NWeb::NHTTP
 		return mp_Method;
 	}
 
-	CURL const &CRequestLine::f_GetURI() const
+	CUrl const &CRequestLine::f_GetURI() const
 	{
 		return mp_URI;
 	}
