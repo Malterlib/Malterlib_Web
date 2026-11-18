@@ -84,6 +84,64 @@ void CURL_Tests::f_DoTests()
 		}
 	};
 
+	DMibTestSuite("Bracketed unix host")
+	{
+		{
+			DMibTestPath("at sign in host is not userinfo");
+			NHTTP::CURL Url("wss://[UNIX(666):/tmp/a@b/App.socket]/");
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpectFalse(Url.f_HasUsername());
+			DMibExpectFalse(Url.f_HasPort());
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.socket");
+			DMibExpect(Url.f_GetPath().f_GetLen(), ==, umint(0));
+		}
+
+		{
+			DMibTestPath("userinfo before host with at sign");
+			NHTTP::CURL Url("wss://user:pa%40ss@[UNIX(666):/tmp/a@b/App.socket]:1234/");
+			DMibExpect(Url.f_GetUsername(), ==, "user");
+			DMibExpect(Url.f_GetPassword(), ==, "pa@ss");
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.socket");
+			DMibExpect(Url.f_GetPort(), ==, uint16(1234));
+		}
+
+		{
+			DMibTestPath("round trip with reserved characters");
+			CStr Host = "UNIX(666):/tmp/a@b%c[d]e/App.socket";
+			NHTTP::CURL Url("wss://[{}]/"_f << NHTTP::CURL::fs_PercentEncode(Host, "[]%@", NHTTP::EEncodeFlag_None));
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpect(Url.f_GetHost(), ==, Host);
+
+			CStr Encoded = Url.f_Encode();
+			DMibExpect(Encoded.f_Find("@"), <, aint(0));
+
+			NHTTP::CURL Decoded(Encoded);
+			DMibExpectTrue(Decoded.f_IsValid());
+			DMibExpectFalse(Decoded.f_HasUsername());
+			DMibExpect(Decoded.f_GetHost(), ==, Host);
+			DMibExpect(Decoded, ==, Url);
+			DMibExpect(Decoded.f_Encode(), ==, Encoded);
+		}
+
+		{
+			DMibTestPath("earlier encoding without at sign is unchanged");
+			CStr Encoded = "wss://[UNIX(666):/tmp/Root%20Dir/App.socket]/";
+			NHTTP::CURL Url(Encoded);
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/Root Dir/App.socket");
+			DMibExpect(Url.f_Encode(), ==, Encoded);
+		}
+
+		{
+			DMibTestPath("earlier encoding with literal at sign");
+			NHTTP::CURL Url("wsa://[UNIX(666):/tmp/a@b/App.wsa.socket]/");
+			DMibExpectFalse(Url.f_HasUsername());
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.wsa.socket");
+
+			NHTTP::CURL Reencoded(Url.f_Encode());
+			DMibExpect(Reencoded, ==, Url);
+		}
+	};
+
 	DMibTestSuite("Userinfo")
 	{
 		{
