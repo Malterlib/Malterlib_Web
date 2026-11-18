@@ -187,7 +187,22 @@ namespace NMib::NWeb::NHTTP
 
 			aint iHostStart = iUserPassHostStart;
 
-			aint iUserPassAtMark = URL.f_Find(iUserPassHostStart, "@", iPathStartSlash - iUserPassHostStart);
+			// A bracketed host, like a unix socket path, can contain '@', and starts the authority or follows the '@' that ends the userinfo. The
+			// userinfo can contain a literal '[' that does not follow an '@', also at its start, where the '@' that ends it follows the first ']'.
+			// A bracketed host has its ']' escaped, so an authority that starts with a bracketed host has no '@' after its first ']'.
+			aint iUserPassAtMark = URL.f_Find(iUserPassHostStart, "@[", iPathStartSlash - iUserPassHostStart);
+			if (iUserPassAtMark < 0)
+			{
+				aint iSearchStart = iUserPassHostStart;
+				if (iPathStartSlash > iUserPassHostStart && URL[iUserPassHostStart] == '[')
+				{
+					aint iBracketEnd = URL.f_Find(iUserPassHostStart, "]", iPathStartSlash - iUserPassHostStart);
+					iSearchStart = iBracketEnd >= 0 ? iBracketEnd + 1 : iPathStartSlash;
+				}
+
+				iUserPassAtMark = URL.f_Find(iSearchStart, "@", iPathStartSlash - iSearchStart);
+			}
+
 			if (iUserPassAtMark >= 0)
 			{
 				aint iUserColonMark = URL.f_Find(iUserPassHostStart, ":", iUserPassAtMark - iUserPassHostStart);
@@ -362,7 +377,8 @@ namespace NMib::NWeb::NHTTP
 			if (mp_Flags & EURLFlag_HostBrackets)
 			{
 				Output += "[";
-				fs_PercentEncode(Output, mp_Host, "[]%", _Flags);
+				// '@' is escaped for decoders that take any '@' in the authority for the end of the userinfo
+				fs_PercentEncode(Output, mp_Host, "[]%@", _Flags);
 				Output += "]";
 			}
 			else if (mp_Flags & EURLFlag_HostRaw)

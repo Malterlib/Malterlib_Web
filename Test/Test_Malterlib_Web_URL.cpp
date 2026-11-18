@@ -84,6 +84,83 @@ void CURL_Tests::f_DoTests()
 		}
 	};
 
+	DMibTestSuite("Bracketed unix host")
+	{
+		{
+			DMibTestPath("at sign in host is not userinfo");
+			NHTTP::CURL Url("wss://[UNIX(666):/tmp/a@b/App.socket]/");
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpectFalse(Url.f_HasUsername());
+			DMibExpectFalse(Url.f_HasPort());
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.socket");
+			DMibExpect(Url.f_GetPath().f_GetLen(), ==, umint(0));
+		}
+
+		{
+			DMibTestPath("userinfo before host with at sign");
+			NHTTP::CURL Url("wss://user:pa%40ss@[UNIX(666):/tmp/a@b/App.socket]:1234/");
+			DMibExpect(Url.f_GetUsername(), ==, "user");
+			DMibExpect(Url.f_GetPassword(), ==, "pa@ss");
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.socket");
+			DMibExpect(Url.f_GetPort(), ==, uint16(1234));
+		}
+
+		{
+			DMibTestPath("userinfo with literal brackets before host");
+			NHTTP::CURL Url("http://user:pass[123]@[UNIX:/tmp/server.sock]/");
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpect(Url.f_GetUsername(), ==, "user");
+			DMibExpect(Url.f_GetPassword(), ==, "pass[123]");
+			DMibExpect(Url.f_GetHost(), ==, "UNIX:/tmp/server.sock");
+			DMibExpectFalse(Url.f_HasPort());
+		}
+
+		{
+			DMibTestPath("userinfo with literal brackets before host with at sign");
+			NHTTP::CURL Url("http://user:pass[123]@[UNIX:/tmp/a@b/server.sock]:1234/");
+			DMibExpect(Url.f_GetUsername(), ==, "user");
+			DMibExpect(Url.f_GetPassword(), ==, "pass[123]");
+			DMibExpect(Url.f_GetHost(), ==, "UNIX:/tmp/a@b/server.sock");
+			DMibExpect(Url.f_GetPort(), ==, uint16(1234));
+		}
+
+		{
+			DMibTestPath("round trip with reserved characters");
+			CStr Host = "UNIX(666):/tmp/a@b%c[d]e/App.socket";
+			NHTTP::CURL Url("wss://[{}]/"_f << NHTTP::CURL::fs_PercentEncode(Host, "[]%@", NHTTP::EEncodeFlag_None));
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpect(Url.f_GetHost(), ==, Host);
+
+			CStr Encoded = Url.f_Encode();
+			DMibExpect(Encoded.f_Find("@"), <, aint(0));
+
+			NHTTP::CURL Decoded(Encoded);
+			DMibExpectTrue(Decoded.f_IsValid());
+			DMibExpectFalse(Decoded.f_HasUsername());
+			DMibExpect(Decoded.f_GetHost(), ==, Host);
+			DMibExpect(Decoded, ==, Url);
+			DMibExpect(Decoded.f_Encode(), ==, Encoded);
+		}
+
+		{
+			DMibTestPath("earlier encoding without at sign is unchanged");
+			CStr Encoded = "wss://[UNIX(666):/tmp/Root%20Dir/App.socket]/";
+			NHTTP::CURL Url(Encoded);
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/Root Dir/App.socket");
+			DMibExpect(Url.f_Encode(), ==, Encoded);
+		}
+
+		{
+			DMibTestPath("earlier encoding with literal at sign");
+			NHTTP::CURL Url("wsa://[UNIX(666):/tmp/a@b/App.wsa.socket]/");
+			DMibExpectFalse(Url.f_HasUsername());
+			DMibExpect(Url.f_GetHost(), ==, "UNIX(666):/tmp/a@b/App.wsa.socket");
+
+			NHTTP::CURL Reencoded(Url.f_Encode());
+			DMibExpect(Reencoded, ==, Url);
+		}
+	};
+
 	DMibTestSuite("Userinfo")
 	{
 		{
@@ -110,6 +187,32 @@ void CURL_Tests::f_DoTests()
 			NHTTP::CURL Url("https://us%20er:pa%40ss@host/");
 			DMibExpect(Url.f_GetUsername(), ==, "us er");
 			DMibExpect(Url.f_GetPassword(), ==, "pa@ss");
+		}
+
+		{
+			DMibTestPath("user starting with literal bracket");
+			NHTTP::CURL Url("https://[team]:secret@example.com/");
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpect(Url.f_GetUsername(), ==, "[team]");
+			DMibExpect(Url.f_GetPassword(), ==, "secret");
+			DMibExpect(Url.f_GetHost(), ==, "example.com");
+			DMibExpectFalse(Url.f_HasPort());
+		}
+
+		{
+			DMibTestPath("user starting with literal bracket before bracketed host");
+			NHTTP::CURL Url("https://[team]@[UNIX:/tmp/a@b/server.sock]:1234/");
+			DMibExpect(Url.f_GetUsername(), ==, "[team]");
+			DMibExpect(Url.f_GetHost(), ==, "UNIX:/tmp/a@b/server.sock");
+			DMibExpect(Url.f_GetPort(), ==, uint16(1234));
+		}
+
+		{
+			DMibTestPath("bracketed host with port");
+			NHTTP::CURL Url("https://[::1]:8080/");
+			DMibExpectFalse(Url.f_HasUsername());
+			DMibExpect(Url.f_GetHost(), ==, "::1");
+			DMibExpect(Url.f_GetPort(), ==, uint16(8080));
 		}
 	};
 
