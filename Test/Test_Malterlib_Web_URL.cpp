@@ -200,6 +200,15 @@ void CURL_Tests::f_DoTests()
 		}
 
 		{
+			DMibTestPath("user starting with unclosed literal bracket");
+			NHTTP::CURL Url("https://[team@example.com");
+			DMibExpectTrue(Url.f_IsValid());
+			DMibExpect(Url.f_GetUsername(), ==, "[team");
+			DMibExpect(Url.f_GetHost(), ==, "example.com");
+			DMibExpectFalse(Url.f_HasPort());
+		}
+
+		{
 			DMibTestPath("user starting with literal bracket before bracketed host");
 			NHTTP::CURL Url("https://[team]@[UNIX:/tmp/a@b/server.sock]:1234/");
 			DMibExpect(Url.f_GetUsername(), ==, "[team]");

@@ -188,8 +188,9 @@ namespace NMib::NWeb::NHTTP
 			aint iHostStart = iUserPassHostStart;
 
 			// A bracketed host, like a unix socket path, can contain '@', and starts the authority or follows the '@' that ends the userinfo. The
-			// userinfo can contain a literal '[' that does not follow an '@', also at its start, where the '@' that ends it follows the first ']'.
-			// A bracketed host has its ']' escaped, so an authority that starts with a bracketed host has no '@' after its first ']'.
+			// userinfo can contain a literal '[' that does not follow an '@', also at its start, where the '@' that ends it follows the first ']',
+			// or is the first '@' when the authority has no ']'. A bracketed host has its ']' escaped, so an authority that starts with a bracketed
+			// host has no '@' after its first ']'.
 			aint iUserPassAtMark = URL.f_Find(iUserPassHostStart, "@[", iPathStartSlash - iUserPassHostStart);
 			if (iUserPassAtMark < 0)
 			{
@@ -197,7 +198,8 @@ namespace NMib::NWeb::NHTTP
 				if (iPathStartSlash > iUserPassHostStart && URL[iUserPassHostStart] == '[')
 				{
 					aint iBracketEnd = URL.f_Find(iUserPassHostStart, "]", iPathStartSlash - iUserPassHostStart);
-					iSearchStart = iBracketEnd >= 0 ? iBracketEnd + 1 : iPathStartSlash;
+					if (iBracketEnd >= 0)
+						iSearchStart = iBracketEnd + 1;
 				}
 
 				iUserPassAtMark = URL.f_Find(iSearchStart, "@", iPathStartSlash - iSearchStart);
